@@ -288,6 +288,66 @@ describe('ProverNode', () => {
     expect(reapSpy).not.toHaveBeenCalled();
   });
 
+  // ---------------- fail-at-expiry: the single, race-free terminal-failure point ----------------
+
+  it('expireEpoch uploads a post-mortem exactly once for an unproven epoch with provers, then reaps', async () => {
+    // Register a checkpoint for epoch 3 while it is unproven, so the store holds a prover for it.
+    setupNotFullyProven();
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(3, 3, 3)));
+    const epoch3Provers = proverNode
+      .getCheckpointStore()
+      .listAll()
+      .filter(p => p.epochNumber === EpochNumber(3));
+    expect(epoch3Provers.length).toBe(1);
+
+    const uploadSpy = jest.spyOn(proverNode, 'tryUploadEpochFailure').mockResolvedValue(undefined);
+    const reapSpy = jest.spyOn(proverNode.getCheckpointStore(), 'reapExpired');
+    l2BlockSource.getBlocks.mockResolvedValue([]);
+
+    // Advance the synced slot so epoch 3's submission window closes (offset=2 ⇒ expires at epoch 5).
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(5));
+    await proverNode.handleBlockStreamEvent({
+      type: 'chain-proposed',
+      block: { number: BlockNumber(3), hash: '0x03' },
+    });
+
+    // Epoch 3 is unproven at expiry ⇒ exactly one post-mortem upload, over epoch 3's last-known provers.
+    expect(uploadSpy).toHaveBeenCalledTimes(1);
+    const [uploadedEpoch, uploadedCps] = uploadSpy.mock.calls[0];
+    expect(uploadedEpoch).toEqual(EpochNumber(3));
+    expect((uploadedCps as any[]).map(p => p.id)).toEqual(epoch3Provers.map(p => p.id));
+    // Every epoch up to and including 3 is reaped.
+    expect(reapSpy.mock.calls.map(([e]) => Number(e))).toEqual([0, 1, 2, 3]);
+  });
+
+  it('expireEpoch does not upload for an epoch that is proven by the time its window closes', async () => {
+    // Register a checkpoint for epoch 3, then let it become fully proven on L1 before its window closes.
+    setupNotFullyProven();
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(3, 3, 3)));
+    expect(proverNode.getCheckpointStore().listAll().length).toBe(1);
+
+    // Proven tip = block 3 (slot 3 ⇒ epoch 3), block 4 absent, epoch 3 complete ⇒ epoch 3 fully proven.
+    l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(3));
+    l2BlockSource.getBlockData.mockImplementation((q: any) =>
+      Promise.resolve(Number(q.number) === 3 ? ({ header: { getSlot: () => SlotNumber(3) } } as any) : undefined),
+    );
+    l2BlockSource.isEpochComplete.mockResolvedValue(true);
+    l2BlockSource.getBlocks.mockResolvedValue([]);
+
+    const uploadSpy = jest.spyOn(proverNode, 'tryUploadEpochFailure').mockResolvedValue(undefined);
+    const reapSpy = jest.spyOn(proverNode.getCheckpointStore(), 'reapExpired');
+
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(5));
+    await proverNode.handleBlockStreamEvent({
+      type: 'chain-proposed',
+      block: { number: BlockNumber(3), hash: '0x03' },
+    });
+
+    // Proven epoch ⇒ no post-mortem, but the store is still reaped.
+    expect(uploadSpy).not.toHaveBeenCalled();
+    expect(reapSpy.mock.calls.map(([e]) => Number(e))).toEqual([0, 1, 2, 3]);
+  });
+
   it('propagates a checkpoint registration failure and leaves the tips store unadvanced (A-1041)', async () => {
     setupNotFullyProven();
     // Registration fails: worldState.syncImmediate (inside collectRegisterData) rejects. The

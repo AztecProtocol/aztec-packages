@@ -147,11 +147,13 @@ describe('EpochSession', () => {
       expect(state).toBe(expected);
     });
 
-    it('"failed" outcome propagates as a thrown error → state "failed"', async () => {
+    it('"failed" submit outcome propagates as a thrown error → state "stopped" (retryable)', async () => {
+      // A failed L1 submission is not a declared epoch failure — it ends the attempt in the
+      // non-declaring terminal 'stopped', leaving the reconciler free to retry within the window.
       publishingService.submit.mockResolvedValue('failed');
       const session = makeSession();
       const state = await session.start();
-      expect(state).toBe('failed');
+      expect(state).toBe('stopped');
     });
 
     it('"withdrawn" outcome with no prior cancel falls back to "cancelled"', async () => {
@@ -279,10 +281,12 @@ describe('EpochSession', () => {
   // ---------------- checkpoint failure ----------------
 
   describe('checkpoint that fails to prove', () => {
-    it('drives the session to "failed" when a checkpoint\'s blockProofs reject', async () => {
+    it('ends the session in "stopped" (not "failed") when a checkpoint\'s blockProofs reject', async () => {
       // Build a prover whose block-rollup proofs are guaranteed to reject — this mirrors
       // the production path where CheckpointProver.executeCheckpoint catches an internal
-      // error and rejects its blockProofs promise.
+      // error (e.g. a data-plane reorg fork fault) and rejects its blockProofs promise.
+      // The session must NOT declare the epoch failed: it ends in the non-declaring terminal
+      // 'stopped', leaving the reconciler free to rebuild it over current canonical content.
       const failingProver = makeStubProver(cp, { blockProofsError: new Error('block 7 proving failed') });
       const session = new EpochSession(
         makeSpec(),
@@ -294,13 +298,13 @@ describe('EpochSession', () => {
         }),
       );
       const state = await session.start();
-      expect(state).toBe('failed');
+      expect(state).toBe('stopped');
       expect(session.isTerminal()).toBe(true);
       // Failure happens before submission; the publishing service must never see the candidate.
       expect(publishingService.submit).not.toHaveBeenCalled();
     });
 
-    it('whenDone resolves to "failed" so callers observing the lifecycle agree with the return value', async () => {
+    it('whenDone resolves to "stopped" so callers observing the lifecycle agree with the return value', async () => {
       const failingProver = makeStubProver(cp, { blockProofsError: new Error('boom') });
       const session = new EpochSession(
         makeSpec(),
@@ -310,18 +314,18 @@ describe('EpochSession', () => {
         }),
       );
       const startResult = session.start();
-      await expect(session.whenDone()).resolves.toBe('failed');
-      await expect(startResult).resolves.toBe('failed');
+      await expect(session.whenDone()).resolves.toBe('stopped');
+      await expect(startResult).resolves.toBe('stopped');
     });
 
-    it('a prove that rejects for any reason ends the session in "failed" without submitting', async () => {
+    it('a prove that rejects for any reason ends the session in "stopped" without submitting', async () => {
       // Belt-and-braces: any prove rejection (top-tree internal error, blob computation,
-      // etc.) follows the same path. The session swallows the error and reports 'failed'.
+      // etc.) follows the same path. The session swallows the error and reports 'stopped'.
       const session = makeSession({
         hooks: { topTreeProveOverride: () => Promise.reject(new Error('top-tree internal failure')) },
       });
       const state = await session.start();
-      expect(state).toBe('failed');
+      expect(state).toBe('stopped');
       expect(publishingService.submit).not.toHaveBeenCalled();
     });
   });

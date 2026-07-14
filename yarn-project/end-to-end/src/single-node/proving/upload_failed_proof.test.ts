@@ -61,11 +61,12 @@ describe('single-node/proving/upload_failed_proof', () => {
     await tryRmDir(rerunDownloadDir, logger);
   });
 
-  // Makes the prover's top-tree prove always throw (v5 uses the session's topTreeProveOverride hook;
-  // pre-v5 it patched finalizeEpoch), intercepts tryUploadSessionFailure (pre-v5 tryUploadEpochFailure)
-  // to capture the upload URL, then waits for epoch 1 to start and for the upload to complete. Tears
-  // down the live context, downloads the proving job data, and re-runs it via rerunEpochProvingJob with
-  // fake proofs on a fresh config.
+  // Makes the prover's top-tree prove always throw so epoch 0 can never be proven. Under the
+  // retry-to-converge model the session keeps re-attempting and failing; the post-mortem upload
+  // fires only when epoch 0's proof-submission window closes, from expireEpoch. Intercepts
+  // tryUploadEpochFailure to capture the upload URL, warps past that window, then tears down the
+  // live context, downloads the proving job data, and re-runs it via rerunEpochProvingJob with fake
+  // proofs on a fresh config.
   it('uploads failed proving job state and re-runs it on a fresh instance', async () => {
     // Make initial prover node fail to prove, via the session's top-tree-prove hook.
     const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
@@ -77,20 +78,22 @@ describe('single-node/proving/upload_failed_proof', () => {
       },
     });
 
-    // And track when the epoch failure upload is complete
+    // Track when the epoch failure upload is complete. The upload now happens from the expiry path
+    // (tryUploadEpochFailure(epoch, checkpoints)) rather than eagerly on a failed session.
     const { promise: epochUploaded, resolve: onEpochUploaded } = promiseWithResolvers<string>();
-    const origTryUploadEpochFailure = proverNode.tryUploadSessionFailure.bind(proverNode);
-    proverNode.tryUploadSessionFailure = async (session: any) => {
-      const url = await origTryUploadEpochFailure(session);
+    const origTryUploadEpochFailure = proverNode.tryUploadEpochFailure.bind(proverNode);
+    proverNode.tryUploadEpochFailure = async (epoch: any, checkpoints: any) => {
+      const url = await origTryUploadEpochFailure(epoch, checkpoints);
       if (url !== undefined) {
         onEpochUploaded(url);
       }
       return url;
     };
 
-    // Warp to the start of epoch one so prover node starts proving epoch 0,
-    // and wait for the data to be uploaded to the remote file store
-    await test.warpToEpochStart(1);
+    // Warp past epoch 0's proof-submission window (proofSubmissionEpochs=1 ⇒ epoch 0 expires at the
+    // start of epoch 2). The failing prover never lands epoch 0, so expireEpoch uploads its
+    // post-mortem to the remote file store.
+    await test.warpToEpochStart(2);
     const epochUploadUrl = await epochUploaded;
 
     // Stop everything, we're going to prove on a fresh instance

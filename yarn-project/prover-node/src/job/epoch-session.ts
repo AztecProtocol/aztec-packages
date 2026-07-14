@@ -95,7 +95,9 @@ export type EpochSessionDeps = {
  *   initialized → awaiting-checkpoints → awaiting-root → publishing-proof → completed
  *
  * Terminal states map the publishing outcome: `published` → `completed`, `superseded` →
- * `superseded`, `failed` → `failed`, `expired` → `timed-out`, `withdrawn` → `cancelled`.
+ * `superseded`, `expired` → `timed-out`, `withdrawn` → `cancelled`. A proving fault or a failed
+ * L1 submission ends the attempt in `stopped` — a non-declaring terminal state that lets the
+ * reconciler retry the epoch; the epoch is only declared `failed` at submission-window expiry.
  * Additionally, the session-level deadline fires `cancel('deadline')` and transitions
  * to `timed-out` for the pre-submit window (top-tree proving) — the publishing service
  * handles the post-submit window via the candidate's `deadline`.
@@ -213,8 +215,12 @@ export class EpochSession implements Traceable {
         uuid: this.uuid,
         ...this.spec,
       });
+      // A proving or submission fault is a fact about this attempt, not a decision that the epoch
+      // has failed. End in the non-declaring terminal 'stopped' (never 'failed'): the reconciler
+      // rebuilds the session over current canonical content, and the epoch is declared 'failed'
+      // — with a post-mortem upload — only at its L1 proof-submission-window expiry.
       if (!this.isTerminal()) {
-        this.state = 'failed';
+        this.state = 'stopped';
       }
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);

@@ -47,7 +47,8 @@ import {
 import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js';
 import { CheckpointStore, type RegisterCheckpointData } from './checkpoint-store.js';
 import type { SpecificProverNodeConfig } from './config.js';
-import type { EpochSession, EpochSessionHooks } from './job/epoch-session.js';
+import type { CheckpointProver } from './job/checkpoint-prover.js';
+import type { EpochSessionHooks } from './job/epoch-session.js';
 import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import { ProofPublishingService } from './proof-publishing-service.js';
 import type { ProverPublisherFactory } from './prover-publisher-factory.js';
@@ -458,10 +459,27 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   }
 
   /**
-   * Releases chonk-cache entries for every block in the supplied epoch (best-effort) and
-   * reaps every CheckpointProver in the store whose epoch number matches.
+   * Handles an epoch whose L1 proof-submission window has closed. This is the single, race-free point
+   * at which an epoch is declared failed: the proven tip is settled by now, so if the epoch is not fully
+   * proven it genuinely missed its window — upload a post-mortem snapshot (once) from its last-known
+   * canonical provers. Then releases the epoch's chonk-cache entries (best-effort) and reaps its provers.
    */
   private async expireEpoch(epoch: EpochNumber): Promise<void> {
+    try {
+      const l1Constants = await this.getL1Constants();
+      if (!(await this.isEpochFullyProven(epoch, l1Constants))) {
+        const checkpoints = this.checkpointStore.listAll().filter(p => p.epochNumber === epoch);
+        if (checkpoints.length > 0) {
+          this.log.warn(`Epoch ${epoch} expired unproven; uploading post-mortem`, {
+            epoch,
+            checkpointCount: checkpoints.length,
+          });
+          await this.tryUploadEpochFailure(epoch, checkpoints);
+        }
+      }
+    } catch (err) {
+      this.log.error(`Error handling expiry for epoch ${epoch}`, err);
+    }
     try {
       const blocks = await this.l2BlockSource.getBlocks({ epoch, onlyCheckpointed: true });
       if (blocks.length > 0) {
@@ -560,8 +578,8 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
 
   /**
    * Constructs the session manager. Extracted so subclasses (test harness) can swap
-   * the implementation. Wired to `tryUploadSessionFailure` so failed sessions get
-   * their proving data uploaded.
+   * the implementation. A failed proving attempt no longer uploads eagerly — the post-mortem
+   * upload happens once, from `expireEpoch`, when an epoch's submission window closes unproven.
    */
   protected createSessionManager(publishingService: ProofPublishingService): SessionManager {
     return new SessionManager({
@@ -576,9 +594,6 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         maxPendingJobs: this.config.proverNodeMaxPendingJobs,
         tickIntervalMs: this.config.proverNodePollingIntervalMs,
         finalizationDelayMs: this.config.proverNodeEpochProvingDelayMs,
-      },
-      onSessionFailed: async session => {
-        await this.tryUploadSessionFailure(session);
       },
       bindings: this.log.getBindings(),
     });
@@ -596,15 +611,23 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     this.sessionManager.setSessionHooks(hooks);
   }
 
-  /** Uploads failure snapshots when sessions exit with `failed`. Exposed as a method so tests can spy on it. */
-  public async tryUploadSessionFailure(session: EpochSession): Promise<string | undefined> {
-    if (!this.config.proverNodeFailedEpochStore) {
+  /**
+   * Uploads a post-mortem snapshot for an epoch that expired unproven, built from its last-known
+   * canonical checkpoint provers. Exposed as a method so tests can spy on it. No-ops if no failed-epoch
+   * store is configured or the epoch left no provers behind (e.g. it was never re-added after a prune —
+   * another prover covers it).
+   */
+  public async tryUploadEpochFailure(
+    epoch: EpochNumber,
+    checkpoints: readonly CheckpointProver[],
+  ): Promise<string | undefined> {
+    if (!this.config.proverNodeFailedEpochStore || checkpoints.length === 0) {
       return undefined;
     }
-    const data = SessionManager.buildSessionProvingData(session);
+    const data = SessionManager.buildProvingData(checkpoints);
     return await uploadEpochProofFailure(
       this.config.proverNodeFailedEpochStore,
-      session.getId(),
+      `expired-epoch-${epoch}`,
       data,
       this.l2BlockSource as Archiver,
       this.worldState,
