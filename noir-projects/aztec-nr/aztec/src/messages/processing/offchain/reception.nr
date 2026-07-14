@@ -117,6 +117,18 @@ use super::OffchainMessage;
 /// (7200 == 2 hours)
 pub(crate) global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + 7200;
 
+/// Maximum amount by which a received message's `anchor_block_timestamp` may exceed our current timestamp.
+///
+/// A message's anchor is the timestamp of the block the sender anchored its originating tx to, so for a genuine
+/// message it is at or before our own anchor timestamp. Our PXE may lag the chain tip though, which can make a
+/// legitimate anchor appear to be in our future, so we tolerate a forward skew of `MAX_TX_LIFETIME` (the longest a tx
+/// can wait to be mined after its anchor) plus a 2h margin. A larger skew would mean our view trails the tip by more
+/// than a tx lifetime -- so far behind that we could not even build a tx that wouldn't be immediately expired -- so
+/// such a message cannot be genuine and is rejected on reception. Bounding the anchor this way also keeps accepted
+/// values near the present, which prevents the `anchor_block_timestamp + MAX_MSG_TTL` eviction check from overflowing.
+/// (7200 == 2 hours)
+pub(crate) global MAX_ANCHOR_FUTURE_SKEW: u64 = MAX_TX_LIFETIME + 7200;
+
 /// Fact type id of the fact that stores the offchain message body inside a reception collection.
 global OFFCHAIN_MESSAGE_RECEIVED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE_RECEIVED".as_bytes());
 

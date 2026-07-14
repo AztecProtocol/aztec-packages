@@ -327,6 +327,10 @@ export const TXE_ORACLE_REGISTRY = {
     ],
   }),
 
+  aztec_txe_setAuthorizeAllUtilityCallTargets: makeEntry({
+    params: [{ name: 'authorizeAll', type: BOOL }],
+  }),
+
   aztec_txe_getLastBlockTimestamp: makeEntry({
     returnType: BIGINT,
   }),

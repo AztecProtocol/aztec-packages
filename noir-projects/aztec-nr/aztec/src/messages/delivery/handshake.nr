@@ -1,5 +1,6 @@
 use crate::protocol::point::EmbeddedCurvePoint;
 use crate::protocol::traits::{Deserialize, Serialize};
+use std::embedded_curve_ops::{EmbeddedCurveScalar, multi_scalar_mul};
 
 use crate::{
     context::PrivateContext,
@@ -7,7 +8,11 @@ use crate::{
     messages::{delivery::OnchainDeliveryMode, processing::provided_secret::ProvidedSecret},
     oracle::{call_utility_function::call_utility_function, shared_secret::get_shared_secrets},
     protocol::{
-        abis::function_selector::FunctionSelector, address::AztecAddress, hash::sha256_to_field, traits::ToField,
+        abis::function_selector::FunctionSelector,
+        address::AztecAddress,
+        constants::DOM_SEP__HANDSHAKE_FORGERY_PROTECTION,
+        hash::{poseidon2_hash_with_separator, sha256_to_field},
+        traits::ToField,
     },
     standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
 };
@@ -56,6 +61,56 @@ pub global INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("interactive_handshake((Field),(Field))") };
 pub global GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("get_non_interactive_handshakes((Field),u32)") };
+
+/// Protects a handshake's shared secret from recipient forgery.
+///
+/// The handshake's ECDH shared secret is symmetric: `S = eph_sk * recipient_pub`, where `(eph_sk, eph_pk)` is
+/// the sender's ephemeral key pair, also equals `recipient_priv * eph_pk`. The recipient recomputing `S` this
+/// way is normal: it is how they derive the handshake's tags when scanning. The attack is minting a second
+/// handshake with the same secret: the ephemeral key is unconstrained, so a malicious recipient can register
+/// its own handshake crafted to land on `S` again, with a different sender-only secret, and emit logs under
+/// the honest handshake's constrained-delivery tag. That breaks the invariant that a constrained-delivery log
+/// sequence is tied to a single sender: by colliding on the tag it blocks the honest sender, who can no longer
+/// emit the next note in their sequence.
+///
+/// The protection multiplies `S` by the scalar `k = hash(eph_pk, recipient_point)`: a forgery must announce a
+/// different `eph_pk`, so the protected secrets diverge. The result is still a point and silos like `S`.
+///
+/// The recipient point must be part of `k`: were `k` independent of it, an attacker choosing the fake
+/// recipient point as a multiple of the honest protected secret could solve for the multiplier that makes the
+/// forged secret land exactly on it.
+///
+/// Concretely, on the sender's side:
+///   S  = eph_sk * recipient_point
+///   S' = protect_from_forgery(S, eph_pk, recipient_point) = k * S
+///
+/// See [`forgery_protected_eph_pk`] for how that arrives at the same `S'`.
+pub fn protect_from_forgery(
+    secret: EmbeddedCurvePoint,
+    eph_pk: EmbeddedCurvePoint,
+    recipient_point: EmbeddedCurvePoint,
+) -> EmbeddedCurvePoint {
+    let scalar = poseidon2_hash_with_separator(
+        [eph_pk.x, eph_pk.y, recipient_point.x, recipient_point.y],
+        DOM_SEP__HANDSHAKE_FORGERY_PROTECTION,
+    );
+    multi_scalar_mul([secret], [EmbeddedCurveScalar::from_field(scalar)])
+}
+
+/// Applies the forgery protection to a discovered ephemeral key.
+///
+/// The recipient never holds the raw `S` (its side of the ECDH happens inside PXE), so it cannot call
+/// [`protect_from_forgery`] on the secret directly. The protection is a scalar multiplication and therefore
+/// commutes through ECDH: protecting the ephemeral key before the shared-secret derivation yields the same
+/// protected secret `S'` the sender stored:
+///
+///   protected_eph_pk = forgery_protected_eph_pk(eph_pk, recipient_point) = k * eph_pk
+///   recipient_priv * protected_eph_pk = recipient_priv * (k * eph_pk) = k * (recipient_priv * eph_pk) = k * S = S'
+pub fn forgery_protected_eph_pk(eph_pk: EmbeddedCurvePoint, recipient_point: EmbeddedCurvePoint) -> EmbeddedCurvePoint {
+    // Passing `eph_pk` twice is deliberate: it is both the point being multiplied and an input to the scalar
+    // `k`, yielding `k * eph_pk` (see the algebra on [`protect_from_forgery`]).
+    protect_from_forgery(eph_pk, eph_pk, recipient_point)
+}
 
 /// Reads the existing app-siloed handshake secrets for `(sender, recipient)` from the registry.
 ///
@@ -121,27 +176,30 @@ pub(crate) fn create_interactive_handshake(
 /// searches for logs tagged with these secrets.
 pub(crate) unconstrained fn get_handshake_secrets(
     contract_address: AztecAddress,
-    scope: AztecAddress,
+    recipient: AztecAddress,
 ) -> EphemeralArray<ProvidedSecret> {
     let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
 
-    let eph_pks: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::empty_at(HANDSHAKE_EPH_PKS_SLOT);
+    // Each ephemeral key gets the forgery protection applied (see [`forgery_protected_eph_pk`]) so the oracle's
+    // ECDH yields the protected secret the sender stored.
+    let protected_eph_pks: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::empty_at(HANDSHAKE_EPH_PKS_SLOT);
+    let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve").inner;
 
     let mut page_offset: u32 = 0;
     let mut has_more = true;
     while has_more {
-        let page = fetch_handshake_page(scope, page_offset);
+        let page = fetch_handshake_page(recipient, page_offset);
 
         for j in 0..page.items.len() {
-            eph_pks.push(page.items.get(j).eph_pk);
+            protected_eph_pks.push(forgery_protected_eph_pk(page.items.get(j).eph_pk, recipient_point));
         }
 
         page_offset += page.items.len();
         has_more = page_offset < page.total_count;
     }
 
-    if eph_pks.len() > 0 {
-        let secrets = get_shared_secrets(scope, eph_pks, contract_address);
+    if protected_eph_pks.len() > 0 {
+        let secrets = get_shared_secrets(recipient, protected_eph_pks, contract_address);
         for j in 0..secrets.len() {
             let secret = secrets.get(j);
             // Handshakes are mode-agnostic; emit one entry per on-chain tag domain for PXE to scan.
@@ -178,7 +236,7 @@ mod test {
     #[test]
     unconstrained fn get_handshake_secrets_returns_secrets_from_single_page() {
         let env = TestEnvironment::new();
-        let scope = AztecAddress::from_field(1);
+        let recipient = AztecAddress::from_field(1);
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
@@ -195,7 +253,7 @@ mod test {
             let secret_b: Field = 222;
             mock_get_shared_secrets([secret_a, secret_b]);
 
-            let secrets = get_handshake_secrets(contract_address, scope);
+            let secrets = get_handshake_secrets(contract_address, recipient);
 
             assert_eq(secrets.len(), 4);
             assert_eq(secrets.get(0).secret, secret_a);
@@ -212,7 +270,7 @@ mod test {
     #[test]
     unconstrained fn get_handshake_secrets_fetches_multiple_pages() {
         let env = TestEnvironment::new();
-        let scope = AztecAddress::from_field(1);
+        let recipient = AztecAddress::from_field(1);
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
@@ -234,7 +292,7 @@ mod test {
 
             mock_get_shared_secrets([111, 222, 333]);
 
-            let secrets = get_handshake_secrets(contract_address, scope);
+            let secrets = get_handshake_secrets(contract_address, recipient);
             assert_eq(secrets.len(), 6);
             assert_eq(secrets.get(0).secret, 111);
             assert(secrets.get(0).mode == OnchainDeliveryMode::onchain_unconstrained());
@@ -252,9 +310,9 @@ mod test {
     }
 
     #[test]
-    unconstrained fn get_handshake_secrets_returns_empty_when_scope_keys_not_held() {
+    unconstrained fn get_handshake_secrets_returns_empty_when_recipient_keys_not_held() {
         let env = TestEnvironment::new();
-        let scope = AztecAddress::from_field(1);
+        let recipient = AztecAddress::from_field(1);
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
         env.utility_context_at(contract_address, |_| {
@@ -266,7 +324,7 @@ mod test {
             let empty: [Field; 0] = [];
             mock_get_shared_secrets(empty);
 
-            let secrets = get_handshake_secrets(contract_address, scope);
+            let secrets = get_handshake_secrets(contract_address, recipient);
             assert_eq(secrets.len(), 0);
         });
     }

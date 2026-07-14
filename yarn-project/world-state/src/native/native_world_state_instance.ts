@@ -71,6 +71,18 @@ export class NativeWorldState implements NativeWorldStateInstance {
       d.slot.toBuffer(),
       d.value.toBuffer(),
     ]);
+    // Nullifiers to pre-insert into the genesis nullifier tree (empty by default, so production genesis roots are
+    // unchanged). The native indexed nullifier tree requires its prefilled leaves to be unique and strictly
+    // increasing, so we enforce that here before handing them over rather than failing deep inside the C++ tree
+    // construction.
+    const prefilledNullifiers = genesis.prefilledNullifiers ?? [];
+    for (let i = 1; i < prefilledNullifiers.length; i++) {
+      assert(
+        prefilledNullifiers[i].toBigInt() > prefilledNullifiers[i - 1].toBigInt(),
+        'Prefilled genesis nullifiers must be unique and strictly increasing',
+      );
+    }
+    const prefilledNullifiersBufferArray = prefilledNullifiers.map(n => n.toBuffer());
     const ws = new BaseNativeWorldState(
       dataDir,
       {
@@ -85,6 +97,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
       prefilledPublicDataBufferArray,
+      prefilledNullifiersBufferArray,
       DomainSeparator.BLOCK_HEADER_HASH,
       Number(genesis.genesisTimestamp),
       {

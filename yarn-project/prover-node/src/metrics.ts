@@ -96,7 +96,7 @@ export class ProverNodeJobMetrics {
     this.activeCheckpoints = this.meter.createObservableGauge(Metrics.PROVER_NODE_ACTIVE_CHECKPOINTS);
     this.activeEpochSessions = this.meter.createObservableGauge(Metrics.PROVER_NODE_ACTIVE_EPOCH_SESSIONS);
     this.stateObserver = (observer: BatchObservableResult) => {
-      observer.observe(this.activeCheckpoints!, checkpointStore.listCanonical().length);
+      observer.observe(this.activeCheckpoints!, checkpointStore.listAll().length);
       let full = 0;
       let partial = 0;
       for (const session of sessionManager.allSessions()) {

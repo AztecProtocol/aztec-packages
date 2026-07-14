@@ -15,6 +15,19 @@ use crate::{
 
 mod test;
 
+/// Asserts that a note existed in the note hash tree by the time a block was mined.
+///
+/// Proves note inclusion at `block_header` by checking membership of the note's unique note hash, and returns a
+/// [`ConfirmedNote`] describing it.
+///
+/// ## Cross-contract notes
+///
+/// Unlike the nullification helpers, this works for notes of **any** contract, not just the executing one: note hashes
+/// are siloed with the note's own contract address (carried by the [`HintedNote`]) and no secret keys are involved.
+///
+/// To reason about whether such a note has been nullified, see [`assert_local_note_was_nullified_by`] and
+/// [`assert_local_note_was_not_nullified_by`], which — in contrast — can only be used for the executing contract's own
+/// notes.
 pub fn assert_note_existed_by<Note>(block_header: BlockHeader, hinted_note: HintedNote<Note>) -> ConfirmedNote<Note>
 where
     Note: NoteHash,
@@ -46,7 +59,17 @@ where
     ConfirmedNote::new(hinted_note, unique_note_hash)
 }
 
-pub fn assert_note_was_valid_by<Note>(
+/// Asserts a note existed and had not yet been nullified by a given block.
+///
+/// Combines [`assert_note_existed_by`] and [`assert_local_note_was_not_nullified_by`]: it proves both that the note
+/// existed at `block_header` and that it had not been nullified then. A contract typically uses this as a security gate
+/// before acting on a note whose validity at some past block matters.
+///
+/// ## Local notes only
+///
+/// Like [`assert_local_note_was_not_nullified_by`], this can only be used for notes of the executing contract. Use
+/// [`assert_note_existed_by`] on its own to prove existence of another contract's notes.
+pub fn assert_local_note_was_valid_by<Note>(
     block_header: BlockHeader,
     hinted_note: HintedNote<Note>,
     context: &mut PrivateContext,
@@ -55,10 +78,16 @@ where
     Note: NoteHash,
 {
     let confirmed_note = assert_note_existed_by(block_header, hinted_note);
-    assert_note_was_not_nullified_by(block_header, confirmed_note, context);
+    assert_local_note_was_not_nullified_by(block_header, confirmed_note, context);
 }
 
-pub fn assert_note_was_nullified_by<Note>(
+/// Asserts a note had been nullified by a given block.
+///
+/// ## Local notes only
+///
+/// This can only be used for notes of the executing contract. Use [`assert_note_existed_by`] on its own to prove
+/// existence of another contract's notes.
+pub fn assert_local_note_was_nullified_by<Note>(
     block_header: BlockHeader,
     confirmed_note: ConfirmedNote<Note>,
     context: &mut PrivateContext,
@@ -66,6 +95,11 @@ pub fn assert_note_was_nullified_by<Note>(
 where
     Note: NoteHash,
 {
+    assert(
+        confirmed_note.contract_address == context.this_address(),
+        "Note nullification history is only supported for the executing contract's own notes",
+    );
+
     let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
     let inner_nullifier =
         confirmed_note.note.compute_nullifier(context, confirmed_note.owner, note_hash_for_nullification);
@@ -75,7 +109,13 @@ where
     assert_nullifier_existed_by(block_header, siloed_nullifier);
 }
 
-pub fn assert_note_was_not_nullified_by<Note>(
+/// Asserts a note had **not** been nullified by a given block.
+///
+/// ## Local notes only
+///
+/// This can only be used for notes of the executing contract. Use [`assert_note_existed_by`] on its own to prove
+/// existence of another contract's notes.
+pub fn assert_local_note_was_not_nullified_by<Note>(
     block_header: BlockHeader,
     confirmed_note: ConfirmedNote<Note>,
     context: &mut PrivateContext,
@@ -83,6 +123,11 @@ pub fn assert_note_was_not_nullified_by<Note>(
 where
     Note: NoteHash,
 {
+    assert(
+        confirmed_note.contract_address == context.this_address(),
+        "Note nullification history is only supported for the executing contract's own notes",
+    );
+
     let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
 
     let inner_nullifier =

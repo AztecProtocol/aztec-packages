@@ -46,8 +46,9 @@ describe('single-node/fees/gas_estimation', () => {
 
   beforeAll(async () => {
     await t.setup({ ...PIPELINING_SETUP_OPTS });
-    await t.applyFPCSetup();
-    await t.applyFundAliceWithBananas();
+    // Alice's banana mints and the BananaFPC deploy each depend only on the BananaCoin deployed
+    // during setup, so they run concurrently and share slots.
+    await Promise.all([t.applyFPCSetup(), t.applyFundAliceWithBananas()]);
     ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = t);
   });
 

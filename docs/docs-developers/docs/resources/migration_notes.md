@@ -9,6 +9,41 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
+
+The `history::note` helpers that recompute a note's nullifier have been renamed with a `local_` prefix and now assert that the note belongs to the executing contract:
+
+| Old | New |
+| --- | --- |
+| `assert_note_was_valid_by` | `assert_local_note_was_valid_by` |
+| `assert_note_was_nullified_by` | `assert_local_note_was_nullified_by` |
+| `assert_note_was_not_nullified_by` | `assert_local_note_was_not_nullified_by` |
+
+These helpers derive the note's nullifier from the executing contract's app-siloed nullifier key, and it is not possible for a contract to retrieve the app-siloed nullifier for a different contract, as this would constitute leakage of key material. These helpers incorrectly used the local contract's key siloing, which for a note of a different contract resulted in the non-inclusion check passing unconditionally and wrongly reporting a nullified note as not nullified. The helpers now assert `contract_address == context.this_address()` and fail with "Note nullification history is only supported for the executing contract's own notes" otherwise.
+
+**Impact**: Update call sites to the new names. Own-contract usage (the common case) is unaffected beyond the rename. `assert_note_existed_by` is unchanged and still supports notes of any contract, since note-hash inclusion involves no keys.
+
+### [Aztec.nr] `set_as_fee_payer` now asserts it is called during the setup phase
+
+`PrivateContext::set_as_fee_payer` now asserts that execution is still in the setup (non-revertible) phase, i.e. that `end_setup` has not yet been called by any function in the transaction. Electing a fee payer in the revertible phase was never safe: compensation collected by the fee payer after `end_setup` can be discarded if a public call later reverts, while the protocol still debits the fee payer's fee-juice balance.
+
+**Impact**: A transaction in which `set_as_fee_payer` runs after the setup phase has ended now fails with `fee payer must be elected during the setup phase`. Standard fee payment flows, which call `set_as_fee_payer` before or together with `end_setup`, are unaffected.
+
+### [PXE] Stores are now selected by `(l1ChainId, rollupAddress, schemaVersion)` instead of being wiped on mismatch
+
+Previously, connecting a PXE or embedded wallet to a different or redeployed rollup, or bumping the store schema version, wiped the existing on-disk store in place. That meant master account keys could be destroyed simply by pointing a wallet at a different network. PXE data stores now exist per `(l1ChainId, rollupAddress, schemaVersion)` triple, and switching networks (or upgrading) selects or creates the matching store instead of overwriting previous ones. The embedded wallet's `wallet_data` store is partitioned the same way, so accounts and aliases are per network: switching networks starts with an empty account list until accounts are re-imported, and switching back finds the originals intact.
+
+**Impact**: The first start after upgrading to this version begins with a fresh, empty store; the pre-upgrade data is not deleted. On Node.js environments (lmdb-v2) pre-upgrade data stays at `<dataDirectory>/<name>` while new per-identity `pxe_data` stores live under `<dataDirectory>/<name>-stores/`. The embedded Node.js wallet previously stored data in cwd-relative, rollup-address-suffixed directories instead (`pxe_data_<rollupAddress>/pxe_data` for the PXE store, `wallet_data_<rollupAddress>/wallet_data` for the wallet store): if you used it before this release, that is where the old data lives. The embedded wallet now defaults its data root to `aztec-wallet-data/`, with per-identity wallet stores under `<dataDirectory>/wallet_data-stores/` on Node.js and OPFS store names prefixed `wallet_data_` in the browser. Browser apps can enumerate and clean up `pxe_data` and `wallet_data` stores for networks no longer in use with the new `listStores()` / `deleteStore()` utilities:
+
+```ts
+import { deleteStore, listStores } from '@aztec/kv-store/sqlite-opfs';
+
+const names = await listStores();
+await deleteStore(names[0]);
+```
+
+This change also removes `createStore` from `@aztec/kv-store/sqlite-opfs` and `@aztec/kv-store/deprecated/indexeddb`: stores are now opened by name with `AztecSQLiteOPFSStore.open` / `AztecIndexedDBStore.open`.
+
 ### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
 
 `TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
@@ -125,8 +160,6 @@ Registering classes and instances are now separate, unvalidated operations. `reg
   The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
 
 - `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
-
-
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
 `AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:
