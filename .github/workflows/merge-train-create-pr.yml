@@ -24,8 +24,8 @@ jobs:
             branch="${{ github.ref_name }}"
 
             # Determine base branch. Most trains target next; trains suffixed
-            # with -v<N> (e.g. spartan-v5, fairies-v5, spartan-v6) target the
-            # matching release line (v5-next, v6-next) instead.
+            # with -v<N> (e.g. spartan-v5, fairies-v5) target the matching
+            # release line (v5-next) instead.
             base_branch="next"
             if [[ "$branch" =~ -v([0-9]+)$ ]]; then
               base_branch="v${BASH_REMATCH[1]}-next"
@@ -55,10 +55,10 @@ jobs:
 
               # Create PR with ci-no-squash label
               labels="ci-no-squash"
-              if [[ "$branch" == "merge-train/spartan" || "$branch" == "merge-train/spartan-v5" || "$branch" == "merge-train/spartan-v6" || "$branch" == "merge-train/ci" ]]; then
+              if [[ "$branch" == "merge-train/spartan" || "$branch" == "merge-train/spartan-v5" || "$branch" == "merge-train/ci" ]]; then
                 labels="$labels,ci-full-no-test-cache"
               fi
-              # Trains targeting a v<N>-next release line (v5-next, v6-next) are
+              # Trains targeting a v<N>-next release line (v5-next) are
               # forward-ported into their base via the private-port-next driver.
               if [[ "$base_branch" =~ ^v[0-9]+-next$ ]]; then
                 labels="$labels,private-port-next"
