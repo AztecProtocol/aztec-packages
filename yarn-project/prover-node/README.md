@@ -48,9 +48,9 @@ The prover-node splits responsibility between four classes:
 
 - **`ProverNode`** — owns the long-lived collections, wires the L2BlockStream, and
   translates each chain event into a single method call on the `SessionManager` or
-  `ProofPublishingService`. It also performs the per-event side effects that don't
-  belong on an `EpochSession` (registering new checkpoints with the store, sweeping
-  expired epochs out of the cache and the store, etc.). It is also the sole author of an
+  `ProofPublishingService`. It also performs side effects that don't belong on an
+  `EpochSession`: registering new checkpoints with the store per event, and sweeping expired
+  epochs out of the cache and the store on a periodic ticker (see below). It is the sole author of an
   epoch's terminal failure: when an epoch's proof-submission window closes with the epoch
   still unproven, `expireEpoch` runs the post-mortem failure-upload before reaping the store.
 - **`CheckpointStore`** — a registry of `CheckpointProver` instances keyed by
@@ -335,16 +335,17 @@ sequenceDiagram
   PS->>PS: drain reads proven afresh, re-checks eligibility
 ```
 
-### Per-event expiry sweep
+### Periodic expiry sweep
 
 ```mermaid
 sequenceDiagram
-  participant L2 as L2BlockStream
+  participant T as expiryTicker (RunningPromise)
   participant PN as ProverNode
+  participant L2 as L2BlockStream
   participant CC as ChonkCache
   participant CS as CheckpointStore
 
-  L2->>PN: any event
+  T->>PN: checkEpochExpiry() (every poll interval)
   PN->>L2: getSyncedL2SlotNumber()
   PN->>PN: latestEpoch = getEpochAtSlot(latestSlot)
   PN->>PN: newlyExpiredUpTo = latestEpoch - (proofSubmissionEpochs + 1)
@@ -353,24 +354,26 @@ sequenceDiagram
     alt unproven and store still has its provers
       PN->>PN: tryUploadEpochFailure(epoch, provers) (post-mortem)
     end
-    PN->>L2: getCheckpointsData({epoch}) + getBlocks(...)
+    PN->>L2: getBlocks({epoch, onlyCheckpointed})
     PN->>CC: releaseForBlocks(blocks)
     PN->>CS: reapExpired(epoch)
   end
 ```
 
-Expiry runs at the end of every `handleBlockStreamEvent` call (not on any specific
-event type). An epoch `E` is expired once the chain reaches the start of epoch
-`E + proofSubmissionEpochs + 1` — the deadline beyond which an L1 submission for
-`E` would be rejected. This is also the single point at which an epoch is declared a
-terminal **failure**: if `E` is not fully proven by now (the proven tip is settled, so the
-answer is authoritative), `expireEpoch` uploads a post-mortem snapshot built from `E`'s
-last-known canonical provers before reaping them — exactly once, since the sweep never
-revisits an epoch. An epoch that left no provers behind (never re-added after a prune —
-another prover covers it) uploads nothing. A monotonic high-water mark (`lastExpiredEpoch`)
-makes the sweep cheap: it advances per event and never revisits an epoch. It is seeded at
-`start()` from the last fully-proven epoch (computed in `computeStartupState`), so on a
-restart we never re-sweep epochs that already reached L1.
+The sweep is driven solely by the `expiryTicker` (a `RunningPromise` armed in `start()`), which
+fires `checkEpochExpiry()` every poll interval whether or not block-stream events arrive. It is
+deliberately **not** run from `handleBlockStreamEvent` — expiry is a background sweep keyed off the
+archiver's synced slot, not part of event processing — and because a `RunningPromise` never overlaps
+its own runs, no two sweeps can race. An epoch `E` is expired once the chain reaches the start of epoch
+`E + proofSubmissionEpochs + 1` — the deadline beyond which an L1 submission for `E` would be rejected.
+This is also the single point at which an epoch is declared a terminal **failure**: if `E` is not fully
+proven by now (the proven tip is settled, so the answer is authoritative), `expireEpoch` uploads a
+post-mortem snapshot built from `E`'s last-known canonical provers before reaping them. A monotonic
+high-water mark (`lastExpiredEpoch`) makes the sweep cheap and guarantees each epoch is swept — and
+uploaded — exactly once: it only advances after a sweep completes and never revisits an epoch. It is
+seeded at `start()` from the last fully-proven epoch (`resolveLastFullyProvenEpoch`), so on a restart we
+never re-sweep epochs that already reached L1. An epoch that left no provers behind (never re-added after
+a prune — another prover covers it) uploads nothing.
 
 ### Periodic tick
 
