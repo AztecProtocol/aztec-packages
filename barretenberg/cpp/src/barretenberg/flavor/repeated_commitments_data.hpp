@@ -5,9 +5,22 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/throw_or_abort.hpp"
+#include <array>
 #include <cstddef>
+#include <span>
 
 namespace bb {
+
+// Non-constexpr no-return helper used to fail constant evaluation with a readable diagnostic
+// when `repeated_commitments_from_pairs` is invoked on a layout it can't represent. Calling a
+// non-constexpr function from a constexpr context is ill-formed, so the compiler emits an error
+// pointing at this name (and the body's `throw_or_abort` runs at runtime in the unlikely event
+// the function is reached non-constexpr).
+[[noreturn]] inline void repeated_commitments_too_many_runs()
+{
+    throw_or_abort("repeated_commitments_from_pairs: layout produces more than 2 non-contiguous runs");
+}
 
 /**
  * @brief Identifies contiguous ranges of duplicate commitments in the AllEntities ordering so that Shplemini can merge
@@ -46,4 +59,64 @@ struct RepeatedCommitmentsData {
         , second{ second_original_start, second_duplicate_start, second_count }
     {}
 };
+
+/**
+ * @brief One commitment shared by an unshifted polynomial and its shifted copy.
+ *
+ * @details The pair-form is the layout-derived source of truth used by codegen: each shifted
+ * entity contributes one (original_index, duplicate_index) entry. It works for any layout — no
+ * contiguity constraint, no upper bound. `repeated_commitments_from_pairs` collapses a sorted
+ * pair list into the legacy two-range `RepeatedCommitmentsData` that Shplemini consumes today,
+ * so callers can stay on the existing API while the underlying layout becomes flexible.
+ */
+struct DuplicatePair {
+    size_t original = 0;
+    size_t duplicate = 0;
+};
+
+/**
+ * @brief Collapse a span of (original, duplicate) pairs into a `RepeatedCommitmentsData` of up to
+ * two contiguous ranges.
+ *
+ * @details Pairs are expected in ascending `duplicate` order (which is how the codegen emits
+ * them: shifted-suffix order). Adjacent pairs are grouped into a range when both `original` and
+ * `duplicate` are sequential. If the layout produces more than two non-contiguous runs the
+ * caller must extend `RepeatedCommitmentsData`; today we throw a compile-time error there.
+ */
+constexpr RepeatedCommitmentsData repeated_commitments_from_pairs(std::span<const DuplicatePair> pairs)
+{
+    if (pairs.empty()) {
+        return {};
+    }
+    std::array<DuplicateRange, 2> ranges{};
+    size_t range_count = 0;
+    DuplicateRange current{ pairs[0].original, pairs[0].duplicate, 1 };
+    const auto close_range = [&](DuplicateRange r) constexpr {
+        if (range_count == 2) {
+            // More than two non-contiguous runs — RepeatedCommitmentsData can't represent this.
+            // Calling a non-constexpr function from a constexpr context fails compilation; if
+            // this fires, either reorder the layout to merge runs or extend
+            // RepeatedCommitmentsData to hold more ranges.
+            repeated_commitments_too_many_runs();
+        }
+        ranges[range_count++] = r;
+    };
+    for (size_t i = 1; i < pairs.size(); ++i) {
+        const auto& p = pairs[i];
+        if (p.original == current.original_start + current.count &&
+            p.duplicate == current.duplicate_start + current.count) {
+            ++current.count;
+        } else {
+            close_range(current);
+            current = { p.original, p.duplicate, 1 };
+        }
+    }
+    close_range(current);
+    if (range_count == 1) {
+        return RepeatedCommitmentsData{ ranges[0].original_start, ranges[0].duplicate_start, ranges[0].count };
+    }
+    return RepeatedCommitmentsData{ ranges[0].original_start, ranges[0].duplicate_start, ranges[0].count,
+                                    ranges[1].original_start, ranges[1].duplicate_start, ranges[1].count };
+}
+
 } // namespace bb

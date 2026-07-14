@@ -56,6 +56,7 @@ template <typename Flavor> class OinkProver {
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Proof = typename Transcript::Proof;
+    using EntityId = typename Flavor::ProverPolynomials::EntityId;
 
   public:
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
@@ -64,6 +65,7 @@ template <typename Flavor> class OinkProver {
         : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
+        , commitment_labels(Flavor::commitment_labels())
     {}
 
     // emit_alpha: when false, skip drawing the "alpha" challenge at the end of Oink.
@@ -74,7 +76,9 @@ template <typename Flavor> class OinkProver {
 
     static void add_ram_rom_memory_records_to_wire_4(ProverInstance& instance);
     static void compute_logderivative_inverses(ProverInstance& instance);
-    static void compute_grand_product_polynomial(ProverInstance& instance);
+    // Writes into `z_perm_dup_count` the number of adjacent-duplicate z_perm coefficients (rows where
+    // the grand-product ratio is 1), measured during the grand-product construction for the MSM dedup hint.
+    static void compute_grand_product_polynomial(ProverInstance& instance, uint32_t& z_perm_dup_count);
 
   private:
     std::shared_ptr<ProverInstance> prover_instance;

@@ -96,33 +96,33 @@ TEST(EmitNullifierConstrainingTest, LimitReached)
     // Negative test: sel_reached_max_nullifiers must be 1
     trace.set(C::execution_sel_reached_max_nullifiers, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_nullifier>(trace, emit_nullifier::SR_MAX_NULLIFIER_WRITES_REACHED),
-                              "MAX_NULLIFIER_WRITES_REACHED");
+                              emit_nullifier::get_subrelation_label(emit_nullifier::SR_MAX_NULLIFIER_WRITES_REACHED));
     trace.set(C::execution_sel_reached_max_nullifiers, 0, 1);
 
     // Negative test: sel_opcode_error must be on
     trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_nullifier>(trace, emit_nullifier::SR_OPCODE_ERROR_IF_VALIDATION_ERROR),
-        "OPCODE_ERROR_IF_VALIDATION_ERROR");
+        emit_nullifier::get_subrelation_label(emit_nullifier::SR_OPCODE_ERROR_IF_VALIDATION_ERROR));
     trace.set(C::execution_sel_opcode_error, 0, 1);
 
     // Negative test: nullifier tree root must be the same
     trace.set(C::execution_nullifier_tree_root, 0, 28);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_nullifier>(trace, emit_nullifier::SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED),
-        "EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED");
+        emit_nullifier::get_subrelation_label(emit_nullifier::SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: tree size must be the same
     trace.set(C::execution_nullifier_tree_size, 0, 2);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_nullifier>(trace, emit_nullifier::SR_EMIT_NULLIFIER_TREE_SIZE_INCREASE),
-        "EMIT_NULLIFIER_TREE_SIZE_INCREASE");
+        emit_nullifier::get_subrelation_label(emit_nullifier::SR_EMIT_NULLIFIER_TREE_SIZE_INCREASE));
 
     // Negative test: num nullifiers emitted must be the same
     trace.set(C::execution_num_nullifiers_emitted, 0, prev_num_nullifiers_emitted + 1);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_nullifier>(trace, emit_nullifier::SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE),
-        "EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE");
+        emit_nullifier::get_subrelation_label(emit_nullifier::SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE));
 }
 
 TEST(EmitNullifierConstrainingTest, Interactions)

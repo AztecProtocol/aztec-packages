@@ -89,6 +89,11 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
         throw_or_abort("SrsInitSrs: g2_point bytes do not match the canonical Aztec [x]_2 SHA-256");
     }
     auto g2_point_elem = from_buffer<g2::affine_element>(g2_point.data());
+    // is_in_prime_subgroup() returns true for the point at infinity by definition (the neutral
+    // element belongs to every subgroup), so it is not sufficient on its own.
+    if (g2_point_elem.is_point_at_infinity()) {
+        throw_or_abort("SrsInitSrs: g2_point cannot be the point at infinity");
+    }
     if (!g2_point_elem.is_in_prime_subgroup()) {
         throw_or_abort("SrsInitSrs: g2_point is not in the BN254 G2 prime-order subgroup");
     }

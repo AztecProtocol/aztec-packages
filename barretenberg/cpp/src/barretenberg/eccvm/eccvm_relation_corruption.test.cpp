@@ -70,6 +70,7 @@ std::vector<Polynomial*> get_msm_polynomials(ProverPolynomials& polys)
         &polys.msm_round,
         &polys.msm_add1,
         &polys.msm_pc,
+        &polys.msm_round_minus_31_inv,
     };
 }
 
@@ -87,6 +88,29 @@ ProverPolynomials build_valid_eccvm_msm_state()
     auto op_queue = std::make_shared<ECCOpQueue>();
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, y);
+    op_queue->eq_and_reset();
+    op_queue->merge();
+    add_hiding_op_for_test(op_queue);
+
+    ECCVMCircuitBuilder builder{ op_queue };
+    return ProverPolynomials(builder);
+}
+
+/**
+ * @brief Build valid ProverPolynomials with a single MSM of `num_points` points.
+ *
+ * @details The skew round spans `ceil(num_points / 4)` rows, so `num_points >= 9` yields a skew
+ * round with interior rows (skew rows that are neither the first nor the last of the round). These
+ * interior skew rows are what MSM_PC_SKEW_CONTINUITY pins.
+ */
+ProverPolynomials build_valid_eccvm_large_msm_state(size_t num_points)
+{
+    auto generators = G1::derive_generators("test generators", num_points);
+
+    auto op_queue = std::make_shared<ECCOpQueue>();
+    for (size_t i = 0; i < num_points; i++) {
+        op_queue->mul_accumulate(generators[i], Fr::random_element(&engine));
+    }
     op_queue->eq_and_reset();
     op_queue->merge();
     add_hiding_op_for_test(op_queue);
@@ -384,22 +408,23 @@ TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty
 /**
  * @brief Test that z_perm must be zero at the lagrange_first row.
  *
- * @details The set relation grand product relies on z_perm[0] = 0 so that (z_perm + lagrange_first)
- * evaluates to 1 at the first row. Sub-relation Z_PERM_INIT (lagrange_first * z_perm = 0) enforces this.
+ * @details The set relation grand product relies on z_perm[lagrange_first row] = 0 so that
+ * (z_perm + lagrange_first) evaluates to 1 at the first row. Sub-relation Z_PERM_INIT
+ * (lagrange_first * z_perm = 0) — housed in ECCVMShiftableInitRelation — enforces this.
  *
  * We cross-check the lagrange_first position two ways:
  *   1. Structurally: z_perm.start_index() - 1 (the zero row before the shiftable region)
  *   2. By scanning the lagrange_first polynomial for its non-zero entry
  */
-TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
+TEST_F(ECCVMRelationCorruptionTests, ShiftableInitFailsOnZPermNonZeroAtFirstRow)
 {
     auto polynomials = build_valid_eccvm_msm_state();
     auto params = compute_full_relation_params(polynomials);
 
-    // Baseline: set relation passes (skip disabled head rows where masking values break relations)
-    auto baseline = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials, params, "ECCVMSetRelation", Flavor::TRACE_OFFSET);
-    EXPECT_TRUE(baseline.empty()) << "Baseline set relation should pass";
+    // Baseline: the shiftable init relation passes
+    auto baseline = RelationChecker<void>::check<ECCVMShiftableInitRelation<FF>>(
+        polynomials, params, "ECCVMShiftableInitRelation", Flavor::TRACE_OFFSET);
+    EXPECT_TRUE(baseline.empty()) << "Baseline shiftable init relation should pass";
 
     // Derive expected lagrange_first position from z_perm shiftable structure
     ASSERT_TRUE(polynomials.z_perm.is_shiftable());
@@ -431,11 +456,270 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     // Tamper: set z_perm to non-zero where lagrange_first is active
     polynomials.z_perm.at(first_row) = FF(1);
 
-    auto failures = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials, params, "ECCVMSetRelation - After setting z_perm != 0 at lagrange_first", Flavor::TRACE_OFFSET);
-    EXPECT_FALSE(failures.empty()) << "Set relation should fail after z_perm init corruption";
-    EXPECT_TRUE(failures.contains(ECCVMSetRelationImpl<FF>::Z_PERM_INIT))
+    auto failures = RelationChecker<void>::check<ECCVMShiftableInitRelation<FF>>(
+        polynomials, params, "ECCVMShiftableInitRelation - After z_perm != 0 at lagrange_first", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(failures.empty()) << "Shiftable init relation should fail after z_perm corruption";
+    EXPECT_TRUE(failures.contains(ECCVMShiftableInitRelationImpl<FF>::Z_PERM_INIT))
         << "Sub-relation Z_PERM_INIT should catch the corruption";
-    EXPECT_EQ(failures.at(ECCVMSetRelationImpl<FF>::Z_PERM_INIT), first_row)
+    EXPECT_EQ(failures.at(ECCVMShiftableInitRelationImpl<FF>::Z_PERM_INIT), first_row)
         << "Failure should be at lagrange_first row";
+}
+
+/**
+ * @brief Verify that the DOUBLE_SHIFT_FORBIDS_ROUND_31 gate catches a missing round != 31 witness.
+ *
+ * @details Background: this gate guards against a soundness gap in the original ECCVM MSM relation,
+ * where the converse "round = 31 ==> q_skew_shift = 1" was not constrained. The fix is the new
+ * subrelation
+ *   q_double_shift * (1 - (round - 31) * round_minus_31_inv) = 0,
+ * which forces the prover to witness an inverse of (round - 31) at every row whose successor is a
+ * double, making round = 31 unreachable there. This test exercises the gate the simple way: at a
+ * valid `q_double_shift = 1` row, zero out the inverse witness and confirm only this gate fires.
+ *
+ * The original full PoC (kept as commentary so an attentive reader/LLM can reconstruct it):
+ *
+ *   Setup: a size-1 MSM with a 128-bit odd scalar `s`, e.g.
+ *     Fr s = Fr(uint256_t(0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0, 0));
+ *     op_queue.mul_accumulate(P, s); op_queue.eq_and_reset(); op_queue.merge();
+ *     // followed by `add_hiding_op_for_test(op_queue)` so the trace finalizes.
+ *   Such a scalar gives z2 = 0 (single-mul MSM) and odd LSB so wnaf_skew = false, hence
+ *   precompute_skew = 0 — the precondition for the round 31->32 phase swap.
+ *
+ *   Honest layout, with R = the unique row carrying msm_skew = 1, msm_round = 32:
+ *     row R-1: q_add = 1, round = 31 (last add of digit 31)
+ *     row R  : q_skew = 1, round = 32, (msm_x1, msm_y1) = T[0] = -15*P (lookup with slice1 = 0)
+ *     row R+1: synthetic final (msm_transition = 1, round = 0, all selectors = 0)
+ *     row R+2: padding (all zero)
+ *
+ *   Malicious patch: turn row R into a q_double, append a same-MSM q_add at row R+1 with
+ *   round = 32 and slice1 = 0 (so the lookup forces (x1, y1) = T[0] = -15*P), and shift the
+ *   synthetic final to row R+2:
+ *     row R: msm_skew = 0, msm_double = 1; witness lambdas l1..l4 of the four doublings
+ *            d1 = 2*acc_R, d2 = 2*d1, d3 = 2*d2, d4 = 2*d3 = 16*acc_R; clear msm_add1, msm_x1,
+ *            msm_y1, msm_collision_x1.
+ *     row R+1: msm_transition = 0, msm_add = 1, msm_round = 32, msm_count = 0,
+ *              msm_size_of_msm = 1, msm_pc = msm_pc[R], msm_add1 = 1, msm_slice1 = 0,
+ *              (msm_x1, msm_y1) = -15*P; lambda1 = (d4.y - (-15*P).y) / (d4.x - (-15*P).x),
+ *              collision_x1 = 1 / ((-15*P).x - d4.x); accumulator = d4.
+ *     row R+2: msm_transition = 1; (acc_x, acc_y) = malicious_acc, where
+ *              malicious_acc = d4 + (-15*P) = 16 * (2^124*OFFSET + s*P) - 15*P
+ *                            = 2^128 * OFFSET + (16s - 15) * P.
+ *
+ *   Transcript columns also need to be patched at the row t with transcript_msm_transition = 1:
+ *     transcript_msm_x/y = malicious_acc;
+ *     intermediate = malicious_acc - 2^124 * ECCVM_OFFSET_GENERATOR (do this via affine subtraction;
+ *       remember offset_affine.y is negated to subtract);
+ *     transcript_msm_intermediate_x/y = intermediate;
+ *     transcript_msm_x_inverse = 1 / (malicious_acc.x - (-offset).x);
+ *     transcript_base_x_inverse = 1 / intermediate.x;
+ *     transcript_base_y_inverse = 1 / intermediate.y;
+ *     at row t+1 (transcript accumulator after add): (transcript_accumulator_x/y, Px, Py) = intermediate
+ *       (the running accumulator was empty after eq_and_reset, so add returns lhs).
+ *
+ *   Lookup-inverse hygiene: row R is no longer active for the lookup relation after the q_skew ->
+ *   q_double swap, but compute_logderivative_inverse only overwrites active rows, so explicitly clear
+ *   polynomials.lookup_inverses.at(R) = 0 before re-running set_shifted().
+ *
+ *   With the fix, the new gate rejects the malicious trace at row R: msm_double[R+1] = 1 demands an
+ *   inverse witness for (msm_round[R] - 31), and msm_round[R] - 31 = 0 has none. Without the fix,
+ *   every relation (MSM, Bools, Transcript, Set, Lookup) accepted the patched trace.
+ */
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsMissingRoundMinus31Inverse)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    RelationParameters<FF> params{};
+
+    auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    ASSERT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
+
+    // Find a row whose successor is an MSM double. The new gate constrains row k (carrying
+    // round[k] and round_minus_31_inv[k]) whenever q_double[k+1] = 1.
+    const size_t num_rows = polynomials.get_polynomial_size();
+    size_t target_row = 0;
+    for (size_t i = Flavor::TRACE_OFFSET; i + 1 < num_rows; ++i) {
+        if (polynomials.msm_double[i + 1] == FF(1)) {
+            target_row = i;
+            break;
+        }
+    }
+    ASSERT_NE(target_row, 0U) << "Should find a row preceding a doubling row";
+    ASSERT_NE(polynomials.msm_round[target_row], FF(31)) << "Honest predecessors of double rows have round != 31";
+    ASSERT_NE(polynomials.msm_round_minus_31_inv[target_row], FF(0))
+        << "Honest inverse witness should be non-zero where round != 31";
+
+    polynomials.msm_round_minus_31_inv.at(target_row) = FF(0);
+    polynomials.set_shifted();
+
+    auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(failures.empty()) << "MSM relation should fail without the round != 31 witness";
+    EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::DOUBLE_SHIFT_FORBIDS_ROUND_31))
+        << "DOUBLE_SHIFT_FORBIDS_ROUND_31 should be the failing subrelation";
+}
+
+/**
+ * @brief Regression test for the MSM-start anchor (MSM_TRANSITION_AT_ACTIVE_START).
+ *
+ * The full attack (pre-fix): `first_add` is gated on `msm_transition`: when msm_transition = 0 the
+ * chain begins from the row's witness (acc_x, acc_y) instead of offset_generator. A prover flips
+ * msm_transition[first_msm_row] from 1 to 0, replaces (acc_x, acc_y) at that row with any chosen
+ * point A, recomputes lambda1 and the resulting acc_shift, and propagates the new (acc_x, acc_y)
+ * chain through every subsequent ADD/DOUBLE/SKEW row of the MSM. The set relation's third term
+ * cross-checks (msm_acc_x_shift, msm_acc_y_shift) at the synthetic-final sentinel against the
+ * transcript's transcript_msm_(x,y), which the prover patches to match. The transcript subtracts
+ * a fixed offset_generator, so the user-visible MSM result is shifted by (A - offset_generator).
+ *
+ * What this test proves: that the new MSM_TRANSITION_AT_ACTIVE_START subrelation fires on the
+ * msm_transition flip. We do NOT recompute the acc/lambda chain or the transcript patches -- the
+ * point of the test is to certify that *the missing pin is now in place*, not to reconstruct the
+ * full forgery.
+ *
+ * Why the minimal flip is a faithful regression target:
+ * On the honest trace, (acc_x, acc_y) at the first MSM row is exactly offset_generator. With
+ * those values, `first_add` produces the same output for both msm_transition branches
+ * (selector = 1 plants offset_generator literal; selector = 0 reads (acc_x, acc_y) which equals
+ * offset_generator). So the flip is invisible to every relation that consumes acc downstream --
+ * pre-fix every relation passed despite the flip (this is precisely what made the attack viable).
+ * Post-fix, the new gate detects the flip directly and the rest of the trace is unchanged.
+ *
+ * Trace layout (recall TRACE_OFFSET disabled rows precede the active region):
+ *   rows 0..TRACE_OFFSET-1     -- disabled head region
+ *   row  TRACE_OFFSET          -- lagrange_first, all phase selectors off
+ *   row  TRACE_OFFSET + 1      -- first MSM row: q_add = 1, msm_transition = 1 honestly
+ *
+ * Where the new subrelation is non-trivial:
+ * `curr_not_phase * next_phase * (msm_transition_shift - 1)` is checked at every row. The first
+ * two factors are simultaneously non-zero only at "MSM-start boundaries" -- rows whose successor
+ * activates a phase: lagrange_first -> first MSM, and synthetic-final sentinel of one MSM ->
+ * start of the next. The third factor pins msm_transition to 1 on the next row at every such
+ * boundary. This fixture has a single MSM, so the lagrange_first row is the only such boundary.
+ * Flipping msm_transition[TRACE_OFFSET + 1] from 1 to 0 makes the third factor -1 at row
+ * TRACE_OFFSET and the relation fails.
+ */
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsTransitionZeroOnFirstRow)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    auto params = compute_full_relation_params(polynomials);
+
+    EXPECT_TRUE(
+        RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, params, "MSM", Flavor::TRACE_OFFSET).empty());
+    EXPECT_TRUE(
+        RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, params, "Set", Flavor::TRACE_OFFSET).empty());
+    EXPECT_TRUE((RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
+                     polynomials, params, "Lookup", Flavor::TRACE_OFFSET)
+                     .empty()));
+
+    constexpr size_t first_msm_row = Flavor::TRACE_OFFSET + 1;
+    ASSERT_EQ(polynomials.msm_transition[first_msm_row], FF(1));
+    ASSERT_EQ(polynomials.msm_add[first_msm_row], FF(1));
+    polynomials.msm_transition.at(first_msm_row) = FF(0);
+    polynomials.set_shifted();
+
+    // Recompute logderivative inverse / grand product since msm_transition feeds into them.
+    auto params_after = compute_full_relation_params(polynomials);
+
+    auto msm_failures =
+        RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, params_after, "MSM", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(msm_failures.empty()) << "MSM-start anchor should reject msm_transition[first_msm_row] = 0";
+    EXPECT_TRUE(msm_failures.contains(ECCVMMSMRelationImpl<FF>::MSM_TRANSITION_AT_ACTIVE_START))
+        << "The rejecting subrelation should be the MSM-start anchor";
+
+    // The rejection is exclusively in the MSM relation: the other relations have no role anchoring
+    // msm_transition at the first MSM row.
+    EXPECT_TRUE(
+        RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, params_after, "Set", Flavor::TRACE_OFFSET)
+            .empty());
+    EXPECT_TRUE((RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
+                     polynomials, params_after, "Lookup", Flavor::TRACE_OFFSET)
+                     .empty()));
+}
+
+/**
+ * @brief MSM_PC_CONTINUITY rejects any tamper of `msm_pc` on an interior ADD or DOUBLE row.
+ *
+ * @details Before this subrelation existed, the MSM relation's only msm_pc constraint
+ * (MSM_TRANSITION_PC) was gated by `msm_transition_shift`, so it fired only at MSM segment
+ * boundaries. An attacker could swap `msm_pc` between two same-base MSMs on a single interior
+ * round and the WNAF/lookup multisets would still balance (both swapped tuples are valid writes).
+ * MSM_PC_CONTINUITY pins `msm_pc` constant across every interior ADD or DOUBLE row, so the
+ * constraint at the row immediately preceding any such swap detects it.
+ */
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsInteriorMsmPcTamper)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    RelationParameters<FF> params{};
+
+    auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
+
+    // Find an interior ADD row such that the previous row is also active and not a segment
+    // boundary (msm_transition_shift on the previous row is 0). MSM_PC_CONTINUITY will fire at
+    // that previous row when we tamper msm_pc on the chosen row.
+    const size_t num_rows = polynomials.get_polynomial_size();
+    size_t tamper_row = 0;
+    for (size_t i = Flavor::TRACE_OFFSET + 2; i < num_rows - 1; i++) {
+        const bool curr_is_add = polynomials.msm_add[i] == FF(1);
+        const bool prev_is_active = polynomials.msm_add[i - 1] == FF(1) || polynomials.msm_double[i - 1] == FF(1);
+        const bool not_segment_boundary = polynomials.msm_transition[i] == FF(0);
+        if (curr_is_add && prev_is_active && not_segment_boundary) {
+            tamper_row = i;
+            break;
+        }
+    }
+    ASSERT_NE(tamper_row, 0) << "Should find an interior ADD row with an active predecessor";
+
+    polynomials.msm_pc.at(tamper_row) = polynomials.msm_pc[tamper_row] + FF(0xdead);
+    polynomials.set_shifted();
+
+    auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(failures.empty()) << "MSM relation should reject msm_pc tamper on an interior row";
+    EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::MSM_PC_CONTINUITY))
+        << "MSM_PC_CONTINUITY should be among the failing subrelations";
+}
+
+/**
+ * @brief Reject an arbitrary msm_pc on an interior SKEW row.
+ *
+ * @details MSM_PC_CONTINUITY excludes q_skew from its active phase, and MSM_TRANSITION_PC only pins
+ * the last skew row of a segment. For an MSM with a skew round of >= 3 rows (msm_size >= 9), the
+ * interior skew rows are pinned by neither, so a prover could swap msm_pc on such a row between two
+ * segments; the point-table lookup multiset still balances but the skew corrections are applied to
+ * the wrong accumulators. MSM_PC_SKEW_CONTINUITY (q_skew * q_skew_shift) pins msm_pc across every
+ * pair of consecutive skew rows, detecting the tamper at the preceding skew row.
+ */
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsInteriorSkewMsmPcTamper)
+{
+    auto polynomials = build_valid_eccvm_large_msm_state(/*num_points=*/10);
+    RelationParameters<FF> params{};
+
+    auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
+
+    // Find an interior skew row: q_skew = 1 on the previous, current and next rows. Tampering
+    // msm_pc here is caught only by MSM_PC_SKEW_CONTINUITY (firing at the previous skew row), since
+    // neither MSM_PC_CONTINUITY (q_skew excluded) nor MSM_TRANSITION_PC (msm_transition_shift = 0)
+    // constrains it.
+    const size_t num_rows = polynomials.get_polynomial_size();
+    size_t tamper_row = 0;
+    for (size_t i = Flavor::TRACE_OFFSET + 1; i < num_rows - 1; i++) {
+        if (polynomials.msm_skew[i - 1] == FF(1) && polynomials.msm_skew[i] == FF(1) &&
+            polynomials.msm_skew[i + 1] == FF(1)) {
+            tamper_row = i;
+            break;
+        }
+    }
+    ASSERT_NE(tamper_row, 0) << "Should find an interior skew row (msm_size >= 9 gives >= 3 skew rows)";
+
+    polynomials.msm_pc.at(tamper_row) = polynomials.msm_pc[tamper_row] + FF(0xdead);
+    polynomials.set_shifted();
+
+    auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(failures.empty()) << "MSM relation should reject msm_pc tamper on an interior skew row";
+    EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::MSM_PC_SKEW_CONTINUITY))
+        << "MSM_PC_SKEW_CONTINUITY should be among the failing subrelations";
 }

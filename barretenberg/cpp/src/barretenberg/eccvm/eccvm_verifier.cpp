@@ -78,7 +78,7 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_ECCVM_LOG_N);
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
@@ -151,8 +151,6 @@ void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vecto
 
     // Initialize SmallSubgroupIPA structures
     SmallSubgroupIPACommitments<Commitment> small_ipa_commitments;
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
-    const auto labels = SmallIPA::evaluation_labels("Translation:");
 
     // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of
     // `translation_polynomials`, Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
@@ -184,23 +182,15 @@ void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vecto
     const FF small_ipa_evaluation_challenge =
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
 
-    // Compute {r, r * g, r, r}, where r = `small_ipa_evaluation_challenge`
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points =
-        SmallIPA::evaluation_points(small_ipa_evaluation_challenge);
+    // Build the five SmallSubgroupIPA verifier opening claims via the shared helper. The boundary slot pins A(1) = 0;
+    // soundness comes from the Shplonk batched opening rejecting any committed [A] that does not evaluate to 0 there.
+    const auto small_ipa_claims = make_small_ipa_verifier_opening_claims<Curve>(
+        small_ipa_commitments.as_array(), small_ipa_evaluation_challenge, "Translation:", transcript);
 
-    // Get the evaluations G(r), A(g * r), A(r), Q(r)
-    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-        small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);
-        opening_claims[idx] = { { evaluation_points[idx], small_ipa_evaluations[idx] },
-                                small_ipa_commitments.get_all()[idx] };
-    }
-
-    // OriginTag false positive: Small IPA evaluations need to satisfy an identity where they are mixing without
-    // challenges, it is safe because these evaluations are opened in Shplonk.
-    if constexpr (IsRecursive) {
-        for (auto& eval : small_ipa_evaluations) {
-            eval.clear_round_provenance();
-        }
+    std::ranges::copy(small_ipa_claims, opening_claims.begin());
+    std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> small_ipa_evaluations;
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_OPENING_CLAIMS; idx++) {
+        small_ipa_evaluations[idx] = small_ipa_claims[idx].opening_pair.evaluation;
     }
 
     // Check Grand Sum Identity at r
@@ -225,8 +215,8 @@ void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vecto
     Commitment batched_commitment = Commitment::batch_mul(translation_commitments, batching_challenges);
 
     // Place the claim to the array containing the SmallSubgroupIPA opening claims
-    opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
-                                                  batched_commitment };
+    opening_claims[NUM_SMALL_IPA_OPENING_CLAIMS] = { { evaluation_challenge_x, batched_translation_evaluation },
+                                                     batched_commitment };
 }
 
 // Compute the accumulated result from translation evaluations

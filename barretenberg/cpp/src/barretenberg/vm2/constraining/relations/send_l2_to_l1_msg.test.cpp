@@ -84,14 +84,15 @@ TEST(SendL2ToL1MsgConstrainingTest, LimitReached)
     // Negative test: sel_opcode_error must be on
     trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_OPCODE_ERROR),
-                              "OPCODE_ERROR");
+                              send_l2_to_l1_msg::get_subrelation_label(send_l2_to_l1_msg::SR_OPCODE_ERROR));
     trace.set(C::execution_sel_opcode_error, 0, 1);
 
     // Negative test: num l2 to l1 messages must be the same
     trace.set(C::execution_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
                                   trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
-                              "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
+                              send_l2_to_l1_msg::get_subrelation_label(
+                                  send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE));
 }
 
 TEST(SendL2ToL1MsgConstrainingTest, Discard)
@@ -120,7 +121,8 @@ TEST(SendL2ToL1MsgConstrainingTest, Discard)
     trace.set(C::execution_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
                                   trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
-                              "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
+                              send_l2_to_l1_msg::get_subrelation_label(
+                                  send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE));
 }
 
 TEST(SendL2ToL1MsgConstrainingTest, Interactions)
@@ -200,7 +202,7 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldErrorIfRecipientTooLarge)
     // Negative test: sel_opcode_error must be on
     trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_OPCODE_ERROR),
-                              "OPCODE_ERROR");
+                              send_l2_to_l1_msg::get_subrelation_label(send_l2_to_l1_msg::SR_OPCODE_ERROR));
 }
 
 TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldErrorIfStatic)
@@ -218,7 +220,7 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldErrorIfStatic)
     // Negative test: sel_opcode_error must be on
     trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_OPCODE_ERROR),
-                              "OPCODE_ERROR");
+                              send_l2_to_l1_msg::get_subrelation_label(send_l2_to_l1_msg::SR_OPCODE_ERROR));
 }
 
 TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNotWriteIfDiscard)
@@ -236,7 +238,7 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNotWriteIfDiscard)
     trace.set(C::execution_sel_write_l2_to_l1_msg, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_SEND_L2_TO_L1_MSG_CONDITION),
-        "SEND_L2_TO_L1_MSG_CONDITION");
+        send_l2_to_l1_msg::get_subrelation_label(send_l2_to_l1_msg::SR_SEND_L2_TO_L1_MSG_CONDITION));
 }
 
 TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNumL2ToL1MessagesIncrease)
@@ -255,7 +257,8 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNumL2ToL1MessagesIncrease)
     trace.set(C::execution_prev_num_l2_to_l1_messages, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
                                   trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
-                              "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
+                              send_l2_to_l1_msg::get_subrelation_label(
+                                  send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE));
 }
 
 } // namespace

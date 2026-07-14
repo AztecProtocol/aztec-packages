@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   collect-avm-circuit-inputs:
+    if: github.repository != 'AztecProtocol/aztec-packages-private'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -66,6 +67,7 @@ jobs:
 
   avm-check-circuit:
     needs: collect-avm-circuit-inputs
+    if: github.repository != 'AztecProtocol/aztec-packages-private'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

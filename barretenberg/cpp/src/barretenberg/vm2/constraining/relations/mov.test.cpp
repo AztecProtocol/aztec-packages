@@ -75,7 +75,8 @@ TEST(MovConstrainingTest, NegativeMovDifferentTag)
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_MOV_SAME_TAG), "MOV_SAME_TAG");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_MOV_SAME_TAG),
+                              execution::get_subrelation_label(execution::SR_MOV_SAME_TAG));
 }
 
 TEST(MovConstrainingTest, NegativeMovDifferentValue)
@@ -92,7 +93,8 @@ TEST(MovConstrainingTest, NegativeMovDifferentValue)
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_MOV_SAME_VALUE), "MOV_SAME_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_MOV_SAME_VALUE),
+                              execution::get_subrelation_label(execution::SR_MOV_SAME_VALUE));
 }
 
 } // namespace

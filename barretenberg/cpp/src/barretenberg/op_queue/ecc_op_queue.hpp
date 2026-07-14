@@ -84,15 +84,15 @@ class ECCOpQueue {
 
     /**
      * @brief Compute the fixed append offset for the final APPEND merge.
-     * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE rows.
-     * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
-     * matching the appender flavor's ecc_op_wire layout.
      */
-    size_t get_append_offset() const
+    size_t get_append_offset_for_prover() const { return get_append_offset(get_current_subtable_size()); }
+    static size_t get_append_offset_for_verifier() { return get_append_offset(bb::HIDING_KERNEL_ULTRA_OPS); }
+
+    // Shift size of the merge / row offset at which the fixed-append subtable's polynomial begins.
+    // See UltraEccOpsTable::compute_fixed_append_offset.
+    static constexpr size_t compute_fixed_append_offset(size_t append_offset, bool include_zk_prefix = true)
     {
-        constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots - zk_op_slots;
+        return UltraEccOpsTable::compute_fixed_append_offset(append_offset, include_zk_prefix);
     }
 
     void merge()
@@ -377,6 +377,19 @@ class ECCOpQueue {
     }
 
   private:
+    /**
+     * @brief Compute the fixed append offset for the final APPEND merge.
+     * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE rows.
+     * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
+     * matching the appender flavor's ecc_op_wire layout.
+     */
+    static size_t get_append_offset(size_t current_subtable_size)
+    {
+        constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        return OP_QUEUE_SIZE - current_subtable_size - reserved_op_slots - zk_op_slots;
+    }
+
     // === Hiding Op State ===
     // The hiding op exists in both the ECCVM and Ultra tables (same Px, Py values, opcode q_eq=q_reset=1) so the
     // translation check holds. It is set by exactly one of two entry points, depending on the proving flow:

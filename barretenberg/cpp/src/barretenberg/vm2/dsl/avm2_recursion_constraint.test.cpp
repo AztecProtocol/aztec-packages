@@ -53,7 +53,6 @@ class AvmRecursionConstraintTestingFunctions {
 
         AvmProver prover;
         auto proof = prover.prove(std::move(trace));
-        proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, FF::zero()); // Pad proof
 
         const bool verified = prover.verify(proof, public_inputs);
         EXPECT_TRUE(verified) << "native proof verification failed";
@@ -183,7 +182,7 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
             stdlib_public_inputs_flat.emplace_back(field_t<Builder>::from_witness(&outer_builder, public_input));
         }
         stdlib::Proof<Builder> stdlib_proof;
-        stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+        stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS);
         for (const auto proof_element : proof) {
             stdlib_proof.emplace_back(field_t<Builder>::from_witness(&outer_builder, proof_element));
         }
@@ -217,7 +216,7 @@ TEST_F(AvmRecursionInnerCircuitTests, DISABLED_GateCountAndVKCheck)
         stdlib_public_inputs_flat.emplace_back(field_t<Builder>::from_witness(&outer_builder, public_input));
     }
     stdlib::Proof<Builder> stdlib_proof;
-    stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+    stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS);
     for (const auto proof_element : proof) {
         stdlib_proof.emplace_back(field_t<Builder>::from_witness(&outer_builder, proof_element));
     }
@@ -296,7 +295,8 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
             create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
 
         auto mega_vk_tampered = inner_prover_output.mega_vk;
-        mega_vk_tampered->q_m = mega_vk_tampered->q_m + MegaAvmFlavor::Commitment::one(); // Tamper with q_m commitment
+        mega_vk_tampered->q_m() =
+            mega_vk_tampered->q_m() + MegaAvmFlavor::Commitment::one(); // Tamper with q_m commitment
 
         TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
         TwoLayerAvmRecursiveVerifierOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(

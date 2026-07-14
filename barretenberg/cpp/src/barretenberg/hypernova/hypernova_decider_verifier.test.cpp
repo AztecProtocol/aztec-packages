@@ -3,6 +3,7 @@
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/hypernova/test_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
 #include "gtest/gtest.h"
@@ -41,6 +42,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
     // Recursive Verifier
     using RecursiveHypernovaVerifier = HypernovaFoldingVerifier<RecursiveFlavor>;
     using RecursiveVerifierInstance = RecursiveHypernovaVerifier::VerifierInstance;
+    using RecursiveVerifierAccumulator = RecursiveHypernovaVerifier::Accumulator;
 
     // Native Verifier
     using NativeHypernovaVerifier = HypernovaFoldingVerifier<NativeFlavor>;
@@ -51,7 +53,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
     /**
      * @brief Build the expected transcript manifest for HyperNova decider
      * @details Manifest tracking is enabled after folding, so only decider rounds are tracked.
-     * LAST_FOLDING_ROUND = 2 * VIRTUAL_LOG_N + 5. Since folding ends with a challenge
+     * LAST_FOLDING_ROUND = 2 * VIRTUAL_LOG_N + 4. Since folding ends with a challenge
      * (claim_batching_challenge), and the decider starts with a challenge (rho), they share a round:
      * - Round LAST_FOLDING_ROUND: rho challenge
      * - Round LAST_FOLDING_ROUND+1: Gemini FOLD commitments -> Gemini:r challenge
@@ -65,9 +67,9 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
         constexpr size_t NUM_GEMINI_FOLDS = NativeFlavor::VIRTUAL_LOG_N - 1;
         constexpr size_t NUM_GEMINI_EVALS = NativeFlavor::VIRTUAL_LOG_N;
-        // Folding uses 3 Oink rounds + VIRTUAL_LOG_N sumcheck + 1 batching + 1 MLB data + VIRTUAL_LOG_N MLB sumcheck.
+        // Folding uses 3 Oink rounds + VIRTUAL_LOG_N sumcheck + VIRTUAL_LOG_N MLB sumcheck + 1 batching.
         // The last round ends with claim_batching_challenge. rho shares the same round.
-        constexpr size_t LAST_FOLDING_ROUND = (2 * NativeFlavor::VIRTUAL_LOG_N) + 5;
+        constexpr size_t LAST_FOLDING_ROUND = (2 * NativeFlavor::VIRTUAL_LOG_N) + 4;
 
         // rho challenge (same round as folding's claim_batching_challenge)
         manifest.add_challenge(LAST_FOLDING_ROUND, "rho");
@@ -195,7 +197,9 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         return recursive_instance;
     }
 
-    static void tamper_with_accumulator(NativeProverAccumulator& accumulator, const TamperingMode& mode)
+    static void tamper_with_accumulator(NativeProverAccumulator& accumulator,
+                                        const TamperingMode& mode,
+                                        bool is_folded_accumulator)
     {
         switch (mode) {
         case TamperingMode::None:
@@ -204,13 +208,16 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         case TamperingMode::Accumulator:
             // Tamper with the accumulator by changing the challenge, this should invalidate the decider proof but not
             // the folding
-            accumulator.challenge[0] = NativeFF::random_element();
+            if (!is_folded_accumulator) {
+                accumulator.challenge[0] = NativeFF::random_element();
+            }
             break;
         case TamperingMode::FoldedAccumulator:
-            // Tamper the folded accumulator by changing one commitment, this should invalidate the PCS but not the
+            // Tamper the folded accumulator by changing one polynomial, this should invalidate the PCS but not the
             // folding.
-            accumulator.non_shifted_commitment =
-                accumulator.non_shifted_commitment + NativeFlavor::Curve::AffineElement::one();
+            if (is_folded_accumulator) {
+                accumulator.non_shifted_polynomial.at(0) = HypernovaFoldingProver::FF::random_element();
+            }
             break;
         }
     };
@@ -224,10 +231,10 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
             break;
         case TamperingMode::Instance: {
             // Tamper with w_l at the first row where q_arith is non-zero (an active arithmetic gate).
-            auto& q_arith = instance->polynomials.q_arith;
+            auto& q_arith = instance->polynomials.q_arith();
             for (size_t i = ProverInstance::TRACE_OFFSET; i < q_arith.end_index(); i++) {
                 if (!q_arith[i].is_zero()) {
-                    instance->polynomials.w_l.at(i) = NativeFF::random_element();
+                    instance->polynomials.w_l().at(i) = NativeFF::random_element();
                     break;
                 }
             }
@@ -243,7 +250,8 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
         HypernovaFoldingProver prover(transcript);
         auto accumulator = prover.instance_to_accumulator(instance);
-        tamper_with_accumulator(accumulator, mode);
+        tamper_with_accumulator(accumulator, mode, false);
+        auto verifier_accumulator = accumulator.to_verifier_claim_for_testing();
 
         // Folding
         auto incoming_instance = generate_new_instance(5);
@@ -256,7 +264,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         auto prover_transcript = std::make_shared<NativeTranscript>();
         HypernovaFoldingProver folding_prover(prover_transcript);
         auto [folding_proof, folded_accumulator] = folding_prover.fold(std::move(accumulator), incoming_instance);
-        tamper_with_accumulator(folded_accumulator, mode);
+        tamper_with_accumulator(folded_accumulator, mode, true);
 
         // Construct Decider proof
         HypernovaDeciderProver decider_prover(prover_transcript);
@@ -266,7 +274,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         auto native_transcript = std::make_shared<NativeTranscript>();
         NativeHypernovaVerifier native_verifier(native_transcript);
         auto [first_sumcheck_native, second_sumcheck_native, folded_verifier_accumulator_native] =
-            native_verifier.verify_folding_proof(incoming_verifier_instance, folding_proof);
+            native_verifier.verify_folding_proof(incoming_verifier_instance, verifier_accumulator, folding_proof);
 
         // Enable manifest tracking before decider verification
         native_transcript->enable_manifest();
@@ -280,11 +288,12 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         Builder builder;
 
         auto stdlib_incoming_instance = create_recursive_verifier_instance(&builder, incoming_verifier_instance);
+        auto stdlib_accumulator = create_recursive_verifier_accumulator(&builder, verifier_accumulator);
         auto recursive_verifier_transcript = std::make_shared<RecursiveTranscript>();
         RecursiveHypernovaVerifier recursive_verifier(recursive_verifier_transcript);
         RecursiveProof proof(builder, folding_proof);
         auto [first_sumcheck_recursive, second_sumcheck_recursive, folded_verifier_accumulator] =
-            recursive_verifier.verify_folding_proof(stdlib_incoming_instance, proof);
+            recursive_verifier.verify_folding_proof(stdlib_incoming_instance, stdlib_accumulator, proof);
 
         // Recursively verify the Decider proof
         RecursiveProof stdlib_proof(builder, decider_proof);
@@ -295,17 +304,20 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         // Natively verify pairing points
         auto recursive_verified = recursive_pairing_points.check();
 
-        // The circuit is valid if and only if we have not tampered or we have tampered the folded accumulator
+        // The circuit is valid if and only if we have not tampered the instance nor the accumulator (tampering the
+        // instance makes the circuit fail because the first sumcheck fails, tampering the accumulator makes the circuit
+        // fail because the second sumcheck fails)
         EXPECT_EQ(bb::CircuitChecker::check(builder),
-                  mode == TamperingMode::None || mode == TamperingMode::FoldedAccumulator);
-        // Pairing point verification should pass as long as we have not tampered the folded accumulator or the
-        // accumulator
-        EXPECT_EQ(recursive_verified, mode != TamperingMode::FoldedAccumulator && mode != TamperingMode::Accumulator);
+                  mode != TamperingMode::Instance && mode != TamperingMode::Accumulator);
+        // Pairing point verification should pass as long as we have not tampered the folded accumulator (if we tampered
+        // the accumulator the second sumcheck in the folding fails but the folded accumulator is a valid accumulator -
+        // it simply doesn't represent a valid folding of the accumulator and the instance)
+        EXPECT_EQ(recursive_verified, mode != TamperingMode::FoldedAccumulator);
         EXPECT_EQ(recursive_verified, native_verified);
         // First sumcheck fails if the instance has been tampered with
         EXPECT_EQ(first_sumcheck_recursive, mode != TamperingMode::Instance);
         EXPECT_EQ(first_sumcheck_recursive, first_sumcheck_native);
-        // Second sumcheck fails if the accumulator has been tampered with
+        // Second sumcheck fails if we tampered with the accumulator
         EXPECT_EQ(second_sumcheck_recursive, mode != TamperingMode::Accumulator);
         EXPECT_EQ(second_sumcheck_recursive, second_sumcheck_native);
 
