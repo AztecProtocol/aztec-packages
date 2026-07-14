@@ -2,6 +2,7 @@
 draft: true
 title: Complete examples
 description: Real-world keystore configuration examples for common deployment scenarios.
+displayed_sidebar: operatorsSidebar
 ---
 
 ## Overview

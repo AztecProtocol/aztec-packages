@@ -25,8 +25,8 @@ Once sufficient attestations are collected (two-thirds of the committee plus one
 
 ### Minimum Hardware Requirements
 
-- 8 core / 16 vCPU (released in 2015 or later)
-- 16 GB RAM
+- 8 core / 16 vCPU (Skylake or newer microarchitecture)
+- 8 GB RAM
 - 1 TB NVMe SSD
 - 25 Mbps network connection
 
@@ -83,10 +83,10 @@ Separate private key(s) for submitting BLS-signed messages to L1. The publisher 
 - **Format**: Array of Ethereum private keys
 - **Default**: Uses attester key if not specified
 - **Purpose**: Posts signed messages to L1 and pays for gas (doesn't participate in signing)
-- **Rule of thumb**: Ensure every publisher account maintains at least 0.1 ETH per attester account it serves. This balance allows the selected publisher to successfully post transactions when chosen.
+- **Funding**: around 0.01 ETH per attester served is a comfortable opening top-up at current L1 prices. Use the [funding calculator](../solo-sequencer/fund-accounts#fund-the-publisher) to scan the real network with your RPC and size against your own gas-price assumptions.
 
 :::tip
-If you're using the attester ETH key for publishing (no separate publisher keys), you can omit the `publisher` field entirely from your keystore, but you will still need to fund the attester account according to the rule of thumb above.
+If you're using the attester ETH key for publishing (no separate publisher keys), you can omit the `publisher` field entirely from your keystore, but you will still need to fund the attester account so it can pay L1 gas.
 :::
 
 #### feeRecipient
@@ -312,18 +312,15 @@ jq -r '.[0].attester' ~/.aztec/keystore/keyN_staker_output.json
 jq -r '.validators[0].publisher[0]' aztec-sequencer/keys/keystore.json
 ```
 
-**Funding requirements:**
-- **Rule of thumb**: Maintain at least **0.1 ETH per attester account** in each publisher account
-- Publisher accounts submit blocks to L1 and pay for gas fees
-- The system does not retry with another publisher if a transaction fails due to insufficient funds
+The publisher account pays L1 gas each time it submits a checkpoint. At current mainnet gas levels the cost is small (around 0.03 ETH per attester per year), but balance decays continuously and the system does not retry with a different publisher if a transaction fails due to insufficient funds.
 
-**Examples:**
-- 1 attester with 1 publisher (or using attester as publisher) → Maintain ≥ 0.1 ETH
-- 3 attesters with 1 publisher → Maintain ≥ 0.3 ETH in that publisher account
-- 3 attesters with 2 publishers → Maintain ≥ 0.15 ETH in each publisher account (0.3 ETH total)
+**Sizing the top-up:**
+- 1 attester → 0.01 ETH gives several months of runway
+- 10 attesters sharing one publisher → roughly 0.1 ETH for a similar window
+- For exact runway estimates, use the [funding calculator](../solo-sequencer/fund-accounts#fund-the-publisher) with your L1 RPC to scan the last 30 days of network activity
 
 :::tip
-Set up monitoring or alerts to notify you when the publisher balance falls below the recommended threshold to prevent failed block publications.
+Set a refill threshold and an alert on the publisher balance so you can top up before it dries up at the worst-case gas price you expect.
 :::
 
 ### Step 4: Configure Environment Variables
@@ -410,6 +407,10 @@ services:
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --node
+#if(testnet)
+#else
+      --archiver
+#endif
       --sequencer
       --network #release_network
     networks:
@@ -428,7 +429,7 @@ If you need to access admin endpoints, use `docker exec`:
 ```bash
 docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
 ```
 :::
 
@@ -452,7 +453,7 @@ Check the current sync status (this may take a few minutes):
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
--d '{"jsonrpc":"2.0","method":"aztec_getChainTips","params":[],"id":67}' \
+-d '{"jsonrpc":"2.0","method":"node_getL2Tips","params":[],"id":67}' \
 http://localhost:8080 | jq -r ".result.proven.number"
 ```
 

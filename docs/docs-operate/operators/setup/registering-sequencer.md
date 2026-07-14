@@ -18,7 +18,7 @@ Before proceeding, ensure you have completed the [Sequencer Setup Guide](./seque
 
 - Completed sequencer node setup with keystore generated
 - Access to your **public keystore** file (`keyN_staker_output.json`)
-- Sufficient **Aztec Token Position (ATP)** or **Aztec Token Vault (ATV)** balance for staking
+- Sufficient ATP/ATV tokens for staking
 - Wallet with ETH for gas fees
 - Web browser for accessing the staking dashboard
 
@@ -124,7 +124,7 @@ Follow these steps to register your sequencer(s) through the staking dashboard:
 
 1. **Navigate to the staking dashboard** at https://stake.aztec.network
 
-2. **Connect your wallet** with the account that holds your Aztec Token Position (ATP) or Aztec Token Vault (ATV) balance
+2. **Connect your wallet** with the account that holds your ATP/ATV tokens
 
 3. **Click "Stake"**
 
@@ -136,7 +136,7 @@ Follow these steps to register your sequencer(s) through the staking dashboard:
 
 5. **Click through "Start Registration"** after reviewing the requirements
 
-6. **Select the ATP or ATV balance you want to stake**
+6. **Select the ATP/ATV tokens you want to stake**
 
 7. **Upload your keystore JSON file** (either single or combined multi-sequencer file)
 

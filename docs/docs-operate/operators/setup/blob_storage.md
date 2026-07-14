@@ -3,6 +3,7 @@ id: blob_storage
 sidebar_position: 4
 title: Blob retrieval
 description: Learn how Aztec nodes retrieve blob data for L1 transactions.
+displayed_sidebar: operatorsSidebar
 ---
 
 ## Overview

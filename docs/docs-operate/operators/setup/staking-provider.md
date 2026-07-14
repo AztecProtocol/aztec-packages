@@ -39,7 +39,11 @@ You register with the StakingRegistry contract and add sequencer identities (key
 
 ### Reward Distribution
 
-When a delegator stakes to your provider, a Split contract is automatically created to manage reward distribution. You configure your sequencer to use the Split contract address as the coinbase (see [After Delegation: Configure Sequencer Coinbase](#after-delegation-configure-sequencer-coinbase)).
+When a delegator stakes to your provider, a Split contract is automatically created to manage reward distribution. In the default flow, you configure your sequencer to use the Split contract address as the coinbase (see [After Delegation: Configure Sequencer Coinbase](#after-delegation-configure-sequencer-coinbase)).
+
+:::info Alternative: EOA coinbase with the payout script
+The Split flow is the default, not the only option. A provider can set the coinbase to an address they control and run the [payout script](https://github.com/AztecProtocol/aztec-staking-payout) to calculate and distribute delegator rewards at a published commission and cadence. See [the configuration step](/operate/operators/provider/configure-environment#alternative-eoa-coinbase-with-the-payout-script) and the [forum announcement](https://forum.aztec.network/t/operator-commission-adjustments/8588).
+:::
 
 Rewards are distributed according to your agreed commission rate:
 - **Provider commission**: Your `providerRewardsRecipient` address receives your commission rate (e.g., 5% for 500 basis points)
