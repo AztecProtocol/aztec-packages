@@ -175,6 +175,10 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         const size_t multivariate_d = UseRowDisablingPolynomial<Flavor> ? 4 : 2;
         const size_t multivariate_n(1 << multivariate_d);
 
+        // Grumpkin flavors run at a fixed number of rounds (no padding); their Libra concatenation only fits
+        // CONST_ECCVM_LOG_N * LIBRA_UNIVARIATES_LENGTH + 1 coefficients in the SmallSubgroupIPA subgroup.
+        const size_t virtual_log_n = IsGrumpkinFlavor<Flavor> ? CONST_ECCVM_LOG_N : CONST_PROOF_SIZE_LOG_N;
+
         // Randomly construct the prover polynomials that are input to Sumcheck.
         // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
         std::vector<Polynomial<FF>> random_polynomials(NUM_POLYNOMIALS);
@@ -188,16 +192,16 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         auto gate_challenges =
-            transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_PROOF_SIZE_LOG_N);
+            transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         SumcheckProver<Flavor> sumcheck(
-            multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, CONST_PROOF_SIZE_LOG_N);
+            multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, virtual_log_n);
 
         SumcheckOutput<Flavor> output;
 
         if constexpr (Flavor::HasZK) {
             // ZKData needs univariates for ALL rounds (real + virtual) since libra covers the full range
-            ZKData zk_sumcheck_data = ZKData(CONST_PROOF_SIZE_LOG_N, transcript);
+            ZKData zk_sumcheck_data = ZKData(virtual_log_n, transcript);
             output = sumcheck.prove(zk_sumcheck_data);
         } else {
             output = sumcheck.prove();

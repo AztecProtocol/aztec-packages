@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -206,6 +207,9 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     void compute_concatenated_libra_polynomial()
     {
+        BB_ASSERT_LT(log_circuit_size * LIBRA_UNIVARIATES_LENGTH + 1,
+                     SUBGROUP_SIZE,
+                     "Concatenated Libra polynomial does not fit in the SmallSubgroupIPA subgroup");
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
         coeffs_lagrange_subgroup[0] = constant_term;
 

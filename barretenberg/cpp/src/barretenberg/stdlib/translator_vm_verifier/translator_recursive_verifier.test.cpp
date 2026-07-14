@@ -77,7 +77,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         op_queue->construct_zk_columns();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         add_random_ops(op_queue, InnerBuilder::NUM_RANDOM_OPS_END);
-        op_queue->merge_fixed_append(op_queue->get_append_offset());
+        op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
         return InnerBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }

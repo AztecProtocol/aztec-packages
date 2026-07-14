@@ -12,6 +12,7 @@ pub struct GlobalVariables {
     pub block_number: u32,
     pub slot_number: Field,
     pub timestamp: u64,
+    // Remember to call `EthAddress::validate()` to ensure an EthAddress fits within 20 bytes.
     pub coinbase: EthAddress,
     pub fee_recipient: AztecAddress,
     pub gas_fees: GasFees,

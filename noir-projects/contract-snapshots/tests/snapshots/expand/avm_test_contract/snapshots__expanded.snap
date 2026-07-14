@@ -262,6 +262,10 @@ pub contract AvmTest {
     #[contract_library_method]
     fn variable_base_msm(scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> EmbeddedCurvePoint;
 
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call variable_base_msm_with_point. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn variable_base_msm_with_point(px: Field, py: Field, scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> EmbeddedCurvePoint;
+
     #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call pedersen_commit. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
     fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint;
@@ -816,10 +820,47 @@ pub contract AvmTest {
             aztec::context::calls::PublicCall::<13, 1, ()>::new(self.target_contract, selector, "new_note_hash", serialized_params)
         }
 
-        pub fn nullifier_collision(self, nullifier: Field) -> aztec::context::calls::PublicCall<19, 1, ()> {
-            let serialized_params: [Field; 1] = nullifier.serialize();
-            let selector: FunctionSelector = FunctionSelector::from_field(2417179850_Field);
-            aztec::context::calls::PublicCall::<19, 1, ()>::new(self.target_contract, selector, "nullifier_collision", serialized_params)
+        pub fn variable_base_msm_with_point(self, px: Field, py: Field, scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> aztec::context::calls::PublicCall<28, 6, EmbeddedCurvePoint> {
+            let mut serialized_params: [Field; 6] = [0_Field; 6];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 1] = px.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = py.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar_lo.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar_hi.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar2_lo.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar2_hi.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: FunctionSelector = FunctionSelector::from_field(301342598_Field);
+            aztec::context::calls::PublicCall::<28, 6, EmbeddedCurvePoint>::new(self.target_contract, selector, "variable_base_msm_with_point", serialized_params)
         }
 
         pub fn get_l2_gas_left(self) -> aztec::context::calls::PublicCall<15, 0, u32> {
@@ -828,23 +869,10 @@ pub contract AvmTest {
             aztec::context::calls::PublicCall::<15, 0, u32>::new(self.target_contract, selector, "get_l2_gas_left", serialized_params)
         }
 
-        pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> aztec::context::calls::PublicCall<19, 2, bool> {
-            let mut serialized_params: [Field; 2] = [0_Field; 2];
-            let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 1] = msg_hash.serialize();
-            let serialized_member_len: u32 = <Field as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = msg_leaf_index.serialize();
-            let serialized_member_len: u32 = <Field as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
-            aztec::context::calls::PublicCall::<19, 2, bool>::new(self.target_contract, selector, "l1_to_l2_msg_exists", serialized_params)
+        pub fn nullifier_collision(self, nullifier: Field) -> aztec::context::calls::PublicCall<19, 1, ()> {
+            let serialized_params: [Field; 1] = nullifier.serialize();
+            let selector: FunctionSelector = FunctionSelector::from_field(2417179850_Field);
+            aztec::context::calls::PublicCall::<19, 1, ()>::new(self.target_contract, selector, "nullifier_collision", serialized_params)
         }
 
         pub fn add_storage_map(self, to: AztecAddress, amount: u32) -> aztec::context::calls::PublicCall<15, 2, Field> {
@@ -866,65 +894,23 @@ pub contract AvmTest {
             aztec::context::calls::PublicCall::<15, 2, Field>::new(self.target_contract, selector, "add_storage_map", serialized_params)
         }
 
-        pub fn bulk_testing(self, args_field: [Field; 10], args_u8: [u8; 10], get_instance_for_address: AztecAddress, expected_deployer: AztecAddress, expected_class_id: ContractClassId, expected_initialization_hash: Field, expected_immutables_hash: Field, schnorr_inputs: [Field; 7], skip_strictly_limited_side_effects: bool) -> aztec::context::calls::PublicCall<12, 33, ()> {
-            let mut serialized_params: [Field; 33] = [0_Field; 33];
+        pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> aztec::context::calls::PublicCall<19, 2, bool> {
+            let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 10 * 1] = args_field.serialize();
-            let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 10 * 1] = args_u8.serialize();
-            let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = get_instance_for_address.serialize();
-            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_deployer.serialize();
-            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_class_id.serialize();
-            let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
+            let serialized_member: [Field; 1] = msg_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
                 serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
+            let serialized_member: [Field; 1] = msg_leaf_index.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
                 serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
-            let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
-            let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
-            let serialized_member_len: u32 = <bool as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
-            aztec::context::calls::PublicCall::<12, 33, ()>::new(self.target_contract, selector, "bulk_testing", serialized_params)
+            let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
+            aztec::context::calls::PublicCall::<19, 2, bool>::new(self.target_contract, selector, "l1_to_l2_msg_exists", serialized_params)
         }
 
         pub fn variable_base_msm(self, scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> aztec::context::calls::PublicCall<17, 4, EmbeddedCurvePoint> {
@@ -1130,6 +1116,67 @@ pub contract AvmTest {
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1362946309_Field);
             aztec::context::calls::PublicCall::<25, 2, Field>::new(self.target_contract, selector, "nested_static_call_to_add", serialized_params)
+        }
+
+        pub fn bulk_testing(self, args_field: [Field; 10], args_u8: [u8; 10], get_instance_for_address: AztecAddress, expected_deployer: AztecAddress, expected_class_id: ContractClassId, expected_initialization_hash: Field, expected_immutables_hash: Field, schnorr_inputs: [Field; 7], skip_strictly_limited_side_effects: bool) -> aztec::context::calls::PublicCall<12, 33, ()> {
+            let mut serialized_params: [Field; 33] = [0_Field; 33];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 10 * 1] = args_field.serialize();
+            let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 10 * 1] = args_u8.serialize();
+            let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = get_instance_for_address.serialize();
+            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_deployer.serialize();
+            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_class_id.serialize();
+            let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
+            let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
+            let serialized_member_len: u32 = <bool as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
+            aztec::context::calls::PublicCall::<12, 33, ()>::new(self.target_contract, selector, "bulk_testing", serialized_params)
         }
 
         pub fn to_le_bits(self, input: Field) -> aztec::context::calls::PublicCall<10, 1, [bool; 16]> {
@@ -1816,12 +1863,49 @@ pub contract AvmTest {
             }
         }
 
-        pub fn nullifier_collision(self, nullifier: Field) {
-            let serialized_params: [Field; 1] = nullifier.serialize();
-            let selector: FunctionSelector = FunctionSelector::from_field(2417179850_Field);
+        pub fn variable_base_msm_with_point(self, px: Field, py: Field, scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> EmbeddedCurvePoint {
+            let mut serialized_params: [Field; 6] = [0_Field; 6];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 1] = px.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = py.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar_lo.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar_hi.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar2_lo.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar2_hi.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: FunctionSelector = FunctionSelector::from_field(301342598_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
-                aztec::context::calls::PublicCall::<19, 1, ()>::new(self.address, selector, "nullifier_collision", serialized_params).call(self.context)
+                aztec::context::calls::PublicCall::<28, 6, EmbeddedCurvePoint>::new(self.address, selector, "variable_base_msm_with_point", serialized_params).call(self.context)
             }
         }
 
@@ -1834,25 +1918,12 @@ pub contract AvmTest {
             }
         }
 
-        pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
-            let mut serialized_params: [Field; 2] = [0_Field; 2];
-            let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 1] = msg_hash.serialize();
-            let serialized_member_len: u32 = <Field as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = msg_leaf_index.serialize();
-            let serialized_member_len: u32 = <Field as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
+        pub fn nullifier_collision(self, nullifier: Field) {
+            let serialized_params: [Field; 1] = nullifier.serialize();
+            let selector: FunctionSelector = FunctionSelector::from_field(2417179850_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
-                aztec::context::calls::PublicCall::<19, 2, bool>::new(self.address, selector, "l1_to_l2_msg_exists", serialized_params).call(self.context)
+                aztec::context::calls::PublicCall::<19, 1, ()>::new(self.address, selector, "nullifier_collision", serialized_params).call(self.context)
             }
         }
 
@@ -1878,67 +1949,25 @@ pub contract AvmTest {
             }
         }
 
-        pub fn bulk_testing(self, args_field: [Field; 10], args_u8: [u8; 10], get_instance_for_address: AztecAddress, expected_deployer: AztecAddress, expected_class_id: ContractClassId, expected_initialization_hash: Field, expected_immutables_hash: Field, schnorr_inputs: [Field; 7], skip_strictly_limited_side_effects: bool) {
-            let mut serialized_params: [Field; 33] = [0_Field; 33];
+        pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
+            let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 10 * 1] = args_field.serialize();
-            let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 10 * 1] = args_u8.serialize();
-            let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = get_instance_for_address.serialize();
-            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_deployer.serialize();
-            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_class_id.serialize();
-            let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
+            let serialized_member: [Field; 1] = msg_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
                 serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
+            let serialized_member: [Field; 1] = msg_leaf_index.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
                 serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
-            let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
-            let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
-            let serialized_member_len: u32 = <bool as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
+            let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
-                aztec::context::calls::PublicCall::<12, 33, ()>::new(self.address, selector, "bulk_testing", serialized_params).call(self.context)
+                aztec::context::calls::PublicCall::<19, 2, bool>::new(self.address, selector, "l1_to_l2_msg_exists", serialized_params).call(self.context)
             }
         }
 
@@ -2186,6 +2215,70 @@ pub contract AvmTest {
             // Safety: comment added by `nargo expand`
             unsafe {
                 aztec::context::calls::PublicCall::<25, 2, Field>::new(self.address, selector, "nested_static_call_to_add", serialized_params).call(self.context)
+            }
+        }
+
+        pub fn bulk_testing(self, args_field: [Field; 10], args_u8: [u8; 10], get_instance_for_address: AztecAddress, expected_deployer: AztecAddress, expected_class_id: ContractClassId, expected_initialization_hash: Field, expected_immutables_hash: Field, schnorr_inputs: [Field; 7], skip_strictly_limited_side_effects: bool) {
+            let mut serialized_params: [Field; 33] = [0_Field; 33];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 10 * 1] = args_field.serialize();
+            let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 10 * 1] = args_u8.serialize();
+            let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = get_instance_for_address.serialize();
+            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_deployer.serialize();
+            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_class_id.serialize();
+            let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
+            let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
+            let serialized_member_len: u32 = <bool as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<12, 33, ()>::new(self.address, selector, "bulk_testing", serialized_params).call(self.context)
             }
         }
 
@@ -3021,10 +3114,47 @@ pub contract AvmTest {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn nullifier_collision(self, nullifier: Field) {
-            let serialized_params: [Field; 1] = nullifier.serialize();
-            let selector: FunctionSelector = FunctionSelector::from_field(2417179850_Field);
-            let calldata: [Field; 1 + 1] = [selector.to_field()].concat(serialized_params);
+        pub fn variable_base_msm_with_point(self, px: Field, py: Field, scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) {
+            let mut serialized_params: [Field; 6] = [0_Field; 6];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 1] = px.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = py.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar_lo.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar_hi.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar2_lo.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = scalar2_hi.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: FunctionSelector = FunctionSelector::from_field(301342598_Field);
+            let calldata: [Field; 1 + 6] = [selector.to_field()].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
@@ -3039,23 +3169,10 @@ pub contract AvmTest {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) {
-            let mut serialized_params: [Field; 2] = [0_Field; 2];
-            let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 1] = msg_hash.serialize();
-            let serialized_member_len: u32 = <Field as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = msg_leaf_index.serialize();
-            let serialized_member_len: u32 = <Field as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
-            let calldata: [Field; 1 + 2] = [selector.to_field()].concat(serialized_params);
+        pub fn nullifier_collision(self, nullifier: Field) {
+            let serialized_params: [Field; 1] = nullifier.serialize();
+            let selector: FunctionSelector = FunctionSelector::from_field(2417179850_Field);
+            let calldata: [Field; 1 + 1] = [selector.to_field()].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
@@ -3083,65 +3200,23 @@ pub contract AvmTest {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn bulk_testing(self, args_field: [Field; 10], args_u8: [u8; 10], get_instance_for_address: AztecAddress, expected_deployer: AztecAddress, expected_class_id: ContractClassId, expected_initialization_hash: Field, expected_immutables_hash: Field, schnorr_inputs: [Field; 7], skip_strictly_limited_side_effects: bool) {
-            let mut serialized_params: [Field; 33] = [0_Field; 33];
+        pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) {
+            let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 10 * 1] = args_field.serialize();
-            let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 10 * 1] = args_u8.serialize();
-            let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = get_instance_for_address.serialize();
-            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_deployer.serialize();
-            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_class_id.serialize();
-            let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
+            let serialized_member: [Field; 1] = msg_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
                 serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
+            let serialized_member: [Field; 1] = msg_leaf_index.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
                 serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
-            let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
-            let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
-            let serialized_member_len: u32 = <bool as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
-            let calldata: [Field; 1 + 33] = [selector.to_field()].concat(serialized_params);
+            let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
+            let calldata: [Field; 1 + 2] = [selector.to_field()].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
@@ -3389,6 +3464,70 @@ pub contract AvmTest {
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1362946309_Field);
             let calldata: [Field; 1 + 2] = [selector.to_field()].concat(serialized_params);
+            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
+        }
+
+        pub fn bulk_testing(self, args_field: [Field; 10], args_u8: [u8; 10], get_instance_for_address: AztecAddress, expected_deployer: AztecAddress, expected_class_id: ContractClassId, expected_initialization_hash: Field, expected_immutables_hash: Field, schnorr_inputs: [Field; 7], skip_strictly_limited_side_effects: bool) {
+            let mut serialized_params: [Field; 33] = [0_Field; 33];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 10 * 1] = args_field.serialize();
+            let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 10 * 1] = args_u8.serialize();
+            let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = get_instance_for_address.serialize();
+            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_deployer.serialize();
+            let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_class_id.serialize();
+            let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
+            let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
+            let serialized_member_len: u32 = <bool as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
+            let calldata: [Field; 1 + 33] = [selector.to_field()].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
@@ -4259,6 +4398,18 @@ pub contract AvmTest {
             let return_value: [Field; 2] = __aztec_nr_internals__variable_base_msm(arg0, arg1, arg2, arg3).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
+        if selector == 301342598_Field {
+            let input_calldata: [Field; 6] = aztec::oracle::avm::calldata_copy(1_u32, ((((<Field as Serialize>::N + <Field as Serialize>::N) + <Field as Serialize>::N) + <Field as Serialize>::N) + <Field as Serialize>::N) + <Field as Serialize>::N);
+            let mut reader: aztec::protocol::utils::reader::Reader<6> = aztec::protocol::utils::reader::Reader::<6>::new(input_calldata);
+            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg2: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg3: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg4: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg5: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let return_value: [Field; 2] = __aztec_nr_internals__variable_base_msm_with_point(arg0, arg1, arg2, arg3, arg4, arg5).serialize();
+            aztec::oracle::avm::avm_return(return_value.as_vector());
+        };
         if selector == 2484465428_Field {
             let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             let return_value: [Field; 2] = __aztec_nr_internals__pedersen_commit(arg0, arg1).serialize();
@@ -4983,6 +5134,15 @@ pub contract AvmTest {
         pub scalar2_hi: Field,
     }
 
+    pub struct variable_base_msm_with_point_parameters {
+        pub px: Field,
+        pub py: Field,
+        pub scalar_lo: Field,
+        pub scalar_hi: Field,
+        pub scalar2_lo: Field,
+        pub scalar2_hi: Field,
+    }
+
     #[abi(functions)]
     pub struct add_args_return_abi {
         parameters: add_args_return_parameters,
@@ -5459,6 +5619,12 @@ pub contract AvmTest {
     #[abi(functions)]
     pub struct variable_base_msm_abi {
         parameters: variable_base_msm_parameters,
+        return_type: EmbeddedCurvePoint,
+    }
+
+    #[abi(functions)]
+    pub struct variable_base_msm_with_point_abi {
+        parameters: variable_base_msm_with_point_parameters,
         return_type: EmbeddedCurvePoint,
     }
 
@@ -6252,6 +6418,14 @@ pub contract AvmTest {
         {
             let g: EmbeddedCurvePoint = EmbeddedCurvePoint { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y};
             multi_scalar_mul([g, g], [Scalar { lo: scalar_lo, hi: scalar_hi}, Scalar { lo: scalar2_lo, hi: scalar2_hi}])
+        }
+    }
+
+    unconstrained fn __aztec_nr_internals__variable_base_msm_with_point(px: Field, py: Field, scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> pub EmbeddedCurvePoint {
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<PublicContext>, CallSelf<PublicContext>, CallSelfStatic<PublicContext>, CallInternal<PublicContext>> = __aztec_nr_internals__create_public_self::<6>();
+        {
+            let p: EmbeddedCurvePoint = EmbeddedCurvePoint { x: px, y: py};
+            multi_scalar_mul([p, p], [Scalar { lo: scalar_lo, hi: scalar_hi}, Scalar { lo: scalar2_lo, hi: scalar2_hi}])
         }
     }
 

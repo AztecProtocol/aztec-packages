@@ -160,9 +160,9 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         }
 #else
         // Bigfield related nnf gates
-        if (values.q_nnf == 1) {
-            bool f0 = values.q_o == 1 && (values.q_4 == 1 || values.q_m == 1);
-            bool f1 = values.q_r == 1 && (values.q_o == 1 || values.q_4 == 1 || values.q_m == 1);
+        if (values.q_nnf() == 1) {
+            bool f0 = values.q_o() == 1 && (values.q_4() == 1 || values.q_m() == 1);
+            bool f1 = values.q_r() == 1 && (values.q_o() == 1 || values.q_4() == 1 || values.q_m() == 1);
             if (f0 && f1) {
                 result = result && check_relation<NonNativeField>(values, params);
                 if (!result) {
@@ -175,19 +175,17 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
-        if constexpr (!IsMegaBuilder<Builder>) {
-            // Mega covers all internal rounds via the compressed block; there is no
-            // q_poseidon2_internal selector in MegaFlavor.
-            result = result && check_relation<PoseidonInternal>(values, params);
-            if (!result) {
-                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
-            }
-        }
         result = result && check_relation<PoseidonExternal>(values, params);
         if (!result) {
             return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
         }
 
+        if constexpr (!IsMegaBuilder<Builder>) {
+            result = result && check_relation<PoseidonInternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
+            }
+        }
         if constexpr (IsMegaBuilder<Builder>) {
             result = result && check_relation<PoseidonInitialExternal>(values, params);
             if (!result) {
@@ -245,33 +243,29 @@ template <typename Relation> bool UltraCircuitChecker::check_relation(auto& valu
 bool UltraCircuitChecker::check_lookup(auto& values, auto& lookup_hash_table)
 {
     // If this is a lookup gate, check the inputs are in the hash table containing all table entries
-    if (!values.q_lookup.is_zero()) {
-        return lookup_hash_table.contains({ values.w_l + values.q_r * values.w_l_shift,
-                                            values.w_r + values.q_m * values.w_r_shift,
-                                            values.w_o + values.q_c * values.w_o_shift,
-                                            values.q_o });
+    if (!values.q_lookup().is_zero()) {
+        return lookup_hash_table.contains({ values.w_l() + values.q_r() * values.w_l_shift(),
+                                            values.w_r() + values.q_m() * values.w_r_shift(),
+                                            values.w_o() + values.q_c() * values.w_o_shift(),
+                                            values.q_o() });
     }
     return true;
 };
 
 template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& values, Builder& builder)
 {
-    if (!values.q_busread.is_zero()) {
+    if (!values.q_busread().is_zero()) {
         // Extract the {index, value} pair from the read gate inputs
-        auto raw_read_idx = static_cast<size_t>(uint256_t(values.w_r));
-        auto value = values.w_l;
-
-        // Map bus_idx → wire-linear selector on the values struct (mirrors BusData<i>::selector in the relation).
-        const std::array<const FF*, NUM_BUS_COLUMNS> bus_selectors{
-            &values.q_l, &values.q_r, &values.q_o, &values.q_4, &values.q_m
-        };
+        auto raw_read_idx = static_cast<size_t>(uint256_t(values.w_r()));
+        auto value = values.w_l();
 
         // Locate the bus column being read (exactly one selector should be active on a busread row) and look up the
         // expected value from the builder's bus vector.
+        auto bus_selectors = values.get_databus_selectors();
         FF bus_value{};
         bool read_matched = false;
-        for (size_t bus_idx = 0; bus_idx < NUM_BUS_COLUMNS; ++bus_idx) {
-            if (*bus_selectors[bus_idx] == 1) {
+        for (size_t bus_idx = 0; bus_idx < bus_selectors.size(); ++bus_idx) {
+            if (bus_selectors[bus_idx] == 1) {
                 const auto& bus_vec = builder.get_bus_vector(bus_idx);
                 bus_value = builder.get_variable(bus_vec[raw_read_idx]);
                 read_matched = true;
@@ -315,83 +309,84 @@ void UltraCircuitChecker::populate_values(
         };
 
     // Set wire values. Wire 4 is treated specially since it may contain memory records
-    values.w_l = builder.get_variable(block.w_l()[idx]);
-    values.w_r = builder.get_variable(block.w_r()[idx]);
-    values.w_o = builder.get_variable(block.w_o()[idx]);
+    values.w_l() = builder.get_variable(block.w_l()[idx]);
+    values.w_r() = builder.get_variable(block.w_r()[idx]);
+    values.w_o() = builder.get_variable(block.w_o()[idx]);
     // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that
     // we are indexing into the correct block before updating the w_4 value.
     const bool is_ram_rom_block = (&block == &builder.blocks.memory);
     if (is_ram_rom_block && memory_data.read_record_gates.contains(idx)) {
-        values.w_4 = compute_memory_record_term(
-            values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three);
+        values.w_4() = compute_memory_record_term(
+            values.w_l(), values.w_r(), values.w_o(), memory_data.eta, memory_data.eta_two, memory_data.eta_three);
     } else if (is_ram_rom_block && memory_data.write_record_gates.contains(idx)) {
-        values.w_4 =
+        values.w_4() =
             compute_memory_record_term(
-                values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three) +
+                values.w_l(), values.w_r(), values.w_o(), memory_data.eta, memory_data.eta_two, memory_data.eta_three) +
             FF::one();
     } else {
-        values.w_4 = builder.get_variable(block.w_4()[idx]);
+        values.w_4() = builder.get_variable(block.w_4()[idx]);
     }
 
     // Set shifted wire values. Again, wire 4 is treated specially. On final row, set shift values to zero
     if (idx < block.size() - 1) {
-        values.w_l_shift = builder.get_variable(block.w_l()[idx + 1]);
-        values.w_r_shift = builder.get_variable(block.w_r()[idx + 1]);
-        values.w_o_shift = builder.get_variable(block.w_o()[idx + 1]);
+        values.w_l_shift() = builder.get_variable(block.w_l()[idx + 1]);
+        values.w_r_shift() = builder.get_variable(block.w_r()[idx + 1]);
+        values.w_o_shift() = builder.get_variable(block.w_o()[idx + 1]);
         if (is_ram_rom_block && memory_data.read_record_gates.contains(idx + 1)) {
-            values.w_4_shift = compute_memory_record_term(values.w_l_shift,
-                                                          values.w_r_shift,
-                                                          values.w_o_shift,
-                                                          memory_data.eta,
-                                                          memory_data.eta_two,
-                                                          memory_data.eta_three);
+            values.w_4_shift() = compute_memory_record_term(values.w_l_shift(),
+                                                            values.w_r_shift(),
+                                                            values.w_o_shift(),
+                                                            memory_data.eta,
+                                                            memory_data.eta_two,
+                                                            memory_data.eta_three);
         } else if (is_ram_rom_block && memory_data.write_record_gates.contains(idx + 1)) {
-            values.w_4_shift = compute_memory_record_term(values.w_l_shift,
-                                                          values.w_r_shift,
-                                                          values.w_o_shift,
-                                                          memory_data.eta,
-                                                          memory_data.eta_two,
-                                                          memory_data.eta_three) +
-                               FF::one();
+            values.w_4_shift() = compute_memory_record_term(values.w_l_shift(),
+                                                            values.w_r_shift(),
+                                                            values.w_o_shift(),
+                                                            memory_data.eta,
+                                                            memory_data.eta_two,
+                                                            memory_data.eta_three) +
+                                 FF::one();
         } else {
-            values.w_4_shift = builder.get_variable(block.w_4()[idx + 1]);
+            values.w_4_shift() = builder.get_variable(block.w_4()[idx + 1]);
         }
     } else {
-        values.w_l_shift = 0;
-        values.w_r_shift = 0;
-        values.w_o_shift = 0;
-        values.w_4_shift = 0;
+        values.w_l_shift() = 0;
+        values.w_r_shift() = 0;
+        values.w_o_shift() = 0;
+        values.w_4_shift() = 0;
     }
 
     // Update tag check data
-    update_tag_check_data(block.w_l()[idx], values.w_l);
-    update_tag_check_data(block.w_r()[idx], values.w_r);
-    update_tag_check_data(block.w_o()[idx], values.w_o);
-    update_tag_check_data(block.w_4()[idx], values.w_4);
+    update_tag_check_data(block.w_l()[idx], values.w_l());
+    update_tag_check_data(block.w_r()[idx], values.w_r());
+    update_tag_check_data(block.w_o()[idx], values.w_o());
+    update_tag_check_data(block.w_4()[idx], values.w_4());
 
     // Set selector values
-    values.q_m = block.q_m()[idx];
-    values.q_c = block.q_c()[idx];
-    values.q_l = block.q_1()[idx];
-    values.q_r = block.q_2()[idx];
-    values.q_o = block.q_3()[idx];
-    values.q_4 = block.q_4()[idx];
-    values.q_arith = read_gate_selector(block, GateKind::Arith, idx);
-    values.q_delta_range = read_gate_selector(block, GateKind::DeltaRange, idx);
-    values.q_elliptic = read_gate_selector(block, GateKind::Elliptic, idx);
-    values.q_memory = read_gate_selector(block, GateKind::Memory, idx);
-    values.q_nnf = read_gate_selector(block, GateKind::Nnf, idx);
-    values.q_lookup = read_gate_selector(block, GateKind::Lookup, idx);
-    values.q_poseidon2_external = read_gate_selector(block, GateKind::Poseidon2Ext, idx);
+    values.q_m() = block.q_m()[idx];
+    values.q_c() = block.q_c()[idx];
+    values.q_l() = block.q_1()[idx];
+    values.q_r() = block.q_2()[idx];
+    values.q_o() = block.q_3()[idx];
+    values.q_4() = block.q_4()[idx];
+    values.q_arith() = read_gate_selector(block, GateKind::Arith, idx);
+    values.q_delta_range() = read_gate_selector(block, GateKind::DeltaRange, idx);
+    values.q_elliptic() = read_gate_selector(block, GateKind::Elliptic, idx);
+    values.q_memory() = read_gate_selector(block, GateKind::Memory, idx);
+    values.q_nnf() = read_gate_selector(block, GateKind::Nnf, idx);
+    values.q_lookup() = read_gate_selector(block, GateKind::Lookup, idx);
+    values.q_poseidon2_external() = read_gate_selector(block, GateKind::Poseidon2Ext, idx);
     if constexpr (IsMegaBuilder<Builder>) {
-        values.q_5 = block.q_5()[idx];
-        values.q_poseidon2_external_initial = read_gate_selector(block, GateKind::Poseidon2ExtInitial, idx);
-        values.q_poseidon2_quad_internal = read_gate_selector(block, GateKind::Poseidon2QuadInt, idx);
-        values.q_poseidon2_quad_internal_terminal = read_gate_selector(block, GateKind::Poseidon2QuadIntTerminal, idx);
-        values.q_poseidon2_transition_entry = read_gate_selector(block, GateKind::Poseidon2TransitionEntry, idx);
-        values.q_busread = read_gate_selector(block, GateKind::BusRead, idx);
+        values.q_5() = block.q_5()[idx];
+        values.q_busread() = read_gate_selector(block, GateKind::BusRead, idx);
+        values.q_poseidon2_external_initial() = read_gate_selector(block, GateKind::Poseidon2ExtInitial, idx);
+        values.q_poseidon2_quad_internal() = read_gate_selector(block, GateKind::Poseidon2QuadInt, idx);
+        values.q_poseidon2_quad_internal_terminal() =
+            read_gate_selector(block, GateKind::Poseidon2QuadIntTerminal, idx);
+        values.q_poseidon2_transition_entry() = read_gate_selector(block, GateKind::Poseidon2TransitionEntry, idx);
     } else {
-        values.q_poseidon2_internal = read_gate_selector(block, GateKind::Poseidon2Int, idx);
+        values.q_poseidon2_internal() = read_gate_selector(block, GateKind::Poseidon2Int, idx);
     }
 }
 

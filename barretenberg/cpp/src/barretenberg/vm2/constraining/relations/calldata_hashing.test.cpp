@@ -312,7 +312,7 @@ TEST_F(CalldataHashingConstrainingTest, NegativeEndNotSel)
     check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_ON_START_OR_END);
     trace.set(C::calldata_hashing_sel, 1, 0); // Mutate to wrong value
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_ON_START_OR_END),
-                              "SEL_ON_START_OR_END");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_SEL_ON_START_OR_END));
     // Same idea for calldata trace:
     trace.set(1,
               { {
@@ -323,7 +323,7 @@ TEST_F(CalldataHashingConstrainingTest, NegativeEndNotSel)
     check_relation<bb::avm2::calldata<FF>>(trace, bb::avm2::calldata<FF>::SR_SEL_ON_END);
     trace.set(C::calldata_sel, 1, 0); // Mutate to wrong value
     EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::calldata<FF>>(trace, bb::avm2::calldata<FF>::SR_SEL_ON_END),
-                              "SEL_ON_END");
+                              bb::avm2::calldata<FF>::get_subrelation_label(bb::avm2::calldata<FF>::SR_SEL_ON_END));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidStartAfterLatch)
@@ -335,13 +335,13 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidStartAfterLatc
     // Row = 1 is the start of the hashing for calldata with context_id = 1
     trace.set(Column::calldata_hashing_start, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_AFTER_LATCH),
-                              "START_AFTER_LATCH");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_START_AFTER_LATCH));
     trace.set(Column::calldata_hashing_start, 1, 1);
 
     // Row = 2 is the start of the hashing for calldata with context_id = 2
     trace.set(Column::calldata_hashing_start, 2, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_AFTER_LATCH),
-                              "START_AFTER_LATCH");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_START_AFTER_LATCH));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidStartIndex)
@@ -352,7 +352,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidStartIndex)
     // Row = 1 is the start of the hashing for calldata with context_id = 1
     trace.set(Column::calldata_hashing_index_0_, 1, 5);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_INDEX_IS_ZERO),
-                              "START_INDEX_IS_ZERO");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_START_INDEX_IS_ZERO));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeStartIsSeparator)
@@ -363,7 +363,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeStartIsSeparator)
     // Row = 1 is the start of the hashing for calldata with context_id = 1
     trace.set(Column::calldata_hashing_input_0_, 1, 5);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_START_IS_SEPARATOR),
-                              "START_IS_SEPARATOR");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_START_IS_SEPARATOR));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidIndexIncrements)
@@ -374,16 +374,16 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidIndexIncrement
     // First row should have indices 0, 1, and 2
     trace.set(Column::calldata_hashing_index_1_, 1, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS_1),
-                              "INDEX_INCREMENTS_1");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_INDEX_INCREMENTS_1));
     trace.set(Column::calldata_hashing_index_1_, 1, 1);
     trace.set(Column::calldata_hashing_index_2_, 1, 3);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS_2),
-                              "INDEX_INCREMENTS_2");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_INDEX_INCREMENTS_2));
     trace.set(Column::calldata_hashing_index_2_, 1, 2);
     // Second row should have indices 3, 4, and 5
     trace.set(Column::calldata_hashing_index_0_, 2, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_INDEX_INCREMENTS),
-                              "INDEX_INCREMENTS");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_INDEX_INCREMENTS));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeConsistency)
@@ -395,24 +395,24 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeConsistency)
     // Rows 1 and 2 should deal with the same calldata:
     trace.set(Column::calldata_hashing_context_id, 2, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_ID_CONSISTENCY),
-                              "ID_CONSISTENCY");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_ID_CONSISTENCY));
     trace.set(Column::calldata_hashing_context_id, 2, 1);
 
     trace.set(Column::calldata_hashing_output_hash, 2, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_HASH_CONSISTENCY),
-                              "HASH_CONSISTENCY");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_HASH_CONSISTENCY));
     trace.set(Column::calldata_hashing_output_hash, 2, trace.get(Column::calldata_hashing_output_hash, 1));
 
     trace.set(Column::calldata_hashing_calldata_size, 2, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SIZE_CONSISTENCY),
-                              "SIZE_CONSISTENCY");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_SIZE_CONSISTENCY));
     trace.set(Column::calldata_hashing_calldata_size, 2, 10);
 
     // We don't directly constrain the consistency of input_len directly, but we do constrain input_len == size + 1:
     trace.set(Column::calldata_hashing_input_len, 1, 2);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS),
-        "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
+        calldata_hashing::get_subrelation_label(calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeCalldataInteraction)
@@ -451,22 +451,23 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingSelectors)
 
     // We cannot have padding anywhere but the last hashing row (= end). Set padding to true on row 2:
     trace.set(Column::calldata_hashing_sel_not_padding_2, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDING_END), "PADDING_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDING_END),
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_PADDING_END));
     trace.set(Column::calldata_hashing_sel_not_padding_2, 2, 1);
 
     // We cannot have input[1] is set as padding, but input[2] is not (row 4 is the final row for this calldata hash):
     trace.set(Column::calldata_hashing_sel_not_padding_2, 4, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDING_CONSISTENCY),
-                              "PADDING_CONSISTENCY");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_PADDING_CONSISTENCY));
     trace.set(Column::calldata_hashing_sel_not_padding_2, 4, 0);
 
     // We cannot have any padding with non-zero values:
     trace.set(Column::calldata_hashing_input_1_, 4, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_1),
-                              "PADDED_BY_ZERO_1");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_PADDED_BY_ZERO_1));
     trace.set(Column::calldata_hashing_input_2_, 4, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_2),
-                              "PADDED_BY_ZERO_2");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_PADDED_BY_ZERO_2));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingUnder)
@@ -483,7 +484,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     trace.set(Column::calldata_hashing_sel_not_padding_1, 4, 1);
     // This will initially fail, because calldata_size = 9 = index[0] of row 4:
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_CHECK_FINAL_INDEX),
-                              "CHECK_FINAL_INDEX");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_CHECK_FINAL_INDEX));
     // calldata_size is constrained to be consistent every row, and to be equal to input_len - 1:
     for (uint32_t j = 1; j <= 4; j++) {
         trace.set(Column::calldata_hashing_calldata_size, j, 10);
@@ -517,7 +518,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingOver)
     trace.set(Column::calldata_hashing_sel_not_padding_2, 3, 0);
     // Since the value is non zero, and padding values must equal zero:
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDED_BY_ZERO_2),
-                              "PADDED_BY_ZERO_2");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_PADDED_BY_ZERO_2));
     // If we set the value to zero...
     trace.set(Column::calldata_hashing_input_2_, 3, 0);
     // ...and again fiddle with the calldata sizing:
@@ -555,11 +556,11 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInputLen)
     trace.set(Column::calldata_hashing_input_len, 2, 4);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS),
-        "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
+        calldata_hashing::get_subrelation_label(calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS));
     // If we force calldata_size to be the incorrect input_len - 1, its consistency across rows will fail:
     trace.set(Column::calldata_hashing_calldata_size, 2, 3);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SIZE_CONSISTENCY),
-                              "SIZE_CONSISTENCY");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_SIZE_CONSISTENCY));
     // We can force all relations to pass by maintaining consistency of incorrect values:
     for (uint32_t j = 1; j <= 3; j++) {
         trace.set(Column::calldata_hashing_calldata_size, j, 7);
@@ -587,7 +588,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeRounds)
     // Set the incorrect rounds_rem (should be 3 at row 1)
     trace.set(Column::calldata_hashing_rounds_rem, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_ROUNDS_DECREMENT),
-                              "ROUNDS_DECREMENT");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_ROUNDS_DECREMENT));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
@@ -664,7 +665,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
     check_all_interactions<CalldataTraceBuilder>(trace);
     // ...but since we constrain that the hash remains consistent, the relations fail:
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_HASH_CONSISTENCY),
-                              "HASH_CONSISTENCY");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_HASH_CONSISTENCY));
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
@@ -837,7 +838,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
     // ... but input_len is not consistent with calldata_size + 1:
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<calldata_hashing>(trace, calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS),
-        "CALLDATA_HASH_INPUT_LENGTH_FIELDS");
+        calldata_hashing::get_subrelation_label(calldata_hashing::SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS));
 
     // If we adjust calldata_size to match input_len...
     for (uint32_t j = 1; j <= 4; j++) {
@@ -849,7 +850,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
 
     // ... but the sub-relation with padding consistency fails:
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_CHECK_FINAL_INDEX),
-                              "CHECK_FINAL_INDEX");
+                              calldata_hashing::get_subrelation_label(calldata_hashing::SR_CHECK_FINAL_INDEX));
 }
 
 } // namespace

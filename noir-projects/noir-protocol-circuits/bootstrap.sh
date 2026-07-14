@@ -82,6 +82,14 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
+  generate_vk "$name"
+}
+
+function generate_vk {
+  set -euo pipefail
+  local name=$1
+  local json_path="./target/$name.json"
+
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
 
@@ -144,7 +152,26 @@ function compile {
   # Remove temporary json file
   rm $key_path
 }
-export -f hex_to_fields_json compile
+function check_pinned_vk {
+  set -euo pipefail
+  local name=$1
+  local json_path="./target/$name.json"
+  local before=$(jq -r '.verificationKey.bytes // empty' "$json_path")
+  generate_vk "$name"
+  local after=$(jq -r '.verificationKey.bytes // empty' "$json_path")
+  if [[ "$before" != "$after" ]]; then
+    if [[ "${NOIR_PROTOCOL_CIRCUITS_REGEN_STALE_VKS:-0}" == "1" ]]; then
+      echo_stderr "WARNING: pinned VK for $name does not match the current bb; building with the regenerated VK."
+    else
+      echo_stderr "ERROR: pinned VK for $name does not match the VK the current bb computes from its pinned bytecode."
+      echo_stderr "A bb proof-system change invalidates pinned VKs even when the bytecode is unchanged."
+      echo_stderr "Refresh and commit the pin with './bootstrap.sh pin-build', or set NOIR_PROTOCOL_CIRCUITS_REGEN_STALE_VKS=1 to build with regenerated VKs locally."
+      return 1
+    fi
+  fi
+}
+
+export -f hex_to_fields_json compile generate_vk check_pinned_vk
 
 function build {
   set -eu
@@ -158,7 +185,19 @@ function build {
     # downstream codegen (noir-protocol-circuits-types) expects them.
     rm -rf target
     tar xzf pinned-build.tar.gz
-    return
+    mkdir -p $key_dir
+    # The pin freezes bytecode AND VKs, but VKs depend on the current bb: a proof-system change can
+    # alter the VK for unchanged bytecode, and a stale pinned VK makes proofs fail self-verification
+    # at proving time. Recompute each VK against the current bb (cached by BB_HASH and bytecode, so
+    # this is cheap until bb changes) and fail the build on any mismatch, forcing an explicit pin refresh.
+    set +e
+    ls target/*.json | xargs -n1 basename -s .json | grep -v simulated | \
+      parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
+        --joblog joblog.txt check_pinned_vk {}
+    local code=$?
+    cat joblog.txt
+    set -e
+    return $code
   fi
 
   if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
@@ -204,8 +243,8 @@ function test_cmds {
     private-kernel-init
     private-kernel-inner
     private-kernel-reset
-    private-kernel-tail-to-public
-    private-kernel-tail
+    private-kernel-reset-tail-to-public
+    private-kernel-reset-tail
     rollup-tx-base-private
     rollup-tx-base-public
     rollup-tx-merge

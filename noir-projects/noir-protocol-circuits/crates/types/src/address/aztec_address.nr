@@ -292,7 +292,7 @@ fn to_address_point_valid() {
 }
 
 #[test]
-unconstrained fn to_address_point_invalid() {
+fn to_address_point_invalid() {
     // x = 3 where x^3 - 17 = 27 - 17 = 10, which is a non-residue in this field
     let address = AztecAddress { inner: 3 };
 

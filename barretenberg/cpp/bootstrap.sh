@@ -264,6 +264,9 @@ function test_cmds_native {
           fi
         fi
         local prefix=$hash
+        if [[ "${CI_FULL:-0}" -eq 0 && "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
+          continue
+        fi
         # A little extra resource for these tests.
         # IPARecursiveTests fails with 2 threads.
         if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then

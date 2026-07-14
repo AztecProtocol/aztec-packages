@@ -84,7 +84,8 @@ TEST(SStoreConstrainingTest, NegativeDynamicL2GasIsZero)
         { C::execution_sel_execute_sstore, 1 },
         { C::execution_dynamic_l2_gas_factor, 1 },
     } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_DYN_L2_GAS_IS_ZERO), "DYN_L2_GAS_IS_ZERO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_DYN_L2_GAS_IS_ZERO),
+                              execution::get_subrelation_label(execution::SR_DYN_L2_GAS_IS_ZERO));
 }
 
 TEST(SStoreConstrainingTest, MaxDataWritesReached)
@@ -103,7 +104,7 @@ TEST(SStoreConstrainingTest, MaxDataWritesReached)
     trace.set(C::execution_max_data_writes_reached, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_MAX_DATA_WRITES_REACHED),
-                              "SSTORE_MAX_DATA_WRITES_REACHED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_MAX_DATA_WRITES_REACHED));
 }
 
 TEST(SStoreConstrainingTest, OpcodeError)
@@ -134,14 +135,14 @@ TEST(SStoreConstrainingTest, OpcodeError)
     trace.set(C::execution_dynamic_da_gas_factor, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC),
-                              "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC");
+                              sstore::get_subrelation_label(sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC));
 
     trace.set(C::execution_dynamic_da_gas_factor, 0, 1);
 
     trace.set(C::execution_is_static, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC),
-                              "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC");
+                              sstore::get_subrelation_label(sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC));
 }
 
 TEST(SStoreConstrainingTest, TreeStateNotChangedOnError)
@@ -168,22 +169,22 @@ TEST(SStoreConstrainingTest, TreeStateNotChangedOnError)
     // Negative test: written slots tree root must be the same
     trace.set(C::execution_written_public_data_slots_tree_root, 0, 29);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED),
-                              "SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED));
 
     // Negative test: written slots tree size must be the same
     trace.set(C::execution_written_public_data_slots_tree_size, 0, 7);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED),
-                              "SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED));
 
     // Negative test: public data tree root must be the same
     trace.set(C::execution_public_data_tree_root, 0, 29);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED),
-                              "SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: public data tree size must be the same
     trace.set(C::execution_public_data_tree_size, 0, 7);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED),
-                              "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED));
 }
 
 // Test that ghost rows (sel_execute_sstore=0) cannot set sel_write_public_data=1
@@ -204,7 +205,8 @@ TEST(SStoreConstrainingTest, NegativeGhostRowStorageWrite_RelationsOnly)
 
     // The fix: sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error)
     // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * (1-0) = 1 != 0 -> FAILS
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace),
+                              sstore::get_subrelation_label(sstore::SR_SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR));
 }
 
 TEST(SStoreConstrainingTest, Interactions)
@@ -424,7 +426,8 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
 
     // The fix blocks ghost rows: sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error)
     // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * 1 = 1 != 0
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace),
+                              sstore::get_subrelation_label(sstore::SR_SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR));
 }
 
 } // namespace

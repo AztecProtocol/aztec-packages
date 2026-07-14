@@ -255,19 +255,12 @@ inline std::string generate_memory_offsets(int log_n, const MemoryLayoutConfig& 
                                              "VK_PUB_INPUTS_OFFSET_LOC" };
 
     const std::vector<std::string> vk_g1 = { "Q_M",
-                                             "Q_C",
                                              "Q_L",
                                              "Q_R",
                                              "Q_O",
                                              "Q_4",
-                                             "Q_LOOKUP",
+                                             "Q_C",
                                              "Q_ARITH",
-                                             "Q_DELTA_RANGE",
-                                             "Q_ELLIPTIC",
-                                             "Q_MEMORY",
-                                             "Q_NNF",
-                                             "Q_POSEIDON_2_EXTERNAL",
-                                             "Q_POSEIDON_2_INTERNAL",
                                              "SIGMA_1",
                                              "SIGMA_2",
                                              "SIGMA_3",
@@ -276,12 +269,19 @@ inline std::string generate_memory_offsets(int log_n, const MemoryLayoutConfig& 
                                              "ID_2",
                                              "ID_3",
                                              "ID_4",
+                                             "LAGRANGE_FIRST",
+                                             "LAGRANGE_LAST",
+                                             "Q_LOOKUP",
                                              "TABLE_1",
                                              "TABLE_2",
                                              "TABLE_3",
                                              "TABLE_4",
-                                             "LAGRANGE_FIRST",
-                                             "LAGRANGE_LAST" };
+                                             "Q_DELTA_RANGE",
+                                             "Q_ELLIPTIC",
+                                             "Q_MEMORY",
+                                             "Q_NNF",
+                                             "Q_POSEIDON_2_EXTERNAL",
+                                             "Q_POSEIDON_2_INTERNAL" };
 
     const std::vector<std::string> pairing_points = { "PAIRING_POINT_0_X_0_LOC", "PAIRING_POINT_0_X_1_LOC",
                                                       "PAIRING_POINT_0_Y_0_LOC", "PAIRING_POINT_0_Y_1_LOC",
@@ -292,21 +292,7 @@ inline std::string generate_memory_offsets(int log_n, const MemoryLayoutConfig& 
         "W_L", "W_R", "W_O", "LOOKUP_READ_COUNTS", "LOOKUP_READ_TAGS", "W_4", "LOOKUP_INVERSES", "Z_PERM"
     };
 
-    const std::vector<std::string> entities = { "QM",
-                                                "QC",
-                                                "QL",
-                                                "QR",
-                                                "QO",
-                                                "Q4",
-                                                "QLOOKUP",
-                                                "QARITH",
-                                                "QRANGE",
-                                                "QELLIPTIC",
-                                                "QMEMORY",
-                                                "QNNF",
-                                                "QPOSEIDON2_EXTERNAL",
-                                                "QPOSEIDON2_INTERNAL",
-                                                "SIGMA1",
+    const std::vector<std::string> entities = { "SIGMA1",
                                                 "SIGMA2",
                                                 "SIGMA3",
                                                 "SIGMA4",
@@ -314,12 +300,26 @@ inline std::string generate_memory_offsets(int log_n, const MemoryLayoutConfig& 
                                                 "ID2",
                                                 "ID3",
                                                 "ID4",
+                                                "LAGRANGE_FIRST",
+                                                "LAGRANGE_LAST",
+                                                "QLOOKUP",
                                                 "TABLE1",
                                                 "TABLE2",
                                                 "TABLE3",
                                                 "TABLE4",
-                                                "LAGRANGE_FIRST",
-                                                "LAGRANGE_LAST",
+                                                "QM",
+                                                "QR",
+                                                "QO",
+                                                "QC",
+                                                "QL",
+                                                "Q4",
+                                                "QARITH",
+                                                "QRANGE",
+                                                "QELLIPTIC",
+                                                "QMEMORY",
+                                                "QNNF",
+                                                "QPOSEIDON2_EXTERNAL",
+                                                "QPOSEIDON2_INTERNAL",
                                                 "W1",
                                                 "W2",
                                                 "W3",
@@ -775,32 +775,32 @@ inline void apply_template_params(std::string& template_str, VK const& verificat
         set_template_param(name_prefix + "_X_LOC", x_hex);
         set_template_param(name_prefix + "_Y_LOC", y_hex);
     };
-    set_g1_template_param("Q_L", verification_key->q_l);
-    set_g1_template_param("Q_R", verification_key->q_r);
-    set_g1_template_param("Q_O", verification_key->q_o);
-    set_g1_template_param("Q_4", verification_key->q_4);
-    set_g1_template_param("Q_M", verification_key->q_m);
-    set_g1_template_param("Q_C", verification_key->q_c);
-    set_g1_template_param("Q_LOOKUP", verification_key->q_lookup);
-    set_g1_template_param("Q_ARITH", verification_key->q_arith);
-    set_g1_template_param("Q_DELTA_RANGE", verification_key->q_delta_range);
-    set_g1_template_param("Q_ELLIPTIC", verification_key->q_elliptic);
-    set_g1_template_param("Q_MEMORY", verification_key->q_memory);
-    set_g1_template_param("Q_NNF", verification_key->q_nnf);
-    set_g1_template_param("Q_POSEIDON_2_EXTERNAL", verification_key->q_poseidon2_external);
-    set_g1_template_param("Q_POSEIDON_2_INTERNAL", verification_key->q_poseidon2_internal);
-    set_g1_template_param("SIGMA_1", verification_key->sigma_1);
-    set_g1_template_param("SIGMA_2", verification_key->sigma_2);
-    set_g1_template_param("SIGMA_3", verification_key->sigma_3);
-    set_g1_template_param("SIGMA_4", verification_key->sigma_4);
-    set_g1_template_param("TABLE_1", verification_key->table_1);
-    set_g1_template_param("TABLE_2", verification_key->table_2);
-    set_g1_template_param("TABLE_3", verification_key->table_3);
-    set_g1_template_param("TABLE_4", verification_key->table_4);
-    set_g1_template_param("ID_1", verification_key->id_1);
-    set_g1_template_param("ID_2", verification_key->id_2);
-    set_g1_template_param("ID_3", verification_key->id_3);
-    set_g1_template_param("ID_4", verification_key->id_4);
-    set_g1_template_param("LAGRANGE_FIRST", verification_key->lagrange_first);
-    set_g1_template_param("LAGRANGE_LAST", verification_key->lagrange_last);
+    set_g1_template_param("Q_L", verification_key->q_l());
+    set_g1_template_param("Q_R", verification_key->q_r());
+    set_g1_template_param("Q_O", verification_key->q_o());
+    set_g1_template_param("Q_4", verification_key->q_4());
+    set_g1_template_param("Q_M", verification_key->q_m());
+    set_g1_template_param("Q_C", verification_key->q_c());
+    set_g1_template_param("Q_LOOKUP", verification_key->q_lookup());
+    set_g1_template_param("Q_ARITH", verification_key->q_arith());
+    set_g1_template_param("Q_DELTA_RANGE", verification_key->q_delta_range());
+    set_g1_template_param("Q_ELLIPTIC", verification_key->q_elliptic());
+    set_g1_template_param("Q_MEMORY", verification_key->q_memory());
+    set_g1_template_param("Q_NNF", verification_key->q_nnf());
+    set_g1_template_param("Q_POSEIDON_2_EXTERNAL", verification_key->q_poseidon2_external());
+    set_g1_template_param("Q_POSEIDON_2_INTERNAL", verification_key->q_poseidon2_internal());
+    set_g1_template_param("SIGMA_1", verification_key->sigma_1());
+    set_g1_template_param("SIGMA_2", verification_key->sigma_2());
+    set_g1_template_param("SIGMA_3", verification_key->sigma_3());
+    set_g1_template_param("SIGMA_4", verification_key->sigma_4());
+    set_g1_template_param("TABLE_1", verification_key->table_1());
+    set_g1_template_param("TABLE_2", verification_key->table_2());
+    set_g1_template_param("TABLE_3", verification_key->table_3());
+    set_g1_template_param("TABLE_4", verification_key->table_4());
+    set_g1_template_param("ID_1", verification_key->id_1());
+    set_g1_template_param("ID_2", verification_key->id_2());
+    set_g1_template_param("ID_3", verification_key->id_3());
+    set_g1_template_param("ID_4", verification_key->id_4());
+    set_g1_template_param("LAGRANGE_FIRST", verification_key->lagrange_first());
+    set_g1_template_param("LAGRANGE_LAST", verification_key->lagrange_last());
 }

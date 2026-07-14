@@ -11,11 +11,11 @@ namespace bb::avm2 {
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
-        BB_ASSERT_EQ(flavor_get_label(*this, prover_poly), flavor_get_label(proving_key, key_poly));
+        BB_ASSERT_DEBUG(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
         prover_poly = key_poly.share();
     }
     for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
-        BB_ASSERT_EQ(flavor_get_label(*this, prover_poly), (flavor_get_label(proving_key, key_poly) + "_shift"));
+        BB_ASSERT_DEBUG(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly) + "_shift");
         prover_poly = key_poly.shifted();
     }
 }

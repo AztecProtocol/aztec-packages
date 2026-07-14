@@ -196,7 +196,7 @@ class TranslatorTests : public ::testing::Test {
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
         // Merge with fixed append
-        op_queue->merge_fixed_append(op_queue->get_append_offset());
+        op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
