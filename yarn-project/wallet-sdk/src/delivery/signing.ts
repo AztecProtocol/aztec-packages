@@ -3,8 +3,6 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
-// Import from the constants leaf, not `@aztec/standard-contracts/handshake-registry`, to keep the
-// `HandshakeRegistry.json` artifact out of wallet bundles.
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';

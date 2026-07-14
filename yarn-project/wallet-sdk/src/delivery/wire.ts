@@ -2,8 +2,6 @@ import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { hexSchemaFor, zodFor } from '@aztec/foundation/schemas';
 import type { CustomRequest } from '@aztec/pxe/config';
-// Import from the constants leaf, not `@aztec/standard-contracts/handshake-registry`, to keep the
-// `HandshakeRegistry.json` artifact out of wallet bundles.
 import {
   INTERACTIVE_HANDSHAKE_REQUEST_KIND,
   STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
@@ -16,9 +14,9 @@ import { schemas } from '@aztec/stdlib/schemas';
 import { z } from 'zod';
 
 /**
- * The registry's interactive-handshake signature request as issued to the sender PXE's `resolveCustomRequest` hook.
- * This full envelope (not the parsed payload) is what crosses the wallet-to-wallet transport, so the recipient can
- * run the complete validation itself instead of trusting the sender's.
+ * The registry's interactive-handshake signature request, as issued to the sender PXE's `resolveCustomRequest`
+ * hook. The whole envelope, not a payload the sender has already parsed, is what crosses the wallet-to-wallet
+ * transport, so the recipient re-validates the request itself rather than trusting the sender to have done so.
  *
  * Declared independently of `@aztec/pxe`'s `CustomRequest`: the envelope is a wire format exchanged between wallet
  * applications on potentially different software versions, so it must not silently track changes to PXE's hook

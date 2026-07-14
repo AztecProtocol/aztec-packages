@@ -16,8 +16,8 @@ import {
 /**
  * Carries an interactive-handshake signature request from the sender's wallet to the recipient's and the signed
  * authorization back. The channel is entirely wallet-chosen: an in-process call, a QR code pair, a copy-pasted blob
- * over any messenger. The raw request envelope (not the parsed payload) crosses the transport so the recipient can
- * run the complete validation itself instead of trusting the sender's.
+ * over any messenger. It passes the full request envelope, which the recipient validates independently; see
+ * {@link InteractiveHandshakeCustomRequest}.
  */
 export type InteractiveHandshakeTransport = (request: InteractiveHandshakeCustomRequest) => Promise<RecipientSignature>;
 
@@ -90,10 +90,6 @@ export function createInteractiveHandshakeResolver(transport: InteractiveHandsha
  * validates the ephemeral key is a curve point, before anything is persisted), writes the backup entry, and only
  * then signs. A failure at any step means no signature and therefore no channel; a leftover PXE source without a
  * signature is inert.
- *
- * Deliberately not validated here: the request's chainId/version. The signature domain-separates over them, so a
- * wrong-chain request yields a signature that is useless on the recipient's chain and a scanning source that never
- * finds anything.
  */
 export function createInteractiveHandshakeResponder(opts: {
   /** The recipient's PXE (or any structurally matching wrapper). */
