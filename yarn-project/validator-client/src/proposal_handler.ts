@@ -1176,14 +1176,16 @@ export class ProposalHandler {
     // Fork world state at the block before the first block. getFork syncs world state to the parent block
     // first (see its doc): the block source (archiver) can already hold the block while world state still
     // trails it by one, and forking a not-yet-applied block throws a raw tree error that would otherwise
-    // escape as an uncaught gossipsub error. On failure we map to a clean validation result rather than
-    // letting it escape.
+    // escape as an uncaught gossipsub error. We pass the parent's expected block hash so the sync detects a
+    // world-state reorg (undefined for the genesis parent, where no block exists to pin). On failure we map
+    // to a clean validation result rather than letting it escape.
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
     let forkResult: MerkleTreeWriteOperations;
     try {
-      forkResult = await this.checkpointsBuilder.getFork(parentBlockNumber);
+      const parentBlockHash = (await this.blockSource.getBlockData({ number: parentBlockNumber }))?.blockHash;
+      forkResult = await this.checkpointsBuilder.getFork(parentBlockNumber, parentBlockHash);
     } catch (err) {
-      this.log.warn(`Failed to sync world state to block ${parentBlockNumber} for checkpoint proposal`, {
+      this.log.warn(`Failed to fork world state at block ${parentBlockNumber} for checkpoint proposal`, {
         ...proposalInfo,
         parentBlockNumber,
         err,

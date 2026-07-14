@@ -14,7 +14,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import type { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import type { PublicContractsDB, PublicProcessor } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block } from '@aztec/stdlib/block';
+import { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
@@ -811,14 +811,16 @@ describe('FullNodeCheckpointsBuilder', () => {
   });
 
   describe('getFork', () => {
-    it('syncs world state to the block before forking', async () => {
+    it('syncs world state to the block (with its hash) before forking', async () => {
       const forkResult = mock<MerkleTreeWriteOperations>();
       worldState.fork.mockResolvedValue(forkResult);
+      const blockHash = BlockHash.random();
 
-      const result = await builder.getFork(blockNumber);
+      const result = await builder.getFork(blockNumber, blockHash);
 
       expect(result).toBe(forkResult);
-      expect(worldState.syncImmediate).toHaveBeenCalledWith(blockNumber);
+      // The block hash is relayed to syncImmediate for reorg detection.
+      expect(worldState.syncImmediate).toHaveBeenCalledWith(blockNumber, blockHash);
       expect(worldState.fork).toHaveBeenCalledWith(blockNumber);
       // Syncing must precede the fork, otherwise the fork can hit a block the trees have not applied yet
       // and throw a raw "initialize from future block" tree error.

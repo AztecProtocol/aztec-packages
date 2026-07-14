@@ -14,7 +14,7 @@ import {
   PublicProcessor,
   createPublicTxSimulatorForBlockBuilding,
 } from '@aztec/simulator/server';
-import { L2Block } from '@aztec/stdlib/block';
+import { type BlockHash, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -418,10 +418,11 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
    * Syncing first is required: the block source (archiver) can already hold a block while world state
    * still trails it, and forking a not-yet-applied block throws a raw "initialize from future block"
    * tree error. syncImmediate blocks until world state reaches the block, or throws a typed error if it
-   * genuinely cannot.
+   * genuinely cannot. When `blockHash` is provided it is verified against the synced block, triggering a
+   * resync on mismatch (reorg detection).
    */
-  async getFork(blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations> {
-    await this.worldState.syncImmediate(blockNumber);
+  async getFork(blockNumber: BlockNumber, blockHash?: BlockHash): Promise<MerkleTreeWriteOperations> {
+    await this.worldState.syncImmediate(blockNumber, blockHash);
     return this.worldState.fork(blockNumber);
   }
 }

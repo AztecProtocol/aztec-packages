@@ -10,6 +10,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -655,14 +656,20 @@ describe('ProposalHandler checkpoint validation', () => {
     const parentBlockNumber = BlockNumber(0);
 
     // getFork syncs world state to the parent block before forking (see FullNodeCheckpointsBuilder tests).
-    // This asserts the caller forks at the parent block number (one before the checkpoint's first block).
-    it('forks at the parent block number', async () => {
+    // This asserts the caller forks at the parent block number (one before the checkpoint's first block),
+    // passing the parent's block hash (looked up from the block source) for reorg detection.
+    it('forks at the parent block number, passing its block hash', async () => {
+      const parentBlockHash = BlockHash.random();
       setupDeepValidationMocks({ header: makeHeader({ totalManaUsed: new Fr(999) }) });
+      blockSource.getBlockData.mockResolvedValue({
+        header: makeBlockHeader(),
+        blockHash: parentBlockHash,
+      } as BlockData);
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
       await handler.handleCheckpointProposal(proposal, proposalInfo);
 
-      expect(checkpointsBuilder.getFork).toHaveBeenCalledWith(parentBlockNumber);
+      expect(checkpointsBuilder.getFork).toHaveBeenCalledWith(parentBlockNumber, parentBlockHash);
     });
 
     // If world state forked from a different chain than the proposal was built on (e.g. a reorg), the fork's
