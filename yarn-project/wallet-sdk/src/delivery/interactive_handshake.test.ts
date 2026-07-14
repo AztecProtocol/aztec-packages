@@ -98,8 +98,7 @@ describe('interactive handshake delivery helpers', () => {
 
     it('resolves the key and address of the account the request targets', async () => {
       await makeResponder()(makeRequest());
-      expect(getSigningKey).toHaveBeenCalledWith(recipientCompleteAddress.address);
-      expect(getSigningKey).not.toHaveBeenCalledWith(otherCompleteAddress.address);
+      expect(getSigningKey.mock.calls).toEqual([[recipientCompleteAddress.address]]);
     });
 
     it('produces a signature that verifies under the recipient master message-signing key', async () => {
