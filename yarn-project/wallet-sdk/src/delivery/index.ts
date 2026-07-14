@@ -9,6 +9,8 @@ export {
 export {
   type InteractiveHandshakeCustomRequest,
   InteractiveHandshakeCustomRequestSchema,
+  type InteractiveHandshakeRequest,
+  parseInteractiveHandshakeRequest,
   type RecipientSignature,
   RecipientSignatureSchema,
 } from './wire.js';
