@@ -1,6 +1,14 @@
 import { jest } from '@jest/globals';
 
-import { type ConfigMappingsType, bigintConfigHelper, getConfigFromMappings, numberConfigHelper } from './index.js';
+import {
+  type ConfigMappingsType,
+  bigintConfigHelper,
+  booleanConfigHelper,
+  composeConfigMappings,
+  getConfigFromMappings,
+  getDefaultConfig,
+  numberConfigHelper,
+} from './index.js';
 
 describe('Config', () => {
   describe('getConfigFromMappings', () => {
@@ -129,6 +137,152 @@ describe('Config', () => {
 
         consoleSpy.mockRestore();
       });
+    });
+  });
+
+  describe('composeConfigMappings', () => {
+    interface LeftConfig {
+      left: number;
+    }
+
+    interface RightConfig {
+      right: number;
+    }
+
+    interface FishermanModeConfig {
+      fishermanMode: boolean;
+    }
+
+    interface SequencerOnlyConfig {
+      sequencerOnly: number;
+    }
+
+    interface PublisherOnlyConfig {
+      publisherOnly: number;
+    }
+
+    type SequencerConfig = FishermanModeConfig & SequencerOnlyConfig;
+    type PublisherConfig = FishermanModeConfig & PublisherOnlyConfig;
+    type NodeConfig = SequencerConfig & PublisherConfig;
+
+    it('merges disjoint mapping objects', () => {
+      const leftMappings: ConfigMappingsType<LeftConfig> = {
+        left: {
+          description: 'left mapping',
+          ...numberConfigHelper(1),
+        },
+      };
+      const rightMappings: ConfigMappingsType<RightConfig> = {
+        right: {
+          description: 'right mapping',
+          ...numberConfigHelper(2),
+        },
+      };
+
+      const composed = composeConfigMappings(leftMappings, rightMappings);
+
+      expect(Object.keys(composed)).toEqual(['left', 'right']);
+      expect(getDefaultConfig(composed)).toEqual({ left: 1, right: 2 });
+    });
+
+    it('deduplicates duplicate property keys that reuse the same mapping object', () => {
+      const fishermanModeConfigMappings: ConfigMappingsType<FishermanModeConfig> = {
+        fishermanMode: {
+          description: 'Run in fisherman mode',
+          ...booleanConfigHelper(false),
+        },
+      };
+      const sequencerOnlyConfigMappings: ConfigMappingsType<SequencerOnlyConfig> = {
+        sequencerOnly: {
+          description: 'sequencer only mapping',
+          ...numberConfigHelper(4),
+        },
+      };
+      const publisherOnlyConfigMappings: ConfigMappingsType<PublisherOnlyConfig> = {
+        publisherOnly: {
+          description: 'publisher only mapping',
+          ...numberConfigHelper(5),
+        },
+      };
+      const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = composeConfigMappings(
+        fishermanModeConfigMappings,
+        sequencerOnlyConfigMappings,
+      );
+      const publisherConfigMappings: ConfigMappingsType<PublisherConfig> = composeConfigMappings(
+        fishermanModeConfigMappings,
+        publisherOnlyConfigMappings,
+      );
+
+      const nodeConfigMappings: ConfigMappingsType<NodeConfig> = composeConfigMappings(
+        sequencerConfigMappings,
+        publisherConfigMappings,
+      );
+
+      expect(Object.keys(nodeConfigMappings)).toEqual(['fishermanMode', 'sequencerOnly', 'publisherOnly']);
+      expect(getDefaultConfig(nodeConfigMappings)).toEqual({
+        fishermanMode: false,
+        sequencerOnly: 4,
+        publisherOnly: 5,
+      });
+    });
+
+    it('deduplicates the same shared mapping composed across three components into one aggregate', () => {
+      const sharedConfigMappings: ConfigMappingsType<FishermanModeConfig> = {
+        fishermanMode: {
+          description: 'Run in fisherman mode',
+          ...booleanConfigHelper(false),
+        },
+      };
+      const aOnlyConfigMappings: ConfigMappingsType<SequencerOnlyConfig> = {
+        sequencerOnly: { description: 'a', ...numberConfigHelper(1) },
+      };
+      const bOnlyConfigMappings: ConfigMappingsType<PublisherOnlyConfig> = {
+        publisherOnly: { description: 'b', ...numberConfigHelper(2) },
+      };
+      interface COnlyConfig {
+        cOnly: number;
+      }
+      const cOnlyConfigMappings: ConfigMappingsType<COnlyConfig> = {
+        cOnly: { description: 'c', ...numberConfigHelper(3) },
+      };
+
+      const aMappings = composeConfigMappings(sharedConfigMappings, aOnlyConfigMappings);
+      const bMappings = composeConfigMappings(sharedConfigMappings, bOnlyConfigMappings);
+      const cMappings = composeConfigMappings(sharedConfigMappings, cOnlyConfigMappings);
+
+      type AggregateConfig = FishermanModeConfig & SequencerOnlyConfig & PublisherOnlyConfig & COnlyConfig;
+      const aggregateMappings: ConfigMappingsType<AggregateConfig> = composeConfigMappings(
+        aMappings,
+        bMappings,
+        cMappings,
+      );
+
+      expect(Object.keys(aggregateMappings)).toEqual(['fishermanMode', 'sequencerOnly', 'publisherOnly', 'cOnly']);
+      expect(getDefaultConfig(aggregateMappings)).toEqual({
+        fishermanMode: false,
+        sequencerOnly: 1,
+        publisherOnly: 2,
+        cOnly: 3,
+      });
+    });
+
+    it('throws on duplicate property keys with different mapping objects even if definitions are equivalent', () => {
+      const mappingsA = {
+        duplicate: {
+          description: 'duplicate mapping',
+          ...numberConfigHelper(3),
+        },
+      };
+      const mappingsB = {
+        duplicate: {
+          description: 'duplicate mapping',
+          ...numberConfigHelper(3),
+        },
+      };
+
+      expect(() => composeConfigMappings(mappingsA, mappingsB)).toThrow(
+        "Duplicate config mapping key 'duplicate' with a different mapping object while composing config mappings.",
+      );
     });
   });
 
