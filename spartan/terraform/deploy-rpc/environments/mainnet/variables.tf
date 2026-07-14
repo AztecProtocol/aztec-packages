@@ -19,10 +19,11 @@ variable "K8S_CLUSTER_CONTEXT" {
 variable "V4_AZTEC_DOCKER_IMAGE" {
   description = "Aztec Docker image to deploy for the v4 RPC."
   type        = string
+  default     = "4.4.0"
 }
 
 variable "CANONICAL_AZTEC_DOCKER_IMAGE" {
   description = "Aztec Docker image to deploy for the canonical RPC once that route is enabled."
   type        = string
-  default     = ""
+  default     = "5.0.0"
 }
