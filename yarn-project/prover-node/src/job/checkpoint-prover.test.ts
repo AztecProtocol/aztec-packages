@@ -274,6 +274,45 @@ describe('CheckpointProver', () => {
     });
   });
 
+  // ---------------- data-plane reorg fork fault ----------------
+
+  describe('data-plane reorg fault', () => {
+    it('rejects whenBlockProofsReady when a world-state fork faults mid-proof', async () => {
+      // Models the data-plane prune race (A-1290): gather succeeds and the sub-tree starts, but the
+      // world-state synchronizer has already unwound the base block, so forking it faults inside
+      // executeCheckpoint. The fault must reject whenBlockProofsReady() — which the EpochSession then
+      // maps to the non-declaring terminal 'stopped' (see epoch-session.test.ts), so the epoch stays
+      // retryable rather than being declared failed.
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const subTree = {
+        getSubTreeResult: () => new Promise<never>(() => {}),
+        startNewBlock: () => Promise.resolve(),
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        setBlockCompleted: () => Promise.resolve(),
+        cancel: () => {},
+        stop: () => Promise.resolve(),
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+
+      // The prune-induced fault: the base block was unwound, so forking it rejects. This is the
+      // production signal — `Unable to get meta data for block N` out of world-state.
+      dbProvider.fork.mockRejectedValue(new Error('Unable to get meta data for block 0'));
+
+      const prover = makeProver();
+
+      // blockProofs rejects: the fork error aborts the block loop before completion, so the sub-tree
+      // never yields proofs. (The raw fork error is logged; the promise settles as not-completed.)
+      await expect(prover.whenBlockProofsReady()).rejects.toThrow(/did not complete block processing/);
+      expect(dbProvider.fork).toHaveBeenCalled();
+      expect(prover.isCompleted()).toBe(false);
+
+      await cleanup(prover);
+    });
+  });
+
   // ---------------- helpers ----------------
 
   function makeProver(overrides: Partial<CheckpointProverArgs> = {}): CheckpointProver {

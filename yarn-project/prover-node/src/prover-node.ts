@@ -240,11 +240,9 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         break;
       }
     }
-    // Expiry is driven by the archiver's latest synced L2 slot
-    await this.checkEpochExpiry();
-    // Advance the local tips store only after the proving-side handling has succeeded. Any
-    // failure above propagates to the L2BlockStream (which logs and stops this poll pass) and
-    // skips this update, so the event is re-emitted on the next poll rather than skipped (A-1041).
+    // Advance the local tips store only after the proving-side handling (registration / prune) has
+    // succeeded. Any failure above propagates to the L2BlockStream (which logs and stops this poll
+    // pass) and skips this update, so the event is re-emitted on the next poll rather than skipped
     await this.tipsStore.handleBlockStreamEvent(event);
   }
 
@@ -533,8 +531,9 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     });
     this.blockStream.start();
 
-    // With thin once-per-pass tip events, the expiry sweep no longer fires once per checkpoint; drive it
-    // from a periodic tick so epochs still expire during idle/no-event periods.
+    // The periodic ticker is the sole driver of the expiry sweep: it fires every poll interval whether
+    // or not block-stream events arrive, and RunningPromise never overlaps its own runs, so the sweep's
+    // `lastExpiredEpoch` high-water mark advances — and each epoch's post-mortem uploads — exactly once.
     this.expiryTicker = new RunningPromise(
       () => this.checkEpochExpiry(),
       this.log,
