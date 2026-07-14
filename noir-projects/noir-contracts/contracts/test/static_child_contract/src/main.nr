@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract StaticChild {
     use aztec::{
         macros::{functions::{external, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateSet, PublicMutable},
@@ -46,7 +46,7 @@ pub contract StaticChild {
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = FieldNote { value: new_value };
-        self.storage.a_private_value.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.a_private_value.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
         new_value
     }
 
@@ -55,7 +55,7 @@ pub contract StaticChild {
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
         let note = FieldNote { value: new_value };
 
-        self.storage.a_private_value.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.a_private_value.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
         new_value
     }
 

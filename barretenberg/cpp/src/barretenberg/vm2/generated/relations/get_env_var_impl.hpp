@@ -15,64 +15,76 @@ void get_env_varImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    { // FROM_PUBLIC_INPUTS
+    { // SEL_ENV_PI_COL_0_IS_ZERO
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_envvar_pi_lookup_col0)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_get_env_var)));
+        std::get<0>(evals) += (tmp * scaling_factor);
+    }
+    { // SEL_ENV_PI_COL_1_IS_ZERO
+        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_envvar_pi_lookup_col1)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_get_env_var)));
+        std::get<1>(evals) += (tmp * scaling_factor);
+    }
+    { // FROM_PUBLIC_INPUTS
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
                    (static_cast<View>(in.get(C::execution_sel_envvar_pi_lookup_col0)) +
                     static_cast<View>(in.get(C::execution_sel_envvar_pi_lookup_col1))) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_value_from_pi)));
-        std::get<0>(evals) += (tmp * scaling_factor);
+        std::get<2>(evals) += (tmp * scaling_factor);
     }
     { // ADDRESS_FROM_CONTEXT
-        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
                    static_cast<View>(in.get(C::execution_is_address)) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_contract_address)));
-        std::get<1>(evals) += (tmp * scaling_factor);
+        std::get<3>(evals) += (tmp * scaling_factor);
     }
     { // SENDER_FROM_CONTEXT
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
             static_cast<View>(in.get(C::execution_is_sender)) *
             (static_cast<View>(in.get(C::execution_register_0_)) - static_cast<View>(in.get(C::execution_msg_sender)));
-        std::get<2>(evals) += (tmp * scaling_factor);
+        std::get<4>(evals) += (tmp * scaling_factor);
     }
     { // TRANSACTION_FEE_FROM_CONTEXT
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
                    static_cast<View>(in.get(C::execution_is_transactionfee)) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_transaction_fee)));
-        std::get<3>(evals) += (tmp * scaling_factor);
+        std::get<5>(evals) += (tmp * scaling_factor);
     }
     { // ISSTATICCALL_FROM_CONTEXT
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
             static_cast<View>(in.get(C::execution_is_isstaticcall)) *
             (static_cast<View>(in.get(C::execution_register_0_)) - static_cast<View>(in.get(C::execution_is_static)));
-        std::get<4>(evals) += (tmp * scaling_factor);
+        std::get<6>(evals) += (tmp * scaling_factor);
     }
     { // L2GASLEFT_FROM_GAS
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
                    static_cast<View>(in.get(C::execution_is_l2gasleft)) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
                     (static_cast<View>(in.get(C::execution_l2_gas_limit)) -
                      static_cast<View>(in.get(C::execution_l2_gas_used))));
-        std::get<5>(evals) += (tmp * scaling_factor);
+        std::get<7>(evals) += (tmp * scaling_factor);
     }
     { // DAGASLEFT_FROM_GAS
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
                    static_cast<View>(in.get(C::execution_is_dagasleft)) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
                     (static_cast<View>(in.get(C::execution_da_gas_limit)) -
                      static_cast<View>(in.get(C::execution_da_gas_used))));
-        std::get<6>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
 }
 

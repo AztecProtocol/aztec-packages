@@ -1,11 +1,13 @@
 import { Blob } from '@aztec/blob-lib';
 import { times, timesAsync } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
+import { getErrorCause } from '@aztec/foundation/types';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
-import { type Hex, encodeFunctionData, getContract } from 'viem';
+import { type Hex, RpcRequestError, encodeFunctionData, getContract, parseEther } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -260,5 +262,141 @@ describe('EthCheatCodes', () => {
       // Verify the mint worked
       await expect(token.read.balanceOf([sender])).resolves.toEqual(100n);
     });
+  });
+
+  describe('mine', () => {
+    it(`mine block`, async () => {
+      const blockNumber = await cheatCodes.blockNumber();
+      await cheatCodes.mine();
+      expect(await cheatCodes.blockNumber()).toBe(blockNumber + 1);
+    });
+
+    it.each([10, 42, 99])(`mine %i blocks`, async increment => {
+      const blockNumber = await cheatCodes.blockNumber();
+      await cheatCodes.mine(increment);
+      expect(await cheatCodes.blockNumber()).toBe(blockNumber + increment);
+    });
+  });
+
+  describe('startIntervalMiningWithFreshBlock', () => {
+    const expectAutoBlockAfter = async (blockNumber: number) => {
+      for (let i = 0; i < 20; i++) {
+        await sleep(100);
+        if ((await cheatCodes.blockNumber()) > blockNumber) {
+          return;
+        }
+      }
+      expect(await cheatCodes.blockNumber()).toBeGreaterThan(blockNumber);
+    };
+
+    it('starts interval mining from a freshly mined block and syncs the date provider', async () => {
+      const interval = 1;
+      const dateProvider = new TestDateProvider();
+      cheatCodes = new EthCheatCodes([rpcUrl], dateProvider);
+
+      const blockNumber = await cheatCodes.blockNumber();
+      const timestamp = await cheatCodes.lastBlockTimestamp();
+
+      await sleep((interval + 1) * 1000);
+      await cheatCodes.startIntervalMiningWithFreshBlock(interval);
+
+      const minedBlockNumber = await cheatCodes.blockNumber();
+      const minedTimestamp = await cheatCodes.lastBlockTimestamp();
+
+      expect(minedBlockNumber).toBe(blockNumber + 1);
+      expect(minedTimestamp).toBeGreaterThan(timestamp);
+      expect(await cheatCodes.isAutoMining()).toBe(false);
+      expect(await cheatCodes.getIntervalMining()).toBe(interval);
+      expect(Math.abs(dateProvider.now() - minedTimestamp * 1000)).toBeLessThan(1_000);
+      await expectAutoBlockAfter(minedBlockNumber);
+    });
+  });
+
+  it.each([100, 42, 99])(`setNextBlockTimestamp by %i`, async increment => {
+    const blockNumber = await cheatCodes.blockNumber();
+    const timestamp = await cheatCodes.lastBlockTimestamp();
+    await cheatCodes.setNextBlockTimestamp(timestamp + increment);
+
+    expect(await cheatCodes.lastBlockTimestamp()).toBe(timestamp);
+
+    await cheatCodes.mine();
+
+    expect(await cheatCodes.blockNumber()).toBe(blockNumber + 1);
+    expect(await cheatCodes.lastBlockTimestamp()).toBe(timestamp + increment);
+  });
+
+  it('setNextBlockTimestamp to a past timestamp throws', async () => {
+    const timestamp = await cheatCodes.lastBlockTimestamp();
+    const pastTimestamp = timestamp - 1000;
+    await expect(async () => await cheatCodes.setNextBlockTimestamp(pastTimestamp)).rejects.toThrow('Timestamp error');
+  });
+
+  it('load a value at a particular storage slot', async () => {
+    // check that storage slot 0 is empty as expected
+    const res = await cheatCodes.load(EthAddress.ZERO, 0n);
+    expect(res).toBe(0n);
+  });
+
+  it.each(['1', 'bc40fbf4394cd00f78fae9763b0c2c71b21ea442c42fdadc5b720537240ebac1'])(
+    'store a value at a given slot and its keccak value of the slot (if it were in a map) ',
+    async storageSlotInHex => {
+      const storageSlot = BigInt('0x' + storageSlotInHex);
+      const valueToSet = 5n;
+      const contractAddress = EthAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266');
+      await cheatCodes.store(contractAddress, storageSlot, valueToSet);
+      expect(await cheatCodes.load(contractAddress, storageSlot)).toBe(valueToSet);
+      // also test with the keccak value of the slot - can be used to compute storage slots of maps
+      await cheatCodes.store(contractAddress, cheatCodes.keccak256(0n, storageSlot), valueToSet);
+      expect(await cheatCodes.load(contractAddress, cheatCodes.keccak256(0n, storageSlot))).toBe(valueToSet);
+    },
+  );
+
+  it('set bytecode correctly', async () => {
+    const contractAddress = EthAddress.fromString('0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
+    await cheatCodes.etch(contractAddress, '0x1234');
+    expect(await cheatCodes.getBytecode(contractAddress)).toBe('0x1234');
+  });
+
+  it('impersonate', async () => {
+    // we will transfer 1 eth to a random address. Then impersonate the address to be able to send funds
+    // without impersonation we wouldn't be able to send funds.
+    const myAddress = sender;
+    const randomAddress = EthAddress.random().toString();
+    const tx1Hash = await l1Client.sendTransaction({
+      account: myAddress,
+      to: randomAddress,
+      value: parseEther('1'),
+    });
+    await l1Client.waitForTransactionReceipt({ hash: tx1Hash });
+    const beforeBalance = await l1Client.getBalance({ address: randomAddress });
+
+    // impersonate random address
+    await cheatCodes.startImpersonating(EthAddress.fromString(randomAddress));
+    // send funds from random address
+    const amountToSend = parseEther('0.1');
+    const tx2Hash = await l1Client.sendTransaction({
+      account: randomAddress,
+      to: myAddress,
+      value: amountToSend,
+    });
+    const txReceipt = await l1Client.waitForTransactionReceipt({ hash: tx2Hash });
+    const feePaid = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
+    expect(await l1Client.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
+
+    // stop impersonating
+    await cheatCodes.stopImpersonating(EthAddress.fromString(randomAddress));
+
+    // making calls from random address should not be successful
+    try {
+      await l1Client.sendTransaction({
+        account: randomAddress,
+        to: myAddress,
+        value: 0n,
+      });
+      // done with a try-catch because viem errors are noisy and we need to check just a small portion of the error.
+      fail('should not be able to send funds from random address');
+    } catch (e: unknown) {
+      expect(getErrorCause(e, RpcRequestError)?.details).toContain('No Signer available');
+    }
   });
 });

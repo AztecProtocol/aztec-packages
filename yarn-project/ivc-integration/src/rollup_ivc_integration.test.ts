@@ -70,10 +70,10 @@ describe('Rollup IVC Integration', () => {
     );
 
     // Create a client IVC proof using the new AztecClientBackend API
-    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
+    const [bytecodes, witnessStack, tailPublicInputs, vks, circuitKinds] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;
 
-    const backend = new AztecClientBackend(bytecodes, barretenberg);
+    const backend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
     const { proofFields: proofAsFields, vk: vkBytes } = await backend.prove(witnessStack, vks);
     chonkProof = await proofBytesToRecursiveProof(proofAsFields, vkBytes);
 

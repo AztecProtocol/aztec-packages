@@ -135,7 +135,8 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, NegativeWrongMerkleHashSeparator)
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<l1_to_l2_message_tree_check_relations>(
                                   trace, l1_to_l2_message_tree_check_relations::SR_MERKLE_HASH_SEPARATOR_CONSTANT),
-                              "MERKLE_HASH_SEPARATOR_CONSTANT");
+                              l1_to_l2_message_tree_check_relations::get_subrelation_label(
+                                  l1_to_l2_message_tree_check_relations::SR_MERKLE_HASH_SEPARATOR_CONSTANT));
 }
 
 } // namespace

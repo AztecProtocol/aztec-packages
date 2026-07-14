@@ -90,6 +90,8 @@ template <typename FF_> class CircuitBuilderBase {
      */
     std::unordered_map<uint32_t, uint32_t> _tau;
 
+    uint32_t _current_tag = DEFAULT_TAG;
+
   public:
     /**
      * @brief Map from witness index to real variable index
@@ -122,7 +124,8 @@ template <typename FF_> class CircuitBuilderBase {
      * specify range constraints.
      */
     std::vector<uint32_t> real_variable_tags;
-    uint32_t current_tag = DEFAULT_TAG;
+
+    uint32_t get_current_tag() const { return _current_tag; }
 
     bool circuit_finalized = false;
 
@@ -212,6 +215,18 @@ template <typename FF_> class CircuitBuilderBase {
      * @return The index of the new variable in the variables vector
      */
     virtual uint32_t add_variable(const FF& in);
+
+    /**
+     * @brief Reserve capacity for `capacity` variables across the per-variable bookkeeping vectors.
+     */
+    void reserve_variables(size_t capacity)
+    {
+        variables.reserve(capacity);
+        real_variable_index.reserve(capacity);
+        next_var_index.reserve(capacity);
+        prev_var_index.reserve(capacity);
+        real_variable_tags.reserve(capacity);
+    }
 
     // Disallow add_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
     // than values)

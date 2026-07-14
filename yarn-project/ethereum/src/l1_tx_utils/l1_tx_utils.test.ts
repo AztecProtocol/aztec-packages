@@ -1040,13 +1040,14 @@ describe('L1TxUtils', () => {
       const txRequest: L1TxRequest = { to: '0x1234567890123456789012345678901234567890', data: '0x', value: 0n };
       const { txHash, state } = await gasUtils.sendTransaction(txRequest);
       const testState: L1TxState = { ...state, txConfigOverrides: { ...state.txConfigOverrides, txTimeoutAt } };
-      const monitorPromise = gasUtils.monitorTransaction(testState);
+      // Attach the rejection handler synchronously so an early timeout does not surface as an unhandled rejection
+      const monitorPromise = gasUtils.monitorTransaction(testState).catch(err => err);
 
       await sleep(100);
       await cheatCodes.dropTransaction(txHash);
       await cheatCodes.setNextBlockTimestamp(txTimeoutAt);
       await cheatCodes.mine();
-      await expect(monitorPromise).rejects.toThrow(/timed out/);
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
       expect(dateProvider.now() - now).toBeGreaterThanOrEqual(90);
     }, 20_000);
 
@@ -1073,14 +1074,15 @@ describe('L1TxUtils', () => {
         ...state,
         txConfigOverrides: { ...state.txConfigOverrides, txTimeoutMs: 100 },
       };
-      const monitorPromise = gasUtils.monitorTransaction(testState);
+      // Attach the rejection handler synchronously so an early timeout does not surface as an unhandled rejection
+      const monitorPromise = gasUtils.monitorTransaction(testState).catch(err => err);
       logger.warn(`Monitoring tx ${txHash}`);
 
       // Mine a block to advance the timestamp and trigger the timeout
       await cheatCodes.mineEmptyBlock();
 
       // Wait for timeout and catch the error
-      await expect(monitorPromise).rejects.toThrow('timed out');
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
       logger.warn(`Tx monitor has timed out`);
 
       // Wait for cancellation tx to be sent
@@ -1173,12 +1175,13 @@ describe('L1TxUtils', () => {
       // Monitor the tx. We will think it has timed out and submit a cancellation.
       state.txConfigOverrides.txTimeoutMs = 200;
       state.txConfigOverrides.checkIntervalMs = 100;
-      const monitorPromise = gasUtils.monitorTransaction(state);
+      // Attach the rejection handler synchronously so an early timeout does not surface as an unhandled rejection
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
 
       // Wait for timeout and catch the error
       await sleep(100);
       await cheatCodes.mineEmptyBlock();
-      await expect(monitorPromise).rejects.toThrow('timed out');
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
       logger.warn('Monitor has thrown for timeout');
 
       // Wait for cancellation to be sent

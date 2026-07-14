@@ -74,6 +74,7 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
 endif()
 
+add_subdirectory(barretenberg/acir_components_check)
 add_subdirectory(barretenberg/api)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/bbapi)

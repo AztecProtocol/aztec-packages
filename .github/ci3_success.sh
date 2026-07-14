@@ -25,18 +25,23 @@ function handle_squash_merge {
     return
   fi
   # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
-  # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
   echo "Processing squash and merge..."
   # Reauth the git repo with our GITHUB_TOKEN
   git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}
   git config --unset-all http.https://github.com/.extraheader || true
-  # Get the base commit (merge-base) for the PR
+  # Drop the trigger label BEFORE squashing. squash-pr.sh force-pushes, which fires a fresh
+  # `synchronize` event; if the label were still set, that event would re-enter this path and loop.
+  # Use the REST endpoint (needs only the `repo` scope AZTEC_BOT_GITHUB_TOKEN has) rather than
+  # `gh pr edit --remove-label`, which runs an org/team GraphQL query requiring `read:org` — a scope
+  # the token lacks, so it errored here and the label was never cleared. `|| true` stops a transient
+  # failure from aborting the merge; squash-pr.sh's single-commit guard prevents looping regardless.
+  gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-squash-and-merge" || true
+  # Squash the PR commits into one (no-op when the branch is already a single commit).
   ./scripts/merge-train/squash-pr.sh \
     "${PR_NUMBER}" \
     "${PR_HEAD_REF}" \
     "${PR_BASE_REF}" \
     "${PR_BASE_SHA}"
-  gh pr edit "${PR_NUMBER}" --remove-label "ci-squash-and-merge"
   gh pr merge "${PR_NUMBER}" --auto -m || true
   echo "Squash and merge completed"
 }

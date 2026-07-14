@@ -21,7 +21,7 @@ use types::{
 ///   - Items within `original_array.length` must not be nullish.
 ///   - Items beyond `original_array.length` must be nullish.
 /// - Items within `original_array.length` in `original_array` must have been sorted by counter in ascending order.
-/// - Items beyond `original_array.length` in `original_array` can have any counter value.
+/// - Items beyond `original_array.length` in `original_array` must have a counter value of 0.
 /// - `num_padded_lt` must not be larger than the total number of padded items and empty items in `sorted_padded_array`.
 ///
 /// This function checks that:

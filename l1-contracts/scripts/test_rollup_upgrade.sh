@@ -51,8 +51,9 @@ if [[ -z "$registry_address" || "$registry_address" == "null" ]]; then
 fi
 
 echo "=== Testing run_rollup_upgrade.sh ==="
-# Use a different genesis to get a different rollup version
-export GENESIS_ARCHIVE_ROOT="0x$(openssl rand -hex 32)"
+# Use a different genesis to get a different rollup version. Only 31 random bytes (top byte zero) so the value is
+# always below the BN254 scalar field modulus; the rollup rejects a genesis archive root >= the field modulus.
+export GENESIS_ARCHIVE_ROOT="0x00$(openssl rand -hex 31)"
 
 ./scripts/run_rollup_upgrade.sh "$registry_address"
 

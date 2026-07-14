@@ -71,7 +71,8 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   }
 
   function getRewardBoostConfiguration() external pure returns (RewardBoostConfig memory) {
-    return RewardBoostConfig({increment: 125_000, maxScore: 15_000_000, a: 1000, minimum: 100_000, k: 1_000_000});
+    // AZIP-5: https://github.com/AztecProtocol/governance/pull/14
+    return RewardBoostConfig({increment: 101_400, maxScore: 367_500, a: 250_000, minimum: 10_000, k: 1_000_000});
   }
 
   function getStakingQueueConfiguration() external view returns (StakingQueueConfig memory) {

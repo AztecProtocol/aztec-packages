@@ -74,7 +74,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
 
     let view_check = if is_fn_view(f) {
         let assertion_message = f"Function {original_function_name} can only be called statically".as_quoted_str();
-        quote { assert(self.context.inputs.call_context.is_static_call, $assertion_message); }
+        quote { assert(self.context.is_static_call(), $assertion_message); }
     } else {
         quote {}
     };
@@ -82,7 +82,9 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
         let has_public_fns_with_init_check = has_public_init_checked_functions(f.module());
         (
-            quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(*self.context); },
+            quote {
+                aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(*self.context);
+            },
             quote { aztec::macros::functions::initialization_utils::mark_as_initialized_from_private_initializer(self.context, $has_public_fns_with_init_check); },
         )
     } else {
@@ -106,12 +108,12 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     let no_phase_change_check = if fn_has_allow_phase_change(f) {
         quote {}
     } else {
-        quote {   
+        quote {
             assert_eq(
                 within_revertible_phase,
                 self.context.in_revertible_phase(),
                 f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]",
-            ); 
+            );
         }
     };
 

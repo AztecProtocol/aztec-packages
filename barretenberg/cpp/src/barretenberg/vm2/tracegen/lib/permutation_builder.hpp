@@ -11,6 +11,8 @@ template <typename PermutationSettings> class PermutationBuilder : public Intera
     {
         // There's nothing to do here.
         // We only keep this class around so that in tests we can use the checked version.
+        // If we re-introduce non-empty processing here, we need to call it from the
+        // MultiPermutationBuilder::process().
     }
 };
 

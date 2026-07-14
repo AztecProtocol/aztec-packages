@@ -89,26 +89,29 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         INFINITY_ACC_X = 24,
         // Infinity flag consistency: acc_y = 0 when accumulator empty
         INFINITY_ACC_Y = 25,
-        // Boundary: accumulator_not_empty must be 0 at lagrange_first row
-        ACCUMULATOR_NOT_EMPTY_INIT = 26,
         // The following subrelations are gated entirely by `msm_transition` and are grouped contiguously at the end so
         // the short-monomial flavor can split them into a separately-skippable relation (skip when msm_transition ==
         // 0).
         // MSM offset generator subtraction: x-coordinate
-        OFFSET_GENERATOR_X = 27,
+        OFFSET_GENERATOR_X = 26,
         // MSM offset generator subtraction: y-coordinate
-        OFFSET_GENERATOR_Y = 28,
+        OFFSET_GENERATOR_Y = 27,
         // MSM infinity x-diff check
-        MSM_INFINITY_X_DIFF = 29,
+        MSM_INFINITY_X_DIFF = 28,
         // MSM infinity y-sum check
-        MSM_INFINITY_Y_SUM = 30,
+        MSM_INFINITY_Y_SUM = 29,
         // MSM infinity inverse check
-        MSM_INFINITY_INVERSE = 31,
+        MSM_INFINITY_INVERSE = 30,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 32> SUBRELATION_PARTIAL_LENGTHS{
-        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    // The previous ACCUMULATOR_NOT_EMPTY_INIT subrelation (`lagrange_first
+    // · transcript_accumulator_not_empty = 0`) was moved to ECCVMShiftableInitRelation as
+    // part of centralizing all `lagrange_first · col = 0` pins. The `is_accumulator_empty ·
+    // transcript_accumulator_{x,y} = 0` cascade in this relation continues to depend on
+    // that pin firing — DO NOT remove it without revisiting.
+    static constexpr std::array<size_t, 31> SUBRELATION_PARTIAL_LENGTHS{
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
     };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 

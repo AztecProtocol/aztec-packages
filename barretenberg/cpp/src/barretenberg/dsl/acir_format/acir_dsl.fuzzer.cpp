@@ -1212,7 +1212,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
 
         // *** Go through acir_to_constraint_buf pipeline directly ***
         // This exercises the core conversion logic without serialization issues
-        AcirFormat acir_format = circuit_serde_to_acir_format(circuit);
+        AcirFormat acir_format = circuit_serde_to_acir_format(circuit, /*is_mega=*/false);
 
         // ========== BUILD CIRCUIT FROM ACIR FORMAT ==========
 

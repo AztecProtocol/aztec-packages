@@ -20,6 +20,13 @@ describe('Tx', () => {
     expect(Tx.fromBuffer(buf)).toEqual(tx);
   });
 
+  it('convert to and from separate tx and proof buffers', async () => {
+    const tx = await mockTx();
+    const restored = Tx.fromBuffers(tx.withoutProof().toBuffer(), tx.chonkProof.toBuffer());
+    expect(restored).toEqual(tx);
+    expect(restored.chonkProof.isEmpty()).toBe(false);
+  });
+
   it('convert to and from json', async () => {
     const tx = await mockTx();
     const json = jsonStringify(tx);
@@ -38,7 +45,7 @@ describe('Tx', () => {
       });
     }
 
-    const someAddress = AztecAddress.fromField(new Fr(27));
+    const someAddress = AztecAddress.fromFieldUnsafe(new Fr(27));
 
     it('returns overhead only for tx with just a nullifier', () => {
       const tx = makePrivateOnlyTx();

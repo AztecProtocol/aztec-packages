@@ -1,8 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use powdr_ast::analyzed::{Analyzed, PolyID, PolynomialType};
+use crate::checks::utils::{declared_committed_poly_ids, format_source};
+use crate::expression_evaluation::{
+    build_intermediates_map, collect_poly_ids_through_intermediates,
+};
+use powdr_ast::analyzed::{AlgebraicExpression, Analyzed, PolyID, PolynomialType};
 use powdr_number::FieldElement;
-use crate::checks::utils::{collect_poly_ids, format_source, declared_committed_poly_ids};
 
 /// A committed/witness column (including array elements) that appears in at least one identity,
 /// but never co-occurs with any other column in the same identity.
@@ -14,23 +17,29 @@ pub(crate) struct IsolatedCommittedColumn {
 
 /// Returns committed/witness columns that never appear together with any other column
 /// in any identity (polynomial constraints, lookups, permutations, connect).
-pub(crate) fn isolated_committed_columns<T: FieldElement>(analyzed: &Analyzed<T>) -> Vec<IsolatedCommittedColumn> {
+pub(crate) fn isolated_committed_columns<T: FieldElement>(
+    analyzed: &Analyzed<T>,
+) -> Vec<IsolatedCommittedColumn> {
     let declared_committed = declared_committed_poly_ids(analyzed);
     let connected = committed_poly_ids_with_any_cooccurrence(analyzed);
 
     declared_committed
         .into_iter()
         .filter(|(_poly_id, _name, _src)| !connected.contains(_poly_id)) // filter all committed polynomials that are not connected
-        .map(|(_poly_id, name, source)| IsolatedCommittedColumn { name, source: format_source(&source) })
+        .map(|(_poly_id, name, source)| IsolatedCommittedColumn {
+            name,
+            source: format_source(&source),
+        })
         .collect()
 }
-
 
 fn committed_poly_ids_with_any_cooccurrence<T: FieldElement>(
     analyzed: &Analyzed<T>,
 ) -> HashSet<PolyID> {
+    let intermediates: HashMap<PolyID, &AlgebraicExpression<T>> = build_intermediates_map(analyzed);
+    let mut poly_id_cache: HashMap<PolyID, HashSet<PolyID>> = HashMap::new();
     let mut connected: HashSet<PolyID> = HashSet::new();
-    for identity in analyzed.identities_with_inlined_intermediate_polynomials() {
+    for identity in &analyzed.identities {
         let mut refs: HashSet<PolyID> = HashSet::new();
         for expr in identity
             .left
@@ -40,7 +49,12 @@ fn committed_poly_ids_with_any_cooccurrence<T: FieldElement>(
             .chain(identity.right.selector.iter())
             .chain(identity.right.expressions.iter())
         {
-            collect_poly_ids(expr, &mut refs);
+            collect_poly_ids_through_intermediates(
+                expr,
+                &intermediates,
+                &mut poly_id_cache,
+                &mut refs,
+            );
         }
 
         if refs.len() <= 1 {
@@ -59,10 +73,10 @@ fn committed_poly_ids_with_any_cooccurrence<T: FieldElement>(
 
 #[cfg(test)]
 mod tests {
+    use super::isolated_committed_columns;
     use powdr_number::GoldilocksField;
     use powdr_pil_analyzer::analyze_string;
-    use super::isolated_committed_columns;
-    
+
     #[test]
     fn isolated_if_only_self_constrained() {
         let input = r#"
@@ -72,11 +86,17 @@ mod tests {
         "#;
         let analyzed = analyze_string::<GoldilocksField>(input);
         let isolated = isolated_committed_columns(&analyzed);
-    
-        assert!(isolated.len() == 1, "expected 1 isolated column, got: {isolated:?}");
-        assert!(isolated[0].name == "N.a", "expected N.a to be isolated, got: {isolated:?}");
+
+        assert!(
+            isolated.len() == 1,
+            "expected 1 isolated column, got: {isolated:?}"
+        );
+        assert!(
+            isolated[0].name == "N.a",
+            "expected N.a to be isolated, got: {isolated:?}"
+        );
     }
-    
+
     #[test]
     fn not_isolated_when_constrained_with_other_committed() {
         let input = r#"
@@ -87,10 +107,13 @@ mod tests {
         "#;
         let analyzed = analyze_string::<GoldilocksField>(input);
         let isolated = isolated_committed_columns(&analyzed);
-    
-        assert!(isolated.len() == 0, "expected no isolated columns, got: {isolated:?}");
+
+        assert!(
+            isolated.len() == 0,
+            "expected no isolated columns, got: {isolated:?}"
+        );
     }
-    
+
     #[test]
     fn test_dead_columns() {
         let input = r#"
@@ -98,11 +121,16 @@ mod tests {
         "#;
         let analyzed = analyze_string::<GoldilocksField>(input);
         let isolated = isolated_committed_columns(&analyzed);
-        assert!(isolated.len() == 1, "expected 1 isolated column, got: {isolated:?}");
-        assert!(isolated[0].name == "a", "expected a to be isolated, got: {isolated:?}");
+        assert!(
+            isolated.len() == 1,
+            "expected 1 isolated column, got: {isolated:?}"
+        );
+        assert!(
+            isolated[0].name == "a",
+            "expected a to be isolated, got: {isolated:?}"
+        );
     }
-    
-    
+
     #[test]
     fn isolated_if_only_used_in_unused_intermediate() {
         let input = r#"
@@ -112,11 +140,17 @@ mod tests {
         "#;
         let analyzed = analyze_string::<GoldilocksField>(input);
         let isolated = isolated_committed_columns(&analyzed);
-    
-        assert!(isolated.len() == 1, "expected 1 isolated column, got: {isolated:?}");
-        assert!(isolated[0].name == "N.a", "expected N.a to be isolated, got: {isolated:?}");
+
+        assert!(
+            isolated.len() == 1,
+            "expected 1 isolated column, got: {isolated:?}"
+        );
+        assert!(
+            isolated[0].name == "N.a",
+            "expected N.a to be isolated, got: {isolated:?}"
+        );
     }
-    
+
     #[test]
     fn not_isolated_when_used_in_lookup_identity() {
         let input = r#"
@@ -129,7 +163,10 @@ mod tests {
         "#;
         let analyzed = analyze_string::<GoldilocksField>(input);
         let isolated = isolated_committed_columns(&analyzed);
-    
-        assert!(isolated.len() == 0, "expected no isolated columns, got: {isolated:?}");
+
+        assert!(
+            isolated.len() == 0,
+            "expected no isolated columns, got: {isolated:?}"
+        );
     }
 }

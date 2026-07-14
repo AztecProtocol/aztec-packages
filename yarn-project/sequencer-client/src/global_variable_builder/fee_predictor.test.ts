@@ -9,9 +9,11 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import { FEE_ORACLE_LAG, type GasFees, ManaUsageEstimate, computeExcessMana } from '@aztec/stdlib/gas';
 
+import { jest } from '@jest/globals';
 import { foundry } from 'viem/chains';
 
 import { FeePredictor } from './fee_predictor.js';
@@ -351,4 +353,66 @@ describe('FeePredictor', () => {
       nextCheckpointOffset++;
     }
   }, 60_000);
+});
+
+describe('FeePredictor state caching', () => {
+  it('recovers from a transient L1 read failure without waiting for a new L1 block', async () => {
+    const blockNumber = 1n;
+    const getBlockNumber = jest.fn<() => Promise<bigint>>(() => Promise.resolve(blockNumber));
+    const state = { manaTarget: 1n } as unknown;
+    const fetchState = jest
+      .fn<() => Promise<unknown>>()
+      .mockRejectedValueOnce(new Error('L1 RPC request failed'))
+      .mockResolvedValue(state);
+
+    const predictor: FeePredictor = Object.create(FeePredictor.prototype);
+    Reflect.set(predictor, 'publicClient', { getBlockNumber });
+    Reflect.set(predictor, 'cachedL1BlockNumber', undefined);
+    Reflect.set(predictor, 'cachedState', undefined);
+    Reflect.set(predictor, 'fetchState', fetchState);
+
+    const getState = Reflect.get(FeePredictor.prototype, 'getState') as () => Promise<unknown>;
+
+    await expect(getState.call(predictor)).rejects.toThrow('L1 RPC request failed');
+    // Same L1 block: must recompute rather than replay the cached rejection.
+    await expect(getState.call(predictor)).resolves.toBe(state);
+    expect(fetchState).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not clear the block marker when a stale fetch for an older block rejects', async () => {
+    const blockN = 1n;
+    const blockNext = 2n;
+    const getBlockNumber = jest
+      .fn<() => Promise<bigint>>()
+      .mockResolvedValueOnce(blockN)
+      .mockResolvedValueOnce(blockNext);
+
+    const fetchN = promiseWithResolvers<unknown>();
+    const state = { manaTarget: 1n } as unknown;
+    const fetchState = jest
+      .fn<() => Promise<unknown>>()
+      .mockImplementationOnce(() => fetchN.promise)
+      .mockResolvedValue(state);
+
+    const predictor: FeePredictor = Object.create(FeePredictor.prototype);
+    Reflect.set(predictor, 'publicClient', { getBlockNumber });
+    Reflect.set(predictor, 'cachedL1BlockNumber', undefined);
+    Reflect.set(predictor, 'cachedState', undefined);
+    Reflect.set(predictor, 'fetchState', fetchState);
+
+    const getState = Reflect.get(FeePredictor.prototype, 'getState') as () => Promise<unknown>;
+
+    // Fetch for block N stays in flight; the block N+1 call advances the marker meanwhile.
+    const callN = getState.call(predictor);
+    const callNext = getState.call(predictor);
+
+    // The stale N fetch now rejects. It must NOT clear the marker (which now points at N+1).
+    fetchN.reject(new Error('stale L1 RPC request failed'));
+
+    await expect(callN).rejects.toThrow('stale L1 RPC request failed');
+    await expect(callNext).resolves.toBe(state);
+
+    expect(Reflect.get(predictor, 'cachedL1BlockNumber')).toBe(blockNext);
+    expect(fetchState).toHaveBeenCalledTimes(2);
+  });
 });

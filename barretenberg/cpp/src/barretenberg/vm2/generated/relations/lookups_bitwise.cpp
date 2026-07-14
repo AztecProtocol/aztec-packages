@@ -25,7 +25,22 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_bitwise_integral_tag_length_relation);
-INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_bitw_tag_byte_length_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_0_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_1_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_2_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_3_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_4_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_5_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_6_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_7_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_8_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_9_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_10_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_11_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_12_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_13_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_14_relation);
+INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_15_relation);
 
 } // namespace bb::avm2

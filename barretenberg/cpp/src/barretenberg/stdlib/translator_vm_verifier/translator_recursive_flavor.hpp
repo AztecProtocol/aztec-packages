@@ -110,7 +110,5 @@ class TranslatorRecursiveFlavor {
     // Reuse the VerifierCommitments from Translator
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     using Transcript = UltraStdlibTranscript;
-
-    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
 } // namespace bb

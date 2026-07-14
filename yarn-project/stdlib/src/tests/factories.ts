@@ -6,7 +6,7 @@ import {
 } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
@@ -26,6 +26,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PROCESSABLE_L2_GAS,
   MAX_PROTOCOL_CONTRACTS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -229,7 +230,12 @@ export function makeTxContext(seed: number = 1): TxContext {
  * Creates a default instance of gas settings. No seed value is used to ensure we allocate a sensible amount of gas for testing.
  */
 export function makeGasSettings() {
-  return GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) });
+  return GasSettings.fallback({
+    // Arbitrary daGas pinned to the pre-existing fixture value so avm_inputs.testdata.bin (consumed by
+    // the C++ vm2 tests) stays byte-stable; teardown derives to the same values the old fallback produced.
+    gasLimits: new Gas(196_608, MAX_PROCESSABLE_L2_GAS),
+    maxFeesPerGas: new GasFees(10, 10),
+  });
 }
 
 /**
@@ -648,6 +654,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     anchorBlockHeader: makeBlockHeader(seed + 0xd00),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,
+    txRequestSalt: fr(seed + 0x1500),
   });
 }
 
@@ -659,7 +666,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
     slotNumber: SlotNumber(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
-    feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
+    feeRecipient: AztecAddress.fromFieldUnsafe(new Fr(seed + 6)),
     gasFees: new GasFees(seed + 7, seed + 8),
     ...compact(overrides),
   });
@@ -709,7 +716,7 @@ export function makeBytes(size = 32, fill = 1): Buffer {
  * @returns An aztec address.
  */
 export function makeAztecAddress(seed = 1): AztecAddress {
-  return AztecAddress.fromField(fr(seed));
+  return AztecAddress.fromFieldUnsafe(fr(seed));
 }
 
 function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {
@@ -872,6 +879,7 @@ export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<Check
     feeRecipient: makeAztecAddress(seed + 0x600),
     gasFees: makeGasFees(seed + 0x700),
     totalManaUsed: fr(seed + 0x800),
+    accumulatedFees: fr(seed + 0x850),
     ...overrides,
   });
 }
@@ -1117,11 +1125,7 @@ export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
     makePublicChonkVerifierPublicInputs,
     RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   );
-  const avmProofData = makeProofDataForFixedVk(
-    seed + 0x100,
-    makeAvmCircuitPublicInputs,
-    AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  );
+  const avmProofData = makeProofDataForFixedVk(seed + 0x100, makeAvmCircuitPublicInputs, AVM_V2_PROOF_LENGTH_IN_FIELDS);
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicTxBaseRollupPrivateInputs.from({
@@ -1698,10 +1702,6 @@ export function makeL2Tips(
   return {
     proposed: { number: bn, hash },
     checkpointed: {
-      block: { number: bn, hash },
-      checkpoint: { number: cpn, hash: cph },
-    },
-    proposedCheckpoint: {
       block: { number: bn, hash },
       checkpoint: { number: cpn, hash: cph },
     },

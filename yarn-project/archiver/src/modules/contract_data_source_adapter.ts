@@ -28,16 +28,7 @@ export class ArchiverContractDataSourceAdapter implements ContractDataSource {
     return this.stores.contractClasses.getBytecodeCommitment(id);
   }
 
-  public async getContract(
-    address: AztecAddress,
-    maybeTimestamp?: UInt64,
-  ): Promise<ContractInstanceWithAddress | undefined> {
-    let timestamp = maybeTimestamp;
-    if (timestamp === undefined) {
-      const latest = await this.stores.blocks.getLatestL2BlockNumber();
-      const blockData = latest > 0 ? await this.stores.blocks.getBlockData({ number: latest }) : undefined;
-      timestamp = blockData ? blockData.header.globalVariables.timestamp : 0n;
-    }
+  public getContract(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
     return this.stores.contractInstances.getContractInstance(address, timestamp);
   }
 

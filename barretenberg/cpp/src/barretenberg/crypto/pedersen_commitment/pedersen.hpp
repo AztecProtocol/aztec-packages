@@ -31,7 +31,7 @@ template <typename Curve> class pedersen_commitment_base {
     using Group = typename Curve::Group;
     using GeneratorContext = typename crypto::GeneratorContext<Curve>;
 
-    static AffineElement commit_native(const std::vector<Fq>& inputs, GeneratorContext context = {});
+    static AffineElement commit_native(const std::vector<Fq>& inputs, const GeneratorContext& context = {});
 };
 
 using pedersen_commitment = pedersen_commitment_base<curve::Grumpkin>;

@@ -6,7 +6,7 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('C++ Exception Handling during Public Tx Simulation', () => {
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: PublicTxSimulationTester;
   let worldStateService: NativeWorldStateService;
@@ -16,7 +16,7 @@ describe('C++ Exception Handling during Public Tx Simulation', () => {
     tester = await PublicTxSimulationTester.create(worldStateService, /*globals=*/ undefined, /*metrics=*/ undefined);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
+      /*deployer=*/ AztecAddress.fromNumberUnsafe(420),
       AvmTestContractArtifact,
     );
   });

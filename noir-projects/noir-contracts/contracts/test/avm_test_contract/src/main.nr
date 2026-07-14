@@ -15,7 +15,7 @@ pub contract AvmTest {
     use aztec::context::gas::GasOpts;
     use aztec::macros::{functions::{external, view}, storage::storage};
     use aztec::oracle::get_contract_instance::{
-        get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
+        get_contract_instance_current_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_immutables_hash_avm, get_contract_instance_initialization_hash_avm,
     };
     use aztec::protocol::abis::function_selector::FunctionSelector;
@@ -417,7 +417,7 @@ pub contract AvmTest {
     #[external("public")]
     fn test_get_contract_instance(address: AztecAddress) {
         let deployer = get_contract_instance_deployer_avm(address);
-        let class_id = get_contract_instance_class_id_avm(address);
+        let class_id = get_contract_instance_current_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
         let immutables_hash = get_contract_instance_immutables_hash_avm(address);
 
@@ -459,7 +459,7 @@ pub contract AvmTest {
         expected_immutables_hash: Field,
     ) {
         let deployer = get_contract_instance_deployer_avm(address);
-        let class_id = get_contract_instance_class_id_avm(address);
+        let class_id = get_contract_instance_current_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
         let immutables_hash = get_contract_instance_immutables_hash_avm(address);
 
@@ -476,7 +476,7 @@ pub contract AvmTest {
 
         // Get a Protocol Contract and it should exist
         aztec::oracle::logging::debug_log("Get Contract Instance Protocol Contract Instance");
-        let fee_juice_class_id = get_contract_instance_class_id_avm(FEE_JUICE_ADDRESS);
+        let fee_juice_class_id = get_contract_instance_current_class_id_avm(FEE_JUICE_ADDRESS);
         assert(fee_juice_class_id.is_some(), "Protocol Contract instance not found when getting CLASS_ID!");
     }
 

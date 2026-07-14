@@ -7,10 +7,11 @@
 1. [Overview](#overview)
 2. [High-Level Statement](#high-level-statement)
 3. [Architecture and Constants](#architecture-and-constants)
-4. [Witness Trace Structure](#witness-trace-structure)
-5. [Concatenation: The Key Optimization](#concatenation-the-key-optimization)
-6. [Witness Generation and Proving Key Construction](#witness-generation-and-proving-key-construction)
-7. [Translator Relations](#translator-relations)
+4. [Glossary and Common Confusions](#glossary-and-common-confusions)
+5. [Witness Trace Structure](#witness-trace-structure)
+6. [Concatenation: The Key Optimization](#concatenation-the-key-optimization)
+7. [Witness Generation and Proving Key Construction](#witness-generation-and-proving-key-construction)
+8. [Translator Relations](#translator-relations)
 
 ---
 
@@ -98,6 +99,53 @@ We verify this by proving the equation holds:
 
 By the Chinese Remainder Theorem, since $2^{272} \cdot r > 2^{514}$ exceeds the maximum possible value, the equation must hold in integers, and thus modulo $q$. More details on this relation are in [RELATIONS.md](RELATIONS.md#non-native-field-relations).
 
+## Architecture and Constants
+
+The Translator is a **fixed-size** circuit. Its key constants (from `translator_flavor.hpp` / `constants.hpp`):
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `NUM_LIMB_BITS` | 68 | width of a non-native **limb** (one $\mathbb{F}_r$ chunk of an $\mathbb{F}_q$ value) |
+| `MICRO_LIMB_BITS` | 14 | width of a **microlimb** (the finer chunk used for range constraints) |
+| `LOG_MINI_CIRCUIT_SIZE` | 13 | $\log_2$ of the mini-circuit size |
+| `MINI_CIRCUIT_SIZE` | $2^{13}$ | rows in the mini-circuit (where the witness actually lives) |
+| `CONCATENATION_GROUP_SIZE` | 16 | mini-circuit-size columns concatenated into one full-circuit column |
+| `NUM_CONCATENATED_POLYS` | 5 | number of concatenated range-constraint polynomials |
+| `NUM_OP_QUEUE_WIRES` | 4 | op-queue transcript columns (`op`, `x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2`) |
+
+**Mini-circuit vs. full circuit.** Witness generation happens in the **mini-circuit** of `MINI_CIRCUIT_SIZE = 2^13` rows. Range-constraint columns are then **concatenated** in groups of `CONCATENATION_GROUP_SIZE = 16` into full-circuit-size polynomials, so the full circuit has $\log$-size `LOG_MINI_CIRCUIT_SIZE + log2(CONCATENATION_GROUP_SIZE) = 13 + 4 = 17` (this is the `17` rounds of the joint sumcheck). See [Concatenation](#concatenation-the-key-optimization).
+
+**Two fields.** The Translator's **native** field is $\mathbb{F}_r$ (the BN254 scalar field); the values it reduces — BN254 base-field elements — live in $\mathbb{F}_q$, which is **non-native** here ($q > r$), and the accumulator identity is checked $\bmod\ q$. This is the *opposite* convention to the ECCVM, whose native field is $\mathbb{F}_q$.
+
+## Glossary and Common Confusions
+
+A quick reference for terms and columns that are easy to confuse. Full treatment is in the linked sections.
+
+### Where things live in the code
+
+| Concern | Location |
+|---|---|
+| Columns / entities (canonical list) | `translator_vm/translator_flavor.hpp` |
+| Witness generation | `translator_vm/translator_circuit_builder.{hpp,cpp}` |
+| Constraints | `relations/translator_vm/` — see [RELATIONS.md](RELATIONS.md) |
+| Prover / Verifier | `translator_vm/translator_prover.cpp`, `translator_vm/translator_verifier.cpp` |
+
+### Easily-confused terms
+
+| Term | The trap | What it actually means |
+|---|---|---|
+| native $\mathbb{F}_r$ vs. non-native $\mathbb{F}_q$ | which field is which? | The Translator computes **natively in $\mathbb{F}_r$**; the modulus it reduces by is **$q$** (the BN254 base field $\mathbb{F}_q$, with $q > r$). This is the **opposite** of the ECCVM (native $\mathbb{F}_q$). |
+| limb (68-bit) vs. microlimb (14-bit) | both "limbs" | A **limb** (`NUM_LIMB_BITS = 68`) is one $\mathbb{F}_r$ chunk of a non-native $\mathbb{F}_q$ value (bigfield-style). A **microlimb** (`MICRO_LIMB_BITS = 14`) is the finer chunk a limb is split into for range constraints (the `*_range_constraint_*` columns). |
+| mod $2^{272}$ **and** mod $r$ | redundant checks? | The integer identity is proven **both** mod $2^{272}$ (68-bit-limb arithmetic, as two 136-bit halves) **and** mod $r$ (natively). By CRT, since $2^{272}\cdot r$ exceeds the maximum possible value, it then holds over the integers, hence mod $q$. Neither check alone suffices. |
+| mini-circuit vs. full circuit | one size? | The witness lives in the **mini-circuit** (`2^13`); range-constraint columns are concatenated ×`16` into the **full circuit** (`2^17`). See [Concatenation](#concatenation-the-key-optimization). |
+| even rows vs. odd rows | which row does what? | A **2-row cycle**: **even** rows (`2i`) are **computation** rows where the non-native relation is checked; **odd** rows (`2i+1`) are **storage** rows whose values (including the *previous* accumulator) are read from even rows via **shifts**. |
+| op-queue processing order | first op → first row? | The op queue is processed **in reverse**: `acc_0` is built from the *last* op `op_{n-1}`, and the final accumulator from `op_0`. The "previous accumulator" for the last op is `0`. |
+| `x` (evaluation challenge) vs. `v` (batching challenge) | two challenges | Both $\in \mathbb{F}_q$. `v` batches the **5 values per op** (`op, P_x, P_y, z_1, z_2`) via powers $v,\dots,v^4$; `x` combines **all ops** via Horner (powers of `x`). |
+| `z_1`, `z_2` vs. the accumulator | | `z_1`, `z_2` are the decomposed 128-bit scalar of one op ($z = z_1 + 2^{128} z_2$); the **accumulator** is the running batched evaluation across all ops. |
+| `*_binary_limbs_*` vs. `*_range_constraint_*` | | `*_binary_limbs_*` hold the four 68-bit limbs of a value (e.g. `accumulators_binary_limbs_0..3`); the `*_range_constraint_*` columns hold the 14-bit microlimb decomposition that **range-checks** those limbs. |
+| the op-queue columns `x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2` | odd names | The 4 op-queue transcript columns pack op data across the 2-row cycle; each non-`op` column carries two limbs (`x_lo_y_hi` = `P_x` low limb + `P_y` high limb, etc.). They are **shared** with the merge protocol: the same commitments are produced once in the kernel's Oink phase and reused, so the Translator does **not** commit to them independently. |
+| `ordered_extra_range_constraints_numerator` | a witness column | It is the **only precomputed selector that needs a commitment** (all other precomputed columns are verifier-computable); it seeds the sorted-list range argument. |
+
 ## Witness Trace Structure
 
 The Translator circuit has 81 witness columns, organized into:
@@ -111,14 +159,16 @@ The circuit operates on a 2-row cycle structure. Each `EccOpQueue` entry occupie
 - Row $2i$ (Even rows): Computation rows where the non-native field relation is actively checked
 - Row $2i+1$ (Odd rows): Data storage rows that hold values accessed via shifts
 
+The opcode is constrained to `0` on odd rows by the [Opcode Constraint Relation](RELATIONS.md#opcode-constraint-relation) — a soundness requirement: the non-native accumulator reads only even rows, so a genuine opcode parked on an odd row would be silently skipped, excluding that ECC operation from the batched evaluation.
+
 While enforcing constraints on the even rows, we can access values from the "next" row (which is odd) using shifted column polynomials.
 As hinted earlier, the "previous" accumulator value needed for computation is stored at odd row $(2i+1)$.
 This value becomes the "current" accumulator for the next even row $(2i+2)$:
 
 | Operation index      | $0$                                    | $1$                                   | $\quad \dots \quad$ | $(n-2)$                                  | $(n-1)$                              |
 | -------------------- | -------------------------------------- | ------------------------------------- | ------------------- | ---------------------------------------- | ------------------------------------ |
-| Current accumulator  | $\textcolor{violet}{\text{acc}_{n-1}}$ | $\textcolor{brown}{\text{acc}_{n-2}}$ | $\quad \dots \quad$ | $\textcolor{lightgreen}{\text{acc}_{1}}$ | $\textcolor{orange}{\text{acc}_{0}}$ |
-| Previous accumulator | $\textcolor{brown}{\text{acc}_{n-2}}$  | $\textcolor{grey}{\text{acc}_{n-3}}$  | $\quad \dots \quad$ | $\textcolor{orange}{\text{acc}_{0}}$     | $0$                                  |
+| Current accumulator  | $\textcolor{violet}{\text{acc}(n-1)}$ | $\textcolor{brown}{\text{acc}(n-2)}$ | $\quad \dots \quad$ | $\textcolor{lightgreen}{\text{acc}(1)}$ | $\textcolor{orange}{\text{acc}(0)}$ |
+| Previous accumulator | $\textcolor{brown}{\text{acc}(n-2)}$  | $\textcolor{grey}{\text{acc}(n-3)}$  | $\quad \dots \quad$ | $\textcolor{orange}{\text{acc}(0)}$     | $0$                                  |
 |                      |                                        |                                       |                     |                                          |                                      |
 
 #### 1. EccOpQueue Transcript Columns (4 columns)
@@ -127,7 +177,7 @@ These columns directly represent the EccOpQueue transcript:
 
 | Column Name | Even Row $(2i)$                  | Odd Row $(2i+1)$             | Description                                                        |
 | ----------- | -------------------------------- | ---------------------------- | ------------------------------------------------------------------ |
-| `OP`        | $\texttt{op} \in \{0, 3, 4, 8\}$ | 0 (no-op)                    | Opcode (the type of elliptic curve operation)                      |
+| `OP`        | $\texttt{op} \in \lbrace 0, 3, 4, 8\rbrace$ | 0 (no-op)                    | Opcode (the type of elliptic curve operation)                      |
 | `X_LO_Y_HI` | $P_{x,\text{lo}}$ (136 bits)     | $P_{y,\text{hi}}$ (118 bits) | Low 136 bits of $x$-coordinate and high 118 bits of $y$-coordinate |
 | `X_HI_Z_1`  | $P_{x,\text{hi}}$ (118 bits)     | $z_1$ (128 bits)             | High 118 bits of $x$-coordinate and first scalar                   |
 | `Y_LO_Z_2`  | $P_{y,\text{lo}}$ (136 bits)     | $z_2$ (128 bits)             | Low 136 bits of $y$-coordinate and second scalar                   |
@@ -135,8 +185,8 @@ These columns directly represent the EccOpQueue transcript:
 
 **Encoding scheme**: Point coordinates $P_x$ and $P_y$ are each 254 bits, split as:
 
-- $P_x = (P_{x,\text{hi}}$ (118 bits) $\|$ $P_{x,\text{lo}}$ (136 bits) $)$
-- $P_y = (P_{y,\text{hi}}$ (118 bits) $\|$ $P_{y,\text{lo}}$ (136 bits) $)$
+- $P_x = (P_{x,\text{hi}}$ (118 bits) $\Vert$ $P_{x,\text{lo}}$ (136 bits) $)$
+- $P_y = (P_{y,\text{hi}}$ (118 bits) $\Vert$ $P_{y,\text{lo}}$ (136 bits) $)$
 
 #### 2. Limb Decomposition Columns (13 columns)
 
@@ -428,12 +478,12 @@ The circuit uses Lagrange polynomials to control which constraints are active: (
 | Polynomial                     | Description                               | Active Rows                                                                                     |
 | ------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `lagrange_first`               | First row                                 | $i = 0$                                                                                         |
-| `lagrange_real_last`           | Last row in full circuit (before masking) | $i = N - \text{MAX\_RANDOM\_VALUES\_PER\_ORDERED} - 1 = 2^{17} - 64 - 1 = 131007$               |
+| `lagrange_real_last`           | Last row in full circuit (before masking) | $i = N -$ `MAX_RANDOM_VALUES_PER_ORDERED` $- 1 = 2^{17} - 64 - 1 = 131007$               |
 | `lagrange_last`                | Last row in full circuit                  | $i = 2^{17} - 1$                                                                                |
-| `lagrange_masking`             | Scattered masking rows in full circuit    | $i \in \{j \cdot 2^{13} + k : j \in [0,16), k \in [2^{13} - m, 2^{13})\}$                       |
+| `lagrange_masking`             | Scattered masking rows in full circuit    | $i \in \lbrace j \cdot 2^{13} + k : j \in [0,16), k \in [2^{13} - m, 2^{13})\rbrace$                       |
 | `lagrange_mini_masking`        | Masking rows in mini circuit              | $i \in [z_1, \ z_1 + r_{\textsf{start}}) \cup [n - r_{\textsf{end}}, \ n)$                      |
-| `lagrange_even_in_minicircuit` | Even indices in real mini-circuit         | $i \in \{u \ \| \ u \ \% \ 2 = 0, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\}$ |
-| `lagrange_odd_in_minicircuit`  | Odd indices in real mini-circuit          | $i \in \{u \ \| \ u \ \% \ 2 = 1, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\}$ |
+| `lagrange_even_in_minicircuit` | Even indices in real mini-circuit         | $i \in \lbrace u \ \mid  \ u \ \bmod  \ 2 = 0, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\rbrace$ |
+| `lagrange_odd_in_minicircuit`  | Odd indices in real mini-circuit          | $i \in \lbrace u \ \mid  \ u \ \bmod  \ 2 = 1, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\rbrace$ |
 | `lagrange_last_in_minicircuit` | Last row in mini-circuit                  | $i = 8191$ (mini)                                                                               |
 | `lagrange_result_row`          | Row containing final accumulator result   | $i = (z_1 + r_{\textsf{start}})$                                                                |
 | `lagrange_last_in_minicircuit` | Last real row in mini-circuit             | $i = (n - r_{\textsf{end}}) - 1$                                                                |
@@ -442,7 +492,7 @@ The circuit uses Lagrange polynomials to control which constraints are active: (
 
 ## Concatenation: The Key Optimization
 
-The Translator must range-constrain approximately 64 different microlimb sets using permutation argument (and the delta range constraint). The permutation argument's degree equals $1 + \textsf{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
+The Translator must range-constrain approximately 64 different microlimb sets using permutation argument (and the delta range constraint). The permutation argument's degree equals $1 +$ `NUM_COLS`, where NUM_COLS is the number of columns being permuted:
 
 $$
 z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[j] + \gamma) =
@@ -537,7 +587,7 @@ Output: 92 polynomials of size 2^17
 
 The prover receives the `EccOpQueue` from the Mega circuit. Each entry contains:
 
-$$\texttt{UltraOp} = \{\texttt{op}, P_x, P_y, z_1, z_2\}$$
+$$\texttt{UltraOp} = \lbrace \texttt{op}, P_x, P_y, z_1, z_2\rbrace$$
 
 For operation $i$ at rows $2i$ (even) and $2i+1$ (odd), populate:
 
@@ -678,7 +728,7 @@ The decomposition relation enforces $m_{\text{tail}} \in [0, 2^{14})$, which imp
 
 The 64 microlimb columns are organized into 4 groups of 16 columns each. Each group is **concatenated** into a single polynomial at full circuit size.
 
-**Concatenation formula:** For group polynomials $\{p_0, p_1, \ldots, p_{15}\}$ each of mini-size $n = 2^{13}$:
+**Concatenation formula:** For group polynomials $\lbrace p_0, p_1, \ldots, p_{15}\rbrace$ each of mini-size $n = 2^{13}$:
 
 $$p_{\text{concatenated}}[j \cdot n + k] = p_j[k] \quad \text{for } j \in [0, 16), \ k \in [0, n)$$
 
@@ -850,16 +900,16 @@ The permutation argument requires proving that the concatenated microlimbs equal
 - Circuit size without masking: $N_{\text{no-mask}} = N - m \cdot I_{\textsf{size}}$
 - Step sequence size: $N_{\text{steps}} = 5{,}462$
 
-**Step sequence:** The sorted steps $\mathcal{S} = \{s_0, s_1, \ldots, s_{5461}\}$ where:
+**Step sequence:** The sorted steps $\mathcal{S} = \lbrace s_0, s_1, \ldots, s_{5461}\rbrace$ where:
 $$s_i = 3i \quad \text{for } i \in [0, 5461], \quad s_{5461} = 16{,}383 = 2^{14} - 1$$
 
 This ensures coverage of all values in $[0, 2^{14})$ with max gap of 3.
 
 #### Step 6.1: Collect Microlimbs from Each Group
 
-For each group $g \in \{0, 1, 2, 3\}$, collect all microlimbs from its 16 polynomials:
+For each group $g \in \lbrace 0, 1, 2, 3\rbrace$, collect all microlimbs from its 16 polynomials:
 
-$$\mathcal{M}_g = \bigcup_{j=0}^{15} \Big\{ p_{g,j}[i] : i \in [0, (n-m)) \Big\}$$
+$$\mathcal{M}_g = \bigcup_{j=0}^{15} \Big\lbrace p_{g,j}[i] : i \in [0, (n-m)) \Big\rbrace$$
 
 where $p_{g,j}$ is the $j$-th polynomial in group $g$. Size of each group microlimb set:
 
@@ -889,7 +939,7 @@ For groups 0-3, construct `ordered_range_constraints_i` by:
 3. Add step values $\mathcal{S}$
 4. Sort the combined set
 
-Mathematically, for $g \in \{0, 1, 2, 3\}$:
+Mathematically, for $g \in \lbrace 0, 1, 2, 3\rbrace$:
 
 $$
 \text{ordered}[g]_{\text{unsorted}} = \begin{cases}
@@ -902,9 +952,9 @@ $$
 Then sort:
 $$\text{ordered}[g] = \text{sort}(\text{ordered}[g]_{\text{unsorted}})$$
 
-Overflow microlimbs: If $|\mathcal{M}_g| > C_{\text{capacity}}$, the excess microlimbs go to group 4:
+Overflow microlimbs: If $|\mathcal M_g| > C_{\text{capacity}}$, the excess microlimbs go to group 4:
 
-$$\mathcal{M}_{g,\text{overflow}} = \left\{ \mathcal{M}_g[k] : k \geq C_{\text{capacity}} \right\}$$
+$$\mathcal{M}_{g,\text{overflow}} = \left\lbrace \mathcal{M}_g[k] : k \geq C_{\text{capacity}} \right\rbrace$$
 
 $$|\mathcal{M}_{g,\text{overflow}}| = |\mathcal{M}_g| - C_{\text{capacity}}$$
 
@@ -1325,9 +1375,9 @@ $$
 
 This polynomial contains the "step values" repeated to balance the permutation:
 
-$$\texttt{ordered\_extra}[i \cdot 5 + j] = \text{sorted\_steps}[i] \quad \text{for } i \in [0, 5462), \ j \in [0, 5)$$
+$$\texttt{ordered extra}[i \cdot 5 + j] = \text{sorted steps}[i] \quad \text{for } i \in [0, 5462), \ j \in [0, 5)$$
 
-where $\text{sorted\_steps} = \{0, 3, 6, 9, \ldots, 16383\}$.
+where $\text{sorted steps} = \lbrace 0, 3, 6, 9, \ldots, 16383\rbrace$.
 
 This ensures the multisets balance:
 

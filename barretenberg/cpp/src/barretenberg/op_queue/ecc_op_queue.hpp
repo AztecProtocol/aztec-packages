@@ -43,8 +43,31 @@ class ECCOpQueue {
     static constexpr size_t ULTRA_TABLE_WIDTH = UltraEccOpsTable::TABLE_WIDTH;
     Point point_at_infinity = Curve::Group::affine_point_at_infinity;
 
-    // The operations written to the queue are also performed natively; the result is stored in accumulator
-    Point accumulator = point_at_infinity;
+    // The operations written to the queue are also performed natively; the result is stored in accumulator.
+    // The accumulator is kept in jacobian form and scalar muls are deferred and evaluated as a batch on read:
+    // evaluating each mul eagerly on an affine accumulator costs a full scalar mul plus a normalization
+    // (field inversion) per op.
+    Curve::Element accumulator = Curve::Element::infinity();
+    std::vector<Point> deferred_mul_points;
+    std::vector<Fr> deferred_mul_scalars;
+
+    // Fold the deferred scalar muls into the accumulator via a single batched MSM.
+    void flush_deferred_muls()
+    {
+        if (deferred_mul_points.empty()) {
+            return;
+        }
+        accumulator += Curve::Element::straus_msm(deferred_mul_points, deferred_mul_scalars);
+        deferred_mul_points.clear();
+        deferred_mul_scalars.clear();
+    }
+
+    void reset_accumulator()
+    {
+        accumulator.self_set_infinity();
+        deferred_mul_points.clear();
+        deferred_mul_scalars.clear();
+    }
 
     EccvmOpsTable eccvm_ops_table;    // table of ops in the ECCVM format
     UltraEccOpsTable ultra_ops_table; // table of ops in the Ultra-arithmetization format
@@ -84,15 +107,15 @@ class ECCOpQueue {
 
     /**
      * @brief Compute the fixed append offset for the final APPEND merge.
-     * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE rows.
-     * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
-     * matching the appender flavor's ecc_op_wire layout.
      */
-    size_t get_append_offset() const
+    size_t get_append_offset_for_prover() const { return get_append_offset(get_current_subtable_size()); }
+    static size_t get_append_offset_for_verifier() { return get_append_offset(bb::HIDING_KERNEL_ULTRA_OPS); }
+
+    // Shift size of the merge / row offset at which the fixed-append subtable's polynomial begins.
+    // See UltraEccOpsTable::compute_fixed_append_offset.
+    static constexpr size_t compute_fixed_append_offset(size_t append_offset, bool include_zk_prefix = true)
     {
-        constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots - zk_op_slots;
+        return UltraEccOpsTable::compute_fixed_append_offset(append_offset, include_zk_prefix);
     }
 
     void merge()
@@ -236,10 +259,14 @@ class ECCOpQueue {
     void empty_row_for_testing()
     {
         append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity });
-        accumulator.self_set_infinity();
+        reset_accumulator();
     }
 
-    Point get_accumulator() { return accumulator; }
+    Point get_accumulator()
+    {
+        flush_deferred_muls();
+        return Point(accumulator);
+    }
 
     /**
      * @brief Write point addition op to queue and natively perform addition
@@ -249,7 +276,7 @@ class ECCOpQueue {
     UltraOp add_accumulate(const Point& to_add)
     {
         // Update the accumulator natively
-        accumulator = accumulator + to_add;
+        accumulator += to_add;
         EccOpCode op_code{ .add = true };
         // Store the eccvm operation
         append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = to_add });
@@ -266,8 +293,10 @@ class ECCOpQueue {
     UltraOp mul_accumulate(const Point& to_mul, const Fr& scalar)
     {
         BB_BENCH_NAME("ECCOpQueue::mul_accumulate");
-        // Update the accumulator natively
-        accumulator = accumulator + to_mul * scalar;
+        // Defer the native accumulator update; the buffered muls are folded in as a batch when the
+        // accumulator is next read (see flush_deferred_muls).
+        deferred_mul_points.push_back(to_mul);
+        deferred_mul_scalars.push_back(scalar);
         EccOpCode op_code{ .mul = true };
 
         // Construct and store the operation in the ultra op format
@@ -328,8 +357,8 @@ class ECCOpQueue {
      */
     UltraOp eq_and_reset()
     {
-        auto expected = accumulator;
-        accumulator.self_set_infinity();
+        const Point expected = get_accumulator();
+        reset_accumulator();
         EccOpCode op_code{ .eq = true, .reset = true };
         // Store eccvm operation
         append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = expected });
@@ -377,6 +406,19 @@ class ECCOpQueue {
     }
 
   private:
+    /**
+     * @brief Compute the fixed append offset for the final APPEND merge.
+     * @details Places the appended subtable so the merged polynomial fits exactly in MINI_CIRCUIT_SIZE rows.
+     * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
+     * matching the appender flavor's ecc_op_wire layout.
+     */
+    static size_t get_append_offset(size_t current_subtable_size)
+    {
+        constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        return OP_QUEUE_SIZE - current_subtable_size - reserved_op_slots - zk_op_slots;
+    }
+
     // === Hiding Op State ===
     // The hiding op exists in both the ECCVM and Ultra tables (same Px, Py values, opcode q_eq=q_reset=1) so the
     // translation check holds. It is set by exactly one of two entry points, depending on the proving flow:

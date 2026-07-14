@@ -41,6 +41,7 @@ simulation::Operand random_operand(simulation::OperandType operand_type);
 simulation::Instruction random_instruction(WireOpCode w_opcode);
 tracegen::TestTraceContainer empty_trace();
 ContractInstance random_contract_instance();
+ContractInstance random_protocol_contract_instance();
 ContractClass random_contract_class(size_t bytecode_size = 20);
 
 // Simulates a minimal public tx (SET, SET, ADD, RETURN) end-to-end with the in-process

@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <array>
 
@@ -20,12 +21,14 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
+    static constexpr size_t NUM_MULTILINEAR_BATCHING_CHALLENGES = CHONK_MAX_CLAIMS_PER_KERNEL;
 
-    T eta{ 0 };       // Aux Memory (eta)
-    T eta_two{ 0 };   // Aux Memory (eta²)
-    T eta_three{ 0 }; // Aux Memory (eta³)
-    T beta{ 0 };      // Permutation + Lookup (column batching)
-    T gamma{ 0 };     // Permutation + Lookup
+    T eta{ 0 };             // Aux Memory (eta)
+    T eta_two{ 0 };         // Aux Memory (eta²)
+    T eta_three{ 0 };       // Aux Memory (eta³)
+    T rom_logup_gamma{ 0 }; // ROM-LogUp additive offset
+    T beta{ 0 };            // Permutation + Lookup (column batching)
+    T gamma{ 0 };           // Permutation + Lookup
 
     T public_input_delta{ 0 }; // Permutation
     T beta_sqr{ 0 };
@@ -45,7 +48,26 @@ template <typename T> struct RelationParameters {
         beta = beta_challenge;
         beta_sqr = beta * beta;
         beta_cube = beta_sqr * beta;
+        beta_quartic = beta_cube * beta;
     }
+
+    // Multilinear batching (γ^0, ..., γ^{num_claims - 1}); entries past the claim count are left untouched so that
+    // a recursive verifier does not spend gates on powers that are never consumed.
+    std::array<T, NUM_MULTILINEAR_BATCHING_CHALLENGES> multilinear_batching_challenges = {};
+    size_t num_multilinear_batching_challenges = 0;
+
+    void compute_multilinear_batching_challenges(const T& batching_challenge, const size_t num_claims)
+    {
+        BB_ASSERT_LTE(num_claims,
+                      NUM_MULTILINEAR_BATCHING_CHALLENGES,
+                      "num_claims is larger than the maximum number of claims that can be processed.");
+        num_multilinear_batching_challenges = num_claims;
+        multilinear_batching_challenges[0] = T(1);
+        for (size_t idx = 1; idx < num_claims; ++idx) {
+            multilinear_batching_challenges[idx] = multilinear_batching_challenges[idx - 1] * batching_challenge;
+        }
+    }
+
     // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
     // add per short scalar `mul` is slightly less in the Precomputed table as in the MSM table, so to get the
@@ -65,12 +87,51 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) } } };
+
+    // Re-instantiate this struct under a different element type `U` (e.g. `RelationParameters<FF>` ->
+    // `RelationParameters<VectorField>`) by per-field conversion through `U`'s implicit `Field` ctor.
+    // Lives next to the field declarations so adding a new parameter forces updating the conversion in the
+    // same diff, instead of getting silently dropped by a distant consumer.
+    template <typename U> RelationParameters<U> convert_to() const
+    {
+        RelationParameters<U> result;
+        result.eta = U(eta);
+        result.eta_two = U(eta_two);
+        result.eta_three = U(eta_three);
+        result.rom_logup_gamma = U(rom_logup_gamma);
+        result.beta = U(beta);
+        result.gamma = U(gamma);
+        result.public_input_delta = U(public_input_delta);
+        result.beta_sqr = U(beta_sqr);
+        result.beta_cube = U(beta_cube);
+        result.beta_quartic = U(beta_quartic);
+        result.eccvm_set_permutation_delta = U(eccvm_set_permutation_delta);
+        result.num_multilinear_batching_challenges = num_multilinear_batching_challenges;
+        for (size_t i = 0; i < multilinear_batching_challenges.size(); ++i) {
+            result.multilinear_batching_challenges[i] = U(multilinear_batching_challenges[i]);
+        }
+        for (size_t i = 0; i < accumulated_result.size(); ++i) {
+            result.accumulated_result[i] = U(accumulated_result[i]);
+        }
+        for (size_t i = 0; i < evaluation_input_x.size(); ++i) {
+            result.evaluation_input_x[i] = U(evaluation_input_x[i]);
+        }
+        for (size_t i = 0; i < batching_challenge_v.size(); ++i) {
+            for (size_t j = 0; j < batching_challenge_v[i].size(); ++j) {
+                result.batching_challenge_v[i][j] = U(batching_challenge_v[i][j]);
+            }
+        }
+        return result;
+    }
+
     // only used for testing
     static RelationParameters get_random()
     {
         RelationParameters result;
-        result.compute_eta_powers(T::random_element());  // eta, eta_two = eta², eta_three = eta³
-        result.compute_beta_powers(T::random_element()); // beta, beta_sqr = beta², beta_cube = beta³
+        result.compute_eta_powers(T::random_element()); // eta, eta_two = eta², eta_three = eta³
+        result.rom_logup_gamma = T::random_element();
+        result.compute_beta_powers(
+            T::random_element()); // beta, beta_sqr = beta², beta_cube = beta³, beta_quartic = beta⁴
         result.gamma = T::random_element();
         result.public_input_delta = T::random_element();
         auto first_term_tag = result.beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic

@@ -275,3 +275,53 @@ TEST(Databus, DuplicateRead)
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
+
+/**
+ * @brief Appending to a bus column emits the init-read that binds the bus entry to the appended witness.
+ *
+ * The bus column is not part of the copy-constraint permutation, so this init-read's lookup is what links
+ * bus_column[slot] to its main-wire witness. Two slots with distinct values exercise the assertions broadly:
+ * a missing row, missing read_count increment, wrong index wire, swapped index/value wires, or wrong value
+ * wire all leave at least one structural assertion or the lookup balance failing.
+ */
+TEST(Databus, AppendBindsBusEntryViaInitRead)
+{
+    Builder builder;
+    const size_t initial_busread_rows = builder.blocks.busread.size();
+
+    const uint32_t w0_idx = builder.add_variable(bb::fr(42));
+    const uint32_t w1_idx = builder.add_variable(bb::fr(100));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, w0_idx);
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, w1_idx);
+
+    const auto& bus_vec = builder.get_calldata(BusId::KERNEL_CALLDATA);
+    EXPECT_EQ(builder.blocks.busread.size(), initial_busread_rows + 2);
+    EXPECT_EQ(bus_vec.size(), 2U);
+    EXPECT_EQ(bus_vec.get_read_count(0), 1U);
+    EXPECT_EQ(bus_vec.get_read_count(1), 1U);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief The init-read's lookup rejects a bus_column / value-wire divergence.
+ *
+ * Appends a witness with value 13 (creating an init-read at slot 0), then overwrites the row's value wire to
+ * point at a witness with value 14. The bus column at slot 0 materializes to 13 from `bus_vec[0]`; the lookup
+ * at the row now expects (0, 14) ∈ bus_col, and `check_databus_read` rejects.
+ */
+TEST(Databus, InitReadCatchesValueMismatch)
+{
+    Builder builder;
+
+    const uint32_t w_expected = builder.add_variable(bb::fr(13));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, w_expected);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Rewrite the value-wire of the just-emitted init-read row to point at a different witness.
+    const uint32_t w_attacker = builder.add_variable(bb::fr(14));
+    auto& value_wire = builder.blocks.busread.wires[0];
+    ASSERT_FALSE(value_wire.empty());
+    value_wire.back() = w_attacker;
+
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}

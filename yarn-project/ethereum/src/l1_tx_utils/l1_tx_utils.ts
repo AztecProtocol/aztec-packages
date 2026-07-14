@@ -5,7 +5,7 @@ import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
-import { retryUntil } from '@aztec/foundation/retry';
+import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -44,6 +44,11 @@ import {
 } from './types.js';
 
 const MAX_L1_TX_STATES = 32;
+
+// Backoff (in seconds) for retrying the read-only RPC calls that prepare a tx cancellation. A
+// cancellation is fired in the background after a tx times out and is important (it frees the stuck
+// nonce), so a transient RPC failure while reading the pending nonce or gas price must not abandon it.
+const CANCELLATION_PREP_RETRY_BACKOFF_S = [1, 2, 4, 8];
 
 export class L1TxUtils extends ReadOnlyL1TxUtils {
   protected txs: L1TxState[] = [];
@@ -433,10 +438,23 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     const initialTxHash = txHashes[0];
     let currentTxHash = txHashes.at(-1)!;
-    let l1Timestamp: number;
+    let l1Timestamp = 0;
 
     while (true) {
-      l1Timestamp = await this.getL1Timestamp();
+      try {
+        l1Timestamp = await this.getL1Timestamp();
+      } catch (err) {
+        // A transient RPC failure here must not abort monitoring with a rejection: callers that
+        // fire this loop in the background would surface it as an unhandled rejection (e.g. when a
+        // test tears down its L1 node while a monitor iteration is in flight). Exit quietly if we
+        // are shutting down, otherwise retry on the next interval.
+        if (this.interrupted) {
+          break;
+        }
+        this.logger.error(`Error fetching L1 timestamp while monitoring tx ${currentTxHash}`, err, { nonce, account });
+        await sleep(gasConfig.checkIntervalMs!);
+        continue;
+      }
 
       try {
         const timePassed = l1Timestamp - state.lastSentAtL1Ts.getTime();
@@ -723,9 +741,37 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return;
     }
 
-    // Check if the original tx is still pending
-    const currentNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
-    if (currentNonce < nonce) {
+    // Resolve the pending nonce and cancellation gas price up front. These are read-only RPC calls, so
+    // they are safe to retry; a transient RPC failure here must not permanently abandon the cancellation
+    // (which would leave the nonce stuck and the tx state stranded short of CANCELLED). We retry with a
+    // real backoff before giving up, unlike getGasPrice's tight internal retry which can be exhausted by
+    // a brief node hiccup. The retried block performs no state-changing send, so retrying cannot
+    // double-send the cancellation tx.
+    const { currentNonce, cancelGasPrice } = await retry(
+      async () => {
+        const currentNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+        if (currentNonce >= nonce) {
+          // Get gas price with higher priority fee for cancellation
+          const cancelGasPrice = await this.getGasPrice(
+            {
+              ...this.config,
+              // Use high bump for cancellation to ensure it replaces the original tx
+              priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
+            },
+            isBlobTx,
+            state.txHashes.length,
+            previousGasPrice,
+          );
+          return { currentNonce, cancelGasPrice };
+        }
+        return { currentNonce, cancelGasPrice: undefined };
+      },
+      `Preparing cancellation for L1 tx from account ${account} with nonce ${nonce}`,
+      makeBackoff(CANCELLATION_PREP_RETRY_BACKOFF_S),
+      this.logger,
+    );
+
+    if (cancelGasPrice === undefined) {
       this.logger.verbose(
         `Not sending cancellation for L1 tx from account ${account} with nonce ${nonce} as it is dropped`,
         { nonce, account, currentNonce },
@@ -733,18 +779,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       await this.updateState(state, TxUtilsState.NOT_MINED);
       return;
     }
-
-    // Get gas price with higher priority fee for cancellation
-    const cancelGasPrice = await this.getGasPrice(
-      {
-        ...this.config,
-        // Use high bump for cancellation to ensure it replaces the original tx
-        priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
-      },
-      isBlobTx,
-      state.txHashes.length,
-      previousGasPrice,
-    );
 
     const { maxFeePerGas, maxPriorityFeePerGas, maxFeePerBlobGas } = cancelGasPrice;
     this.logger.verbose(

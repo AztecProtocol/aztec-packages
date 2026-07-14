@@ -756,7 +756,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
 
-    constexpr std::array<C, 37> bd_columns = {
+    constexpr std::array<C, DECOMPOSE_WINDOW_SIZE> bd_columns = {
         C::instr_fetching_bd0,  C::instr_fetching_bd1,  C::instr_fetching_bd2,  C::instr_fetching_bd3,
         C::instr_fetching_bd4,  C::instr_fetching_bd5,  C::instr_fetching_bd6,  C::instr_fetching_bd7,
         C::instr_fetching_bd8,  C::instr_fetching_bd9,  C::instr_fetching_bd10, C::instr_fetching_bd11,
@@ -769,9 +769,9 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         C::instr_fetching_bd36,
     };
 
-    constexpr std::array<C, 7> operand_columns = {
-        C::instr_fetching_op1, C::instr_fetching_op2, C::instr_fetching_op3, C::instr_fetching_op4,
-        C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
+    constexpr std::array<C, AVM_MAX_OPERANDS> operand_columns = {
+        C::instr_fetching_op1, C::instr_fetching_op2, C::instr_fetching_op3,
+        C::instr_fetching_op4, C::instr_fetching_op5,
     };
 
     constexpr BytecodeId bytecode_id = 1;

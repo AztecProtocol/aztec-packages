@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -12,7 +13,19 @@ namespace bb::avm2 {
 constexpr std::size_t MAX_AVM_TRACE_LOG_SIZE = 21;
 constexpr std::size_t MAX_AVM_TRACE_SIZE = 1 << MAX_AVM_TRACE_LOG_SIZE;
 
-// Also used for op_id in the circuit trace
+// Exact number of rows used by each AVM public input column. Column 0 spans the full table;
+// columns 1-3 are shorter, so the recursive verifier avoids hashing / MLE-evaluating their
+// trailing zeros. Sourced from the generated per-column constants (see constants.nr).
+constexpr std::array<std::size_t, AVM_NUM_PUBLIC_INPUT_COLUMNS> AVM_PUBLIC_INPUTS_COLUMN_LENGTHS = {
+    AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH,
+    AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH,
+    AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH,
+    AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH,
+};
+
+// The AND/OR/XOR values double as op_id in the circuit trace. A keccak SIMD-64 operation (which
+// packs two independent U64 lanes into one U128 bitwise row) reuses the same op_id and is flagged
+// separately via BitwiseEvent::simd_64.
 enum class BitwiseOperation : uint8_t {
     AND = AVM_BITWISE_AND_OP_ID,
     OR = AVM_BITWISE_OR_OP_ID,

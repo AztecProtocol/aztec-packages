@@ -83,13 +83,13 @@ export class CachedNetGrumpkinCrs {
    */
   async init() {
     // Check if data is in IndexedDB
-    const g1Data = await get('grumpkinG1Data');
+    const g1Data = await get('grumpkinG1DataV2');
     const netGrumpkinCrs = new NetGrumpkinCrs(this.numPoints);
     const g1DataLength = this.numPoints * 64;
 
     if (!g1Data || g1Data.length < g1DataLength) {
       this.g1Data = await netGrumpkinCrs.downloadG1Data();
-      await set('grumpkinG1Data', this.g1Data);
+      await set('grumpkinG1DataV2', this.g1Data);
     } else {
       this.g1Data = g1Data;
     }

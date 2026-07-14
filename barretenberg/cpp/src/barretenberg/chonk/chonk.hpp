@@ -7,19 +7,22 @@
 #pragma once
 
 #include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
-#include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
-#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/chonk/circuit_input.hpp"
+#include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
+#include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 #ifndef NDEBUG
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #endif
@@ -36,112 +39,113 @@ namespace bb {
  * of circuits being accumulated is even.
  *
  */
-class Chonk : public IVCBase {
+class Chonk {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 
   public:
-    using Flavor = MegaFlavor;
-    using MegaVerificationKey = Flavor::VerificationKey;
+    // Per-circuit accumulation uses these Mega flavors; folding is heterogeneous (different
+    // flavors per slot) because the Hypernova accumulator only depends on `MultilinearBatchingFlavor`.
+    using AppFlavor = MegaAppFlavor;
+    using KernelFlavor = MegaKernelFlavor;
+    using HidingKernelFlavor = MegaZKFlavor;
+    using AppVerificationKey = AppFlavor::VerificationKey;
+    using KernelVerificationKey = KernelFlavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
-    using FF = Flavor::FF;
-    using Commitment = Flavor::Commitment;
-    using ProverPolynomials = Flavor::ProverPolynomials;
-    using Point = Flavor::Curve::AffineElement;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using HidingKernelProverInstance = ProverInstance_<MegaZKFlavor>;
-    using VerifierInstance = VerifierInstance_<Flavor>;
+    // Common to all Mega flavors (all BN254).
+    using FF = bb::fr;
+    using Commitment = curve::BN254::AffineElement;
+    using HidingKernelProverInstance = ProverInstance_<HidingKernelFlavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using MegaProver = UltraProver_<Flavor>;
     using Transcript = NativeTranscript;
-    // Recursive types
-    using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
-    using StdlibFF = RecursiveFlavor::FF;
-    using RecursiveCommitment = RecursiveFlavor::Commitment;
-    using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;
-    using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
-    using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
-    using RecursiveTranscript = RecursiveFlavor::Transcript;
+    // Recursive scalar / commitment / transcript shapes are common to App and Kernel recursive
+    // flavors (shared BN254 stdlib base), so these aliases are sourced from the kernel one.
+    using AppRecursiveFlavor = MegaAppRecursiveFlavor;
+    using KernelRecursiveFlavor = MegaKernelRecursiveFlavor;
+    using StdlibFF = KernelRecursiveFlavor::FF;
+    using RecursiveCurve = KernelRecursiveFlavor::Curve;
+    using RecursiveCommitment = KernelRecursiveFlavor::Commitment;
+    using RecursiveTranscript = KernelRecursiveFlavor::Transcript;
+    using AppRecursiveVerifierInstance = VerifierInstance_<AppRecursiveFlavor>;
+    using KernelRecursiveVerifierInstance = VerifierInstance_<KernelRecursiveFlavor>;
+    using AppRecursiveVKAndHash = AppRecursiveFlavor::VKAndHash;
+    using KernelRecursiveVKAndHash = KernelRecursiveFlavor::VKAndHash;
     using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<ClientCircuit>>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
-    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
+    using AppWitnessCommitments = AppRecursiveFlavor::WitnessCommitments;
+    using KernelWitnessCommitments = KernelRecursiveFlavor::WitnessCommitments;
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
-    using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
-    // Folding
+    // Folding: the Hypernova accumulator is flavor-agnostic, so all kinds share one accumulator type.
     using FoldingProver = HypernovaFoldingProver;
-    using FoldingVerifier = HypernovaFoldingVerifier<Flavor>;
-    using RecursiveFoldingVerifier = HypernovaFoldingVerifier<RecursiveFlavor>;
     using DeciderProver = HypernovaDeciderProver;
-    using RecursiveDeciderVerifier = HypernovaDeciderVerifier<RecursiveFlavor>;
+    // The decider is flavor-independent, it uses the flavor only to get HasZK (= false) and whether we are in-circuit
+    // or not
+    using RecursiveDeciderVerifier = HypernovaDeciderVerifier<KernelRecursiveFlavor>;
     using ProverAccumulator = FoldingProver::Accumulator;
-    using VerifierAccumulator = FoldingVerifier::Accumulator;
-    using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
+    using VerifierAccumulator = MultilinearBatchingVerifierClaim<curve::BN254>;
+    using RecursiveVerifierAccumulator = MultilinearBatchingVerifierClaim<stdlib::bn254<ClientCircuit>>;
+    // Ecc running hash passed to the hiding kernel
+    using EccOpRunningHash = StdlibFF;
 
     // Result types for decomposed verification steps
-    struct FoldingResult {
-        std::optional<RecursiveVerifierAccumulator> output_accumulator;
-        std::vector<PairingPoints> pairing_points;
-    };
-
     struct PublicInputsResult {
         PairingPoints pairing_points;
         std::optional<StdlibFF> ecc_op_hash; // set only for kernels
     };
 
-    /**
-     * @brief Proof type determining recursive verification logic in kernel circuits.
-     *
-     * @details This enum has dual semantics depending on context:
-     *
-     * PROVER PERSPECTIVE (in `accumulate`): Type assigned to the circuit being accumulated.
-     * State machine transitions based on `num_circuits_accumulated`:
-     *   - OINK:     First app (circuit 0) - no prior accumulator, just Oink verification
-     *   - HN:       Apps 1..n-3, inner kernels, and reset kernels - full HyperNova folding verification
-     *   - HN_TAIL:  Circuit n-3 (last kernel before tail)
-     *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
-     *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
-     *
-     * VERIFIER PERSPECTIVE (in `complete_kernel_circuit_logic`): Type of the proof being verified.
-     *   - If verifying OINK proof → this kernel is the init kernel (circuit 1)
-     *   - If verifying HN proof → this kernel is an inner/reset kernel
-     *   - If verifying HN_TAIL proof → this kernel IS the tail kernel (circuit n-2)
-     *   - If verifying HN_FINAL proof → this kernel IS the hiding kernel (circuit n-1)
-     *
-     *
-     * See `get_queue_type()` for assignment logic and README.md#circuit-structure for overview.
-     */
-    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
+    using CircuitKind = bb::CircuitKind;
+    using CircuitVerificationKey = bb::CircuitVerificationKey;
 
-    // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or HN
-        std::shared_ptr<MegaVerificationKey> honk_vk;
-        QUEUE_TYPE type;
-        bool is_kernel = false;
+        std::shared_ptr<AppVerificationKey> app_honk_vk;
+        std::shared_ptr<KernelVerificationKey> kernel_honk_vk;
+        CircuitKind kind = CircuitKind::App;
+
+        [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
+
+        [[nodiscard]] size_t num_public_inputs() const
+        {
+            return static_cast<size_t>(is_kernel() ? kernel_honk_vk->num_public_inputs
+                                                   : app_honk_vk->num_public_inputs);
+        }
+        [[nodiscard]] std::vector<FF> vk_to_field_elements() const
+        {
+            return is_kernel() ? kernel_honk_vk->to_field_elements() : app_honk_vk->to_field_elements();
+        }
+        [[nodiscard]] FF vk_hash() const { return is_kernel() ? kernel_honk_vk->hash() : app_honk_vk->hash(); }
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
-    // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
         StdlibProof proof; // oink or HN
-        std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
-        QUEUE_TYPE type;
-        bool is_kernel = false;
+        std::shared_ptr<AppRecursiveVKAndHash> app_honk_vk_and_hash;
+        std::shared_ptr<KernelRecursiveVKAndHash> kernel_honk_vk_and_hash;
+        CircuitKind kind = CircuitKind::None;
 
-        // Explicit constructor needed for older libc++ (iOS SDK) compatibility with std::deque::emplace_back
-        StdlibVerifierInputs(StdlibProof proof_,
-                             std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash_,
-                             QUEUE_TYPE type_,
-                             bool is_kernel_)
+        StdlibVerifierInputs(StdlibProof proof_, std::shared_ptr<AppRecursiveVKAndHash> app_vk_and_hash_)
             : proof(std::move(proof_))
-            , honk_vk_and_hash(std::move(honk_vk_and_hash_))
-            , type(type_)
-            , is_kernel(is_kernel_)
+            , app_honk_vk_and_hash(std::move(app_vk_and_hash_))
+            , kind(CircuitKind::App)
         {}
+
+        StdlibVerifierInputs(StdlibProof proof_, std::shared_ptr<KernelRecursiveVKAndHash> kernel_vk_and_hash_)
+            : proof(std::move(proof_))
+            , kernel_honk_vk_and_hash(std::move(kernel_vk_and_hash_))
+            , kind(CircuitKind::Kernel)
+        {}
+
+        [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
+
+        [[nodiscard]] size_t vk_num_public_inputs() const
+        {
+            return static_cast<size_t>(uint64_t(is_kernel() ? kernel_honk_vk_and_hash->vk->num_public_inputs.get_value()
+                                                            : app_honk_vk_and_hash->vk->num_public_inputs.get_value()));
+        }
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
@@ -152,20 +156,23 @@ class Chonk : public IVCBase {
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i} (app)
     std::shared_ptr<Transcript> prover_accumulation_transcript = std::make_shared<Transcript>();
 
-    size_t num_circuits; // total number of circuits to be accumulated in the IVC
-  public:
-    size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
+    std::vector<CircuitKind> circuit_kinds; // kind of every circuit in the IVC stack, in accumulation order
+    size_t num_circuits;                    // total number of circuits to be accumulated in the IVC
 
-    ProverAccumulator prover_accumulator; // current HN prover accumulator instance
+    size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
+  public:
+    ProverAccumulator prover_accumulator;          // previous accumulator (output of the previous kernel's batch)
+    std::shared_ptr<FoldingProver> folding_prover; // folds the current group; (re)created at each group start
+    HonkProof
+        multilinear_batch_proof; // current kernel's multilinear batching proof (consumed in its recursive verifier)
 
     HonkProof decider_proof; // decider proof to be verified in the Hiding kernel
 
-    VerifierAccumulator recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
+    VerifierAccumulator recursive_verifier_native_accum; // native value of the previous accumulator
 #ifndef NDEBUG
-    VerifierAccumulator native_verifier_accum; //  native verifier accumulator used in prover folding
-    FF native_verifier_accum_hash; // hash of the native verifier accumulator when entering recursive verification
-    bool is_previous_circuit_a_kernel = true;
-    bool has_last_app_been_accumulated = false;
+    VerifierAccumulator native_verifier_accum;
+    std::shared_ptr<HypernovaFoldingNativeVerifier> native_folding_verifier; // native cross-check of the current group
+    std::shared_ptr<Transcript> native_verifier_accumulation_transcript = std::make_shared<Transcript>();
 #endif
 
     // PARALLEL QUEUES: These two queues must stay synchronized.
@@ -180,42 +187,100 @@ class Chonk : public IVCBase {
 
     Goblin goblin;
 
-    // Hiding kernel prover state: built during accumulate(MEGA), consumed by prove().
+    // Hiding kernel prover state: built during accumulate_hiding_kernel(), consumed by prove().
     std::shared_ptr<HidingKernelProverInstance> hiding_prover_inst;
     std::shared_ptr<MegaZKVerificationKey> hiding_vk;
 
+    /**
+     * @brief Number of claims a kernel batches: the previous accumulator (absent for the init kernel) plus one
+     * sumcheck claim per proof in the group. A single claim needs no batching proof.
+     */
+    static constexpr size_t group_claim_count(bool has_previous_accumulator, size_t group_size)
+    {
+        return (has_previous_accumulator ? 1 : 0) + group_size;
+    }
+
     size_t get_num_circuits() const { return num_circuits; }
 
-    // IVCBase interface
-    Goblin& get_goblin() override { return goblin; }
-    const Goblin& get_goblin() const override { return goblin; }
+    Goblin& get_goblin() { return goblin; }
+    const Goblin& get_goblin() const { return goblin; }
 
-    Chonk(size_t num_circuits);
+    Chonk(std::vector<CircuitKind> circuit_kinds);
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
-                                               const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
+                                               const std::vector<StdlibCircuitVKAndHash>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, StdlibFF>
-        recursive_verification_and_consistency_checks(
-            ClientCircuit& circuit,
-            const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-            const std::optional<StdlibFF>& running_hash,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+    [[nodiscard("Pairing points should be collected")]] std::pair<PairingPoints, EccOpRunningHash>
+    recursive_verification_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
+                                                  HypernovaFoldingRecursiveVerifier& folding_verifier,
+                                                  const std::optional<StdlibFF>& prev_stdlib_acc_hash,
+                                                  const std::optional<EccOpRunningHash>& running_ecc_op_hash);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
     /**
-     * @brief Perform prover work for accumulation (e.g. HN folding, merge proving)
+     * @brief Accumulate a circuit into the running IVC.
      *
-     * @param circuit The incoming statement
-     * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to be
-     * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
-     * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
+     * @details Single entry point for circuit accumulation. Internally, it selects the correct flavor for
+     * accumulation based on the kind of the circuit processed (which are provided to Chonk at construction):
+     *   - `CircuitKind::App`          → MegaAppFlavor
+     *   - `CircuitKind::Kernel`       → MegaKernelFlavor
+     *   - `CircuitKind::HidingKernel` → MegaZKFlavor
+     *
+     * Each accumulation step:
+     * - Transforms the incoming circuit into an Hypernova accumulator
+     * - When the next circuit is a kernel, also produces the kernel's multilinear batching proof
+     * - When the next circuit is the hiding kernel, also produces the decider proof
+     *
+     * If we are accumulating the hiding kernel, we construct its prover_instance.
+     *
+     * @note The caller must pass the VK variant alternative matching `current_kind()`; mismatches throw
+     * `std::bad_variant_access`.
      */
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) override;
+    void accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk);
+
+    /**
+     * @brief Kind of the circuit currently being accumulated (or, between accumulate calls, the next one expected).
+     */
+    [[nodiscard]] CircuitKind current_kind() const;
+
+    /**
+     * @brief Kind of the circuit that follows the one currently being accumulated, or CircuitKind::None if the
+     * current circuit is the last in the stack.
+     */
+    [[nodiscard]] CircuitKind next_kind() const;
+
+    /**
+     * @brief Whether the kernel currently being completed is the init kernel (the first kernel, which carries
+     * no accumulator from a previous kernel).
+     * @details Derived from the group queued for verification: the init kernel's group begins with the first
+     * app's proof, whereas every later kernel's group begins with the previous kernel's proof. Must be
+     * called once the stdlib verification queue holds the current kernel's group.
+     */
+    [[nodiscard]] bool is_init_kernel() const;
+
+    /**
+     * @brief Whether the circuit currently being accumulated/completed is the hiding kernel.
+     * @details Derived from the circuit kinds supplied at construction: the hiding kernel is the final circuit
+     * in the stack.
+     */
+    [[nodiscard]] bool is_hiding_kernel() const { return current_kind() == CircuitKind::HidingKernel; }
+
+    /**
+     * @brief Get the number of circuits accumulated by the IVC
+     *
+     */
+    size_t get_num_circuits_accumulated() const { return num_circuits_accumulated; }
+
+    /**
+     * @brief Set the num circuits accumulated for mocking an IVC state. Used when writing VKs.
+     *
+     */
+    void set_num_circuits_accumulated_for_mocking(const size_t num_circuits)
+    {
+        num_circuits_accumulated = num_circuits;
+    }
 
     ChonkProof prove();
 
@@ -230,37 +295,71 @@ class Chonk : public IVCBase {
   private:
 #ifndef NDEBUG
     /**
-     * @brief Update native verifier accumulator. Useful for debugging.
+     * @brief Natively verify the instance-to-accumulator sumcheck of the circuit just accumulated. Useful for
+     * debugging.
      *
      * @param queue_entry The verifier inputs from the queue.
-     * @param verifier_transcript Verifier transcript corresponding to the prover transcript.
      */
-    void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-                                            const std::shared_ptr<Transcript>& verifier_transcript);
+    void verify_native_instance_sumcheck(const VerifierInputs& queue_entry);
 
+    /**
+     * @brief Templated native verification of the instance to accumulator sumcheck.
+     *
+     */
+    template <typename NativeFlavor>
+    void run_native_instance_sumcheck(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
+                                      const VerifierInputs& queue_entry);
+
+    /**
+     * @brief Natively verify the multilinear batching proof and update the native verifier
+     * accumulator. Useful for debugging.
+     *
+     * @details Batches the previous accumulator (absent for the init group) with the
+     * group's collected sumcheck claims, mirroring prove_multilinear_batching, and cross-checks the result against
+     * the prover accumulator.
+     */
+    void update_native_verifier_accumulator(bool is_init_group);
+
+    // Debug-only native verification of the decider proof against the final native verifier accumulator.
+    void verify_decider_natively();
+
+    // Debug-only logging for an incoming circuit being folded: validity, and whether its precomputed
+    // VK matches the one derived during accumulation. Templated on the circuit's InstanceFlavor.
+    template <typename InstanceFlavor>
     void debug_incoming_circuit(ClientCircuit& circuit,
-                                const std::shared_ptr<ProverInstance>& prover_instance,
-                                const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
+                                const std::shared_ptr<ProverInstance_<InstanceFlavor>>& prover_instance,
+                                const std::shared_ptr<typename InstanceFlavor::VerificationKey>& precomputed_vk);
+
 #endif
 
-    FoldingResult verify_folding(ClientCircuit& circuit,
-                                 const StdlibVerifierInputs& verifier_inputs,
-                                 const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
-                                 const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript) const;
+    PublicInputsResult process_kernel_public_inputs(std::vector<StdlibFF>& public_inputs,
+                                                    KernelWitnessCommitments& witness_commitments,
+                                                    const std::optional<StdlibFF>& prev_accum_hash);
+    PublicInputsResult process_app_public_inputs(std::vector<StdlibFF>& public_inputs,
+                                                 AppWitnessCommitments& witness_commitments);
 
-    PublicInputsResult process_public_inputs_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
-                                                                    std::vector<StdlibFF>& public_inputs,
-                                                                    WitnessCommitments& witness_commitments,
-                                                                    const std::optional<StdlibFF>& prev_accum_hash);
+    /**
+     * @brief Turn the incoming instance into an accumulator. If a kernel follows, also produce a multilinear batching
+     * proof.
+     *
+     */
+    void accumulate_and_fold(ClientCircuit& circuit, const CircuitVerificationKey& vk);
 
-    void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
+    /**
+     * @brief Generate multilinear batching proof for the current group of accumulators.
+     *
+     * @details In between kernels, instances are turned into accumulators. When we reach the last app in a group, we
+     * generate a single proof that batches the accumulators in the group into a single accumulator, which will be
+     * propagated by the following kernel.
+     *
+     */
+    void prove_multilinear_batching();
 
-    void accumulate_and_fold(ClientCircuit& circuit,
-                             const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
-                             QUEUE_TYPE queue_type,
-                             std::shared_ptr<ProverInstance> prover_instance);
+    template <typename InstanceFlavor>
+    HonkProof instance_to_accumulator(ClientCircuit& circuit,
+                                      const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk);
 
-    QUEUE_TYPE get_queue_type() const;
+    void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk);
 };
 
 } // namespace bb

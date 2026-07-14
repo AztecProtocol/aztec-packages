@@ -186,7 +186,7 @@ curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",
-    "method":"nodeAdmin_getConfig",
+    "method":"aztecAdmin_getConfig",
     "id":1
   }'
 ```
@@ -198,7 +198,7 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",
-    "method":"nodeAdmin_getConfig",
+    "method":"aztecAdmin_getConfig",
     "id":1
   }'
 ```

@@ -219,6 +219,9 @@ contract Tmnt207Test is RollupBase {
       );
     }
 
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = l2CheckpointReal.proposeArgs.header;
+
     rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
         start: 1,
@@ -229,7 +232,7 @@ contract Tmnt207Test is RollupBase {
           outHash: rollup.getCheckpoint(1).outHash,
           proverId: address(0)
         }),
-        fees: new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2),
+        headers: headers,
         attestations: AttestationLibHelper.packAttestations(l2CheckpointReal.attestations),
         blobInputs: full.checkpoint.batchedBlobInputs,
         proof: ""

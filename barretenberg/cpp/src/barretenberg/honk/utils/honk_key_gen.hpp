@@ -7,9 +7,12 @@
 #pragma once
 
 #include "barretenberg/ecc/fields/field_conversion.hpp"
+#include <array>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <type_traits>
+#include <utility>
 
 /**
  * Write a solidity file containing the vk params to the given stream.
@@ -26,7 +29,6 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
                                      std::string const& class_name,
                                      bool include_types_import = false)
 {
-
     const auto print_u256_const = [&](const auto& element, const std::string& name) {
         os << "uint256 constant " << name << " = " << element << ";" << std::endl;
     };
@@ -80,34 +82,54 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     print_u256(1 << key->log_circuit_size, "circuitSize");
     print_u256(key->log_circuit_size, "logCircuitSize");
     print_u256(key->num_public_inputs, "publicInputsSize");
-    print_g1(key->q_l, "ql");
-    print_g1(key->q_r, "qr");
-    print_g1(key->q_o, "qo");
-    print_g1(key->q_4, "q4");
-    print_g1(key->q_m, "qm");
-    print_g1(key->q_c, "qc");
-    print_g1(key->q_lookup, "qLookup");
-    print_g1(key->q_arith, "qArith");
-    print_g1(key->q_delta_range, "qDeltaRange");
-    print_g1(key->q_elliptic, "qElliptic");
-    print_g1(key->q_memory, "qMemory");
-    print_g1(key->q_nnf, "qNnf");
-    print_g1(key->q_poseidon2_external, "qPoseidon2External");
-    print_g1(key->q_poseidon2_internal, "qPoseidon2Internal");
-    print_g1(key->sigma_1, "s1");
-    print_g1(key->sigma_2, "s2");
-    print_g1(key->sigma_3, "s3");
-    print_g1(key->sigma_4, "s4");
-    print_g1(key->table_1, "t1");
-    print_g1(key->table_2, "t2");
-    print_g1(key->table_3, "t3");
-    print_g1(key->table_4, "t4");
-    print_g1(key->id_1, "id1");
-    print_g1(key->id_2, "id2");
-    print_g1(key->id_3, "id3");
-    print_g1(key->id_4, "id4");
-    print_g1(key->lagrange_first, "lagrangeFirst");
-    print_g1(key->lagrange_last, "lagrangeLast", /*last=*/ true);
+    using Commitment = std::remove_cvref_t<decltype(key->q_l())>;
+
+    // (commitment, Solidity field name) pairs in on-chain VK struct order. The array length is the
+    // single source of truth for the number of emitted G1 points; the static_assert pins it to the
+    // flavor so adding/removing a precomputed entity fails to compile here rather than silently
+    // drifting the emitted Solidity VK out of sync with the C++ layout.
+    const auto precomputed_commitments = std::to_array<std::pair<Commitment, std::string_view>>({
+        { key->q_l(), "ql" },
+        { key->q_r(), "qr" },
+        { key->q_o(), "qo" },
+        { key->q_4(), "q4" },
+        { key->q_m(), "qm" },
+        { key->q_c(), "qc" },
+        { key->q_lookup(), "qLookup" },
+        { key->q_arith(), "qArith" },
+        { key->q_delta_range(), "qDeltaRange" },
+        { key->q_elliptic(), "qElliptic" },
+        { key->q_memory(), "qMemory" },
+        { key->q_nnf(), "qNnf" },
+        { key->q_poseidon2_external(), "qPoseidon2External" },
+        { key->q_poseidon2_internal(), "qPoseidon2Internal" },
+        { key->sigma_1(), "s1" },
+        { key->sigma_2(), "s2" },
+        { key->sigma_3(), "s3" },
+        { key->sigma_4(), "s4" },
+        { key->table_1(), "t1" },
+        { key->table_2(), "t2" },
+        { key->table_3(), "t3" },
+        { key->table_4(), "t4" },
+        { key->id_1(), "id1" },
+        { key->id_2(), "id2" },
+        { key->id_3(), "id3" },
+        { key->id_4(), "id4" },
+        { key->lagrange_first(), "lagrangeFirst" },
+        { key->lagrange_last(), "lagrangeLast" },
+    });
+
+    // lhs = no of precomputed commitments listed above
+    // rhs = no of precomputed commitments in the verification key
+    static_assert(std::tuple_size_v<decltype(precomputed_commitments)> ==
+                      std::remove_cvref_t<decltype(*key)>::size(),
+                  "honk_key_gen G1 emission list is out of sync with the flavor's precomputed entity count");
+
+    // print the precomputed commitments
+    for (size_t i = 0; i < precomputed_commitments.size(); ++i) {
+        const auto& [commitment, name] = precomputed_commitments[i];
+        print_g1(commitment, std::string(name), /*last=*/i + 1 == precomputed_commitments.size());
+    }
     os <<
         "        });\n"
         "        return vk;\n"

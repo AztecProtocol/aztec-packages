@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 contract Updated {
     use aztec::{
         macros::{functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::{address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS},
         state_vars::{Owned, PrivateMutable, PublicMutable},
     };
@@ -28,7 +28,7 @@ contract Updated {
         let owner = self.msg_sender();
 
         self.storage.private_value.at(owner).replace(|_old| FieldNote { value: 27 }).deliver(
-            MessageDelivery::onchain_constrained(),
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 

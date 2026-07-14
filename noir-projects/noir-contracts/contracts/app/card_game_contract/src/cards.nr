@@ -1,7 +1,7 @@
 use aztec::{
     context::{PrivateContext, UtilityContext},
     keys::getters::get_public_keys,
-    messages::message_delivery::MessageDelivery,
+    messages::delivery::MessageDelivery,
     note::{
         constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteGetterOptions,
         note_viewer_options::NoteViewerOptions,

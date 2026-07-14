@@ -53,7 +53,7 @@ template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<Mem
 {
     std::array<uint64_t, N> output;
     for (size_t i = 0; i < N; i++) {
-        output.at(i) = input.at(i).template as<uint64_t>();
+        output[i] = input[i].template as<uint64_t>();
     }
     return output;
 }
@@ -136,36 +136,63 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
         for (uint8_t round_idx = 0; round_idx < AVM_KECCAKF1600_NUM_ROUNDS; round_idx++) {
             std::array<std::array<MemoryValue, 4>, 5> theta_xor_values;
 
-            // Theta xor computations
-            for (size_t i = 0; i < 5; ++i) {
-                MemoryValue xor_accumulator = state_input_values[i][0];
-                for (size_t j = 0; j < 4; ++j) {
-                    xor_accumulator = bitwise.xor_op(xor_accumulator, state_input_values[i][j + 1]);
-                    theta_xor_values[i][j] = xor_accumulator;
+            // Theta xor computations. Each sheet's 4 steps form a dependency chain, so we walk
+            // step-major and SIMD-64 pair the same step across sheets ((0,1) and (2,3)); sheet 4 is
+            // scalar. (Must match keccakf1600.pil.)
+            // The running accumulator for sheet i at a given step is the previous step's xor result,
+            // or the sheet's first lane for step 0.
+            const auto theta_acc = [&](size_t i, size_t step) -> const MemoryValue& {
+                return step == 0 ? state_input_values[i][0] : theta_xor_values[i][step - 1];
+            };
+            for (size_t step = 0; step < 4; ++step) {
+                for (size_t s = 0; s + 1 < 4; s += 2) { // sheet pairs (0,1) and (2,3)
+                    auto [c0, c1] = bitwise.simd_xor_op_64(theta_acc(s, step),
+                                                           state_input_values[s][step + 1],
+                                                           theta_acc(s + 1, step),
+                                                           state_input_values[s + 1][step + 1]);
+                    theta_xor_values[s][step] = c0;
+                    theta_xor_values[s + 1][step] = c1;
                 }
+                theta_xor_values[4][step] = bitwise.xor_op(theta_acc(4, step), state_input_values[4][step + 1]);
             }
 
             // Theta xor values left rotated by 1
             std::array<MemoryValue, 5> theta_xor_row_rotl1_values;
             for (size_t i = 0; i < 5; ++i) {
-                theta_xor_row_rotl1_values.at(i) = unconstrained_rotate_left(theta_xor_values[i][3], 1);
+                theta_xor_row_rotl1_values[i] = unconstrained_rotate_left(theta_xor_values[i][3], 1);
             }
 
-            // Theta combined xor computation
+            // Theta combined xor computation. For sheet j the inputs are theta_xor[(j+4)%5][3] and
+            // rotl1(theta_xor_row[(j+1)%5]). SIMD-64 pairs sheets (0,1),(2,3); sheet 4 is scalar
+            // (must match keccakf1600.pil).
             std::array<MemoryValue, 5> theta_combined_xor_values;
-            for (size_t i = 0; i < 5; ++i) {
-                theta_combined_xor_values.at(i) =
-                    bitwise.xor_op(theta_xor_values[(i + 4) % 5][3], theta_xor_row_rotl1_values.at((i + 1) % 5));
+            for (size_t i = 0; i + 1 < 5; i += 2) {
+                auto [c0, c1] = bitwise.simd_xor_op_64(theta_xor_values[(i + 4) % 5][3],
+                                                       theta_xor_row_rotl1_values[(i + 1) % 5],
+                                                       theta_xor_values[i % 5][3],
+                                                       theta_xor_row_rotl1_values[(i + 1 + 1) % 5]);
+                theta_combined_xor_values[i] = c0;
+                theta_combined_xor_values[i + 1] = c1;
             }
+            theta_combined_xor_values[4] = bitwise.xor_op(theta_xor_values[3][3], theta_xor_row_rotl1_values[0]);
 
-            // State theta values
+            // State theta values: state_theta[i][j] = state_in[i][j] XOR theta_combined_xor[i].
+            // SIMD-64: pair lanes in flat order idx = 5*i + j (must match keccakf1600.pil); the odd
+            // lane 24 (state index 44) is computed with a scalar XOR.
             std::array<std::array<MemoryValue, 5>, 5> state_theta_values;
-            for (size_t i = 0; i < 5; ++i) {
-                for (size_t j = 0; j < 5; ++j) {
-                    state_theta_values[i][j] =
-                        bitwise.xor_op(state_input_values[i][j], theta_combined_xor_values.at(i));
-                }
+            for (size_t idx = 0; idx + 1 < 25; idx += 2) {
+                const size_t i0 = idx / 5;
+                const size_t j0 = idx % 5;
+                const size_t i1 = (idx + 1) / 5;
+                const size_t j1 = (idx + 1) % 5;
+                auto [c0, c1] = bitwise.simd_xor_op_64(state_input_values[i0][j0],
+                                                       theta_combined_xor_values[i0],
+                                                       state_input_values[i1][j1],
+                                                       theta_combined_xor_values[i1]);
+                state_theta_values[i0][j0] = c0;
+                state_theta_values[i1][j1] = c1;
             }
+            state_theta_values[4][4] = bitwise.xor_op(state_input_values[4][4], theta_combined_xor_values[4]);
 
             // State rho values
             KeccakF1600StateMemValues state_rho_values;
@@ -199,24 +226,48 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
                 }
             }
 
-            // state "pi and" values
+            // state "pi and" values: pi_and[i][j] = NOT(pi[(i+1)%5][j]) AND pi[(i+2)%5][j].
+            // SIMD-64 pairs lanes in flat order idx = 5*i + j; lane 24 (state index 44) is scalar.
+            // (Pairing must match keccakf1600.pil.) pi_and and chi are computed in separate passes so
+            // each phase can be paired independently.
             KeccakF1600StateMemValues state_pi_and_values;
-            // state chi values
-            KeccakF1600StateMemValues state_chi_values;
-            for (size_t i = 0; i < 5; ++i) {
-                for (size_t j = 0; j < 5; ++j) {
-                    state_pi_and_values[i][j] =
-                        bitwise.and_op(state_pi_not_values[(i + 1) % 5][j], state_pi_values[(i + 2) % 5][j]);
-                    state_chi_values[i][j] = bitwise.xor_op(state_pi_values[i][j], state_pi_and_values[i][j]);
-                }
+            for (size_t idx = 0; idx + 1 < 25; idx += 2) {
+                const size_t i0 = idx / 5;
+                const size_t j0 = idx % 5;
+                const size_t i1 = (idx + 1) / 5;
+                const size_t j1 = (idx + 1) % 5;
+                auto [c0, c1] = bitwise.simd_and_op_64(state_pi_not_values[(i0 + 1) % 5][j0],
+                                                       state_pi_values[(i0 + 2) % 5][j0],
+                                                       state_pi_not_values[(i1 + 1) % 5][j1],
+                                                       state_pi_values[(i1 + 2) % 5][j1]);
+                state_pi_and_values[i0][j0] = c0;
+                state_pi_and_values[i1][j1] = c1;
             }
+            state_pi_and_values[4][4] =
+                bitwise.and_op(state_pi_not_values[(4 + 1) % 5][4], state_pi_values[(4 + 2) % 5][4]);
+
+            // state chi values: chi[i][j] = pi[i][j] XOR pi_and[i][j]. Same SIMD-64 pairing.
+            KeccakF1600StateMemValues state_chi_values;
+            for (size_t idx = 0; idx + 1 < 25; idx += 2) {
+                const size_t i0 = idx / 5;
+                const size_t j0 = idx % 5;
+                const size_t i1 = (idx + 1) / 5;
+                const size_t j1 = (idx + 1) % 5;
+                auto [c0, c1] = bitwise.simd_xor_op_64(state_pi_values[i0][j0],
+                                                       state_pi_and_values[i0][j0],
+                                                       state_pi_values[i1][j1],
+                                                       state_pi_and_values[i1][j1]);
+                state_chi_values[i0][j0] = c0;
+                state_chi_values[i1][j1] = c1;
+            }
+            state_chi_values[4][4] = bitwise.xor_op(state_pi_values[4][4], state_pi_and_values[4][4]);
 
             // state iota_00 value
             // Recall that round starts with 1
             MemoryValue iota_00_value =
-                bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants.at(round_idx)));
+                bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants[round_idx]));
 
-            rounds_data.at(round_idx) = {
+            rounds_data[round_idx] = {
                 .state = two_dim_array_to_uint64(state_input_values),
                 .theta_xor = two_dim_array_to_uint64(theta_xor_values),
                 .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),

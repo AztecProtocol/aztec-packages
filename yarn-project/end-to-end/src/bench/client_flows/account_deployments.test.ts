@@ -1,4 +1,5 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
+import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
@@ -14,6 +15,9 @@ import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchma
 
 jest.setTimeout(300_000);
 
+// Account deployment round-trip benchmark. Uses ClientFlowsBenchmark (wraps setup()) with BENCHMARK_CONFIG
+// env var; profiles the full deployment flow (simulate → prove → send → wait) for ECDSA-R1 and Schnorr
+// account types with various fee-payment methods. Bench pipeline only.
 describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
 
@@ -31,11 +35,16 @@ describe('Deployment benchmark', () => {
     await t.setup();
     await t.applyDeploySponsoredFPC();
     ({ adminWallet, adminAddress, userWallet, sponsoredFPCInstance } = t);
-    // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
+    // Ensure both account contract classes are already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
-    const publishContractClassInteraction = await publishContractClass(adminWallet, EcdsaRAccountContractArtifact);
-    await publishContractClassInteraction.send({ from: adminAddress });
+    const interactions = [
+      await publishContractClass(adminWallet, SchnorrAccountContractArtifact),
+      await publishContractClass(adminWallet, EcdsaRAccountContractArtifact),
+    ];
+    for (const interaction of interactions) {
+      await interaction.send({ from: adminAddress });
+    }
   });
 
   afterAll(async () => {

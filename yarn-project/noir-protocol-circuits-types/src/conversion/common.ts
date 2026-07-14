@@ -225,7 +225,7 @@ export function mapAztecAddressToNoir(address: AztecAddress): NoirAztecAddress {
  * @returns The aztec address.
  */
 export function mapAztecAddressFromNoir(address: NoirAztecAddress): AztecAddress {
-  return AztecAddress.fromField(mapFieldFromNoir(address.inner));
+  return AztecAddress.fromFieldUnsafe(mapFieldFromNoir(address.inner));
 }
 
 /**
@@ -852,6 +852,7 @@ export function mapPrivateTxConstantDataToNoir(data: PrivateTxConstantData): Pri
   return {
     anchor_block_header: mapBlockHeaderToNoir(data.anchorBlockHeader),
     tx_context: mapTxContextToNoir(data.txContext),
+    tx_request_salt: mapFieldToNoir(data.txRequestSalt),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contracts: mapProtocolContractsToNoir(data.protocolContracts),
   };
@@ -861,6 +862,7 @@ export function mapPrivateTxConstantDataFromNoir(data: PrivateTxConstantDataNoir
   return new PrivateTxConstantData(
     mapBlockHeaderFromNoir(data.anchor_block_header),
     mapTxContextFromNoir(data.tx_context),
+    mapFieldFromNoir(data.tx_request_salt),
     mapFieldFromNoir(data.vk_tree_root),
     mapProtocolContractsFromNoir(data.protocol_contracts),
   );

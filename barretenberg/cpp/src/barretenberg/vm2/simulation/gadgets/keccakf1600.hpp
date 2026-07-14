@@ -50,7 +50,7 @@ class KeccakF1600 : public KeccakF1600Interface {
   public:
     KeccakF1600(ExecutionIdManagerInterface& execution_id_manager,
                 EventEmitterInterface<KeccakF1600Event>& keccakf1600_emitter,
-                BitwiseInterface& bitwise,
+                BitwiseSimdInterface& bitwise,
                 RangeCheckInterface& range_check,
                 GreaterThanInterface& gt)
         : execution_id_manager(execution_id_manager)
@@ -65,7 +65,7 @@ class KeccakF1600 : public KeccakF1600Interface {
   private:
     ExecutionIdManagerInterface& execution_id_manager;
     EventEmitterInterface<KeccakF1600Event>& perm_events;
-    BitwiseInterface& bitwise;
+    BitwiseSimdInterface& bitwise;
     RangeCheckInterface& range_check;
     GreaterThanInterface& gt;
 };

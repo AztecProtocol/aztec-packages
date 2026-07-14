@@ -54,13 +54,14 @@ class TranslatorShortMonomialFlavor;
 class ECCVMShortMonomialFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
-class MultilinearBatchingRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class MegaAvmRecursiveFlavor_;
+class MegaAppRecursiveFlavor;
+class MegaKernelRecursiveFlavor;
 namespace avm2 {
 class AvmRecursiveFlavor;
 }
@@ -144,9 +145,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     bool operator==(const NativeVerificationKey_&) const = default;
 
 #ifndef NDEBUG
-    template <size_t NUM_PRECOMPUTED_ENTITIES, typename StringType>
-    bool compare(const NativeVerificationKey_& other,
-                 RefArray<StringType, NUM_PRECOMPUTED_ENTITIES> commitment_labels) const
+    template <typename CommitmentLabels>
+    bool compare(const NativeVerificationKey_& other, CommitmentLabels commitment_labels) const
     {
         bool is_equal = true;
 
@@ -220,6 +220,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         };
 
         std::vector<DataType> elements;
+        elements.reserve(calc_num_data_types());
 
         serialize(this->log_circuit_size, elements);
         serialize(this->num_public_inputs, elements);
@@ -238,6 +239,9 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     size_t from_field_elements(const std::span<const DataType>& elements)
     {
+        BB_ASSERT_EQ(elements.size(),
+                     calc_num_data_types(),
+                     "VerificationKey::from_field_elements received the wrong number of field elements");
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
@@ -279,6 +283,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     {
         static constexpr bool in_circuit = InCircuit<DataType>;
         std::vector<DataType> vk_elements;
+        vk_elements.reserve(calc_num_data_types());
 
         // Tag, serialize, and append to vk_elements
         auto tag_and_append = [&]<typename T>(const T& component) {
@@ -418,6 +423,9 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         for (Commitment& commitment : this->get_all()) {
             commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
         }
+        BB_ASSERT_EQ(num_frs_read,
+                     elements.size(),
+                     "StdlibVerificationKey deserialization received the wrong number of field elements");
     }
 
     /**

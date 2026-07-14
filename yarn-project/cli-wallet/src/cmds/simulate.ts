@@ -44,7 +44,8 @@ export async function simulate(
         if (!metadata.instance) {
           return undefined;
         }
-        const artifact = await wallet.getContractArtifact(metadata.instance.currentContractClassId);
+        const classId = metadata.updatedContractClassId ?? metadata.instance.originalContractClassId;
+        const artifact = await wallet.getContractArtifact(classId);
         return artifact;
       },
       log,

@@ -142,8 +142,11 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
 
             challenge = field_challenge.from_montgomery_form();
         }
-        // Challenges can't be zero
-        if (Fr(challenge).is_zero()) {
+        // Challenges can't be zero. IPA consumes round challenges as their low 127 bits
+        // (see MockTranscript::get_short_challenge), so reject if either the full value or its
+        // 127-bit truncation reduces to zero.
+        static constexpr size_t SHORT_CHALLENGE_BITS = (bb::fr::modulus.get_msb() + 1) / 2; // 127
+        if (Fr(challenge).is_zero() || Fr(challenge.slice(0, SHORT_CHALLENGE_BITS)).is_zero()) {
             return 0;
         }
         challenges[i] = challenge;

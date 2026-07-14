@@ -42,9 +42,18 @@ namespace execution;
     pol commit contract_address;
     pol commit bytecode_id;
     pol commit transaction_fee;
-    pol commit is_static; // @boolean (on active rows and follows from the different constraints in "IS STATIC" section below)
+    pol commit is_static; // @boolean (on active rows it follows from the different constraints in "IS STATIC" section below)
                           // At the start of an enqueued call, is_static is copied from tx.pil (which is boolean in tx.pil)
                           // and in the next rows it is propagated or re-assigned to 0 or 1.
+                          // On inactive rows, #[IS_STATIC_ON_SEL] it is enforced to be 0 and therefore is_static is
+                          // unconditionally boolean. (This is a defensive measure. Several lookups selectors
+                          // use `1 - is_static` as multiplicative factor and it is crucial for such selectors to
+                          // be unconditionally boolean. Should such a selector not be gating by `sel` it would lead
+                          // to a severe security soundness vulnerability without #[IS_STATIC_ON_SEL] being present.)
+
+    // sel == 0 ==> is_static == 0
+    #[IS_STATIC_ON_SEL]
+    (1 - sel) * is_static = 0;
 
     pol commit parent_calldata_addr;
     pol commit parent_calldata_size;

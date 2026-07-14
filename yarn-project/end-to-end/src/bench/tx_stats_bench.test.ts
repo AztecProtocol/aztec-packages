@@ -27,6 +27,9 @@ import { proveInteraction } from '../test-wallet/utils.js';
 const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
 const TIMEOUT = REAL_PROOFS ? 45 * 60 * 1000 : 15 * 60 * 1000;
 
+// Transaction stats benchmark. Uses FullProverTest with real or fake proofs (FAKE_PROOFS env var).
+// Measures proof generation time, tx wire size, and compression ratios (snappy/brotli/zstd) for public
+// and private transactions; emits BENCH_OUTPUT JSON. Bench pipeline only.
 describe('transaction benchmarks', () => {
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);

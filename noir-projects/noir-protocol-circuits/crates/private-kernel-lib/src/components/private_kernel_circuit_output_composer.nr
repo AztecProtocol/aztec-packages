@@ -15,7 +15,7 @@ pub(crate) use get_expiration_timestamp_for_contract_updates::get_expiration_tim
 use crate::{
     accumulated_data::{
         assert_array_appended::{
-            append_and_scope_to_empty_dest, append_and_scope_to_index_0_or_1,
+            append_and_scope_after_protocol_nullifier, append_and_scope_to_empty_dest,
             append_reversed_to_empty_dest, append_to_empty_dest,
         },
         sort_by_counter,
@@ -28,11 +28,13 @@ use types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        private_tx_constant_data::PrivateTxConstantData,
+        private_tx_constant_data::PrivateTxConstantData, protocol_contracts::ProtocolContracts,
+        public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
         validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
-    hash::{compute_siloed_nullifier, create_protocol_nullifier},
+    constants::MAX_U64_VALUE,
+    hash::create_protocol_nullifier,
     side_effect::Ordered,
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
@@ -66,6 +68,7 @@ impl PrivateKernelCircuitOutputComposer {
     ) -> PrivateKernelCircuitPublicInputs {
         let constants = PrivateTxConstantData {
             tx_context: inputs.private_call.public_inputs.tx_context,
+            tx_request_salt: inputs.private_call.public_inputs.tx_request_salt,
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             anchor_block_header: inputs.private_call.public_inputs.anchor_block_header,
@@ -74,21 +77,13 @@ impl PrivateKernelCircuitOutputComposer {
         let mut validation_requests = PrivateValidationRequests::empty();
         let mut end = PrivateAccumulatedData::empty();
 
-        // Every tx needs at least one nullifier for uniqueness (used for computing the nonce for note hashes).
-        // If `first_nullifier_hint` equals the protocol nullifier, it is inserted at index 0. Otherwise, at least one
-        // private call must emit a nullifier, and the hint should match the first nullifier emitted.
+        // The protocol nullifier seeds the note-hash nonce computation: unsquashable (`note_hash == 0`),
+        // non-revertible (counter 1, so it sorts to index 0), and globally unique (`tx_request.hash()`
+        // includes the salt).
         let scoped_protocol_nullifier = create_protocol_nullifier(inputs.tx_request);
-        let protocol_nullifier = compute_siloed_nullifier(
-            scoped_protocol_nullifier.contract_address,
-            scoped_protocol_nullifier.innermost().value,
-        );
-        let should_inject_protocol_nullifier = inputs.first_nullifier_hint == protocol_nullifier;
-        if should_inject_protocol_nullifier {
-            // Safety: we should ordinarily use `push`, so that the length correctly updates, but we know this is the very
-            // first entry in the array, so we do it manually.
-            end.nullifiers.array[0] = scoped_protocol_nullifier;
-            end.nullifiers.length = 1;
-        };
+        // Safety: index 0 is empty, so a direct write plus `length = 1` is equivalent to a `push`.
+        end.nullifiers.array[0] = scoped_protocol_nullifier;
+        end.nullifiers.length = 1;
 
         let contract_address = inputs.private_call.public_inputs.call_context.contract_address;
 
@@ -112,10 +107,9 @@ impl PrivateKernelCircuitOutputComposer {
             contract_address,
         );
 
-        append_and_scope_to_index_0_or_1(
+        append_and_scope_after_protocol_nullifier(
             &mut end.nullifiers,
             inputs.private_call.public_inputs.nullifiers,
-            should_inject_protocol_nullifier,
             contract_address,
         );
 
@@ -200,7 +194,6 @@ impl PrivateKernelCircuitOutputComposer {
             fee_payer,
             expiration_timestamp,
             is_private_only: inputs.is_private_only,
-            claimed_first_nullifier: inputs.first_nullifier_hint,
             claimed_revertible_counter: inputs.revertible_counter_hint,
         };
 
@@ -223,7 +216,6 @@ impl PrivateKernelCircuitOutputComposer {
             fee_payer: previous_kernel.fee_payer,
             expiration_timestamp: previous_kernel.expiration_timestamp,
             is_private_only: previous_kernel.is_private_only,
-            claimed_first_nullifier: previous_kernel.claimed_first_nullifier,
             claimed_revertible_counter: previous_kernel.claimed_revertible_counter,
         };
 
@@ -483,4 +475,66 @@ impl PrivateKernelCircuitOutputComposer {
             self.public_inputs.fee_payer = private_call_public_inputs.call_context.contract_address;
         }
     }
+}
+
+/// Unconstrained composer for the batched inner kernel. It materializes only the final accumulator
+/// state, no intermediate `PrivateKernelCircuitPublicInputs` is produced. Output correctness is proved by
+/// the batched validator.
+pub unconstrained fn compose_inner_batch_n<let N: u32>(
+    previous_kernel: PrivateKernelCircuitPublicInputs,
+    private_calls: [PrivateCallData; N],
+) -> PrivateKernelCircuitPublicInputs {
+    let mut composer =
+        PrivateKernelCircuitOutputComposer::new_from_previous_kernel(previous_kernel);
+    for i in 0..N {
+        let _ = composer.pop_top_call_request();
+        let _ = composer.with_private_call(private_calls[i]);
+    }
+    composer.finish()
+}
+
+/// Unconstrained composer for the batched init kernel. It seeds the accumulator from the
+/// tx_request + first call's tx_context, injects the protocol nullifier at index 0,
+/// then propagates all N apps with pop+push semantics for apps 1..N (app 0 starts from empty).
+pub unconstrained fn compose_init_batch_n<let N: u32>(
+    tx_request: TxRequest,
+    vk_tree_root: Field,
+    protocol_contracts: ProtocolContracts,
+    is_private_only: bool,
+    revertible_counter_hint: u32,
+    private_calls: [PrivateCallData; N],
+) -> PrivateKernelCircuitPublicInputs {
+    let constants = PrivateTxConstantData {
+        tx_context: private_calls[0].public_inputs.tx_context,
+        tx_request_salt: private_calls[0].public_inputs.tx_request_salt,
+        vk_tree_root,
+        protocol_contracts,
+        anchor_block_header: private_calls[0].public_inputs.anchor_block_header,
+    };
+
+    let mut end = PrivateAccumulatedData::empty();
+    let scoped_protocol_nullifier = create_protocol_nullifier(tx_request);
+    end.nullifiers.array[0] = scoped_protocol_nullifier;
+    end.nullifiers.length = 1;
+
+    let seeded = PrivateKernelCircuitPublicInputs {
+        constants,
+        min_revertible_side_effect_counter: 0,
+        validation_requests: PrivateValidationRequests::empty(),
+        end,
+        public_teardown_call_request: PublicCallRequest::empty(),
+        fee_payer: AztecAddress::zero(),
+        expiration_timestamp: MAX_U64_VALUE,
+        is_private_only,
+        claimed_revertible_counter: revertible_counter_hint,
+    };
+
+    let mut composer = PrivateKernelCircuitOutputComposer { public_inputs: seeded };
+    for i in 0..N {
+        if i > 0 {
+            let _ = composer.pop_top_call_request();
+        }
+        let _ = composer.with_private_call(private_calls[i]);
+    }
+    composer.finish()
 }

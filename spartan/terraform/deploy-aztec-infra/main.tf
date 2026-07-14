@@ -46,7 +46,7 @@ provider "google" {
 
 module "web3signer" {
   # Only deploy web3signer if we have validators or provers that need to publish to L1
-  count = tonumber(var.VALIDATOR_REPLICAS) > 0 ? 1 : 0
+  count = tonumber(var.VALIDATOR_REPLICAS) > 0 || (var.PROVER_ENABLED && !var.PROVER_NODE_DISABLE_PROOF_PUBLISH) ? 1 : 0
 
   source                                   = "../modules/web3signer"
   NAMESPACE                                = var.NAMESPACE
@@ -177,10 +177,13 @@ locals {
     "global.aztecImage.pullPolicy"                             = local.is_kind ? "IfNotPresent" : "Always"
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
+    "global.allowOverridingNetworkConfig"                      = var.ALLOW_OVERRIDING_NETWORK_CONFIG
+    "global.aztecSlotDuration"                                 = var.AZTEC_SLOT_DURATION
+    "global.aztecEpochDuration"                                = var.AZTEC_EPOCH_DURATION
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
+    "global.aztecEnv.ROLLUP_VERSION"                           = var.ROLLUP_VERSION
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
-    "global.aztecEnv.ROLLUP_VERSION"                           = var.ROLLUP_VERSION
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
     "global.sponsoredFPC"                                      = var.SPONSORED_FPC
     "global.testAccounts"                                      = var.TEST_ACCOUNTS
@@ -251,6 +254,7 @@ locals {
     "validator.publisherMnemonicStartIndex"                                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
     "validator.node.env.COINBASE"                                                 = var.VALIDATOR_COINBASE
     "validator.sentinel.enabled"                                                  = var.SENTINEL_ENABLED
+    "validator.offenseCollection.enabled"                                         = var.OFFENSE_COLLECTION_ENABLED
     "validator.slash.inactivityTargetPercentage"                                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                                           = var.SLASH_INACTIVITY_PENALTY
     "validator.slash.dataWithholdingPenalty"                                      = var.SLASH_DATA_WITHHOLDING_PENALTY
@@ -281,7 +285,6 @@ locals {
     "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT"                 = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"                            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
     "validator.node.env.AZTEC_EPOCHS_LAG"                                         = var.AZTEC_EPOCHS_LAG
-    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                                   = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"                       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"                          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
     "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"                    = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE

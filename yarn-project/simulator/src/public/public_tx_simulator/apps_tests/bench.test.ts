@@ -107,7 +107,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       it('AVM large calldata test', async () => {
         tester.setMetricsPrefix('AvmTest contract tests');
-        const deployer = AztecAddress.fromNumber(42);
+        const deployer = AztecAddress.fromNumberUnsafe(42);
 
         const avmTestContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
@@ -133,7 +133,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       it('PublicFnsWithEmitRepro contract test', async () => {
         // See comments on the contract source for motivation as to including this contract in our benchmarks.
         tester.setMetricsPrefix('PublicFnsWithEmitRepro contract tests');
-        const deployer = AztecAddress.fromNumber(42);
+        const deployer = AztecAddress.fromNumberUnsafe(42);
 
         const reproContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
@@ -158,7 +158,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       it('Storage proof test', async () => {
         tester.setMetricsPrefix('StorageProof contract tests');
-        const deployer = AztecAddress.fromNumber(42);
+        const deployer = AztecAddress.fromNumberUnsafe(42);
 
         const storageProofContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
@@ -193,7 +193,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     });
 
     describe('AVM gadgets tests', () => {
-      const deployer = AztecAddress.fromNumber(42);
+      const deployer = AztecAddress.fromNumberUnsafe(42);
 
       let worldStateService: NativeWorldStateService;
       let tester: PublicTxSimulationTester;

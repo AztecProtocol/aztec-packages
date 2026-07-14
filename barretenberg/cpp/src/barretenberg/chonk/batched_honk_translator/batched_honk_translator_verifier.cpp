@@ -27,7 +27,7 @@ BatchedHonkTranslatorVerifier_<Curve>::BatchedHonkTranslatorVerifier_(
 /**
  * @brief Verify the MegaZK circuit's Oink phase.
  * @details Loads the hiding proof, runs OinkVerifier, and returns the data callers need
- * between Phase 1 and Phase 2 (public inputs, calldata commitment, ECC op wires).
+ * between Phase 1 and Phase 2 (public inputs, kernel_calldata commitment, ECC op wires).
  * Populates mega_zk_relation_parameters.
  */
 template <typename Curve>
@@ -37,7 +37,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslator
     transcript->load_proof(mega_zk_proof);
 
     if constexpr (IsRecursive) {
-        builder = mega_zk_proof.back().get_context();
+        builder = mega_zk_proof.get_context();
     }
 
     mega_zk_verifier_instance = std::make_shared<MegaZKVerifierInstance>(mega_zk_vk_and_hash);
@@ -55,8 +55,8 @@ typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslator
 
     return OinkResult{
         .public_inputs = mega_zk_verifier_instance->public_inputs,
-        .kernel_calldata_commitment = mega_zk_verifier_instance->witness_commitments.kernel_calldata,
         .ecc_op_wires = mega_zk_verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(),
+        .kernel_calldata_commitment = mega_zk_verifier_instance->witness_commitments.kernel_calldata(),
     };
 }
 
@@ -185,11 +185,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     // MegaZK circuit FRV: evaluations are full N-variable multilinear evaluations.
     SumcheckVerifierRound<MegaZKFlavorT> mega_zk_frv_round;
     FF frv_mega_zk = mega_zk_frv_round.compute_full_relation_purported_value(
-        mega_zk_evals, mega_zk_relation_parameters, final_gate_sep, mega_zk_alphas);
-
-    // Apply row-disabling polynomial: RDP = 1 - ∏_{i≥2}(1-u_i) over ALL challenges (circuit-size independent).
-    FF rdp = RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, joint_challenge.size());
-    frv_mega_zk *= rdp;
+        mega_zk_evals, mega_zk_relation_parameters, final_gate_sep, mega_zk_alphas, joint_challenge);
 
     // Translator FRV (no row-disabling).
     SumcheckVerifierRound<TransFlavor> trans_frv_round;
@@ -301,8 +297,8 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
 {
     // Reconstruct MegaZK commitments from the stored verifier instance.
-    MegaZKVerifierCommitments mega_zk_commitments{ mega_zk_verifier_instance->get_vk(),
-                                                   mega_zk_verifier_instance->witness_commitments };
+    MegaZKVerifierCommitments mega_zk_commitments = VerifierCommitmentsConstructor<MegaZKFlavorT>::construct(
+        mega_zk_verifier_instance->get_vk(), mega_zk_verifier_instance->witness_commitments);
     auto trans_commitments = verify_translator_oink(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
     bool sumcheck_verified = verify_joint_sumcheck();

@@ -19,36 +19,55 @@ namespace bb {
  *
  * Multiple selectors are used to 'switch' memory gates on/off according to the following pattern:
  *
- * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
- * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |
- * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- |
- * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
- * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- |
- * | RAM consistency check        | 1     | 0   | 0   | 1   | 0   | 0   | 0   |
+ * | gate type             | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c                             |
+ * | --------------------- | ----- | --- | --- | --- | --- | --- | ------------------------------- |
+ * | RAM/ROM access gate   | 1     | 1   | 0   | 0   | 0   | 1   | access type (read: 0, write: 1) |
+ * | RAM timestamp check   | 1     | 1   | 0   | 0   | 1   | 0   | 0                               |
+ * | ROM consistency check | 1     | 1   | 1   | 0   | 0   | 0   | 0                               |
+ * | RAM consistency check | 1     | 0   | 0   | 1   | 0   | 0   | 0                               |
+ * | ROM LogUp table entry | 1     | 0   | 1   | 0   | 0   | 0   | 0                               |
+ * | ROM LogUp read access | 1     | 0   | 0   | 0   | 1   | 0   | 0                               |
  *
  * N.B. The RAM consistency check identity is degree 3. To keep the overall quotient degree at <=5, only 2 selectors
  * can be used to select it.
  *
  * N.B.2 The q_c selector is used to store circuit-specific values in the RAM/ROM access gate
+ *
+ * Single-value ROM tables use a LogUp scheme (subrelations 6 and 7); pair-value ROM tables use the
+ * sorted-trace permutation argument (ROM_READ / ROM_CONSISTENCY_CHECK gates and subrelations 1 and 2).
+ * The two LogUp gate types share the wire layout
+ *   (w_l = index, w_r = value, w_o = multiplicity (table rows) or zero (read rows), w_4 = inverse helper)
+ * and have non-overlapping bitpatterns relative to all other memory gates above (table entry: q_2=1 with q_1=0;
+ * read access: q_4=1 with q_1=0).
  */
 template <typename FF_> class MemoryRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS{
         6, // memory sub-relation;
         6, // ROM consistency sub-relation 1
         6, // ROM consistency sub-relation 2
         6, // RAM consistency sub-relation 1
         6, // RAM consistency sub-relation 2
-        6  // RAM consistency sub-relation 3
+        6, // RAM consistency sub-relation 3
+        6, // ROM-LogUp inverse correctness (per-row vanishing)
+        6  // ROM-LogUp sum identity (linearly dependent: summed across the trace)
     };
+
+    // Subrelation 7 (ROM-LogUp sum) is linearly dependent: it asserts that a sum across all rows is zero rather
+    // than a per-row identity, so it must not be multiplied by `scaling_factor` in the accumulation step.
+    static constexpr std::array<bool, 8> SUBRELATION_LINEARLY_INDEPENDENT{ true, true, true, true,
+                                                                           true, true, true, false };
 
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_memory.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in[AllEntities::EntityId::q_memory].is_zero();
+    }
 
     /**
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
@@ -73,24 +92,25 @@ template <typename FF_> class MemoryRelationImpl {
         const auto& eta_m = ParameterCoefficientAccumulator(params.eta);
         const auto& eta_two_m = ParameterCoefficientAccumulator(params.eta_two);
         const auto& eta_three_m = ParameterCoefficientAccumulator(params.eta_three);
+        const auto& rom_logup_gamma_m = ParameterCoefficientAccumulator(params.rom_logup_gamma);
 
-        auto w_1_m = CoefficientAccumulator(in.w_l);
-        auto w_2_m = CoefficientAccumulator(in.w_r);
-        auto w_3_m = CoefficientAccumulator(in.w_o);
-        auto w_4_m = CoefficientAccumulator(in.w_4);
-        auto w_1_shift_m = CoefficientAccumulator(in.w_l_shift);
-        auto w_2_shift_m = CoefficientAccumulator(in.w_r_shift);
-        auto w_3_shift_m = CoefficientAccumulator(in.w_o_shift);
-        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        auto w_1_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        auto w_2_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        auto w_3_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+        auto w_4_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4]);
+        auto w_1_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        auto w_2_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        auto w_3_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
+        auto w_4_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4_shift]);
 
-        auto q_1_m = CoefficientAccumulator(in.q_l);
-        auto q_2_m = CoefficientAccumulator(in.q_r);
-        auto q_3_m = CoefficientAccumulator(in.q_o);
-        auto q_4_m = CoefficientAccumulator(in.q_4);
-        auto q_m_m = CoefficientAccumulator(in.q_m);
-        auto q_c_m = CoefficientAccumulator(in.q_c);
+        auto q_1_m = CoefficientAccumulator(in[AllEntities::EntityId::q_l]);
+        auto q_2_m = CoefficientAccumulator(in[AllEntities::EntityId::q_r]);
+        auto q_3_m = CoefficientAccumulator(in[AllEntities::EntityId::q_o]);
+        auto q_4_m = CoefficientAccumulator(in[AllEntities::EntityId::q_4]);
+        auto q_m_m = CoefficientAccumulator(in[AllEntities::EntityId::q_m]);
+        auto q_c_m = CoefficientAccumulator(in[AllEntities::EntityId::q_c]);
 
-        auto q_memory_m = CoefficientAccumulator(in.q_memory);
+        auto q_memory_m = CoefficientAccumulator(in[AllEntities::EntityId::q_memory]);
 
         /**
          * MEMORY
@@ -201,7 +221,7 @@ template <typename FF_> class MemoryRelationImpl {
          *
          * We apply the following checks for the sorted records:
          *
-         * 1. If adjacent indicies match and next access is a read, then the adjacent values must match.
+         * 1. If adjacent indices match and next access is a read, then the adjacent values must match.
          * 2. The index increases by {0, 1}
          * 3. The _next_ gate access is either a READ or a WRITE (i.e., boolean).
          */
@@ -273,6 +293,69 @@ template <typename FF_> class MemoryRelationImpl {
         memory_identity *= q_memory_by_scaling;            // deg 5
         memory_identity += RAM_consistency_check_identity; // deg 5
         std::get<0>(accumulators) += memory_identity;      // deg 5
+
+        /**
+         * ROM LogUp Sub-Relations (single-value tables)
+         *
+         * Wire layout on ROM-LogUp rows: (w_l, w_r, w_o, w_4) = (index, value, multiplicity, inverse).
+         * Two selector bitpatterns identify these rows within the q_memory-gated region:
+         *   q_logup_table = q_2 * (1 - q_1)   (table entry: w_o = m_i, the read count)
+         *   q_logup_read  = q_4 * (1 - q_1)   (read access: w_o = 0)
+         * The (1 - q_1) factor distinguishes these bitpatterns from ROM_CONSISTENCY_CHECK (q_1 = q_2 = 1) and
+         * RAM_TIMESTAMP_CHECK (q_1 = q_4 = 1) respectively.
+         *
+         * Fingerprint (deg 1):
+         *   denom = rom_logup_gamma + w_l + eta * w_r + eta_two * q_c
+         * where w_l = index, w_r = value, and q_c = ROM array id. The (index, value, array id) coordinates are
+         * batched with powers of eta (eta^0, eta^1, eta^2), so for a fixed eta distinct triples yield distinct
+         * batched encodings t = index + eta * value + eta_two * array_id with overwhelming probability (the
+         * difference of two encodings is a nonzero degre-<=2 polynomial in eta). The additive offset
+         * rom_logup_gamma is an *independent* challenge, not a power of eta: this is what makes the LogUp
+         * partial-fraction soundness argument valid. With denom = gamma + t and gamma independent of the t's,
+         * the reciprocals 1/(gamma + t) have simple poles at distinct points -t, so the summed identity below
+         * being zero forces every net multiplicity to vanish. The array id makes the match array-local: the sum below
+         * runs over the whole trace, and q_c is what ties each read to a table entry of the same array.
+         *
+         * The independent offset rom_logup_gamma keeps every denominator nonzero (the all-zero row
+         * index = value = array id = 0 maps to rom_logup_gamma != 0). w_4 holds the inverse and is filled by
+         * the prover during oink, once eta and rom_logup_gamma are known but before w_4 is committed.
+         *
+         * Subrelation 6 (per-row vanishing, deg 5):
+         *   q_memory * (q_logup_table + q_logup_read) * (w_4 * denom - 1) = 0
+         * Forces w_4 = 1 / denom on any row whose bitpattern fires.
+         *
+         * Subrelation 7 (linearly dependent — summed across the trace, deg 5):
+         *   sum_rows [ q_memory * (q_logup_read - q_logup_table * w_o) * w_4 ] = 0
+         * This is the standard LogUp identity: read rows contribute +1/denom, table rows
+         * contribute -m_i/denom. Soundness follows from Schwartz-Zippel over the random
+         * challenges (eta for the batched encoding, rom_logup_gamma for the additive offset) plus the
+         * partial-fraction-decomposition argument (see the soundness discussion in logderiv_lookup_relation.hpp).
+         *
+         * Locality: both terms in subrelation 7 are gated by precomputed selector combinations (q_logup_read,
+         * q_logup_table), so rows outside the ROM-LogUp bitpatterns contribute 0 regardless of w_o / w_4.
+         * No separate locality subrelation of the form (1 - indicator) * count = 0 (as used by the databus
+         * lookup relation, whose table values live in dedicated witness columns with no gate selector) is
+         * needed here: table entries are gates, and their selector is the indicator.
+         */
+        auto one_minus_q_1_m = -q_1_m + FF(1);              // deg 1
+        Accumulator q_logup_table(q_2_m * one_minus_q_1_m); // deg 2
+        Accumulator q_logup_read(q_4_m * one_minus_q_1_m);  // deg 2
+        Accumulator q_logup_any = q_logup_table + q_logup_read;
+
+        // Fingerprint denominator: w_l + eta * w_r + eta_two * q_c + rom_logup_gamma. Degree 1.
+        Accumulator denom(w_1_m + w_2_m * eta_m + q_c_m * eta_two_m + rom_logup_gamma_m);
+
+        Accumulator w_4_acc(w_4_m);
+
+        // Subrelation 6: q_memory * q_logup_any * (w_4 * denom - 1) = 0. Per-row vanishing; deg 5.
+        std::get<6>(accumulators) += q_memory_by_scaling * q_logup_any * (w_4_acc * denom - FF(1));
+
+        // Subrelation 7: sum over the trace of q_memory * (q_logup_read - q_logup_table * w_o) * w_4 = 0.
+        // Linearly dependent, hence no scaling_factor; deg 5.
+        Accumulator logup_sum_contribution = q_logup_read - q_logup_table * Accumulator(w_3_m);
+        logup_sum_contribution *= w_4_acc;
+        logup_sum_contribution *= Accumulator(q_memory_m);
+        std::get<7>(accumulators) += logup_sum_contribution;
     };
 };
 

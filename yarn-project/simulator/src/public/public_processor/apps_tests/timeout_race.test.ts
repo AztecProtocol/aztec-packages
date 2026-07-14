@@ -48,7 +48,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
 
   const logger = createLogger('public-processor-timeout-race');
 
-  const admin = AztecAddress.fromNumber(42);
+  const admin = AztecAddress.fromNumberUnsafe(42);
 
   let worldStateService: NativeWorldStateService;
 

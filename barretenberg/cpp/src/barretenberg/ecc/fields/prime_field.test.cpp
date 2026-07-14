@@ -161,6 +161,29 @@ TYPED_TEST(PrimeFieldTest, CompileTimeUint256Conversion)
     static_assert(a == c || a == c - F::modulus);
 }
 
+// Regression for the WASM coarse-Montgomery footgun behind the fused IPA fold (#330) abort:
+// from_montgomery_form() is only coarse-reduced ([0, 2p)) and returns value+p on WASM's 29-bit-limb
+// Montgomery backend, so reading its raw limbs misreads a short value as full-width. The reduced
+// variant must return the canonical ([0, p)) value on every platform. This deterministically fails on
+// WASM if a limb-level caller reads from_montgomery_form()'s coarse limbs, and passes everywhere once
+// from_montgomery_form_reduced() is used instead.
+TYPED_TEST(PrimeFieldTest, ReducedLimbsAreCanonicalForShortValues)
+{
+    using F = TypeParam;
+
+    for (size_t i = 0; i < 256; ++i) {
+        // A 127-bit value, as produced by the fused fold's challenge inputs.
+        const F seed = F::random_element().from_montgomery_form_reduced();
+        const uint256_t value(seed.data[0], seed.data[1] & 0x7FFFFFFFFFFFFFFFULL, 0, 0);
+
+        const F reduced = F(value).from_montgomery_form_reduced();
+        EXPECT_EQ(reduced.data[0], value.data[0]);
+        EXPECT_EQ(reduced.data[1], value.data[1]);
+        EXPECT_TRUE(((reduced.data[2] | reduced.data[3]) == 0) && ((reduced.data[1] >> 63) == 0))
+            << "from_montgomery_form_reduced() must be canonical (< 2^127) for a 127-bit value";
+    }
+}
+
 // ================================
 // uint256_t Arithmetic Verification
 // ================================

@@ -1,3 +1,4 @@
+import { CircuitKind } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
@@ -125,6 +126,7 @@ export class TxProfileResult {
           bytecode: Buffer.from('random'),
           witness: new Map([[1, 'random']]),
           vk: Buffer.from('random'),
+          kind: CircuitKind.App,
           timings: {
             witgen: 1,
             gateCount: 1,

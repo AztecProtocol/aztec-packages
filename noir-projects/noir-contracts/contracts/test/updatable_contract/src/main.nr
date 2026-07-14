@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 contract Updatable {
     use aztec::{
         macros::{functions::{external, initializer, internal, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::{
             address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             contract_class_id::ContractClassId,
@@ -27,7 +27,7 @@ contract Updatable {
     fn initialize(initial_value: Field) {
         let owner = self.msg_sender();
         let note = FieldNote { value: initial_value };
-        self.storage.private_value.at(owner).initialize(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.private_value.at(owner).initialize(note).deliver(MessageDelivery::onchain_unconstrained());
         self.enqueue_self._initialize_public_value(initial_value);
     }
 

@@ -1,6 +1,5 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
@@ -61,20 +60,6 @@ void eccvm_generate_prover(State& state) noexcept
     };
 }
 
-void eccvm_prove(State& state) noexcept
-{
-
-    size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
-    Builder builder = generate_trace(target_num_gates);
-    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-    ECCVMProver prover(builder, prover_transcript);
-    for (auto _ : state) {
-        auto [proof, opening_claim] = prover.construct_proof();
-        auto ipa_transcript = std::make_shared<Transcript>();
-        IPA<Flavor::Curve>::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
-    };
-}
-
 template <typename Prover> void construct_proof(State& state) noexcept
 {
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
@@ -82,10 +67,9 @@ template <typename Prover> void construct_proof(State& state) noexcept
         Builder builder = generate_trace(target_num_gates);
         std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
         Prover prover(builder, prover_transcript);
-        auto [proof, opening_claim] = prover.construct_proof();
-        auto ipa_transcript = std::make_shared<Transcript>();
-        IPA<Flavor::Curve>::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+        auto proof = prover.construct_proof();
         benchmark::DoNotOptimize(proof);
+        benchmark::DoNotOptimize(prover.ipa_proof);
     };
 }
 
@@ -118,22 +102,7 @@ void eccvm_full_sumcheck(State& state) noexcept
     execute_sumcheck<ECCVMProver>(state);
 }
 
-void eccvm_ipa(State& state) noexcept
-{
-    size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
-    Builder builder = generate_trace(target_num_gates);
-    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-    ECCVMProver prover(builder, prover_transcript);
-    auto [proof, opening_claim] = prover.construct_proof();
-    for (auto _ : state) {
-        auto ipa_transcript = std::make_shared<Transcript>();
-        IPA<Flavor::Curve>::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
-    };
-}
-
 BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
-BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
-BENCHMARK(eccvm_ipa)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 BENCHMARK(eccvm_full_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 BENCHMARK(eccvm_full_sumcheck)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 } // namespace

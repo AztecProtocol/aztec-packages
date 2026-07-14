@@ -87,7 +87,7 @@ pub contract Counter {
 - `macros::{functions::{external, initializer}, storage::storage}`
   Imports the macros needed to define function types (`external`, `initializer`) and the `storage` macro for declaring contract storage structures.
 
-- `messages::message_delivery::MessageDelivery`
+- `messages::delivery::MessageDelivery`
   Imports `MessageDelivery` for specifying how note delivery should be handled (e.g., constrained onchain delivery).
 
 - `oracle::logging::debug_log_format`

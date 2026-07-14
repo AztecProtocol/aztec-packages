@@ -26,6 +26,7 @@ inline std::vector<uint64_t> slice_input(const uint256_t& input, const uint64_t 
     uint256_t target = input;
     std::vector<uint64_t> slices;
     if (num_slices > 0) {
+        slices.reserve(num_slices);
         for (size_t i = 0; i < num_slices; ++i) {
             slices.push_back((target % base).data[0]);
             target /= base;
@@ -48,6 +49,7 @@ inline std::vector<uint64_t> slice_input_using_variable_bases(const uint256_t& i
 {
     uint256_t target = input;
     std::vector<uint64_t> slices;
+    slices.reserve(bases.size());
     for (size_t i = 0; i < bases.size(); ++i) {
         BB_ASSERT(bases[i] > 0);
         if (target >= bases[i] && i == bases.size() - 1) {

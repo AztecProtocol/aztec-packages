@@ -82,7 +82,7 @@ class Goblin {
     MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>()) const;
 
     /**
-     * @brief Construct an ECCVM proof and IPA opening proof.
+     * @brief Construct an ECCVM proof and TripleIPA opening proof.
      * @details Also computes the translation polynomial evaluation challenges (batching_challenge_v,
      * evaluation_challenge_x) which are passed to the Translator.
      */

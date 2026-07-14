@@ -3,6 +3,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 #include <gtest/gtest.h>
 
@@ -34,7 +35,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        Chonk ivc{ num_circuits };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);

@@ -1152,7 +1152,7 @@ export class CallStackMetadata {
 
     const { stack, leaf } = failingCall;
     const aztecCallStack = stack.map(call => ({
-      contractAddress: AztecAddress.fromField(call.contractAddress),
+      contractAddress: AztecAddress.fromFieldUnsafe(call.contractAddress),
       functionSelector: call.calldata.length > 0 ? FunctionSelector.fromFieldOrUndefined(call.calldata[0]) : undefined,
     }));
 

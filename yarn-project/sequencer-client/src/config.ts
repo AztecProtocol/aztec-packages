@@ -3,6 +3,7 @@ import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -14,11 +15,13 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  DEFAULT_BLOCK_DURATION_MS,
   DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
   type SequencerConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
+import { MIN_PER_BLOCK_ALLOCATION_MULTIPLIER, MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER } from '@aztec/stdlib/gas';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
 import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
@@ -42,9 +45,12 @@ export const DefaultSequencerConfig = {
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  perBlockAllocationMultiplier: 1.2,
+  perBlockAllocationMultiplier: MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
+  perBlockDAAllocationMultiplier: MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
   redistributeCheckpointBudget: true,
-  enforceTimeTable: true,
+  blockDurationMs: DEFAULT_BLOCK_DURATION_MS,
+  l1PublishingTime: 12,
+  checkpointProposalSyncGraceSeconds: 2 * (DEFAULT_BLOCK_DURATION_MS / 1000),
   attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: 432, // 36 L1 blocks
@@ -56,6 +62,7 @@ export const DefaultSequencerConfig = {
   injectFakeAttestation: false,
   injectHighSValueAttestation: false,
   injectUnrecoverableSignatureAttestation: false,
+  injectYParityAttestation: false,
   fishermanMode: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
@@ -116,7 +123,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description:
       'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.' +
       ' Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.',
-    ...numberConfigHelper(DefaultSequencerConfig.perBlockAllocationMultiplier),
+    ...floatConfigHelper(DefaultSequencerConfig.perBlockAllocationMultiplier),
+  },
+  perBlockDAAllocationMultiplier: {
+    env: 'SEQ_PER_BLOCK_DA_ALLOCATION_MULTIPLIER',
+    description:
+      'Per-block budget multiplier applied to DA gas and blob fields in place of perBlockAllocationMultiplier.' +
+      ' Defaults higher than the general multiplier so the largest contract class deploy fits a single block.',
+    ...floatConfigHelper(DefaultSequencerConfig.perBlockDAAllocationMultiplier),
   },
   redistributeCheckpointBudget: {
     env: 'SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET',
@@ -131,7 +145,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   feeRecipient: {
     env: 'FEE_RECIPIENT',
-    parseEnv: (val: string) => AztecAddress.fromString(val),
+    parseEnv: (val: string) => AztecAddress.fromStringUnsafe(val),
     description: 'Address to receive fees.',
   },
   acvmWorkingDirectory: {
@@ -142,11 +156,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'ACVM_BINARY_PATH',
     description: 'The path to the ACVM binary',
   },
-  enforceTimeTable: {
-    env: 'SEQ_ENFORCE_TIME_TABLE',
-    description: 'Whether to enforce the time table when building blocks',
-    ...booleanConfigHelper(DefaultSequencerConfig.enforceTimeTable),
-  },
   governanceProposerPayload: {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
     description: 'The address of the payload for the governanceProposer',
@@ -154,8 +163,8 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   l1PublishingTime: {
     env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
-    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    ...optionalNumberConfigHelper(),
+    description: 'How much time in seconds to allow in the slot for publishing the L1 transaction.',
+    ...numberConfigHelper(DefaultSequencerConfig.l1PublishingTime),
   },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
@@ -217,6 +226,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Inject an attestation with an unrecoverable signature (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectUnrecoverableSignatureAttestation),
   },
+  injectYParityAttestation: {
+    description: 'Inject a non-proposer attestation slot in yParity form in the packed L1 tuple (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectYParityAttestation),
+  },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
     description:
@@ -234,7 +247,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     ...booleanConfigHelper(DefaultSequencerConfig.buildCheckpointIfEmpty),
   },
   skipPushProposedBlocksToArchiver: {
-    description: 'Skip pushing proposed blocks to archiver (default: true)',
+    description: 'Skip pushing proposed blocks to archiver (test only)',
     ...booleanConfigHelper(DefaultSequencerConfig.skipPushProposedBlocksToArchiver),
   },
   minBlocksForCheckpoint: {

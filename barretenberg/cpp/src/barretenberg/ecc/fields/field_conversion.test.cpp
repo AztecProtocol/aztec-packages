@@ -152,16 +152,28 @@ TEST_F(FieldConversionTest, FieldConversionUnivariateGrumpkinFr)
 }
 
 /**
- * @brief Convert challenge test for grumpkin::fr
- *
+ * @brief convert_short_challenge maps a short (≤ 2 bigfield limbs) challenge to fr or fq, preserving its value.
  */
-TEST_F(FieldConversionTest, ConvertChallengeGrumpkinFr)
+TEST_F(FieldConversionTest, ConvertShortChallenge)
 {
-    uint256_t chal_raw(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
-    bb::fr chal(chal_raw.slice(0, 136));
-    auto result = FrCodec::convert_challenge<grumpkin::fr>(chal);
-    auto expected = uint256_t(chal);
-    EXPECT_EQ(uint256_t(result), expected);
+    constexpr size_t SHORT_BITS = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+    const uint256_t raw(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+    const bb::fr chal(raw.slice(0, SHORT_BITS));
+
+    EXPECT_EQ(FrCodec::convert_short_challenge<bb::fr>(chal), chal);
+    EXPECT_EQ(uint256_t(FrCodec::convert_short_challenge<grumpkin::fr>(chal)), uint256_t(chal));
+}
+
+/**
+ * @brief convert_full_challenge maps a full-width challenge to fr or fq, preserving its value.
+ * @details fr → fq is exact (no reduction) because the scalar modulus r is smaller than the base modulus q.
+ */
+TEST_F(FieldConversionTest, ConvertFullChallenge)
+{
+    const bb::fr chal = bb::fr::random_element();
+
+    EXPECT_EQ(FrCodec::convert_full_challenge<bb::fr>(chal), chal);
+    EXPECT_EQ(uint256_t(FrCodec::convert_full_challenge<grumpkin::fr>(chal)), uint256_t(chal));
 }
 
 // ============================================================================

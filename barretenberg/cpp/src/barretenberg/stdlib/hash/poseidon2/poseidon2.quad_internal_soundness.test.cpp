@@ -1,28 +1,38 @@
-// Regression tests for the Mega Poseidon2 quad-internal layout and boundary soundness.
+// Regression tests for the Mega Poseidon2 compressed internal relations and their boundaries.
 //
-// The Mega Poseidon2 permutation uses a compressed internal block with an entry transition
-// row (standard -> compressed) and a terminal row (compressed -> standard). The transition
-// rows are tied to the surrounding standard-encoded states via copy constraints and shifted
-// wires:
+// All five Poseidon2 gate kinds share the single `poseidon2` block, emitted contiguously as
+//   initial | g1 external x4 | transition_entry | quad x13 | terminal | g2 external x4 | out
+// so rows are located by selector (not by hardcoded index). The compressed block has an entry
+// transition row (standard -> compressed) and a terminal row (compressed -> first final-external
+// row); both are tied to the surrounding standard-encoded states via shifted wires:
 //
 //   - Entry  (q_poseidon2_transition_entry):
 //       w_r_shift - D_1 (w_l + q_l)^5 - w_r - w_o - w_4 = 0
-//     ties the first compressed row's `w_r` (= v_0 = state[0] one round ahead) to the
-//     standard `s_1` at round `rounds_f_begin`.
+//     ties the first compressed row's `w_r` (= state[0] one round ahead) to the standard `s_1`
+//     at round `rounds_f_begin`.
 //
 //   - Terminal (q_poseidon2_quad_internal_terminal):
 //       out_k - w_{k,shift} = 0 for k in {0, 1, 2, 3}
-//     ties the compressed chain's computed state at round `p_end` to the selector-unconstrained
-//     standard bridge row consumed by the final external rounds via shared witness indices.
+//     ties the compressed chain's computed state at round `p_end` directly to the first
+//     final-external row (the rows are contiguous, so its w_shift lands on the real consumer).
 //
 // CircuitChecker iterates row-major-then-relation-major and short-circuits on the first
 // failing relation. This means a corruption that would in principle break multiple relations
 // is reported as breaking the first one the checker reaches; the tests below note the
-// expected first-detector where it matters.
+// expected first-detector where it matters. To pin down which relation a tamper actually
+// breaks (rather than relying only on the aggregate `CircuitChecker::check` verdict), each
+// test also evaluates the relevant Poseidon2 relation in isolation at the boundary row via
+// `relation_fires`, asserting it is satisfied on the honest circuit and violated after the
+// tamper.
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/circuit_checker/ultra_circuit_checker.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_terminal_relation.hpp"
+#include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -37,13 +47,27 @@ class Poseidon2QuadInternalSoundnessTests : public ::testing::Test {
   public:
     using Builder = MegaCircuitBuilder;
     using FF = MegaFlavor::FF;
-    // Quad-internal block layout produced by stdlib::Poseidon2Permutation on Mega:
-    //   row 0        : entry transition (standard encoding)
-    //   rows 1 .. 13 : interior compressed rows
-    //   row 14       : terminal compressed row
-    //   row 15       : standard transition row (selector-unconstrained, copy-constrained to final external rounds)
-    static constexpr size_t quad_entry_row = 0;
-    static constexpr size_t quad_first_interior_row = 1;
+
+    // Locate the (unique, for a single permutation) row carrying a given gate selector in the
+    // merged `poseidon2` block. Rows are interleaved (initial / external / transition / quad /
+    // terminal), so tests must find their target by selector rather than by a fixed index.
+    static size_t selector_row(const Builder& b, GateKind kind)
+    {
+        const auto& block = b.blocks.poseidon2;
+        for (size_t i = 0; i < block.size(); ++i) {
+            if (!read_gate_selector(block, kind, i).is_zero()) {
+                return i;
+            }
+        }
+        throw_or_abort("selector not found in poseidon2 block");
+        return 0;
+    }
+
+    // True iff `Relation` is violated at row `idx` of the `poseidon2` block.
+    template <typename Relation> static bool relation_fires(Builder& builder, size_t idx)
+    {
+        return !UltraCircuitChecker::check_relation_at_row<Relation>(builder, builder.blocks.poseidon2, idx);
+    }
 
     // Build an honest Poseidon2 circuit: hashes a single fixed field element through the
     // `Poseidon2Permutation::permutation` call used by the stdlib.
@@ -104,46 +128,60 @@ TEST_F(Poseidon2QuadInternalSoundnessTests, EntryBoundaryRejectsTamperedIntermed
     auto builder = build_honest_permutation(FF(uint256_t(0x1234ULL)));
     ASSERT_TRUE(CircuitChecker::check(*builder));
 
-    auto& quad = builder->blocks.poseidon2_quad_internal;
-    // Shift the first interior compressed row's w_r (= intermediate_s0) by a nonzero delta.
-    const uint32_t w_r_idx = quad.w_r()[quad_first_interior_row];
+    auto& quad = builder->blocks.poseidon2;
+    const size_t entry_row = selector_row(*builder, GateKind::Poseidon2TransitionEntry);
+    // The first interior compressed row is the entry transition's immediate successor.
+    const size_t first_interior_row = entry_row + 1;
+    ASSERT_FALSE(relation_fires<Poseidon2TransitionEntryRelation<FF>>(*builder, entry_row));
+
+    const uint32_t w_r_idx = quad.w_r()[first_interior_row];
     builder->set_variable(w_r_idx, builder->get_variable(w_r_idx) + FF(1));
 
     EXPECT_FALSE(CircuitChecker::check(*builder));
+    // w_r_shift of the entry row is the first interior row's w_r, so subrelation A_0 breaks.
+    EXPECT_TRUE(relation_fires<Poseidon2TransitionEntryRelation<FF>>(*builder, entry_row));
 }
 
-// Entry boundary: tampering the entry row's `w_r` (= standard s_1 at round rounds_f_begin)
-// breaks the entry-transition relation as well. `w_r` of the entry row is copy-constrained
-// to the external block's propagate row; modifying it invalidates both the external chain
-// and the entry relation.
+// Entry boundary: tampering the entry row's own `w_r` (= standard s_1 at round rounds_f_begin)
+// breaks the entry-transition relation as well. `w_r` of the entry row shares its witness index
+// with the last first-group external round's output, so modifying it invalidates both the
+// external chain (which pins it via w_shift) and the entry relation that reads it.
 TEST_F(Poseidon2QuadInternalSoundnessTests, EntryBoundaryRejectsTamperedStateOne)
 {
     auto builder = build_honest_permutation(FF(uint256_t(0xabcdULL)));
     ASSERT_TRUE(CircuitChecker::check(*builder));
 
-    auto& quad = builder->blocks.poseidon2_quad_internal;
-    const uint32_t w_r_idx = quad.w_r()[quad_entry_row];
+    auto& quad = builder->blocks.poseidon2;
+    const size_t entry_row = selector_row(*builder, GateKind::Poseidon2TransitionEntry);
+    ASSERT_FALSE(relation_fires<Poseidon2TransitionEntryRelation<FF>>(*builder, entry_row));
+
+    const uint32_t w_r_idx = quad.w_r()[entry_row];
     builder->set_variable(w_r_idx, builder->get_variable(w_r_idx) + FF(7));
 
     EXPECT_FALSE(CircuitChecker::check(*builder));
+    // The entry relation reads the entry row's own w_r (the standard s_1), so it breaks.
+    EXPECT_TRUE(relation_fires<Poseidon2TransitionEntryRelation<FF>>(*builder, entry_row));
 }
 
-// Exit boundary: the standard bridge row (last row of poseidon2_quad_internal) holds `state[1]`
-// at round p_end in its `w_r`. Shifting that witness breaks the terminal relation, which enforces
-// out_1 (computed by the last compressed row) == w_r_shift (the bridge row's w_r).
+// Exit boundary: the terminal relation's successor is the first final-external row, which holds
+// the full standard state (s_0, s_1, s_2, s_3) at round p_end. Its `w_r` (= state[1]) is bound by
+// the terminal subrelation out_1 == w_r_shift. Shifting that witness must be rejected.
 TEST_F(Poseidon2QuadInternalSoundnessTests, ExitBoundaryRejectsTamperedStateOne)
 {
     auto builder = build_honest_permutation(FF(uint256_t(0xcafebabeULL)));
     ASSERT_TRUE(CircuitChecker::check(*builder));
 
-    auto& quad = builder->blocks.poseidon2_quad_internal;
-    // Last row of the quad-internal block is the standard transition row holding
-    // (s_0, s_1, s_2, s_3) at round p_end in standard encoding.
-    const size_t quad_std_transition_row = quad.size() - 1;
-    const uint32_t state1_idx = quad.w_r()[quad_std_transition_row];
+    auto& quad = builder->blocks.poseidon2;
+    const size_t terminal_row = selector_row(*builder, GateKind::Poseidon2QuadIntTerminal);
+    const size_t first_final_external_row = terminal_row + 1;
+    ASSERT_FALSE(relation_fires<Poseidon2QuadInternalTerminalRelation<FF>>(*builder, terminal_row));
+
+    const uint32_t state1_idx = quad.w_r()[first_final_external_row];
     builder->set_variable(state1_idx, builder->get_variable(state1_idx) + FF(1));
 
     EXPECT_FALSE(CircuitChecker::check(*builder));
+    // The terminal relation's subrelation out_1 == w_r_shift binds this witness, so it breaks.
+    EXPECT_TRUE(relation_fires<Poseidon2QuadInternalTerminalRelation<FF>>(*builder, terminal_row));
 }
 
 // Interior chain: corrupting any wire on an interior compressed row breaks the chain's
@@ -153,13 +191,17 @@ TEST_F(Poseidon2QuadInternalSoundnessTests, InteriorRelationRejectsTamperedWire)
     auto builder = build_honest_permutation(FF(uint256_t(0xfeedf00dULL)));
     ASSERT_TRUE(CircuitChecker::check(*builder));
 
-    auto& quad = builder->blocks.poseidon2_quad_internal;
-    // Pick some middle interior row.
-    const size_t interior_row = quad_first_interior_row + 5;
+    auto& quad = builder->blocks.poseidon2;
+    // Pick some middle interior row (first interior row is the entry transition's successor).
+    const size_t interior_row = selector_row(*builder, GateKind::Poseidon2TransitionEntry) + 1 + 5;
+    ASSERT_FALSE(relation_fires<Poseidon2QuadInternalRelation<FF>>(*builder, interior_row));
+
     const uint32_t w_o_idx = quad.w_o()[interior_row];
     builder->set_variable(w_o_idx, builder->get_variable(w_o_idx) + FF(1));
 
     EXPECT_FALSE(CircuitChecker::check(*builder));
+    // The quad-internal relation reads this row's own w_o, so the interior chain breaks here.
+    EXPECT_TRUE(relation_fires<Poseidon2QuadInternalRelation<FF>>(*builder, interior_row));
 }
 
 // Cross-row encoding test: the interior subrelations A_1, A_2, A_3 compare row i's predicted
@@ -175,12 +217,18 @@ TEST_F(Poseidon2QuadInternalSoundnessTests, CrossRowVandermondeEncodingMismatchR
     auto builder = build_honest_permutation(FF(uint256_t(0xCAFE1234ULL)));
     ASSERT_TRUE(CircuitChecker::check(*builder));
 
-    auto& quad = builder->blocks.poseidon2_quad_internal;
-    const size_t row_i_plus_1 = quad_first_interior_row + 6;
+    auto& quad = builder->blocks.poseidon2;
+    const size_t row_i_plus_1 = selector_row(*builder, GateKind::Poseidon2TransitionEntry) + 1 + 6;
+    const size_t row_i = row_i_plus_1 - 1;
+    ASSERT_FALSE(relation_fires<Poseidon2QuadInternalRelation<FF>>(*builder, row_i));
+
     const uint32_t idx = quad.w_o()[row_i_plus_1];
     builder->set_variable(idx, builder->get_variable(idx) + FF(1));
 
     EXPECT_FALSE(CircuitChecker::check(*builder));
+    // Row i's committed wires are untouched, but row i+1's w_o enters row i's relation as w_o_shift
+    // through the Vandermonde RHS reconstruction (b_2', b_3'), so row i's relation fires.
+    EXPECT_TRUE(relation_fires<Poseidon2QuadInternalRelation<FF>>(*builder, row_i));
 }
 
 } // namespace

@@ -105,8 +105,7 @@ pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_
 // VK TREE CONSTANTS
 pub global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
 pub global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
-pub global PRIVATE_KERNEL_TAIL_VK_INDEX: u32 = 2;
-pub global PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX: u32 = 3;
+// VK indices 2 and 3 are intentionally unallocated.
 pub global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
 pub global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
 pub global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
@@ -126,15 +125,31 @@ pub global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
 pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub global PARITY_BASE_VK_INDEX: u32 = 21;
 pub global PARITY_ROOT_VK_INDEX: u32 = 22;
+// The three families below carve up the reset-family range (23-42). Each base is the VK index
+// of its family's first variant; subsequent variants occupy successive indices. Bases must
+// stay ascending; `validate_vk_in_vk_tree` depends on this ordering.
+//   inner             : 23 + i   (mid-tx resets, no siloing)
+//   finalTail         : 31 + i   (terminal reset+tail, rollup-bound)
+//   finalTailToPublic : 37 + i   (terminal reset+tail-to-public, public-bound)
 pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
-// Important: Do not define indexes between 24 and 64. They are allocated for the variants of private kernel reset. Add new non-reset kernel indices at 65+.
-pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
-pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
-pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
-pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
+pub global PRIVATE_KERNEL_RESET_TAIL_VK_INDEX: u32 = 31;
+pub global PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX: u32 = 37;
+// Upper bound (exclusive) of the generated reset-family VK-tree range; used by VK-index normalisation
+// to know when to stop family-base matching.
+pub global PRIVATE_KERNEL_RESET_BLOCK_END: u32 = 43;
+// Important: Do not define indexes between 23 and 42 except via the three reset families above.
+// Indices 43-64 are intentionally unallocated; add new non-reset kernel indices at 65+.
+pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 65;
+pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 66;
+pub global PRIVATE_KERNEL_INIT_4_VK_INDEX: u32 = 67;
+pub global PRIVATE_KERNEL_INIT_5_VK_INDEX: u32 = 68;
+pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 69;
+pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 70;
+pub global PRIVATE_KERNEL_INNER_4_VK_INDEX: u32 = 71;
+pub global PRIVATE_KERNEL_INNER_5_VK_INDEX: u32 = 72;
 
 // Maximum number of apps absorbed by a single private kernel iteration.
-pub global MAX_APPS_PER_KERNEL: u32 = 3;
+pub global MAX_APPS_PER_KERNEL: u32 = 5;
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
@@ -426,7 +441,8 @@ pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* coinbase */
     + 1 /* fee_recipient */
     + GAS_FEES_LENGTH
-    + TOTAL_MANA_USED_LENGTH;
+    + TOTAL_MANA_USED_LENGTH
+    + 1 /* accumulated_fees */;
 pub global CHECKPOINT_HEADER_SIZE_IN_BYTES: u32 = (CHECKPOINT_HEADER_LENGTH - 4) * 32
     + 8 /* timestamp */
     + 20 /* coinbase */
@@ -457,9 +473,13 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_CALL + 1)
     + (COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL + 1)
     + BLOCK_HEADER_LENGTH
-    + TX_CONTEXT_LENGTH;
-pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 =
-    CALL_CONTEXT_LENGTH + BLOCK_HEADER_LENGTH + TX_CONTEXT_LENGTH + 1;
+    + TX_CONTEXT_LENGTH
+    + 1 /* tx_request_salt */;
+pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
+    + BLOCK_HEADER_LENGTH
+    + TX_CONTEXT_LENGTH
+    + 1 /* start_side_effect_counter */
+    + 1 /* tx_request_salt */;
 pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 
 // TODO: Leila's considering moving this into a noir file within bb
@@ -504,8 +524,8 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
     + PRIVATE_ACCUMULATED_DATA_LENGTH
     + PUBLIC_CALL_REQUEST_LENGTH
     + AZTEC_ADDRESS_LENGTH
+    + 1 /* expiration_timestamp */
     + 1 /* is private only */
-    + 1 /* claimed_first_nullifier */
     + 1 /* claimed_revertible_counter */;
 
 pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
@@ -639,21 +659,24 @@ pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
 // Chonk sub-proof lengths; pinned to bb via static_asserts in mock_verifier_inputs.test.cpp.
-pub global CHONK_HIDING_OINK_LENGTH: u32 = 108;
-pub global CHONK_MERGE_PROOF_SIZE: u32 = 42;
-pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 608;
-pub global CHONK_JOINT_PROOF_LENGTH: u32 = 499;
+pub global CHONK_HIDING_OINK_LENGTH: u32 = 48;
+pub global CHONK_MERGE_PROOF_SIZE: u32 = 41;
+pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 556;
+pub global CHONK_TRIPLE_IPA_PROOF_LENGTH: u32 = 70;
+pub global CHONK_JOINT_PROOF_LENGTH: u32 = 478;
 pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
     + HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE
     + CHONK_MERGE_PROOF_SIZE
     + CHONK_ECCVM_PROOF_LENGTH
-    + IPA_PROOF_LENGTH
+    + CHONK_TRIPLE_IPA_PROOF_LENGTH
     + CHONK_JOINT_PROOF_LENGTH;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
-pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
+pub global MEGA_APP_VK_LENGTH_IN_FIELDS: u32 = 151; // size of a MegaApp verification key
+pub global MEGA_KERNEL_VK_LENGTH_IN_FIELDS: u32 = 151; // size of a MegaKernel verification key
+pub global MEGA_ZK_VK_LENGTH_IN_FIELDS: u32 = 119; // size of a MegaZK verification key
 // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
-pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
+pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_ZK_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -729,9 +752,16 @@ pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
 pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
 /// Domain separator for constrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__CONSTRAINED_MSG_LOG_TAG: u32 = 3715244738;
+/// Domain separator for nullifiers used during constrained delivery.
+pub global DOM_SEP__CONSTRAINED_MSG_NULLIFIER: u32 = 3723577546;
+/// Domain separator for the sender-only secret folded into constrained-delivery nullifiers.
+pub global DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET: u32 = 1182889476;
 /// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
 /// [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
+/// Domain separator for the message a recipient signs to authorize an interactive handshake, hashed via
+/// [`crate::hash::poseidon2_hash_with_separator`] and verified in-circuit by the handshake registry contract.
+pub global DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE: u32 = 3098455647;
 /// Domain separator for private log tags.
 ///
 /// Used by [`crate::hash::compute_siloed_private_log_first_field`].
@@ -770,6 +800,8 @@ pub global DOM_SEP__NHK_M: u32 = 242137788;
 pub global DOM_SEP__IVSK_M: u32 = 2747825907;
 pub global DOM_SEP__OVSK_M: u32 = 4272201051;
 pub global DOM_SEP__TSK_M: u32 = 1546190975;
+pub global DOM_SEP__MSSK_M: u32 = 617962565;
+pub global DOM_SEP__FBSK_M: u32 = 787738027;
 pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 777457226;
 pub global DOM_SEP__SINGLE_PUBLIC_KEY_HASH: u32 = 3452068255;
 
@@ -909,8 +941,7 @@ pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_ECC;
 pub global AVM_DYN_GAS_ID_CALLDATACOPY: u32 = 1;
 pub global AVM_DYN_GAS_ID_RETURNDATACOPY: u32 = 2 * AVM_DYN_GAS_ID_CALLDATACOPY;
 pub global AVM_DYN_GAS_ID_TORADIX: u32 = 2 * AVM_DYN_GAS_ID_RETURNDATACOPY;
-pub global AVM_DYN_GAS_ID_BITWISE: u32 = 2 * AVM_DYN_GAS_ID_TORADIX;
-pub global AVM_DYN_GAS_ID_EMITPUBLICLOG: u32 = 2 * AVM_DYN_GAS_ID_BITWISE;
+pub global AVM_DYN_GAS_ID_EMITPUBLICLOG: u32 = 2 * AVM_DYN_GAS_ID_TORADIX;
 pub global AVM_DYN_GAS_ID_SSTORE: u32 = 2 * AVM_DYN_GAS_ID_EMITPUBLICLOG;
 
 // Execution Opcode IDs
@@ -1140,34 +1171,32 @@ pub global AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_AV
 // End reverted
 pub global AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX + 1;
 
-// AVM's max public input column size (aka total number of rows)
+// AVM's max public input column size (aka total number of rows). This is the length of column 0,
+// which is the longest column, and also the extent of the public_inputs `sel` selector.
 pub global AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH: u32 = AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX + 1;
 pub global AVM_NUM_PUBLIC_INPUT_COLUMNS: u32 = 4;
+
+// Per-column lengths: the exact number of rows used by each public input column, equal to
+// (last row index that writes the column) + 1. Column 0 spans the full table; columns 1-3 are
+// shorter, so the recursive verifier avoids hashing / MLE-evaluating their trailing zeros.
+// IMPORTANT: revisit these if the column layout (see public_inputs.pil / to_columns) changes
+// which column holds its last written cell.
+pub global AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH: u32 = AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; // last: reverted
+pub global AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH: u32 = AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX; // last: public_data_writes value
+pub global AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX; // last: accumulated l2_to_l1 contract_address
+pub global AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH: u32 =
+    AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX + 1; // last: teardown calldata_hash
+
 // Combined size of the AVM's public input columns concatenated together
-pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
-    AVM_NUM_PUBLIC_INPUT_COLUMNS * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 = AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH
+    + AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH
+    + AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH
+    + AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH;
 
-// REMARK: This comment will be relevant when we decommission the "padded" constants below and revive the
-// non-padded constants: `AVM_V2_PROOF_LENGTH_IN_FIELDS` and `AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS`.
-// `AVM_V2_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
-// To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
-// in barretenberg/cpp/src/barretenberg/vm2/constraining/flavor.hpp
-// This also changes the length of inputs for the public base rollup circuit, so its Prover.toml must be updated.
-// To do so: run: 'AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_public_functions' from yarn-project.
-
-// pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 5452;
-// VK is composed of
-// - circuit size encoded as a fr field element (32 bytes)
-// - num of inputs encoded as a fr field element (32 bytes)
-// - 45 affine elements (curve base field fq) encoded as fr elements takes (45 * 4 * 32 bytes)
-// 45 above refers to the constant AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES
-//pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 45 * 4;
-
-// We introduce padded version for two AVM constants and we will use the padded ones
-// until we freeze the number of columns in AVM.
-// TODO(#13390): Remove these constants and use the above ones (commented out) in noir/TS.
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 16400;
-pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
+// AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
+// Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 14532;
 
 // GAS DEFAULTS
 pub global DA_BYTES_PER_FIELD: u32 = 32;
@@ -1195,8 +1224,8 @@ pub global L2_GAS_DISTRIBUTED_STORAGE_PREMIUM: u32 = 1024;
 
 // AVM - misc constants
 pub global AVM_PC_SIZE_IN_BITS: u32 = 32;
-pub global AVM_MAX_OPERANDS: u32 = 7;
-pub global AVM_MAX_REGISTERS: u32 = 6;
+pub global AVM_MAX_OPERANDS: u32 = 5;
+pub global AVM_MAX_REGISTERS: u32 = 4;
 
 /**
  * GAS COSTS FOR AVM OPCODES
@@ -1268,10 +1297,9 @@ pub global AVM_ECADD_BASE_L2_GAS: u32 = 18 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 
 // Dynamic L2 GAS
-pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
-pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 3;
+pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 6;
+pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 6;
 pub global AVM_TORADIXBE_DYN_L2_GAS: u32 = 3;
-pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // One row per byte
 pub global AVM_EMITPUBLICLOG_DYN_L2_GAS: u32 = 3;
 
 // Base DA Gas
@@ -1304,8 +1332,7 @@ pub global PROOF_TYPE_ROLLUP_HONK: u32 = 4;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 5;
 // worktodo comment here where 6 is
 pub global PROOF_TYPE_HN_FINAL: u32 = 7;
-pub global PROOF_TYPE_HN_TAIL: u32 = 8;
-pub global PROOF_TYPE_CHONK: u32 = 9;
+pub global PROOF_TYPE_CHONK: u32 = 8;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;
@@ -1378,7 +1405,7 @@ mod test {
     };
 
     #[test]
-    unconstrained fn test_grumpkin_point() {
+    fn test_grumpkin_point() {
         assert_eq(
             super::GRUMPKIN_ONE_X,
             std::embedded_curve_ops::EmbeddedCurvePoint::generator().x,
@@ -1390,7 +1417,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_avm_written_public_data_slots_tree_height() {
+    fn test_avm_written_public_data_slots_tree_height() {
         assert_eq(
             1 << AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
             MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1,
@@ -1398,7 +1425,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_avm_retrieved_bytecodes_tree_height() {
+    fn test_avm_retrieved_bytecodes_tree_height() {
         assert(
             1 << AVM_RETRIEVED_BYTECODES_TREE_HEIGHT
                 >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1,
@@ -1410,7 +1437,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_side_effect_masking_address() {
+    fn test_side_effect_masking_address() {
         assert(
             (MAX_PROTOCOL_CONTRACTS as Field).lt(SIDE_EFFECT_MASKING_ADDRESS.to_field()),
             "Side effect masking address cannot overlap with protocol contract addresses",
@@ -1418,7 +1445,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn parity_covers_all_l1_to_l2_msgs() {
+    fn parity_covers_all_l1_to_l2_msgs() {
         assert_eq(
             NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY,
             NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
