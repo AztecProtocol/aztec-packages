@@ -169,6 +169,9 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         metrics: this.jobMetrics,
         txGatheringTimeoutMs: this.config.txGatheringTimeoutMs,
         deadline: undefined,
+        // A checkpoint prover that fails (a sub-tree fault or a prune-induced fork fault) uploads a
+        // post-mortem for its own checkpoint, independently of any session. Fire-and-forget.
+        onFailed: prover => void this.tryUploadCheckpointFailure(prover),
       },
       this.log.getBindings(),
     );
@@ -623,6 +626,33 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       assertRequired(pick(this.config, 'l1ChainId', 'rollupVersion', 'dataDirectory')),
       this.log,
     );
+  }
+
+  /**
+   * Uploads a post-mortem for a single failed checkpoint prover, built from just that checkpoint's
+   * proving data. Fired (fire-and-forget) from the store's `onFailed` callback for any non-cancel
+   * block-proof failure — a genuine sub-tree fault or a prune-induced fork fault alike. No-ops if no
+   * failed-epoch store is configured. Swallows its own errors so a fire-and-forget caller can't leak.
+   */
+  public async tryUploadCheckpointFailure(prover: CheckpointProver): Promise<string | undefined> {
+    if (!this.config.proverNodeFailedEpochStore) {
+      return undefined;
+    }
+    try {
+      const data = SessionManager.buildProvingData([prover]);
+      return await uploadEpochProofFailure(
+        this.config.proverNodeFailedEpochStore,
+        `failed-checkpoint-${prover.epochNumber}-${prover.checkpoint.number}`,
+        data,
+        this.l2BlockSource as Archiver,
+        this.worldState,
+        assertRequired(pick(this.config, 'l1ChainId', 'rollupVersion', 'dataDirectory')),
+        this.log,
+      );
+    } catch (err) {
+      this.log.error(`Error uploading checkpoint failure for ${prover.id}`, err);
+      return undefined;
+    }
   }
 
   // ---------------- helpers ----------------

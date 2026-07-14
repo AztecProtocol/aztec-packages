@@ -50,9 +50,10 @@ The prover-node splits responsibility between four classes:
   translates each chain event into a single method call on the `SessionManager` or
   `ProofPublishingService`. It also performs side effects that don't belong on an
   `EpochSession`: registering new checkpoints with the store per event, and sweeping expired
-  epochs out of the cache and the store on a periodic ticker (see below). It uploads a post-mortem
-  snapshot when a full session reports its own genuine failure (via the session manager's
-  `onSessionFailed` callback — see `EpochSession.hasFailed()`).
+  epochs out of the cache and the store on a periodic ticker (see below). It uploads post-mortem
+  snapshots on failure at two levels: per checkpoint when a `CheckpointProver` fails (its `onFailed`
+  callback), and per session when a full session fails on its own account (`onSessionFailed` /
+  `EpochSession.hasFailed()`).
 - **`CheckpointStore`** — a registry of `CheckpointProver` instances keyed by
   `(checkpointNumber, slot, archiveRoot)`. Each `CheckpointProver` runs its own sub-tree pipeline
   (tx gather → block processing → block-rollup proofs), starting eagerly the moment a
@@ -541,15 +542,26 @@ Loggers:
 - `prover-node:checkpoint-prover` — sub-tree pipeline (gather, block processing).
 - `prover-client:chonk-cache` — chonk-verifier cache enqueue / release events.
 
-When a full session ends in its own genuine failure (`EpochSession.hasFailed()` — top-tree/submit failed
-with every prover healthy), the session manager fires `onSessionFailed`, and `ProverNode` calls
-`tryUploadEpochFailure(epoch, session.getCheckpoints())`. That uses `SessionManager.buildProvingData(...)`
-to walk every `CheckpointProver` and assemble an `EpochProvingJobData` snapshot — including each prover's
-txs and register-time data even if its sub-tree never reached `isCompleted()`. This snapshot is what
-`uploadEpochProofFailure` ships to the configured file store along with a world-state + archiver backup,
-so the failure can be reproduced offline via `rerunEpochProvingJob`. The upload is race-free (healthy
-provers rule out a prune) and fires once, because the failed session is retained and never re-run — so a
-pruned or transient prover fault (which ends `stopped`, not `failed`) produces no spurious upload.
+Failed proving data is uploaded to the configured file store (`PROVER_NODE_FAILED_EPOCH_STORE`) at two
+levels, so it can be reproduced offline via `rerunEpochProvingJob`. Both build an `EpochProvingJobData`
+snapshot with `SessionManager.buildProvingData(...)` — every `CheckpointProver`'s txs and register-time
+data, even if its sub-tree never reached `isCompleted()` — and ship it via `uploadEpochProofFailure`
+alongside a world-state + archiver backup:
+
+- **Per checkpoint.** When a `CheckpointProver`'s block proofs reject for a non-cancel reason (a sub-tree
+  fault or a prune-induced fork fault), it fires its `onFailed` callback and `ProverNode` uploads that one
+  checkpoint via `tryUploadCheckpointFailure(prover)`. This fires for prune-induced faults too — that is
+  intentional; a prune-caused checkpoint snapshot is harmless, and *not* trying to tell prune from genuine
+  failure is exactly what keeps this race-free. A cancelled prover (control-plane prune / shutdown) is not
+  a failure and does not upload.
+- **Per session.** When a full session ends in its own genuine failure (`EpochSession.hasFailed()` —
+  top-tree/submit failed with every prover healthy), the session manager fires `onSessionFailed` and
+  `ProverNode` uploads all the session's checkpoints via `tryUploadEpochFailure(...)`. This is race-free
+  (healthy provers rule out a prune) and fires once, since the failed session is retained and never re-run.
+
+A `stopped` session (a prover under it failed) does not upload at the session level — its failed checkpoint
+already uploaded itself. Each backup is a full world-state + archiver snapshot, so a prune that faults
+several in-flight provers produces several uploads; this is accepted for the diagnostic value.
 
 Metrics emitted by `EpochSession`s:
 

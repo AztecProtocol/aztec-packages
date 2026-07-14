@@ -13,6 +13,7 @@ import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { ProverNodeJobMetrics } from '../metrics.js';
@@ -26,6 +27,7 @@ describe('CheckpointProver', () => {
   let publicProcessorFactory: ReturnType<typeof mock<PublicProcessorFactory>>;
   let dbProvider: ReturnType<typeof mock<Pick<ForkMerkleTreeOperations, 'fork'>>>;
   let chonkCache: ReturnType<typeof mock<ChonkCache>>;
+  let onFailed: jest.Mock<(prover: CheckpointProver) => void>;
   let log: Logger;
 
   beforeEach(async () => {
@@ -36,6 +38,7 @@ describe('CheckpointProver', () => {
     publicProcessorFactory = mock<PublicProcessorFactory>();
     dbProvider = mock<Pick<ForkMerkleTreeOperations, 'fork'>>();
     chonkCache = mock<ChonkCache>();
+    onFailed = jest.fn<(prover: CheckpointProver) => void>();
     log = createLogger('test:checkpoint-prover');
 
     // Default: gather rejects fast so the eager pipeline unwinds without hanging. The
@@ -59,6 +62,7 @@ describe('CheckpointProver', () => {
       ),
       txGatheringTimeoutMs: 30_000,
       deadline: undefined,
+      onFailed,
       log,
     };
   });
@@ -130,14 +134,15 @@ describe('CheckpointProver', () => {
       await prover.whenDone();
     });
 
-    it('rejects whenBlockProofsReady() but does not mark the prover failed', async () => {
-      // A cancel (reorg/prune/shutdown) is not a proving failure: isFailed() must stay false so the
-      // reconciler doesn't treat a cancelled-and-removed prover's slot as a failed epoch.
+    it('rejects whenBlockProofsReady() but does not mark the prover failed or fire onFailed', async () => {
+      // A cancel (reorg/prune/shutdown) is not a proving failure: isFailed() must stay false and the
+      // onFailed callback must not fire (no post-mortem upload for a cancelled prover).
       const prover = makeProver();
       const blockProofs = prover.whenBlockProofsReady();
       prover.cancel();
       await expect(blockProofs).rejects.toThrow(/cancelled/);
       expect(prover.isFailed()).toBe(false);
+      expect(onFailed).not.toHaveBeenCalled();
       await prover.whenDone();
     });
 
@@ -311,6 +316,9 @@ describe('CheckpointProver', () => {
       expect(dbProvider.fork).toHaveBeenCalled();
       expect(prover.isCompleted()).toBe(false);
       expect(prover.isFailed()).toBe(true);
+      // The owner is notified exactly once, with this prover, so it can upload a checkpoint post-mortem.
+      expect(onFailed).toHaveBeenCalledTimes(1);
+      expect(onFailed).toHaveBeenCalledWith(prover);
 
       await cleanup(prover);
     });

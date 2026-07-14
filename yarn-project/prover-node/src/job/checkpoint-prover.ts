@@ -38,6 +38,12 @@ export type CheckpointProverDeps = {
   txGatheringTimeoutMs: number;
   /** Public processor deadline. */
   deadline: Date | undefined;
+  /**
+   * Fired once when the prover's block proofs reject for a genuine (non-cancel) reason — a sub-tree
+   * fault or a prune-induced fork fault. The owner uploads a post-mortem for this single checkpoint.
+   * Fired for prune-induced faults too; that is intentional and harmless.
+   */
+  onFailed?: (prover: CheckpointProver) => void;
   log: Logger;
 };
 
@@ -200,8 +206,15 @@ export class CheckpointProver {
    * (e.g. the executeCheckpoint `finally`) is a harmless no-op.
    */
   private failBlockProofs(err: Error): void {
-    if (!this.cancelled) {
+    if (!this.cancelled && !this.failed) {
       this.failed = true;
+      // Notify the owner so it can upload a post-mortem for this checkpoint. Fire-and-forget: the
+      // callback must not block the prover's teardown, and a throw in it must not mask the rejection.
+      try {
+        this.deps.onFailed?.(this);
+      } catch (err) {
+        this.deps.log.error(`Error in CheckpointProver onFailed callback for ${this.id}`, err);
+      }
     }
     this.blockProofs.reject(err);
   }

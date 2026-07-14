@@ -361,6 +361,21 @@ describe('ProverNode', () => {
     expect(prover.id).toContain(archiveRoot.toString());
   });
 
+  it('uploads a checkpoint post-mortem when a registered checkpoint prover fails', async () => {
+    // The store is wired so a checkpoint prover that fails (here its eager tx-gather rejects, as the
+    // txProvider is unconfigured) routes through to tryUploadCheckpointFailure with that prover.
+    setupNotFullyProven();
+    const uploadSpy = jest.spyOn(proverNode, 'tryUploadCheckpointFailure').mockResolvedValue(undefined);
+
+    await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(3, 3, 3)));
+    const prover = proverNode.getCheckpointStore().listAll()[0];
+    // Wait for the eager pipeline to settle (it fails at gather), then the onFailed hook has fired.
+    await prover.whenDone();
+
+    expect(prover.isFailed()).toBe(true);
+    expect(uploadSpy).toHaveBeenCalledWith(prover);
+  });
+
   // ---------------- forwarders ----------------
 
   it('startProof forwards to the session manager and returns the job id', async () => {
