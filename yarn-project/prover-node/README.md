@@ -380,13 +380,17 @@ a prune — another prover covers it) uploads nothing.
 `SessionManager.start()` arms a `RunningPromise` that fires
 `reconcile({ kind: 'tick' })` every `tickIntervalMs`. The tick picks up epochs that
 became complete by time alone (no fresh checkpoint event) and advances to the
-next unproven epoch once the previous one lands on L1. The tick is ungated: while the next
-unproven epoch stays unproven and unexpired, each tick reopens it (retry-to-converge). A prior
-attempt that ended in `stopped` is cleared by `recreateInvalidSessions` at the top of the reconcile,
-then reopened over current canonical content. Retrying stops for free — the proven tip advancing past
-the epoch moves `nextUnprovenEpoch` on, and `reapExpired` empties the store at expiry so
-`openFullSessionIfReady` bails. Transient blockers (max-pending-jobs reached, archiver still
-indexing) simply mean no session opens this pass; the next tick tries again.
+next unproven epoch once the previous one lands on L1. Retry-to-converge is keyed off content,
+not epoch: the tick reopens the next unproven epoch, but skips it when its current canonical content
+matches an attempt that already ended in `stopped` (tracked in `failedTickContentKeys`) — re-creating
+a session over identical, already-failed content would re-run proving every tick until the deadline for
+nothing. Recovery instead flows through the ungated `checkpoint`/`prune` triggers: a re-add or reorg is
+a genuine change (even an identical-content re-add means the world-state resettled), so it reopens the
+epoch and the rebuilt session reuses every already-completed sub-proof from the content-addressed broker.
+The gate resets when the epoch is proven, when it expires, or once the proven frontier passes it; a
+transient failure on an already-complete epoch therefore waits for the deadline rather than being
+re-attempted every tick. Transient blockers (max-pending-jobs reached, archiver still indexing) create
+no `stopped` session, so they are not gated — the next tick simply tries again.
 
 ## Walkthroughs
 

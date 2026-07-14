@@ -238,11 +238,11 @@ describe('SessionManager', () => {
     expect(stubs.length).toBe(1);
   });
 
-  it('onTick retries a stopped epoch over current canonical content (retry-to-converge)', async () => {
-    // A proving attempt that faults settles the session in the non-declaring terminal 'stopped'.
-    // Because the proven height has not advanced, the next tick selects the same epoch again and,
-    // once recreateInvalidSessions has cleared the terminal session, reopens a fresh one over the
-    // current canonical content. Retrying is correct here: the epoch is unproven and not yet expired.
+  it('onTick does not re-create a stopped epoch over unchanged content, but a checkpoint event does', async () => {
+    // A faulted attempt settles the session in the non-declaring terminal 'stopped'. Re-running proving
+    // over identical, already-failed content every tick would be wasted work, so the tick skips an epoch
+    // whose canonical content matches a prior failed attempt. A checkpoint event (a genuine change — e.g.
+    // a re-add whose world-state has resettled) is ungated and reopens it.
     mockNextUnprovenSlot(2, 6);
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
@@ -255,12 +255,18 @@ describe('SessionManager', () => {
     stubs[0].terminate('stopped');
     await flushSessionCompletion();
 
-    // The next tick rebuilds the epoch: the stopped session is cleared and a fresh, live one opens.
+    // Further ticks must NOT re-create a session over the same (already-failed) content.
     await manager.onTick();
-    const retried = manager.getFullSession(EpochNumber(3)) as unknown as StubSession | undefined;
-    expect(retried).toBeDefined();
-    expect(retried).not.toBe(stubs[0]);
-    expect(retried!.isTerminal()).toBe(false);
+    await manager.onTick();
+    expect(stubs.length).toBe(1);
+    expect(manager.getFullSession(EpochNumber(3))).toBeUndefined();
+
+    // A checkpoint event for the epoch is ungated and reopens a fresh, live session.
+    await manager.onCheckpointAdded(EpochNumber(3));
+    const reopened = manager.getFullSession(EpochNumber(3)) as unknown as StubSession | undefined;
+    expect(reopened).toBeDefined();
+    expect(reopened).not.toBe(stubs[0]);
+    expect(reopened!.isTerminal()).toBe(false);
     expect(stubs.length).toBe(2);
   });
 
@@ -864,6 +870,7 @@ type StubSession = {
   getId(): string;
   getState(): EpochProvingJobState;
   getEpochNumber(): EpochNumber;
+  getKind(): SessionSpec['kind'];
   getCheckpoints(): readonly CheckpointProver[];
   isTerminal(): boolean;
   cancel(reason?: string, opts?: { abortJobs?: boolean }): Promise<void>;
@@ -901,6 +908,9 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
     },
     getEpochNumber() {
       return this.spec.epochNumber;
+    },
+    getKind() {
+      return this.spec.kind;
     },
     getCheckpoints() {
       return this.provers;
