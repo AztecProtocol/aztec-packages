@@ -60,6 +60,10 @@ tests:
     error_regex: "Aborted.*core dumped"
     owners:
       - *adam
+  - regex: "barretenberg/cpp/build-asan-fast/bin/dsl_tests --gtest_filter=HonkRecursionConstraintTestWithoutPredicate/2\\.Tampering"
+    error_regex: "timeout: sending signal TERM to command 'bash'"
+    owners:
+      - *sergei
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
