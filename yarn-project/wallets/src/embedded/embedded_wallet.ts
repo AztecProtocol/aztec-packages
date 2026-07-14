@@ -156,11 +156,10 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
-   * Authorizes an interactive handshake for one of this wallet's accounts: validates that the request comes from the
-   * standard HandshakeRegistry, registers the handshake with PXE so scanning discovers the channel's messages,
-   * durably backs up the channel's identity in the wallet DB, and only then signs. Callers are expected to gate this
-   * on user consent; the returned signature is what travels back to the sender over whatever channel carried the
-   * request.
+   * Authorizes an interactive handshake for one of this wallet's accounts, wiring PXE, key derivation, and the
+   * wallet DB backup into {@link createInteractiveHandshakeResponder}, which enforces the validate, register,
+   * back up, then sign order. Callers are expected to gate this on user consent; the returned signature travels
+   * back to the sender over whatever channel carried the request.
    */
   respondToInteractiveHandshake(request: InteractiveHandshakeCustomRequest): Promise<RecipientSignature> {
     const responder = createInteractiveHandshakeResponder({

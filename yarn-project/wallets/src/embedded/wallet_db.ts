@@ -65,8 +65,8 @@ export class WalletDB {
   }
 
   /**
-   * Durably persists an interactive handshake's recoverable identity. Idempotent for the same entry. This is the one
-   * piece of wallet state that cannot be rebuilt from the chain plus account keys.
+   * Durably persists an interactive handshake's recoverable identity, the one piece of wallet state that cannot be
+   * rebuilt from the chain plus account keys. Idempotent for the same entry.
    */
   async storeHandshakeBackup({ recipient, ephPkX }: InteractiveHandshakeBackupEntry) {
     // Self-contained fixed-width value (32-byte recipient + 32-byte ephPkX), so listing does not depend on the
