@@ -51,6 +51,7 @@ describe('ProposalHandler checkpoint validation', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
+  let worldState: MockProxy<WorldStateSynchronizer>;
   let dateProvider: TestDateProvider;
   let metrics: MockProxy<ValidatorMetrics>;
   let config: ValidatorClientFullConfig;
@@ -76,6 +77,8 @@ describe('ProposalHandler checkpoint validation', () => {
       rollupManaLimit: 200_000_000,
     });
 
+    worldState = mock<WorldStateSynchronizer>();
+
     epochCache = mock<EpochCache>();
     epochCache.getL1Constants.mockReturnValue({
       l1GenesisTime: 0n,
@@ -96,7 +99,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
     handler = new ProposalHandler(
       checkpointsBuilder,
-      mock<WorldStateSynchronizer>(),
+      worldState,
       blockSource,
       l1ToL2MessageSource,
       mock<ITxProvider>(),
@@ -639,6 +642,58 @@ describe('ProposalHandler checkpoint validation', () => {
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
       await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(mockDispose).toHaveBeenCalled();
+    });
+
+    // Parent of the single block (number 1) used across the deep-validation setup.
+    const parentBlockNumber = BlockNumber(0);
+
+    it('syncs world state to the parent block before forking', async () => {
+      setupDeepValidationMocks({ header: makeHeader({ totalManaUsed: new Fr(999) }) });
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
+      await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      expect(worldState.syncImmediate).toHaveBeenCalledWith(parentBlockNumber);
+      expect(checkpointsBuilder.getFork).toHaveBeenCalledWith(parentBlockNumber);
+      // World state must be synced before forking. The block source (archiver) can already hold a block
+      // while world state still trails it by one; forking a not-yet-applied block throws a raw tree error.
+      expect(worldState.syncImmediate.mock.invocationCallOrder[0]).toBeLessThan(
+        checkpointsBuilder.getFork.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('returns world_state_not_synced without forking when world state cannot sync to the parent block', async () => {
+      setupDeepValidationMocks({ header: makeHeader() });
+      worldState.syncImmediate.mockRejectedValue(new Error('Unable to initialize from future block'));
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'world_state_not_synced',
+        checkpointNumber: CheckpointNumber(1),
+      });
+      expect(checkpointsBuilder.getFork).not.toHaveBeenCalled();
+    });
+
+    // Regression: on a live node the archiver held block N (so getBlocksForSlot succeeds) while world state
+    // still trailed at N-1, so forking the parent threw "Unable to initialize from future block" and the raw
+    // tree error escaped as an uncaught gossipsub error. Validation must map it to a clean failure instead.
+    it('returns world_state_not_synced when forking the parent block fails', async () => {
+      setupDeepValidationMocks({ header: makeHeader() });
+      checkpointsBuilder.getFork.mockRejectedValue(
+        new Error('Unable to initialize from future block: 1 unfinalizedBlockHeight: 0. Tree name: NullifierTree'),
+      );
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'world_state_not_synced',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
   });
 

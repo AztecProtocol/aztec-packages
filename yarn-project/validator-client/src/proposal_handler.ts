@@ -25,7 +25,12 @@ import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/st
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
-import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ITxProvider,
+  MerkleTreeWriteOperations,
+  ValidatorClientFullConfig,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import {
   type L1ToL2MessageSource,
   accumulateCheckpointOutHashes,
@@ -91,6 +96,7 @@ export type CheckpointProposalValidationFailureReason =
   | 'invalid_fee_asset_price_modifier'
   | 'last_block_not_found'
   | 'block_fetch_error'
+  | 'world_state_not_synced'
   | 'checkpoint_already_published'
   | 'no_blocks_for_slot'
   | 'last_block_archive_mismatch'
@@ -115,6 +121,7 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   checkpoint_already_published: undefined,
   last_block_not_found: 'unvalidated',
   block_fetch_error: 'unvalidated',
+  world_state_not_synced: 'unvalidated',
   no_blocks_for_slot: 'unvalidated',
   last_block_archive_mismatch: 'invalid',
   too_many_blocks_in_checkpoint: 'invalid',
@@ -186,6 +193,7 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   ['invalid_signature']: false,
   ['last_block_not_found']: false,
   ['block_fetch_error']: false,
+  ['world_state_not_synced']: false,
   ['checkpoint_already_published']: false,
 };
 
@@ -1161,9 +1169,25 @@ export class ProposalHandler {
       log: this.log,
     });
 
-    // Fork world state at the block before the first block
+    // Fork world state at the block before the first block. Sync world state to the parent block first,
+    // mirroring the block-proposal re-execution path: the block source (archiver) can already hold the block
+    // while world state still trails it by one, and forking a not-yet-applied block throws a raw tree error
+    // that would otherwise escape as an uncaught gossipsub error. syncImmediate throws a typed error if the
+    // block genuinely cannot be reached, which we map to a clean validation failure below.
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
-    await using fork = await this.checkpointsBuilder.getFork(parentBlockNumber);
+    let forkResult: MerkleTreeWriteOperations;
+    try {
+      await this.worldState.syncImmediate(parentBlockNumber);
+      forkResult = await this.checkpointsBuilder.getFork(parentBlockNumber);
+    } catch (err) {
+      this.log.warn(`Failed to sync world state to block ${parentBlockNumber} for checkpoint proposal`, {
+        ...proposalInfo,
+        parentBlockNumber,
+        err,
+      });
+      return { isValid: false, reason: 'world_state_not_synced', checkpointNumber };
+    }
+    await using fork = forkResult;
 
     // Create checkpoint builder with all existing blocks
     const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
