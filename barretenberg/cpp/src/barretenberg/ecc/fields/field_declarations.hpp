@@ -71,8 +71,20 @@ template <class Params_> struct alignas(32) field {
     static constexpr size_t PUBLIC_INPUTS_SIZE = Params::PUBLIC_INPUTS_SIZE;
 
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+// Limb layout for the WASM Montgomery backend.
 #define WASM_NUM_LIMBS 9
 #define WASM_LIMB_BITS 29
+// Bits zeroed by the final Montgomery reduction step to complete R = 2^256.
+#define WASM_FINAL_REDUCE_BITS 24
+// Residue width left untouched by the final Montgomery reduction of the final lower limb.
+#define WASM_FINAL_REMAINDER_BITS (WASM_LIMB_BITS - WASM_FINAL_REDUCE_BITS)
+
+    static_assert(8 * WASM_LIMB_BITS + WASM_FINAL_REDUCE_BITS == 256, "WASM reduction widths must total 256 bits");
+
+    // Typed bit masks derived from the widths above.
+    static constexpr uint64_t WASM_LIMB_MASK = (1ULL << WASM_LIMB_BITS) - 1;
+    static constexpr uint64_t WASM_FINAL_REDUCE_MASK = (1ULL << WASM_FINAL_REDUCE_BITS) - 1;
+    static constexpr uint64_t WASM_FINAL_REMAINDER_MASK = (1ULL << WASM_FINAL_REMAINDER_BITS) - 1;
 #endif
 
     // We don't initialize data in the default constructor since we'd lose a lot of time on huge array initializations.
@@ -233,14 +245,10 @@ template <class Params_> struct alignas(32) field {
 
     static constexpr uint256_t modulus =
         uint256_t{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr uint256_t r_squared_uint{
         Params_::r_squared_0, Params_::r_squared_1, Params_::r_squared_2, Params_::r_squared_3
     };
-#else
-    static constexpr uint256_t r_squared_uint{
-        Params_::r_squared_wasm_0, Params_::r_squared_wasm_1, Params_::r_squared_wasm_2, Params_::r_squared_wasm_3
-    };
+#if defined(__wasm__) || !defined(__SIZEOF_INT128__)
     static constexpr std::array<uint64_t, 9> wasm_modulus = { Params::modulus_wasm_0, Params::modulus_wasm_1,
                                                               Params::modulus_wasm_2, Params::modulus_wasm_3,
                                                               Params::modulus_wasm_4, Params::modulus_wasm_5,
@@ -256,15 +264,9 @@ template <class Params_> struct alignas(32) field {
     {
         // endomorphism i.e. lambda * [P] = (beta * x, y)
         if constexpr (Params::cube_root_0 != 0) {
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
             constexpr field result{
                 Params::cube_root_0, Params::cube_root_1, Params::cube_root_2, Params::cube_root_3
             };
-#else
-            constexpr field result{
-                Params::cube_root_wasm_0, Params::cube_root_wasm_1, Params::cube_root_wasm_2, Params::cube_root_wasm_3
-            };
-#endif
             return result;
         } else {
             constexpr field two_inv = field(2).invert();
@@ -277,29 +279,31 @@ template <class Params_> struct alignas(32) field {
     static constexpr field zero() { return field(0, 0, 0, 0); }
     static constexpr field neg_one() { return -field(1); }
     static constexpr field one() { return field(1); }
+    // R^2 mod p as a raw field literal (NOT Montgomery form). Used as the rhs of a Montgomery
+    // multiplication to enter Montgomery form: mul(a, R^2) ≡ a*R (mod p).
+    static constexpr field r_squared()
+    {
+        return field(r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3]);
+    }
+    // Raw integer 1 (NOT Montgomery form). Used as the rhs of a Montgomery multiplication
+    // to strip the R factor, i.e. to leave Montgomery form: mul(a*R, 1) ≡ a (mod p).
+    static constexpr field one_raw() { return field(1, 0, 0, 0); }
 
     static constexpr field coset_generator()
     {
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
-        const field result{
+        return field{
             Params::coset_generator_0,
             Params::coset_generator_1,
             Params::coset_generator_2,
             Params::coset_generator_3,
         };
-#else
-        const field result{
-            Params::coset_generator_0,
-            Params::coset_generator_1,
-            Params::coset_generator_2,
-            Params::coset_generator_3,
-        };
-#endif
-
-        return result;
     }
 
     BB_INLINE constexpr field operator*(const field& other) const noexcept;
+    BB_INLINE static constexpr std::array<field, 2> paired_mul(const field& a,
+                                                               const field& b,
+                                                               const field& c,
+                                                               const field& d) noexcept;
     BB_INLINE constexpr field operator+(const field& other) const noexcept;
     BB_INLINE constexpr field operator-(const field& other) const noexcept;
     BB_INLINE constexpr field operator-() const noexcept;
@@ -325,12 +329,20 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr bool operator!=(const field& other) const noexcept;
 
     BB_INLINE constexpr field to_montgomery_form() const noexcept;
+    BB_INLINE static constexpr std::array<field, 2> paired_to_montgomery_form(const field& a, const field& b) noexcept;
     BB_INLINE constexpr field from_montgomery_form() const noexcept;
+    BB_INLINE static constexpr std::array<field, 2> paired_from_montgomery_form(const field& a,
+                                                                                const field& b) noexcept;
     // Reduced versions guarantee output is in canonical form [0, p)
     BB_INLINE constexpr field to_montgomery_form_reduced() const noexcept;
+    BB_INLINE static constexpr std::array<field, 2> paired_to_montgomery_form_reduced(const field& a,
+                                                                                      const field& b) noexcept;
     BB_INLINE constexpr field from_montgomery_form_reduced() const noexcept;
+    BB_INLINE static constexpr std::array<field, 2> paired_from_montgomery_form_reduced(const field& a,
+                                                                                        const field& b) noexcept;
 
     BB_INLINE constexpr field sqr() const noexcept;
+    BB_INLINE static constexpr std::array<field, 2> paired_sqr(const field& a, const field& b) noexcept;
     BB_INLINE constexpr void self_sqr() & noexcept;
 
     BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
@@ -553,37 +565,22 @@ template <class Params_> struct alignas(32) field {
     static constexpr uint256_t twice_not_modulus = -twice_modulus;
 
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
-    BB_INLINE static constexpr void wasm_madd(uint64_t& left_limb,
+    BB_INLINE static constexpr void wasm_madd(uint64_t left_limb,
                                               const std::array<uint64_t, WASM_NUM_LIMBS>& right_limbs,
-                                              uint64_t& result_0,
-                                              uint64_t& result_1,
-                                              uint64_t& result_2,
-                                              uint64_t& result_3,
-                                              uint64_t& result_4,
-                                              uint64_t& result_5,
-                                              uint64_t& result_6,
-                                              uint64_t& result_7,
-                                              uint64_t& result_8);
-    BB_INLINE static constexpr void wasm_reduce(uint64_t& result_0,
-                                                uint64_t& result_1,
-                                                uint64_t& result_2,
-                                                uint64_t& result_3,
-                                                uint64_t& result_4,
-                                                uint64_t& result_5,
-                                                uint64_t& result_6,
-                                                uint64_t& result_7,
-                                                uint64_t& result_8);
-    BB_INLINE static constexpr void wasm_reduce_yuval(uint64_t& result_0,
-                                                      uint64_t& result_1,
-                                                      uint64_t& result_2,
-                                                      uint64_t& result_3,
-                                                      uint64_t& result_4,
-                                                      uint64_t& result_5,
-                                                      uint64_t& result_6,
-                                                      uint64_t& result_7,
-                                                      uint64_t& result_8,
-                                                      uint64_t& result_9);
+                                              std::span<uint64_t, WASM_NUM_LIMBS> result);
+    BB_INLINE static constexpr void wasm_reduce_29(std::span<uint64_t, WASM_NUM_LIMBS> result);
+    BB_INLINE static constexpr void wasm_reduce_24(std::span<uint64_t, WASM_NUM_LIMBS> result);
+    BB_INLINE static constexpr void wasm_reduce_yuval(std::span<uint64_t, WASM_NUM_LIMBS + 1> result);
+    BB_INLINE static constexpr std::array<uint64_t, 4> wasm_reduce_and_pack(
+        std::array<uint64_t, 2 * WASM_NUM_LIMBS - 1>& temp);
     BB_INLINE static constexpr std::array<uint64_t, WASM_NUM_LIMBS> wasm_convert(const uint64_t* data);
+
+    template <size_t N>
+    BB_INLINE static constexpr std::array<uint64_t, 2 * N - 1> wasm_schoolbook_mul(const std::array<uint64_t, N>& a,
+                                                                                   const std::array<uint64_t, N>& b);
+
+    BB_INLINE static constexpr std::array<uint64_t, 2 * WASM_NUM_LIMBS - 1> wasm_karatsuba_mul(
+        const std::array<uint64_t, WASM_NUM_LIMBS>& left, const std::array<uint64_t, WASM_NUM_LIMBS>& right);
 #endif
     BB_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
 

@@ -19,10 +19,9 @@ template <class base, class T> constexpr field2<base, T> field2<base, T>::operat
 {
     // no funny primes please! we assume -1 is not a quadratic residue
     static_assert((base::modulus.data[0] & 0x3UL) == 0x3UL);
-    base t1 = c0 * other.c0;
-    base t2 = c1 * other.c1;
-    base t3 = c0 + c1;
-    base t4 = other.c0 + other.c1;
+    const auto [t1, t2] = base::paired_mul(c0, other.c0, c1, other.c1);
+    const base t3 = c0 + c1;
+    const base t4 = other.c0 + other.c1;
 
     return { t1 - t2, t3 * t4 - (t1 + t2) };
 }
@@ -73,8 +72,8 @@ template <class base, class T> constexpr field2<base, T> field2<base, T>::operat
 
 template <class base, class T> constexpr field2<base, T> field2<base, T>::sqr() const noexcept
 {
-    base t1 = (c0 * c1);
-    return { (c0 + c1) * (c0 - c1), t1 + t1 };
+    const auto [t1, t2] = base::paired_mul(c0, c1, c0 + c1, c0 - c1);
+    return { t2, t1 + t1 };
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_sqr() noexcept
@@ -86,24 +85,30 @@ template <class base, class T> constexpr void field2<base, T>::self_sqr() noexce
 // is in canonical form [0, p) rather than the coarse internal representation [0, 2p).
 template <class base, class T> constexpr field2<base, T> field2<base, T>::to_montgomery_form() const noexcept
 {
-    return { c0.to_montgomery_form_reduced(), c1.to_montgomery_form_reduced() };
+    field2 result = *this;
+    result.self_to_montgomery_form();
+    return result;
 }
 
 template <class base, class T> constexpr field2<base, T> field2<base, T>::from_montgomery_form() const noexcept
 {
-    return { c0.from_montgomery_form_reduced(), c1.from_montgomery_form_reduced() };
+    field2 result = *this;
+    result.self_from_montgomery_form();
+    return result;
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_to_montgomery_form() noexcept
 {
-    c0.self_to_montgomery_form_reduced();
-    c1.self_to_montgomery_form_reduced();
+    const auto [n0, n1] = base::paired_to_montgomery_form_reduced(c0, c1);
+    c0 = n0;
+    c1 = n1;
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_from_montgomery_form() noexcept
 {
-    c0.self_from_montgomery_form_reduced();
-    c1.self_from_montgomery_form_reduced();
+    const auto [n0, n1] = base::paired_from_montgomery_form_reduced(c0, c1);
+    c0 = n0;
+    c1 = n1;
 }
 
 template <class base, class T> constexpr field2<base, T> field2<base, T>::reduce_once() const noexcept
@@ -152,8 +157,10 @@ template <class base, class T> constexpr field2<base, T> field2<base, T>::pow(co
 
 template <class base, class T> constexpr field2<base, T> field2<base, T>::invert() const noexcept
 {
-    base t3 = (c0.sqr() + c1.sqr()).invert();
-    return { c0 * t3, -(c1 * t3) };
+    const auto [s0, s1] = base::paired_sqr(c0, c1);
+    const base t3 = (s0 + s1).invert();
+    const auto [m0, m1] = base::paired_mul(c0, t3, c1, t3);
+    return { m0, -m1 };
 }
 
 template <class base, class T>

@@ -54,14 +54,28 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
         }
         std::vector<uint32_t>& thread_scalar_indices = thread_indices[chunk.thread_index];
         thread_scalar_indices.reserve(range.size());
-        for (size_t i : range) {
-            BB_ASSERT_DEBUG(i < scalars.size());
-            auto& scalar = scalars[i];
-            scalar.self_from_montgomery_form_reduced();
 
-            if (!scalar.is_zero()) {
-                thread_scalar_indices.push_back(static_cast<uint32_t>(i));
+        const auto record_if_nonzero = [&](size_t k) {
+            if (!scalars[k].is_zero()) {
+                thread_scalar_indices.push_back(static_cast<uint32_t>(k));
             }
+        };
+
+        // Pair-stride: paired Montgomery conversion is faster than two singles; tail handles odd-length chunks.
+        const size_t range_start = range.front();
+        const size_t range_end = range_start + range.size();
+        BB_ASSERT_DEBUG(range_end <= scalars.size());
+        size_t i = range_start;
+        for (; i + 1 < range_end; i += 2) {
+            const auto [r0, r1] = ScalarField::paired_from_montgomery_form_reduced(scalars[i], scalars[i + 1]);
+            scalars[i] = r0;
+            scalars[i + 1] = r1;
+            record_if_nonzero(i);
+            record_if_nonzero(i + 1);
+        }
+        if (i < range_end) {
+            scalars[i].self_from_montgomery_form_reduced();
+            record_if_nonzero(i);
         }
     });
 
@@ -562,7 +576,15 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         for (auto& scalar_span : scalars) {
             parallel_for_range(scalar_span.size(), [&](size_t start, size_t end) {
                 BB_BENCH_TRACY_NAME("MSM::scalars_to_montgomery/chunk");
-                for (size_t i = start; i < end; ++i) {
+
+                // Pair-stride: paired Montgomery conversion is faster than two singles; tail handles odd-length chunks.
+                size_t i = start;
+                for (; i + 1 < end; i += 2) {
+                    const auto [r0, r1] = ScalarField::paired_to_montgomery_form(scalar_span[i], scalar_span[i + 1]);
+                    scalar_span[i] = r0;
+                    scalar_span[i + 1] = r1;
+                }
+                if (i < end) {
                     scalar_span[i].self_to_montgomery_form();
                 }
             });

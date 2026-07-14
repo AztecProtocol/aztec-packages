@@ -31,23 +31,17 @@ auto& engine = numeric::get_debug_randomness();
 // Helper to create a field element whose internal (Montgomery) representation has exactly
 // the given limbs. This is done by constructing from the value and then calling
 // from_montgomery_form() to make the limbs directly represent the desired pattern.
-// Also verifies that the internal representation matches the expected limbs (on non-WASM only,
-// since WASM uses different internal representation during computation).
+// Also verifies that the internal representation matches the expected limbs.
 template <typename F> F create_element_with_limbs(uint64_t l0, uint64_t l1, uint64_t l2, uint64_t l3)
 {
     uint256_t val{ l0, l1, l2, l3 };
     F result(val);
     result.self_from_montgomery_form_reduced();
 
-// On WASM, the internal Montgomery multiplication uses 29-bit limbs and may produce
-// different (but equivalent) representations. Skip limb verification on WASM.
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
-    // Verify the internal representation matches expected limbs
     EXPECT_EQ(result.data[0], l0);
     EXPECT_EQ(result.data[1], l1);
     EXPECT_EQ(result.data[2], l2);
     EXPECT_EQ(result.data[3], l3);
-#endif
 
     return result;
 }
@@ -216,6 +210,18 @@ TYPED_TEST(PrimeFieldTest, MultiplicationModular)
     EXPECT_EQ(uint256_t(c), expected);
 }
 
+TYPED_TEST(PrimeFieldTest, PairedMul)
+{
+    using F = TypeParam;
+    const F a = F::random_element();
+    const F b = F::random_element();
+    const F c = F::random_element();
+    const F d = F::random_element();
+    const auto [o1, o2] = F::paired_mul(a, b, c, d);
+    EXPECT_EQ(o1, a * b);
+    EXPECT_EQ(o2, c * d);
+}
+
 TYPED_TEST(PrimeFieldTest, SquaringModular)
 {
     using F = TypeParam;
@@ -229,6 +235,16 @@ TYPED_TEST(PrimeFieldTest, SquaringModular)
     uint256_t expected = (c_512 % uint512_t(F::modulus)).lo;
 
     EXPECT_EQ(uint256_t(c), expected);
+}
+
+TYPED_TEST(PrimeFieldTest, PairedSqr)
+{
+    using F = TypeParam;
+    const F a = F::random_element();
+    const F b = F::random_element();
+    const auto [o1, o2] = F::paired_sqr(a, b);
+    EXPECT_EQ(o1, a.sqr());
+    EXPECT_EQ(o2, b.sqr());
 }
 
 TYPED_TEST(PrimeFieldTest, Uint256Roundtrip)
@@ -253,6 +269,41 @@ TYPED_TEST(PrimeFieldTest, MontgomeryRoundtrip)
     F a = F::random_element();
     F b = a.from_montgomery_form().to_montgomery_form();
     EXPECT_EQ(a, b);
+}
+
+TYPED_TEST(PrimeFieldTest, PairedToMontgomeryForm)
+{
+    using F = TypeParam;
+
+    // Use random Montgomery-encoded field elements directly as random field elements.
+    // They may be coarse [0, 2p), but to_montgomery_form accepts valid internal residues.
+    F a = F::random_element();
+    F b = F::random_element();
+
+    F expected_a = a;
+    F expected_b = b;
+    expected_a.self_to_montgomery_form();
+    expected_b.self_to_montgomery_form();
+
+    const auto [out_a, out_b] = F::paired_to_montgomery_form(a, b);
+    EXPECT_EQ(out_a, expected_a);
+    EXPECT_EQ(out_b, expected_b);
+}
+
+TYPED_TEST(PrimeFieldTest, PairedFromMontgomeryForm)
+{
+    using F = TypeParam;
+    const F a = F::random_element();
+    const F b = F::random_element();
+
+    F expected_a = a;
+    F expected_b = b;
+    expected_a.self_from_montgomery_form();
+    expected_b.self_from_montgomery_form();
+
+    const auto [out_a, out_b] = F::paired_from_montgomery_form(a, b);
+    EXPECT_EQ(out_a, expected_a);
+    EXPECT_EQ(out_b, expected_b);
 }
 
 // ================================
@@ -565,7 +616,7 @@ TYPED_TEST(PrimeFieldTest, BoundaryArithmetic)
     using F = TypeParam;
     constexpr std::array<uint64_t, 3> offsets = { 1, 2, 3 };
 
-    for (uint64_t offset : offsets) {
+    for (const auto& offset : offsets) {
         F a;
         if constexpr (F::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
             // 256-bit fields: construct element with internal representation near 2^256 - offset.
@@ -613,6 +664,42 @@ TYPED_TEST(PrimeFieldTest, BoundaryArithmetic)
         F sq = a.sqr();
         uint512_t expected_sq = (uint512_t(a_val) * uint512_t(a_val)) % uint512_t(F::modulus);
         EXPECT_EQ(uint256_t(sq), expected_sq.lo) << "Sqr failed for offset " << offset;
+    }
+}
+
+TYPED_TEST(PrimeFieldTest, PairedBoundaryMul)
+{
+    using F = TypeParam;
+    constexpr std::array<uint64_t, 3> offsets = { 1, 2, 3 };
+
+    for (const auto& offset : offsets) {
+        F a;
+        if constexpr (F::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+            // 256-bit fields: construct element with internal representation near 2^256 - offset.
+            // (p - offset) + (2^256 - p) = 2^256 - offset, which has field value -offset.
+            uint256_t two_256_minus_p = uint256_t(0) - F::modulus;
+            F two_256_minus_p_elt(two_256_minus_p);
+            two_256_minus_p_elt.self_from_montgomery_form_reduced();
+            F p_minus_offset(F::modulus - offset);
+            p_minus_offset.self_from_montgomery_form_reduced();
+            a = p_minus_offset + two_256_minus_p_elt;
+        } else {
+            // 254-bit fields: construct element with internal representation near 2p - (offset + 1).
+            // (p - 1) + (p - offset) = 2p - (offset + 1), which has field value -(offset + 1).
+            F p_minus_one(F::modulus - 1);
+            p_minus_one.self_from_montgomery_form_reduced();
+            F p_minus_offset(F::modulus - offset);
+            p_minus_offset.self_from_montgomery_form_reduced();
+            a = p_minus_one + p_minus_offset;
+        }
+
+        F b = F::random_element();
+        F c = F::random_element();
+        F d = a;
+
+        const auto [o1, o2] = F::paired_mul(a, b, c, d);
+        EXPECT_EQ(o1, a * b) << "lane 0 mismatch for offset " << offset;
+        EXPECT_EQ(o2, c * d) << "lane 1 mismatch for offset " << offset;
     }
 }
 

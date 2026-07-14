@@ -83,13 +83,6 @@ struct FqParams {
     static constexpr uint64_t modulus_wasm_7 = 0x1fe00000;
     static constexpr uint64_t modulus_wasm_8 = 0xffffff;
 
-    // A little-endian representation of R^2 modulo the modulus (R=2^261 mod modulus) split into 4 64-bit words
-    // We use 2^261 in wasm, because 261=29*9, the 9 29-bit limbs used for arithmetic
-    static constexpr uint64_t r_squared_wasm_0 = 0x0000000000000c00UL;
-    static constexpr uint64_t r_squared_wasm_1 = 0xffffeffffffffc00UL;
-    static constexpr uint64_t r_squared_wasm_2 = 0xfffffffffffffbffUL;
-    static constexpr uint64_t r_squared_wasm_3 = 0x000013fffffff7ffUL;
-
     // 2^(-29) mod Modulus
     // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
@@ -103,25 +96,6 @@ struct FqParams {
     static constexpr uint64_t r_inv_wasm_6 = 0x1fe00000;
     static constexpr uint64_t r_inv_wasm_7 = 0xffffff;
     static constexpr uint64_t r_inv_wasm_8 = 0x0;
-
-    // Not used for secp256r1
-    static constexpr uint64_t cube_root_wasm_0 = 0x0000000000000000UL;
-    static constexpr uint64_t cube_root_wasm_1 = 0x0000000000000000UL;
-    static constexpr uint64_t cube_root_wasm_2 = 0x0000000000000000UL;
-    static constexpr uint64_t cube_root_wasm_3 = 0x0000000000000000UL;
-
-    // Not used for secp256r1
-    static constexpr uint64_t primitive_root_wasm_0 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_1 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_2 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_3 = 0x0000000000000000UL;
-
-    // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems, don't really need
-    // them here
-    static constexpr uint64_t coset_generator_wasm_0 = 0x0000000000000060ULL;
-    static constexpr uint64_t coset_generator_wasm_1 = 0xffffffa000000000ULL;
-    static constexpr uint64_t coset_generator_wasm_2 = 0xffffffffffffffffULL;
-    static constexpr uint64_t coset_generator_wasm_3 = 0x0000005fffffff9fULL;
 
     // For consistency with bb::fq, if we ever represent an element of bb::secp256r1::fq in the public inputs, we do so
     // as a bigfield element, so with 4 public inputs
@@ -199,13 +173,6 @@ struct FrParams {
     static constexpr uint64_t modulus_wasm_7 = 0x1fe00000;
     static constexpr uint64_t modulus_wasm_8 = 0xffffff;
 
-    // A little-endian representation of R^2 modulo the modulus (R=2^261 mod modulus) split into 4 64-bit words
-    // We use 2^261 in wasm, because 261=29*9, the 9 29-bit limbs used for arithmetic
-    static constexpr uint64_t r_squared_wasm_0 = 0x45e9cfeeb48d9ef5UL;
-    static constexpr uint64_t r_squared_wasm_1 = 0x1f11fc5bb2d31a99UL;
-    static constexpr uint64_t r_squared_wasm_2 = 0x16c8e4adafb16586UL;
-    static constexpr uint64_t r_squared_wasm_3 = 0x84b6556a65587f06UL;
-
     // 2^(-29) mod Modulus
     // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
@@ -219,25 +186,6 @@ struct FrParams {
     static constexpr uint64_t r_inv_wasm_6 = 0x1621c017;
     static constexpr uint64_t r_inv_wasm_7 = 0xef1ff43;
     static constexpr uint64_t r_inv_wasm_8 = 0x7005e2;
-
-    // Not used for secp256r1
-    static constexpr uint64_t cube_root_wasm_0 = 0x0000000000000000UL;
-    static constexpr uint64_t cube_root_wasm_1 = 0x0000000000000000UL;
-    static constexpr uint64_t cube_root_wasm_2 = 0x0000000000000000UL;
-    static constexpr uint64_t cube_root_wasm_3 = 0x0000000000000000UL;
-
-    // Not used for secp256r1
-    static constexpr uint64_t primitive_root_wasm_0 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_1 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_2 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_3 = 0x0000000000000000UL;
-
-    // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems, don't really need
-    // them here
-    static constexpr uint64_t coset_generator_wasm_0 = 0xbd6e9563293f5920ULL;
-    static constexpr uint64_t coset_generator_wasm_1 = 0xb5e4a80dcb554baaULL;
-    static constexpr uint64_t coset_generator_wasm_2 = 0x000000000000003aULL;
-    static constexpr uint64_t coset_generator_wasm_3 = 0x000000dfffffff20ULL;
 
     // For consistency with bb::fq, if we ever represent an element of bb::secp256r1::fq in the public inputs, we do so
     // as a bigfield element, so with 4 public inputs

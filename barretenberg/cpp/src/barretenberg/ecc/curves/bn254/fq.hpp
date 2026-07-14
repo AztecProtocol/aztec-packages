@@ -86,13 +86,6 @@ class Bn254FqParams {
     static constexpr uint64_t modulus_wasm_7 = 0xe5c2634;
     static constexpr uint64_t modulus_wasm_8 = 0x30644e;
 
-    // A little-endian representation of R^2 modulo the modulus (R=2^261 mod modulus) split into 4 64-bit words
-    // We use 2^261 in wasm, because 261=29*9, the 9 29-bit limbs used for arithmetic in
-    static constexpr uint64_t r_squared_wasm_0 = 0xe1a2a074659bac10UL;
-    static constexpr uint64_t r_squared_wasm_1 = 0x639855865406005aUL;
-    static constexpr uint64_t r_squared_wasm_2 = 0xff54c5802d3e2632UL;
-    static constexpr uint64_t r_squared_wasm_3 = 0x2a11a68c34ea65a6UL;
-
     // 2^(-29) mod Modulus
     // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
@@ -106,25 +99,6 @@ class Bn254FqParams {
     static constexpr uint64_t r_inv_wasm_6 = 0x16626d2;
     static constexpr uint64_t r_inv_wasm_7 = 0xb8bab0f;
     static constexpr uint64_t r_inv_wasm_8 = 0x6d7c4;
-
-    // A little-endian representation of the cube root of 1 in Fq in Montgomery form for wasm (R=2^261 mod modulus)
-    // split into 4 64-bit words
-    static constexpr uint64_t cube_root_wasm_0 = 0x62b1a3a46a337995UL;
-    static constexpr uint64_t cube_root_wasm_1 = 0xadc97d2722e2726eUL;
-    static constexpr uint64_t cube_root_wasm_2 = 0x64ee82ede2db85faUL;
-    static constexpr uint64_t cube_root_wasm_3 = 0x0c0afea1488a03bbUL;
-
-    // Not used for Fq, but required for all field types
-    static constexpr uint64_t primitive_root_wasm_0 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_1 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_2 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_3 = 0x0000000000000000UL;
-
-    // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems
-    static constexpr uint64_t coset_generator_wasm_0 = 0xeb8a8ec140766463ULL;
-    static constexpr uint64_t coset_generator_wasm_1 = 0xf2b1f20626a3da49ULL;
-    static constexpr uint64_t coset_generator_wasm_2 = 0xf905ef8d84d5fea4ULL;
-    static constexpr uint64_t coset_generator_wasm_3 = 0x2958a27c02b7cd5fULL;
 
     // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
     // For specifics on how these have been derived, see ecc/fields/endomorphim_scalars.py

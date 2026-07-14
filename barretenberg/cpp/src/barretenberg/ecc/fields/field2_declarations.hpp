@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <array>
 
 // forward declare RNG
 namespace bb::numeric {
@@ -104,6 +105,20 @@ template <class base_field, class Params> struct alignas(32) field2 {
 
     constexpr void self_to_montgomery_form() noexcept;
     constexpr void self_from_montgomery_form() noexcept;
+
+    // Paired Montgomery operations matching the base-field API. For field2
+    // we forward to the standard single-element ops.
+    static constexpr std::array<field2, 2> paired_mul(const field2& a,
+                                                      const field2& b,
+                                                      const field2& c,
+                                                      const field2& d) noexcept
+    {
+        return { a * b, c * d };
+    }
+    static constexpr std::array<field2, 2> paired_sqr(const field2& a, const field2& b) noexcept
+    {
+        return { a.sqr(), b.sqr() };
+    }
 
     constexpr void self_conditional_negate(uint64_t predicate) noexcept;
 

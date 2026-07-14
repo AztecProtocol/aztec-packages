@@ -286,28 +286,34 @@ template <class T> constexpr bool field<T>::operator!=(const field& other) const
 
 template <class T> constexpr field<T> field<T>::to_montgomery_form() const noexcept
 {
-    constexpr field r_squared =
-        field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
-    return *this * r_squared;
+    return *this * r_squared();
+}
+
+template <class T>
+constexpr std::array<field<T>, 2> field<T>::paired_to_montgomery_form(const field& a, const field& b) noexcept
+{
+    return paired_mul(a, r_squared(), b, r_squared());
 }
 
 template <class T> constexpr field<T> field<T>::from_montgomery_form() const noexcept
 {
-    constexpr field one_raw{ 1, 0, 0, 0 };
-    return operator*(one_raw);
+    return *this * one_raw();
+}
+
+template <class T>
+constexpr std::array<field<T>, 2> field<T>::paired_from_montgomery_form(const field& a, const field& b) noexcept
+{
+    return paired_mul(a, one_raw(), b, one_raw());
 }
 
 template <class T> constexpr void field<T>::self_to_montgomery_form() & noexcept
 {
-    constexpr field r_squared =
-        field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
-    *this *= r_squared;
+    *this *= r_squared();
 }
 
 template <class T> constexpr void field<T>::self_from_montgomery_form() & noexcept
 {
-    constexpr field one_raw{ 1, 0, 0, 0 };
-    *this *= one_raw;
+    *this *= one_raw();
 }
 
 // Reduced versions - guarantee canonical form [0, p)
@@ -316,9 +322,27 @@ template <class T> constexpr field<T> field<T>::to_montgomery_form_reduced() con
     return to_montgomery_form().reduce_once();
 }
 
+template <class T>
+constexpr std::array<field<T>, 2> field<T>::paired_to_montgomery_form_reduced(const field& a, const field& b) noexcept
+{
+    auto out = paired_to_montgomery_form(a, b);
+    out[0].self_reduce_once();
+    out[1].self_reduce_once();
+    return out;
+}
+
 template <class T> constexpr field<T> field<T>::from_montgomery_form_reduced() const noexcept
 {
     return from_montgomery_form().reduce_once();
+}
+
+template <class T>
+constexpr std::array<field<T>, 2> field<T>::paired_from_montgomery_form_reduced(const field& a, const field& b) noexcept
+{
+    auto out = paired_from_montgomery_form(a, b);
+    out[0].self_reduce_once();
+    out[1].self_reduce_once();
+    return out;
 }
 
 template <class T> constexpr void field<T>::self_to_montgomery_form_reduced() & noexcept
@@ -362,22 +386,37 @@ template <class T> constexpr void field<T>::self_reduce_once() & noexcept
 
 template <class T> constexpr field<T> field<T>::pow(const uint256_t& exponent) const noexcept
 {
-    field accumulator{ data[0], data[1], data[2], data[3] };
-    field to_mul{ data[0], data[1], data[2], data[3] };
-    const uint64_t maximum_set_bit = exponent.get_msb();
+    if (exponent == uint256_t(0)) {
+        return one();
+    }
+    if (*this == zero()) {
+        return zero();
+    }
 
-    for (int i = static_cast<int>(maximum_set_bit) - 1; i >= 0; --i) {
-        accumulator.self_sqr();
-        if (exponent.get_bit(static_cast<uint64_t>(i))) {
-            accumulator *= to_mul;
+    // Right-to-left binary: per set bit, (result*base, base*base) are independent and fuse into one paired_mul.
+    field result = one();
+    field base{ data[0], data[1], data[2], data[3] };
+    const uint64_t msb = exponent.get_msb();
+
+    for (uint64_t i = 0; i < msb; ++i) {
+        if (exponent.get_bit(i)) {
+            // On relaxed-SIMD WASM, fuse (result*base, base*base) into one paired_mul
+            // pipeline. On other targets, an explicit mul + self_sqr is faster because
+            // paired_mul's fallback would replace the faster squaring with multiplying.
+            // PERF: a fused mul_sqr primitive could subsume both branches.
+#if defined(__wasm_relaxed_simd__) && defined(__wasm__)
+            std::tie(result, base) = paired_mul(result, base, base, base);
+#else
+            result *= base;
+            base.self_sqr();
+#endif
+        } else {
+            base.self_sqr();
         }
     }
-    if (exponent == uint256_t(0)) {
-        accumulator = one();
-    } else if (*this == zero()) {
-        accumulator = zero();
-    }
-    return accumulator;
+    // MSB is always set; final fold is a single multiply.
+    result *= base;
+    return result;
 }
 
 template <class T> constexpr field<T> field<T>::pow(const uint64_t exponent) const noexcept
@@ -788,11 +827,7 @@ template <class T> constexpr bool field<T>::is_zero() const noexcept
 
 template <class T> constexpr field<T> field<T>::get_root_of_unity(size_t subgroup_size) noexcept
 {
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     field r{ T::primitive_root_0, T::primitive_root_1, T::primitive_root_2, T::primitive_root_3 };
-#else
-    field r{ T::primitive_root_wasm_0, T::primitive_root_wasm_1, T::primitive_root_wasm_2, T::primitive_root_wasm_3 };
-#endif
     for (size_t i = primitive_root_log_size(); i > subgroup_size; --i) {
         r.self_sqr();
     }

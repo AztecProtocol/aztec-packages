@@ -286,8 +286,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 round_size,
                 [&](size_t j) {
                     BB_BENCH_TRACY_NAME("IPA::fold_vecs");
-                    a_vec.at(j) += round_challenge * a_vec[round_size + j];
-                    b_vec[j] += round_challenge_inv * b_vec[round_size + j];
+                    const auto [a_scaled, b_scaled] = Fr::paired_mul(
+                        round_challenge, a_vec[round_size + j], round_challenge_inv, b_vec[round_size + j]);
+                    a_vec.at(j) += a_scaled;
+                    b_vec[j] += b_scaled;
                 },
                 thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }

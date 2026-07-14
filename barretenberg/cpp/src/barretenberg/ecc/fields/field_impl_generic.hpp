@@ -451,121 +451,78 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     return { r0, r1, r2, r3 };
 #else
 
-    // Convert 4 64-bit limbs to 9 29-bit limbs
+    // Convert 4 64-bit limbs to 9 29-bit limbs.
     auto left = wasm_convert(data);
     auto right = wasm_convert(other.data);
-    constexpr uint64_t mask = 0x1fffffff;
-    uint64_t temp_0 = 0;
-    uint64_t temp_1 = 0;
-    uint64_t temp_2 = 0;
-    uint64_t temp_3 = 0;
-    uint64_t temp_4 = 0;
-    uint64_t temp_5 = 0;
-    uint64_t temp_6 = 0;
-    uint64_t temp_7 = 0;
-    uint64_t temp_8 = 0;
-    uint64_t temp_9 = 0;
-    uint64_t temp_10 = 0;
-    uint64_t temp_11 = 0;
-    uint64_t temp_12 = 0;
-    uint64_t temp_13 = 0;
-    uint64_t temp_14 = 0;
-    uint64_t temp_15 = 0;
-    uint64_t temp_16 = 0;
-    uint64_t temp_17 = 0;
-    // Compute left[0] * right and replace with a representative modulo p that zeros out the lowest
-    // 29 bits. In other words, after first reduction: temp_1..temp_8 hold the partial Montgomery product after
-    // processing left[0]. temp_0 has been "consumed" (its information propagated via carry to temp_1).
-    // Multiply-add 0th limb of the left argument by all 9 limbs of the right arguemnt
-    wasm_madd(left[0], right, temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
-    // Instantly Montgomery reduce
-    wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
-    //  Continue for other limbs
-    wasm_madd(left[1], right, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
-    wasm_reduce(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
-    wasm_madd(left[2], right, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
-    wasm_reduce(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
-    wasm_madd(left[3], right, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
-    wasm_reduce(temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
-    wasm_madd(left[4], right, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12);
-    wasm_reduce(temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12);
-    wasm_madd(left[5], right, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
-    wasm_reduce(temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
-    wasm_madd(left[6], right, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
-    wasm_reduce(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
-    wasm_madd(left[7], right, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
-    wasm_reduce(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
-    wasm_madd(left[8], right, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
-    wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
-    // MontgomeryMul(left, right) := (left * right) / R mod p.
-    // Then, after the add/reduce sequence, we have the following: MontgomeryMul(left, right) ≡ \sum_{i=0}^8 temp_{i+9}
-    // * 2^{29 * i} mod p. In particular, the information we want is stored in {t_9, ..., t_16}. However, these t_i are
-    // not yet 29 bits.
+    std::array<uint64_t, 17> temp{};
+
+    // 9-step Montgomery reduction chain computes (left * right) / R mod p, R = 2^256.
+    // Each iteration multiply-adds left[i] × right and zeros 29 bits via wasm_reduce_29; the final
+    // step uses wasm_reduce_24 so the total zeroed bits sum to 256 (equivalent to div by R = 2^256)
+    BB_FORCE_UNROLL
+    for (size_t i = 0; i < 8; ++i) {
+        const std::span<uint64_t, WASM_NUM_LIMBS> window{ &temp[i], WASM_NUM_LIMBS };
+        wasm_madd(left[i], right, window);
+        wasm_reduce_29(window);
+    }
+    const std::span<uint64_t, WASM_NUM_LIMBS> last_window{ &temp[8], WASM_NUM_LIMBS };
+    wasm_madd(left[8], right, last_window);
+    wasm_reduce_24(last_window);
+
+    // Post-reduction bound:
+    //   T₀ = aR·bR < p² (aR, bR < p), to which at step i we add 2^prefix_i · k_i · p, where k_i
+    //   is bounded by 2^29 for i = 0..7, 2^24 for i = 8, and prefix_i = i * 29 for i = 0..8.
+    //   As k = Σ k_i · 2^prefix_i for i = 0..8 < R, hence:
+    //   (T₀ + [Σ 2^prefix_i · k_i · p for i = 0..8]) / R < (p² + R · p) / R < 2p < 2^257  as p < R.
+    // Since result < 2p, a single conditional subtraction of p suffices to bring it into [0, p).
     //
-    // Moreover, we claim that the value \sum_{i=0}^8 temp_{i+9} is less than than p + 2^{512-261} = p +
-    // 2^{251}. The reasoning is again generic: we have computed aR * bR + k_{0, 1, .., 8}p. Each aR and bR are, by
-    // assumption, 256 bits, and each k is 29 bits: k_0 is at most 2^29 - 1, k_1 is at most 2^58 - 2^29, etc.
-    // Telescoping, this means that the sum is upper-bounded by 2^512 + (2^261 - 1) * p. As we are taking the "high"
-    // part, we are simply trying to upper-bound this sum divided by 2^261. In particular, this shows that we have to do
-    // at most one subtraction to make the result 256 bits.
-    //
-    // After all multiplications and additions, convert relaxed form to strict (i.e., force all limbs to be
-    // 29 bits)
-    temp_10 += temp_9 >> WASM_LIMB_BITS;
-    temp_9 &= mask;
-    temp_11 += temp_10 >> WASM_LIMB_BITS;
-    temp_10 &= mask;
-    temp_12 += temp_11 >> WASM_LIMB_BITS;
-    temp_11 &= mask;
-    temp_13 += temp_12 >> WASM_LIMB_BITS;
-    temp_12 &= mask;
-    temp_14 += temp_13 >> WASM_LIMB_BITS;
-    temp_13 &= mask;
-    temp_15 += temp_14 >> WASM_LIMB_BITS;
-    temp_14 &= mask;
-    temp_16 += temp_15 >> WASM_LIMB_BITS;
-    temp_15 &= mask;
-    temp_17 += temp_16 >> WASM_LIMB_BITS;
-    temp_16 &= mask;
+    // Layout in temp[8..16] after the chain:
+    //   temp[8]:     5 bits at positions 24..28 (bits 0..23 zeroed by wasm_reduce_24,
+    //                bits 29+ already propagated to temp[9])
+    //   temp[9..15]: 29 bits each,
+    //   temp[16]:    49 bits (unmasked as bound < 2^49 follows from result < 2^257)
+    temp[8] &= WASM_LIMB_MASK;
+    BB_FORCE_UNROLL
+    for (size_t i = 9; i < 16; ++i) {
+        temp[i + 1] += temp[i] >> WASM_LIMB_BITS;
+        temp[i] &= WASM_LIMB_MASK;
+    }
 
-    uint64_t r_temp_0;
-    uint64_t r_temp_1;
-    uint64_t r_temp_2;
-    uint64_t r_temp_3;
-    uint64_t r_temp_4;
-    uint64_t r_temp_5;
-    uint64_t r_temp_6;
-    uint64_t r_temp_7;
-    uint64_t r_temp_8;
+    // Re-align the (5, 7×29, 49) layout into the canonical (8×29, 25) form: each new limb takes
+    // 5 high bits from temp[8 + i] (positions 24..28) and 24 low bits from temp[9 + i].
+    // PERF: an alternative would be a per-curve (5, 7×29, 49) wasm_modulus_r256 layout, skipping
+    // the realignment at the cost of an additional constant.
+    std::array<uint64_t, 9> v;
+    BB_FORCE_UNROLL
+    for (size_t i = 0; i < 8; ++i) {
+        v[i] = ((temp[8 + i] >> WASM_FINAL_REDUCE_BITS) | (temp[9 + i] << WASM_FINAL_REMAINDER_BITS)) & WASM_LIMB_MASK;
+    }
+    v[8] = temp[16] >> WASM_FINAL_REDUCE_BITS; // bits 232..256 (25 bits incl. overflow)
 
-    r_temp_0 = temp_9 - wasm_modulus[0];
-    r_temp_1 = temp_10 - wasm_modulus[1] - ((r_temp_0) >> 63);
-    r_temp_2 = temp_11 - wasm_modulus[2] - ((r_temp_1) >> 63);
-    r_temp_3 = temp_12 - wasm_modulus[3] - ((r_temp_2) >> 63);
-    r_temp_4 = temp_13 - wasm_modulus[4] - ((r_temp_3) >> 63);
-    r_temp_5 = temp_14 - wasm_modulus[5] - ((r_temp_4) >> 63);
-    r_temp_6 = temp_15 - wasm_modulus[6] - ((r_temp_5) >> 63);
-    r_temp_7 = temp_16 - wasm_modulus[7] - ((r_temp_6) >> 63);
-    r_temp_8 = temp_17 - wasm_modulus[8] - ((r_temp_7) >> 63);
+    // Subtract wasm_modulus from v with a borrow chain. `r_v[i-1] >> 63` extracts the borrow
+    // bit: it is 1 iff the prior unsigned subtraction underflowed (its high bit got set on wrap).
+    std::array<uint64_t, 9> r_v;
+    r_v[0] = v[0] - wasm_modulus[0];
+    BB_FORCE_UNROLL
+    for (size_t i = 1; i < 9; ++i) {
+        r_v[i] = v[i] - wasm_modulus[i] - (r_v[i - 1] >> 63);
+    }
 
-    // Depending on whether the subtraction underflowed, choose original value or the result of subtraction
-    uint64_t new_mask = 0 - (r_temp_8 >> 63);
-    uint64_t inverse_mask = (~new_mask) & mask;
-    temp_9 = (temp_9 & new_mask) | (r_temp_0 & inverse_mask);
-    temp_10 = (temp_10 & new_mask) | (r_temp_1 & inverse_mask);
-    temp_11 = (temp_11 & new_mask) | (r_temp_2 & inverse_mask);
-    temp_12 = (temp_12 & new_mask) | (r_temp_3 & inverse_mask);
-    temp_13 = (temp_13 & new_mask) | (r_temp_4 & inverse_mask);
-    temp_14 = (temp_14 & new_mask) | (r_temp_5 & inverse_mask);
-    temp_15 = (temp_15 & new_mask) | (r_temp_6 & inverse_mask);
-    temp_16 = (temp_16 & new_mask) | (r_temp_7 & inverse_mask);
-    temp_17 = (temp_17 & new_mask) | (r_temp_8 & inverse_mask);
+    // Constant-time conditional reduction: keep v[i] if r_v underflowed (v < modulus), else use r_v[i].
+    const uint64_t keep_orig_mask = 0 - (r_v[8] >> 63);
+    const uint64_t take_sub_mask = ~keep_orig_mask;
+    std::array<uint64_t, 9> out;
+    BB_FORCE_UNROLL
+    for (size_t i = 0; i < 8; ++i) {
+        out[i] = (v[i] & keep_orig_mask) | (r_v[i] & take_sub_mask & WASM_LIMB_MASK);
+    }
+    out[8] = (v[8] & keep_orig_mask) | (r_v[8] & take_sub_mask & WASM_FINAL_REDUCE_MASK);
 
-    // Convert back to 4 64-bit limbs
-    return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
-             (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
-             (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
-             (temp_15 >> 18) | (temp_16 << 11) | (temp_17 << 40) };
+    // Pack 9 limbs (8×29 + 1×24) into 4 64-bit limbs.
+    return { (out[0] << 0) | (out[1] << 29) | (out[2] << 58),
+             (out[2] >> 6) | (out[3] << 23) | (out[4] << 52),
+             (out[4] >> 12) | (out[5] << 17) | (out[6] << 46),
+             (out[6] >> 18) | (out[7] << 11) | (out[8] << 40) };
 
 #endif
 }
@@ -573,32 +530,88 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
 
 /**
- * @brief Multiply left limb by a sequence of 9 limbs and accumulate into result variables
+ * @brief N×N schoolbook for relaxed-29-bit limbs (each limb ≤ 2^30 - 1).
+ */
+template <class T>
+template <size_t N>
+constexpr std::array<uint64_t, 2 * N - 1> field<T>::wasm_schoolbook_mul(const std::array<uint64_t, N>& a,
+                                                                        const std::array<uint64_t, N>& b)
+{
+    // Output column k (k ∈ [0, 2N-1)) sums all products a[i]*b[j] with 0 ≤ i,j < N and i+j = k,
+    // which is maximised at the middle column k = N-1 with N products. As each limb is ≤ (2^30 - 1),
+    // to avoid uint64_t overflow we need N * (2^30 - 1)^2 < 2^64, giving N ≤ 16.
+    static_assert(N >= 1 && N <= 16, "wasm_schoolbook_mul: N must be in [1, 16]");
+
+    std::array<uint64_t, 2 * N - 1> out{};
+    BB_FORCE_UNROLL
+    for (size_t i = 0; i < N; ++i) {
+        BB_FORCE_UNROLL
+        for (size_t j = 0; j < N; ++j) {
+            out[i + j] += a[i] * b[j];
+        }
+    }
+    return out;
+}
+
+/**
+ * @brief 9×9 Karatsuba product (5+4 split) over relaxed 29-bit limbs (66 muls vs. 81 naive schoolbook).
+ */
+template <class T>
+constexpr std::array<uint64_t, 2 * WASM_NUM_LIMBS - 1> field<T>::wasm_karatsuba_mul(
+    const std::array<uint64_t, WASM_NUM_LIMBS>& left, const std::array<uint64_t, WASM_NUM_LIMBS>& right)
+{
+    const std::array<uint64_t, 5> left_lo = { left[0], left[1], left[2], left[3], left[4] };
+    const std::array<uint64_t, 5> right_lo = { right[0], right[1], right[2], right[3], right[4] };
+    const std::array<uint64_t, 4> left_hi = { left[5], left[6], left[7], left[8] };
+    const std::array<uint64_t, 4> right_hi = { right[5], right[6], right[7], right[8] };
+
+    // Pad the 4-limb high half with a 0 at index 4 so left_sum / right_sum stay 5 limbs.
+    const std::array<uint64_t, 5> left_sum = {
+        left[0] + left[5], left[1] + left[6], left[2] + left[7], left[3] + left[8], left[4]
+    };
+    const std::array<uint64_t, 5> right_sum = {
+        right[0] + right[5], right[1] + right[6], right[2] + right[7], right[3] + right[8], right[4]
+    };
+
+    const auto pl = wasm_schoolbook_mul<5>(left_lo, right_lo);
+    const auto ph = wasm_schoolbook_mul<4>(left_hi, right_hi);
+    // left_sum / right_sum entries are sums of two 29-bit limbs (≤ 2^30 - 1), within the schoolbook limb size.
+    const auto pc = wasm_schoolbook_mul<5>(left_sum, right_sum);
+
+    // out[k] = pl[k] + (pc - pl - ph)[k-5] + ph[k-10]; ph has only 7 limbs so indices 12, 13 drop the - ph term.
+    return { pl[0],
+             pl[1],
+             pl[2],
+             pl[3],
+             pl[4],
+             pl[5] + (pc[0] - pl[0] - ph[0]),
+             pl[6] + (pc[1] - pl[1] - ph[1]),
+             pl[7] + (pc[2] - pl[2] - ph[2]),
+             pl[8] + (pc[3] - pl[3] - ph[3]),
+             pc[4] - pl[4] - ph[4],
+             (pc[5] - pl[5] - ph[5]) + ph[0],
+             (pc[6] - pl[6] - ph[6]) + ph[1],
+             (pc[7] - pl[7]) + ph[2],
+             (pc[8] - pl[8]) + ph[3],
+             ph[4],
+             ph[5],
+             ph[6] };
+}
+
+/**
+ * @brief Multiply left limb by a sequence of 9 limbs and accumulate into result[0..8].
  *
  * @note There is no carrying in this method.
  */
 template <class T>
-constexpr void field<T>::wasm_madd(uint64_t& left_limb,
+constexpr void field<T>::wasm_madd(uint64_t left_limb,
                                    const std::array<uint64_t, WASM_NUM_LIMBS>& right_limbs,
-                                   uint64_t& result_0,
-                                   uint64_t& result_1,
-                                   uint64_t& result_2,
-                                   uint64_t& result_3,
-                                   uint64_t& result_4,
-                                   uint64_t& result_5,
-                                   uint64_t& result_6,
-                                   uint64_t& result_7,
-                                   uint64_t& result_8)
+                                   std::span<uint64_t, WASM_NUM_LIMBS> result)
 {
-    result_0 += left_limb * right_limbs[0];
-    result_1 += left_limb * right_limbs[1];
-    result_2 += left_limb * right_limbs[2];
-    result_3 += left_limb * right_limbs[3];
-    result_4 += left_limb * right_limbs[4];
-    result_5 += left_limb * right_limbs[5];
-    result_6 += left_limb * right_limbs[6];
-    result_7 += left_limb * right_limbs[7];
-    result_8 += left_limb * right_limbs[8];
+    BB_FORCE_UNROLL
+    for (size_t i = 0; i < WASM_NUM_LIMBS; ++i) {
+        result[i] += left_limb * right_limbs[i];
+    }
 }
 
 /**
@@ -613,37 +626,41 @@ constexpr void field<T>::wasm_madd(uint64_t& left_limb,
  * No other carries are propagated, hence the limbs remain in "relaxed form".
  *
  * @note In particular, the limbs are in "relaxed form", i.e., they are not strictly constrained to be 29 bits.
- * @note This function is called 9 times during Montgomery multiplication (once per limb), where the initial inputs are
- * 58 bits, and the alternation between wasm_madd and wasm_reduce keeps the accumulated values safely within 64 bits.
+ * @note This function is called 8 times during the R=2^256 WASM reduction chain
+ * (the 9th step uses wasm_reduce_24), where the initial inputs are 58 bits and
+ * the alternation between wasm_madd and wasm_reduce_29 keeps the accumulated
+ * values safely within 64 bits.
  * @note We only propagate the carry from result_0 to result_1 because result_0 is effectively discarded after
  * this operation (it's not used in subsequent iterations), while result_1 through result_8 continue accumulating. The
  * methods calling this method will be responsible for strictifying the result again.
  * @note For our application, we require bounds on the output limbs (especially result_8). For information on how we
  * deduce these, please see where this method is called.
  */
-template <class T>
-constexpr void field<T>::wasm_reduce(uint64_t& result_0,
-                                     uint64_t& result_1,
-                                     uint64_t& result_2,
-                                     uint64_t& result_3,
-                                     uint64_t& result_4,
-                                     uint64_t& result_5,
-                                     uint64_t& result_6,
-                                     uint64_t& result_7,
-                                     uint64_t& result_8)
+template <class T> constexpr void field<T>::wasm_reduce_29(std::span<uint64_t, WASM_NUM_LIMBS> result)
 {
-    constexpr uint64_t mask = 0x1fffffff;
-    constexpr uint64_t r_inv = T::r_inv & mask; //  -(modulus ^ { -1 }) modulo 2 ^ WASM_LIMB_BITS
-    uint64_t k = (result_0 * r_inv) & mask;
-    result_0 += k * wasm_modulus[0];
-    result_1 += k * wasm_modulus[1] + (result_0 >> WASM_LIMB_BITS);
-    result_2 += k * wasm_modulus[2];
-    result_3 += k * wasm_modulus[3];
-    result_4 += k * wasm_modulus[4];
-    result_5 += k * wasm_modulus[5];
-    result_6 += k * wasm_modulus[6];
-    result_7 += k * wasm_modulus[7];
-    result_8 += k * wasm_modulus[8];
+    constexpr uint64_t r_inv = T::r_inv & WASM_LIMB_MASK; // -(modulus^{-1}) modulo 2^WASM_LIMB_BITS
+    uint64_t k = (result[0] * r_inv) & WASM_LIMB_MASK;
+    result[0] += k * wasm_modulus[0];
+    result[1] += k * wasm_modulus[1] + (result[0] >> WASM_LIMB_BITS);
+    BB_FORCE_UNROLL
+    for (size_t i = 2; i < WASM_NUM_LIMBS; ++i) {
+        result[i] += k * wasm_modulus[i];
+    }
+}
+
+/**
+ * @brief Like wasm_reduce_29 but zeroes only the lowest 24 bits of result_0 (bits 24..28 are kept as result data).
+ */
+template <class T> constexpr void field<T>::wasm_reduce_24(std::span<uint64_t, WASM_NUM_LIMBS> result)
+{
+    constexpr uint64_t r_inv = T::r_inv & WASM_FINAL_REDUCE_MASK; // -(modulus^{-1}) modulo 2^WASM_FINAL_REDUCE_BITS
+    uint64_t k = (result[0] * r_inv) & WASM_FINAL_REDUCE_MASK;
+    result[0] += k * wasm_modulus[0];
+    result[1] += k * wasm_modulus[1] + (result[0] >> WASM_LIMB_BITS); // Carry shifts by the limb width.
+    BB_FORCE_UNROLL
+    for (size_t i = 2; i < WASM_NUM_LIMBS; ++i) {
+        result[i] += k * wasm_modulus[i];
+    }
 }
 
 /**
@@ -666,29 +683,14 @@ constexpr void field<T>::wasm_reduce(uint64_t& result_0,
  *
  * @note For a reference, please see: https://hackmd.io/@Ingonyama/Barret-Montgomery
  */
-template <class T>
-constexpr void field<T>::wasm_reduce_yuval(uint64_t& result_0,
-                                           uint64_t& result_1,
-                                           uint64_t& result_2,
-                                           uint64_t& result_3,
-                                           uint64_t& result_4,
-                                           uint64_t& result_5,
-                                           uint64_t& result_6,
-                                           uint64_t& result_7,
-                                           uint64_t& result_8,
-                                           uint64_t& result_9)
+template <class T> constexpr void field<T>::wasm_reduce_yuval(std::span<uint64_t, WASM_NUM_LIMBS + 1> result)
 {
-    constexpr uint64_t mask = 0x1fffffff;
-    const uint64_t result_0_masked = result_0 & mask;
-    result_1 += result_0_masked * wasm_r_inv[0] + (result_0 >> WASM_LIMB_BITS);
-    result_2 += result_0_masked * wasm_r_inv[1];
-    result_3 += result_0_masked * wasm_r_inv[2];
-    result_4 += result_0_masked * wasm_r_inv[3];
-    result_5 += result_0_masked * wasm_r_inv[4];
-    result_6 += result_0_masked * wasm_r_inv[5];
-    result_7 += result_0_masked * wasm_r_inv[6];
-    result_8 += result_0_masked * wasm_r_inv[7];
-    result_9 += result_0_masked * wasm_r_inv[8];
+    const uint64_t result_0_masked = result[0] & WASM_LIMB_MASK;
+    result[1] += result_0_masked * wasm_r_inv[0] + (result[0] >> WASM_LIMB_BITS);
+    BB_FORCE_UNROLL
+    for (size_t i = 2; i < WASM_NUM_LIMBS + 1; ++i) {
+        result[i] += result_0_masked * wasm_r_inv[i - 1];
+    }
 }
 /**
  * @brief Convert 4 64-bit limbs into 9 29-bit limbs
@@ -696,15 +698,51 @@ constexpr void field<T>::wasm_reduce_yuval(uint64_t& result_0,
  */
 template <class T> constexpr std::array<uint64_t, WASM_NUM_LIMBS> field<T>::wasm_convert(const uint64_t* data)
 {
-    return { data[0] & 0x1fffffff,
-             (data[0] >> WASM_LIMB_BITS) & 0x1fffffff,
+    return { data[0] & WASM_LIMB_MASK,
+             (data[0] >> WASM_LIMB_BITS) & WASM_LIMB_MASK,
              ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
-             (data[1] >> 23) & 0x1fffffff,
+             (data[1] >> 23) & WASM_LIMB_MASK,
              ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
-             (data[2] >> 17) & 0x1fffffff,
+             (data[2] >> 17) & WASM_LIMB_MASK,
              ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
-             (data[3] >> 11) & 0x1fffffff,
-             (data[3] >> 40) & 0x1fffffff };
+             (data[3] >> 11) & WASM_LIMB_MASK,
+             (data[3] >> 40) & WASM_LIMB_MASK };
+}
+
+/**
+ * @brief Reduce a 17-limb relaxed-29-bit accumulator by R = 2^256 and pack into canonical 4 × 64-bit
+ * Montgomery limbs. Shared by `montgomery_mul` and `montgomery_square` (small-modulus path).
+ *
+ * @details The reduction is 7 Yuval-style 29-bit + 1 standard Montgomery 29-bit + 1 final 24-bit
+ * Montgomery (7*29 + 29 + 24 = 256). The Montgomery step at `temp[7]` tightens the running bound
+ * (Yuval slack is 2^29*p vs. p for Montgomery); a final Yuval is impossible because its 10-limb
+ * output would overflow the limb window. See field_docs.md for the full bounds derivation; the
+ * post-reduction value is in [0, 2p) so no conditional subtraction is needed for coarse form.
+ */
+template <class T>
+constexpr std::array<uint64_t, 4> field<T>::wasm_reduce_and_pack(std::array<uint64_t, 2 * WASM_NUM_LIMBS - 1>& temp)
+{
+    BB_FORCE_UNROLL
+    for (size_t i = 0; i < 7; ++i) {
+        wasm_reduce_yuval(std::span<uint64_t, WASM_NUM_LIMBS + 1>{ &temp[i], WASM_NUM_LIMBS + 1 });
+    }
+    wasm_reduce_29(std::span<uint64_t, WASM_NUM_LIMBS>{ &temp[7], WASM_NUM_LIMBS });
+    wasm_reduce_24(std::span<uint64_t, WASM_NUM_LIMBS>{ &temp[8], WASM_NUM_LIMBS });
+
+    // wasm_reduce_24 leaves bits 0..23 zero and bits 29+ already propagated to temp[9]; shift
+    // the 5 result bits at positions 24..28 down to positions 0..4 so temp[8] packs uniformly.
+    temp[8] = (temp[8] >> WASM_FINAL_REDUCE_BITS) & WASM_FINAL_REMAINDER_MASK;
+    BB_FORCE_UNROLL
+    for (size_t i = 9; i < 16; ++i) {
+        temp[i + 1] += temp[i] >> WASM_LIMB_BITS;
+        temp[i] &= WASM_LIMB_MASK;
+    }
+
+    // Pack: temp[8] is 5 bits, temp[9..15] are 29-bit, temp[16] holds at most 48 bits.
+    return { temp[8] | (temp[9] << 5) | (temp[10] << 34) | (temp[11] << 63),
+             (temp[11] >> 1) | (temp[12] << 28) | (temp[13] << 57),
+             (temp[13] >> 7) | (temp[14] << 22) | (temp[15] << 51),
+             (temp[15] >> 13) | (temp[16] << 16) };
 }
 #endif
 template <class T> constexpr field<T> field<T>::montgomery_mul(const field& other) const noexcept
@@ -767,133 +805,13 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     }
 #else
 
-    // Convert 4 64-bit limbs to 9 29-bit ones
-    auto left = wasm_convert(data);
-    auto right = wasm_convert(other.data);
-    constexpr uint64_t mask = 0x1fffffff;
-
-    // Karatsuba multiplication: split 9 limbs into 5 (lo) + 4 (hi).
-    // P_lo = left[0..4] * right[0..4]  (25 muls)
-    // P_hi = left[5..8] * right[5..8]  (16 muls)
-    // P_cross = (left_lo + left_hi) * (right_lo + right_hi)  (25 muls)
-    // P_mid = P_cross - P_lo - P_hi
-    // Total: 66 muls vs 81 for schoolbook 9x9.
-
-    // P_lo = left[0..4] * right[0..4] — 5x5 schoolbook
-    uint64_t pl0 = left[0] * right[0];
-    uint64_t pl1 = left[0] * right[1] + left[1] * right[0];
-    uint64_t pl2 = left[0] * right[2] + left[1] * right[1] + left[2] * right[0];
-    uint64_t pl3 = left[0] * right[3] + left[1] * right[2] + left[2] * right[1] + left[3] * right[0];
-    uint64_t pl4 =
-        left[0] * right[4] + left[1] * right[3] + left[2] * right[2] + left[3] * right[1] + left[4] * right[0];
-    uint64_t pl5 = left[1] * right[4] + left[2] * right[3] + left[3] * right[2] + left[4] * right[1];
-    uint64_t pl6 = left[2] * right[4] + left[3] * right[3] + left[4] * right[2];
-    uint64_t pl7 = left[3] * right[4] + left[4] * right[3];
-    uint64_t pl8 = left[4] * right[4];
-
-    // P_hi = left[5..8] * right[5..8] — 4x4 schoolbook
-    uint64_t ph0 = left[5] * right[5];
-    uint64_t ph1 = left[5] * right[6] + left[6] * right[5];
-    uint64_t ph2 = left[5] * right[7] + left[6] * right[6] + left[7] * right[5];
-    uint64_t ph3 = left[5] * right[8] + left[6] * right[7] + left[7] * right[6] + left[8] * right[5];
-    uint64_t ph4 = left[6] * right[8] + left[7] * right[7] + left[8] * right[6];
-    uint64_t ph5 = left[7] * right[8] + left[8] * right[7];
-    uint64_t ph6 = left[8] * right[8];
-
-    // Sums for the cross product (left_lo + left_hi, right_lo + right_hi)
-    uint64_t sl0 = left[0] + left[5];
-    uint64_t sl1 = left[1] + left[6];
-    uint64_t sl2 = left[2] + left[7];
-    uint64_t sl3 = left[3] + left[8];
-    uint64_t sl4 = left[4];
-    uint64_t sr0 = right[0] + right[5];
-    uint64_t sr1 = right[1] + right[6];
-    uint64_t sr2 = right[2] + right[7];
-    uint64_t sr3 = right[3] + right[8];
-    uint64_t sr4 = right[4];
-
-    // P_cross = sum_left * sum_right — 5x5 schoolbook
-    uint64_t pc0 = sl0 * sr0;
-    uint64_t pc1 = sl0 * sr1 + sl1 * sr0;
-    uint64_t pc2 = sl0 * sr2 + sl1 * sr1 + sl2 * sr0;
-    uint64_t pc3 = sl0 * sr3 + sl1 * sr2 + sl2 * sr1 + sl3 * sr0;
-    uint64_t pc4 = sl0 * sr4 + sl1 * sr3 + sl2 * sr2 + sl3 * sr1 + sl4 * sr0;
-    uint64_t pc5 = sl1 * sr4 + sl2 * sr3 + sl3 * sr2 + sl4 * sr1;
-    uint64_t pc6 = sl2 * sr4 + sl3 * sr3 + sl4 * sr2;
-    uint64_t pc7 = sl3 * sr4 + sl4 * sr3;
-    uint64_t pc8 = sl4 * sr4;
-
-    // Combine: temp[k] = P_lo[k] + P_mid[k-5] + P_hi[k-10]
-    // where P_mid = P_cross - P_lo - P_hi
-    uint64_t temp_0 = pl0;
-    uint64_t temp_1 = pl1;
-    uint64_t temp_2 = pl2;
-    uint64_t temp_3 = pl3;
-    uint64_t temp_4 = pl4;
-    uint64_t temp_5 = pl5 + (pc0 - pl0 - ph0);
-    uint64_t temp_6 = pl6 + (pc1 - pl1 - ph1);
-    uint64_t temp_7 = pl7 + (pc2 - pl2 - ph2);
-    uint64_t temp_8 = pl8 + (pc3 - pl3 - ph3);
-    uint64_t temp_9 = pc4 - pl4 - ph4;
-    uint64_t temp_10 = (pc5 - pl5 - ph5) + ph0;
-    uint64_t temp_11 = (pc6 - pl6 - ph6) + ph1;
-    uint64_t temp_12 = (pc7 - pl7) + ph2;
-    uint64_t temp_13 = (pc8 - pl8) + ph3;
-    uint64_t temp_14 = ph4;
-    uint64_t temp_15 = ph5;
-    uint64_t temp_16 = ph6;
-
-    // At this point, the value aR * bR is contained in \sum_{i=0}^16 temp_{i}*2^{29*i}. Note that this value is no
-    // greater than 4p^2 as aR and bR are both less than 2p.
-    wasm_reduce_yuval(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
-    wasm_reduce_yuval(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
-    wasm_reduce_yuval(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
-    wasm_reduce_yuval(temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12);
-    wasm_reduce_yuval(temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
-    wasm_reduce_yuval(temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
-    wasm_reduce_yuval(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
-    wasm_reduce_yuval(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
-
-    // The first 8 limbs are reduced using Yuval's method, the last one is reduced using the regular method
-    // The reason for this is that Yuval's method produces a 10-limb representation of the reduced limb, which is then
-    // added to the higher limbs. If we do this for the last limb we reduce, we'll get a 10-limb representation instead
-    // of a 9-limb one, so we'll have to reduce it again in some other way.
-    wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
-    // We must now reason about the current value of \sum_{i=0}^8 temp_{i+8} from the original assumptions.
-    // Following the algorithm, this is aR * bR + k_{0, 1, ..., 7}*r_inv_wasm + k_8p. Here, k_0 < 2^29-1, k_1 < 2^58 -
-    // 2^29, and so on, until k_8 < 2^261 - 2^232. Moreover, r_inv_wasm < p. (From the definition, it is the value of
-    // 2^{-29} mod p, and our choice of limb-representation is smaller than p. In fact, it is empirically smaller than
-    // p/2 for Fq and Fr.)
-    //
-    // Therefore, this whole sum is bounded by 4p^2 + (2^261 - 1)*p. Dividing by 2^261 and taking
-    // the integral part (corresponding to taking the top half of the limbs), and noting that 4p^2 / 2^261 << 1, we
-    // conclude that the result is in [0, p]. In particular, this implies that we are safely in [0, 2p), as desired.
-    //
-    // Note that the above analysis is soft, and it is overwhelmingly likely that the result is in [0, p). However, the
-    // only guarantee we require is that it is in [0, 2p), as with 254-bit fields we work with the coarse
-    // representation.
-
-    // Convert result to unrelaxed form (all limbs are 29 bits)
-    temp_10 += temp_9 >> WASM_LIMB_BITS;
-    temp_9 &= mask;
-    temp_11 += temp_10 >> WASM_LIMB_BITS;
-    temp_10 &= mask;
-    temp_12 += temp_11 >> WASM_LIMB_BITS;
-    temp_11 &= mask;
-    temp_13 += temp_12 >> WASM_LIMB_BITS;
-    temp_12 &= mask;
-    temp_14 += temp_13 >> WASM_LIMB_BITS;
-    temp_13 &= mask;
-    temp_15 += temp_14 >> WASM_LIMB_BITS;
-    temp_14 &= mask;
-    temp_16 += temp_15 >> WASM_LIMB_BITS;
-    temp_15 &= mask;
-
-    // Convert back to 4 64-bit limbs form
-    return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
-             (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
-             (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
-             (temp_15 >> 18) | (temp_16 << 11) };
+    // Convert 4 64-bit limbs to 9 29-bit ones, multiply in relaxed form (Karatsuba 5+4),
+    // then reduce by R = 2^256 and pack back to coarse form [0, 2p).
+    const auto left = wasm_convert(data);
+    const auto right = wasm_convert(other.data);
+    auto temp = wasm_karatsuba_mul(left, right);
+    auto out = wasm_reduce_and_pack(temp);
+    return { out[0], out[1], out[2], out[3] };
 #endif
 }
 /**
@@ -964,151 +882,87 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
 #else
     // Convert from 4 64-bit limbs to 9 29-bit ones
     auto left = wasm_convert(data);
-    constexpr uint64_t mask = 0x1fffffff;
-    uint64_t temp_0 = 0;
-    uint64_t temp_1 = 0;
-    uint64_t temp_2 = 0;
-    uint64_t temp_3 = 0;
-    uint64_t temp_4 = 0;
-    uint64_t temp_5 = 0;
-    uint64_t temp_6 = 0;
-    uint64_t temp_7 = 0;
-    uint64_t temp_8 = 0;
-    uint64_t temp_9 = 0;
-    uint64_t temp_10 = 0;
-    uint64_t temp_11 = 0;
-    uint64_t temp_12 = 0;
-    uint64_t temp_13 = 0;
-    uint64_t temp_14 = 0;
-    uint64_t temp_15 = 0;
-    uint64_t temp_16 = 0;
+    std::array<uint64_t, 2 * WASM_NUM_LIMBS - 1> temp{};
     uint64_t acc;
-    // Perform multiplications, but accumulated results for limb k=i+j so that we can double them at the same time
-    temp_0 += left[0] * left[0];
+    temp[0] += left[0] * left[0];
     acc = 0;
     acc += left[0] * left[1];
-    temp_1 += (acc << 1);
+    temp[1] += (acc << 1);
     acc = 0;
     acc += left[0] * left[2];
-    temp_2 += left[1] * left[1];
-    temp_2 += (acc << 1);
+    temp[2] += left[1] * left[1];
+    temp[2] += (acc << 1);
     acc = 0;
     acc += left[0] * left[3];
     acc += left[1] * left[2];
-    temp_3 += (acc << 1);
+    temp[3] += (acc << 1);
     acc = 0;
     acc += left[0] * left[4];
     acc += left[1] * left[3];
-    temp_4 += left[2] * left[2];
-    temp_4 += (acc << 1);
+    temp[4] += left[2] * left[2];
+    temp[4] += (acc << 1);
     acc = 0;
     acc += left[0] * left[5];
     acc += left[1] * left[4];
     acc += left[2] * left[3];
-    temp_5 += (acc << 1);
+    temp[5] += (acc << 1);
     acc = 0;
     acc += left[0] * left[6];
     acc += left[1] * left[5];
     acc += left[2] * left[4];
-    temp_6 += left[3] * left[3];
-    temp_6 += (acc << 1);
+    temp[6] += left[3] * left[3];
+    temp[6] += (acc << 1);
     acc = 0;
     acc += left[0] * left[7];
     acc += left[1] * left[6];
     acc += left[2] * left[5];
     acc += left[3] * left[4];
-    temp_7 += (acc << 1);
+    temp[7] += (acc << 1);
     acc = 0;
     acc += left[0] * left[8];
     acc += left[1] * left[7];
     acc += left[2] * left[6];
     acc += left[3] * left[5];
-    temp_8 += left[4] * left[4];
-    temp_8 += (acc << 1);
+    temp[8] += left[4] * left[4];
+    temp[8] += (acc << 1);
     acc = 0;
     acc += left[1] * left[8];
     acc += left[2] * left[7];
     acc += left[3] * left[6];
     acc += left[4] * left[5];
-    temp_9 += (acc << 1);
+    temp[9] += (acc << 1);
     acc = 0;
     acc += left[2] * left[8];
     acc += left[3] * left[7];
     acc += left[4] * left[6];
-    temp_10 += left[5] * left[5];
-    temp_10 += (acc << 1);
+    temp[10] += left[5] * left[5];
+    temp[10] += (acc << 1);
     acc = 0;
     acc += left[3] * left[8];
     acc += left[4] * left[7];
     acc += left[5] * left[6];
-    temp_11 += (acc << 1);
+    temp[11] += (acc << 1);
     acc = 0;
     acc += left[4] * left[8];
     acc += left[5] * left[7];
-    temp_12 += left[6] * left[6];
-    temp_12 += (acc << 1);
+    temp[12] += left[6] * left[6];
+    temp[12] += (acc << 1);
     acc = 0;
     acc += left[5] * left[8];
     acc += left[6] * left[7];
-    temp_13 += (acc << 1);
+    temp[13] += (acc << 1);
     acc = 0;
     acc += left[6] * left[8];
-    temp_14 += left[7] * left[7];
-    temp_14 += (acc << 1);
+    temp[14] += left[7] * left[7];
+    temp[14] += (acc << 1);
     acc = 0;
     acc += left[7] * left[8];
-    temp_15 += (acc << 1);
-    temp_16 += left[8] * left[8];
+    temp[15] += (acc << 1);
+    temp[16] += left[8] * left[8];
 
-    // Perform reductions
-
-    wasm_reduce_yuval(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
-    wasm_reduce_yuval(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
-    wasm_reduce_yuval(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
-    wasm_reduce_yuval(temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12);
-    wasm_reduce_yuval(temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
-    wasm_reduce_yuval(temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
-    wasm_reduce_yuval(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
-    wasm_reduce_yuval(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
-
-    // In case there is some unforseen edge case encountered in wasm multiplications, we can quickly restore previous
-    // functionality. Comment all "wasm_reduce_yuval" and uncomment the following:
-
-    // wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
-    // wasm_reduce(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
-    // wasm_reduce(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
-    // wasm_reduce(temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
-    // wasm_reduce(temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12);
-    // wasm_reduce(temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
-    // wasm_reduce(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
-    // wasm_reduce(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
-
-    // The first 8 limbs are reduced using Yuval's method, the last one is reduced using the regular method
-    // The reason for this is that Yuval's method produces a 10-limb representation of the reduced limb, which is then
-    // added to the higher limbs. If we do this for the last limb we reduce, we'll get a 10-limb representation instead
-    // of a 9-limb one, so we'll have to reduce it again in some other way.
-    wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
-
-    // Convert to unrelaxed 29-bit form
-    temp_10 += temp_9 >> WASM_LIMB_BITS;
-    temp_9 &= mask;
-    temp_11 += temp_10 >> WASM_LIMB_BITS;
-    temp_10 &= mask;
-    temp_12 += temp_11 >> WASM_LIMB_BITS;
-    temp_11 &= mask;
-    temp_13 += temp_12 >> WASM_LIMB_BITS;
-    temp_12 &= mask;
-    temp_14 += temp_13 >> WASM_LIMB_BITS;
-    temp_13 &= mask;
-    temp_15 += temp_14 >> WASM_LIMB_BITS;
-    temp_14 &= mask;
-    temp_16 += temp_15 >> WASM_LIMB_BITS;
-    temp_15 &= mask;
-    // Convert to 4 64-bit form
-    return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
-             (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
-             (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
-             (temp_15 >> 18) | (temp_16 << 11) };
+    // Shared with montgomery_mul: reduce by R = 2^256 and pack into canonical form.
+    auto out = wasm_reduce_and_pack(temp);
+    return { out[0], out[1], out[2], out[3] };
 #endif
 }
 
@@ -1139,81 +993,26 @@ template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const
     return { r0, r1, r2, r3, r4, r5, r6, carry_2 };
 #else
     // Convert from 4 64-bit limbs to 9 29-bit limbs
-    auto left = wasm_convert(data);
-    auto right = wasm_convert(other.data);
-    constexpr uint64_t mask = 0x1fffffff;
-    uint64_t temp_0 = 0;
-    uint64_t temp_1 = 0;
-    uint64_t temp_2 = 0;
-    uint64_t temp_3 = 0;
-    uint64_t temp_4 = 0;
-    uint64_t temp_5 = 0;
-    uint64_t temp_6 = 0;
-    uint64_t temp_7 = 0;
-    uint64_t temp_8 = 0;
-    uint64_t temp_9 = 0;
-    uint64_t temp_10 = 0;
-    uint64_t temp_11 = 0;
-    uint64_t temp_12 = 0;
-    uint64_t temp_13 = 0;
-    uint64_t temp_14 = 0;
-    uint64_t temp_15 = 0;
-    uint64_t temp_16 = 0;
-
-    // Multiply-add all limbs
-    wasm_madd(left[0], right, temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
-    wasm_madd(left[1], right, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
-    wasm_madd(left[2], right, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
-    wasm_madd(left[3], right, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
-    wasm_madd(left[4], right, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12);
-    wasm_madd(left[5], right, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
-    wasm_madd(left[6], right, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
-    wasm_madd(left[7], right, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
-    wasm_madd(left[8], right, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
+    const auto left = wasm_convert(data);
+    const auto right = wasm_convert(other.data);
+    auto temp = wasm_karatsuba_mul(left, right);
 
     // Convert to unrelaxed 29-bit form
-    temp_1 += temp_0 >> WASM_LIMB_BITS;
-    temp_0 &= mask;
-    temp_2 += temp_1 >> WASM_LIMB_BITS;
-    temp_1 &= mask;
-    temp_3 += temp_2 >> WASM_LIMB_BITS;
-    temp_2 &= mask;
-    temp_4 += temp_3 >> WASM_LIMB_BITS;
-    temp_3 &= mask;
-    temp_5 += temp_4 >> WASM_LIMB_BITS;
-    temp_4 &= mask;
-    temp_6 += temp_5 >> WASM_LIMB_BITS;
-    temp_5 &= mask;
-    temp_7 += temp_6 >> WASM_LIMB_BITS;
-    temp_6 &= mask;
-    temp_8 += temp_7 >> WASM_LIMB_BITS;
-    temp_7 &= mask;
-    temp_9 += temp_8 >> WASM_LIMB_BITS;
-    temp_8 &= mask;
-    temp_10 += temp_9 >> WASM_LIMB_BITS;
-    temp_9 &= mask;
-    temp_11 += temp_10 >> WASM_LIMB_BITS;
-    temp_10 &= mask;
-    temp_12 += temp_11 >> WASM_LIMB_BITS;
-    temp_11 &= mask;
-    temp_13 += temp_12 >> WASM_LIMB_BITS;
-    temp_12 &= mask;
-    temp_14 += temp_13 >> WASM_LIMB_BITS;
-    temp_13 &= mask;
-    temp_15 += temp_14 >> WASM_LIMB_BITS;
-    temp_14 &= mask;
-    temp_16 += temp_15 >> WASM_LIMB_BITS;
-    temp_15 &= mask;
+    BB_FORCE_UNROLL
+    for (size_t i = 0; i < 16; ++i) {
+        temp[i + 1] += temp[i] >> WASM_LIMB_BITS;
+        temp[i] &= WASM_LIMB_MASK;
+    }
 
     // Convert to 8 64-bit limbs
-    return { (temp_0 << 0) | (temp_1 << 29) | (temp_2 << 58),
-             (temp_2 >> 6) | (temp_3 << 23) | (temp_4 << 52),
-             (temp_4 >> 12) | (temp_5 << 17) | (temp_6 << 46),
-             (temp_6 >> 18) | (temp_7 << 11) | (temp_8 << 40),
-             (temp_8 >> 24) | (temp_9 << 5) | (temp_10 << 34) | (temp_11 << 63),
-             (temp_11 >> 1) | (temp_12 << 28) | (temp_13 << 57),
-             (temp_13 >> 7) | (temp_14 << 22) | (temp_15 << 51),
-             (temp_15 >> 13) | (temp_16 << 16) };
+    return { (temp[0] << 0) | (temp[1] << 29) | (temp[2] << 58),
+             (temp[2] >> 6) | (temp[3] << 23) | (temp[4] << 52),
+             (temp[4] >> 12) | (temp[5] << 17) | (temp[6] << 46),
+             (temp[6] >> 18) | (temp[7] << 11) | (temp[8] << 40),
+             (temp[8] >> 24) | (temp[9] << 5) | (temp[10] << 34) | (temp[11] << 63),
+             (temp[11] >> 1) | (temp[12] << 28) | (temp[13] << 57),
+             (temp[13] >> 7) | (temp[14] << 22) | (temp[15] << 51),
+             (temp[15] >> 13) | (temp[16] << 16) };
 #endif
 }
 

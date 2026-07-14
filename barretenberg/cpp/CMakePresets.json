@@ -449,6 +449,16 @@
       }
     },
     {
+      "name": "wasm-threads-simd",
+      "displayName": "Build for WASM with Threads and SIMD",
+      "description": "Build for WASM with Threads and SIMD (msimd128, mrelaxed-simd)",
+      "inherits": "wasm-threads",
+      "binaryDir": "build-wasm-threads-simd",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS -msimd128 -mrelaxed-simd"
+      }
+    },
+    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -793,6 +803,22 @@
       ]
     },
     {
+      "name": "wasm-threads-simd",
+      "configurePreset": "wasm-threads-simd",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": [
+        "barretenberg.wasm",
+        "barretenberg.wasm.gz",
+        "barretenberg-debug.wasm",
+        "ecc_tests",
+        "montmul_bench",
+        "ultra_honk_bench",
+        "chonk_bench",
+        "bb"
+      ]
+    },
+    {
       "name": "xray",
       "configurePreset": "xray",
       "inherits": "default"
@@ -911,6 +937,11 @@
     {
       "name": "wasm",
       "configurePreset": "wasm",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "wasm-threads-simd",
+      "configurePreset": "wasm-threads-simd",
       "inheritConfigureEnvironment": true
     }
   ]

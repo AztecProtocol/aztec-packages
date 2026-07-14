@@ -282,6 +282,11 @@ function test_cmds_wasm_threads {
   echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
 }
 
+function test_cmds_wasm_threads_simd {
+  # Exercises the relaxed-simd-gated paths (paired_mul / paired_sqr)
+  echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads-simd/bin/ecc_tests"
+}
+
 function test_cmds_asan {
   local prefix="$hash:CPUS=4:MEM=8g"
 
@@ -311,6 +316,7 @@ function test_cmds {
     test_cmds_native
     if [ "$CI_FULL" -eq 1 ]; then
       test_cmds_wasm_threads
+      test_cmds_wasm_threads_simd
       test_cmds_asan
       test_cmds_smt
     fi

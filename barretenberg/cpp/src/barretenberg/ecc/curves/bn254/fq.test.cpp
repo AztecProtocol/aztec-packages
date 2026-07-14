@@ -21,11 +21,9 @@ auto& engine = numeric::get_debug_randomness();
 
 // ================================
 // Fixed Compile-Time Tests (field-specific expected values)
-// These tests use hardcoded expected values that are only valid for native builds (R = 2^256).
-// WASM uses R = 2^261.
+// These tests use hardcoded expected values for the unified Montgomery radix R = 2^256.
 // ================================
 
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
 TEST(BN254Fq, CompileTimeMultiplication)
 {
     constexpr fq a{ 0x83aa80986c4f06f8, 0xbd01cce5e3b3afc3, 0x1cba208cb70aa13b, 0x2a582eb35a932e0d };
@@ -64,7 +62,6 @@ TEST(BN254Fq, CompileTimeSubtraction)
     constexpr fq result = a - b;
     static_assert(result == expected);
 }
-#endif
 
 TEST(BN254Fq, CompileTimeInversion)
 {

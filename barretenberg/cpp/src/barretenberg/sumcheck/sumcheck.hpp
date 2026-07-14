@@ -676,8 +676,22 @@ template <typename Flavor> class SumcheckProver {
         parallel_for(source_view.size(), [&](size_t j) {
             BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
             const auto& poly = source_view[j];
-            size_t limit = poly.end_index();
-            for (size_t i = 0; i < limit; i += 2) {
+            const size_t limit = poly.end_index();
+            size_t i = 0;
+
+            // Pair-stride: paired_mul is faster than two singles; fuses two consecutive folds per iteration.
+            for (; i + 3 < limit; i += 4) {
+                const auto& base0 = poly[i];
+                const auto& base1 = poly[i + 2];
+                const FF delta0 = poly[i + 1] - base0;
+                const FF delta1 = poly[i + 3] - base1;
+
+                const auto [product0, product1] = FF::paired_mul(round_challenge, delta0, round_challenge, delta1);
+                dest_view[j].at(i >> 1) = base0 + product0;
+                dest_view[j].at((i + 2) >> 1) = base1 + product1;
+            }
+            // Tail: handles the final limit % 4 ∈ {1, 2, 3} remaining elements after the pair-stride loop.
+            for (; i < limit; i += 2) {
                 dest_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
             dest_view[j].shrink_end_index((limit / 2) + (limit % 2));

@@ -113,20 +113,12 @@ template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_d
         }
     }
 
-    // T0 = x*x
-    Fq T0 = x.sqr();
+    // T0 = x*x ; T1 = y*y
+    auto [T0, T1] = Fq::paired_sqr(x, y);
 
-    // T1 = y*y
-    Fq T1 = y.sqr();
-
-    // T2 = T1*T1 = y*y*y*y
-    Fq T2 = T1.sqr();
-
-    // T1 = T1 + x = x + y*y
-    T1 += x;
-
-    // T1 = T1 * T1
-    T1.self_sqr();
+    // T2 = T1*T1 = y*y*y*y ; T1 = (T1 + x)^2
+    Fq T2;
+    std::tie(T2, T1) = Fq::paired_sqr(T1, T1 + x);
 
     // T3 = T0 + T2 = xx + y*y*y*y
     Fq T3 = T0 + T2;
@@ -144,15 +136,11 @@ template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_d
         T3 += (T::a * z.sqr().sqr());
     }
 
-    // z2 = 2*y*z
-    z += z;
-    z *= y;
+    // z2 = 2*y*z ; x2 = T3*T3
+    std::tie(z, x) = Fq::paired_mul(z + z, y, T3, T3);
 
     // T0 = 2T1
     T0 = T1 + T1;
-
-    // x2 = T3*T3
-    x = T3.sqr();
 
     // x2 = x2 - 2T1
     x -= T0;
@@ -202,14 +190,15 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const affine_element
     // T0 = z1.z1
     Fq T0 = z.sqr();
 
-    // T1 = x2.t0 - x1 = x2.z1.z1 - x1
-    Fq T1 = other.x * T0;
+    // T1 = x2.t0 = x2.z1.z1 ; T2 = T0.z1 = z1.z1.z1
+    auto [T1, T2] = Fq::paired_mul(other.x, T0, z, T0);
+    // T1 = T1 - x1
     T1 -= x;
 
-    // T2 = T0.z1 = z1.z1.z1
-    // T2 = T2.y2 - y1 = y2.z1.z1.z1 - y1
-    Fq T2 = z * T0;
-    T2 *= other.y;
+    // T2 = T2.y2 = y2.z1.z1.z1 ; T3 = T1*T1 = HH
+    Fq T3;
+    std::tie(T2, T3) = Fq::paired_mul(T2, other.y, T1, T1);
+    // T2 = T2 - y1
     T2 -= y;
 
     if (__builtin_expect(T1.is_zero(), 0)) {
@@ -226,44 +215,37 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const affine_element
     T2 += T2;
     z += T1;
 
-    // T3 = T1*T1 = HH
-    Fq T3 = T1.sqr();
-
     // z3 = z3 - z1z1 - HH
     T0 += T3;
 
-    // z3 = (z1 + H)*(z1 + H)
-    z.self_sqr();
+    // z3 = (z1 + H)*(z1 + H) ; R_sq = R*R
+    Fq R_sq;
+    std::tie(z, R_sq) = Fq::paired_sqr(z, T2);
     z -= T0;
 
     // T3 = 4HH
     T3 += T3;
     T3 += T3;
 
-    // T1 = T1*T3 = 4HHH
-    T1 *= T3;
-
-    // T3 = T3 * x1 = 4HH*x1
-    T3 *= x;
+    // T1 = T1*T3 = 4HHH ; T3 = T3 * x1 = 4HH*x1
+    std::tie(T1, T3) = Fq::paired_mul(T1, T3, T3, x);
 
     // T0 = 2T3
     T0 = T3 + T3;
 
     // T0 = T0 + T1 = 2(4HH*x1) + 4HHH
     T0 += T1;
-    x = T2.sqr();
+    x = R_sq;
 
-    // x3 = x3 - T0 = R*R - 8HH*x1 -4HHH
+    // x3 = x3 - T0 = R*R - 8HH*x1 - 4HHH
     x -= T0;
 
     // T3 = T3 - x3 = 4HH*x1 - x3
     T3 -= x;
 
-    T1 *= y;
+    // T1 = T1 * y1 = 4HHH*y1 ; y = T2 * T3 = R*(4HH*x1 - x3)
+    std::tie(T1, T3) = Fq::paired_mul(T1, y, T3, T2);
     T1 += T1;
-
-    // T3 = T2 * T3 = R*(4HH*x1 - x3)
-    T3 *= T2;
 
     // y3 = T3 - T1
     y = T3 - T1;
@@ -323,14 +305,19 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const element& other
             return *this;
         }
     }
-    Fq Z1Z1(z.sqr());
-    Fq Z2Z2(other.z.sqr());
-    Fq S2(Z1Z1 * z);
-    Fq U2(Z1Z1 * other.x);
-    S2 *= other.y;
-    Fq U1(Z2Z2 * x);
-    Fq S1(Z2Z2 * other.z);
-    S1 *= y;
+    // Z1Z1 = z1*z1 ; Z2Z2 = z2*z2
+    auto [Z1Z1, Z2Z2] = Fq::paired_sqr(z, other.z);
+
+    // S2 = Z1Z1*z1 = z1.z1.z1 ; U2 = Z1Z1*x2
+    Fq S2, U2;
+    std::tie(S2, U2) = Fq::paired_mul(Z1Z1, z, Z1Z1, other.x);
+
+    // S1 = Z2Z2*z2 = z2.z2.z2 ; U1 = Z2Z2*x1
+    Fq S1, U1;
+    std::tie(S1, U1) = Fq::paired_mul(Z2Z2, other.z, Z2Z2, x);
+
+    // S2 = S2*y2 = y2.z1.z1.z1 ; S1 = S1*y1 = y1.z2.z2.z2
+    std::tie(S2, S1) = Fq::paired_mul(S2, other.y, S1, y);
 
     Fq F(S2 - S1);
 
@@ -347,29 +334,26 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const element& other
 
     F += F;
 
-    Fq I(H + H);
-    I.self_sqr();
+    // I = (2H)^2 = 4HH ; x = (2F)^2 = R*R
+    Fq I;
+    std::tie(I, x) = Fq::paired_sqr(H + H, F);
 
-    Fq J(H * I);
-
-    U1 *= I;
+    // J = H*I = 4HHH ; U1 = U1*I
+    Fq J;
+    std::tie(J, U1) = Fq::paired_mul(H, I, U1, I);
 
     U2 = U1 + U1;
     U2 += J;
 
-    x = F.sqr();
-
     x -= U2;
 
-    J *= S1;
+    // J = J*S1 ; y = (U1-x)*F
+    std::tie(J, y) = Fq::paired_mul(J, S1, U1 - x, F);
     J += J;
-
-    y = U1 - x;
-
-    y *= F;
 
     y -= J;
 
+    // z3 = ((z1+z2)^2 - Z1Z1 - Z2Z2) * H
     z += other.z;
 
     Z1Z1 += Z2Z2;
@@ -908,42 +892,119 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
                                                                         const size_t num_points,
                                                                         Fq* scratch_space) noexcept
 {
-    Fq batch_inversion_accumulator = Fq::one();
+    // Pair-stride: two independent accumulators let each iteration's two `acc *= dx`
+    // fold into one paired_mul (faster than two singles); tail handles odd pair counts.
+    Fq acc0 = Fq::one();
+    Fq acc1 = Fq::one();
+
+    const size_t num_pairs = num_points >> 1;
+    // Round down to an even pair count; odd remainder runs through the tail handlers.
+    const size_t num_unrolled_pairs = num_pairs & ~1ULL;
 
     // Forward pass: accumulate (x2 - x1) products for batch inversion
-    for (size_t i = 0; i < num_points; i += 2) {
+    for (size_t i = 0; i < num_unrolled_pairs * 2; i += 4) {
         scratch_space[i >> 1] = points[i].x + points[i + 1].x; // x1 + x2 (saved for later)
         points[i + 1].x -= points[i].x;                        // x2 - x1
         points[i + 1].y -= points[i].y;                        // y2 - y1
-        points[i + 1].y *= batch_inversion_accumulator;
-        batch_inversion_accumulator *= points[i + 1].x;
+
+        scratch_space[(i + 2) >> 1] = points[i + 2].x + points[i + 3].x; // x1 + x2 (saved for later)
+        points[i + 3].x -= points[i + 2].x;                              // x2 - x1
+        points[i + 3].y -= points[i + 2].y;                              // y2 - y1
+
+        {
+            const auto [r0, r1] = Fq::paired_mul(points[i + 1].y, acc0, points[i + 3].y, acc1);
+            points[i + 1].y = r0;
+            points[i + 3].y = r1;
+        }
+        {
+            const auto [r0, r1] = Fq::paired_mul(acc0, points[i + 1].x, acc1, points[i + 3].x);
+            acc0 = r0;
+            acc1 = r1;
+        }
     }
 
-    if (batch_inversion_accumulator == Fq::zero()) {
+    // Forward tail: odd leftover pair (folded into acc0 to keep acc1 lane balanced).
+    if (num_pairs & 1) {
+        size_t i = num_unrolled_pairs * 2;
+        scratch_space[i >> 1] = points[i].x + points[i + 1].x; // x1 + x2 (saved for later)
+        points[i + 1].x -= points[i].x;                        // x2 - x1
+        points[i + 1].y -= points[i].y;                        // y2 - y1
+        points[i + 1].y *= acc0;
+        acc0 *= points[i + 1].x;
+    }
+
+    // Recover per-lane inverses of each accumulator with one inversion:
+    //   1/acc0 = acc1 / (acc0 * acc1) ; 1/acc1 = acc0 / (acc0 * acc1)
+    Fq combined_acc = acc0 * acc1;
+    if (combined_acc == Fq::zero()) {
         throw_or_abort("attempted to invert zero in batch_affine_add_interleaved");
     }
-    batch_inversion_accumulator = batch_inversion_accumulator.invert();
+    combined_acc = combined_acc.invert();
+    Fq inv_acc0 = combined_acc * acc1;
+    Fq inv_acc1 = combined_acc * acc0;
 
     // Backward pass: complete inversions and compute additions
-    for (size_t i = num_points - 2; i < num_points; i -= 2) {
+    // Backward tail: same odd leftover, applied through inv_acc0 (mirrors the forward tail).
+    if (num_pairs & 1) {
+        size_t i = num_unrolled_pairs * 2;
         // lambda = (y2 - y1) / (x2 - x1)
-        points[i + 1].y *= batch_inversion_accumulator;
-        batch_inversion_accumulator *= points[i + 1].x;
+        points[i + 1].y *= inv_acc0;
+        inv_acc0 *= points[i + 1].x;
         points[i + 1].x = points[i + 1].y.sqr();
         // x3 = lambda^2 - (x1 + x2)
         points[(i + num_points) >> 1].x = points[i + 1].x - scratch_space[i >> 1];
-
-        if (i >= 2) {
-            __builtin_prefetch(points + i - 2);
-            __builtin_prefetch(points + i - 1);
-            __builtin_prefetch(points + ((i + num_points - 2) >> 1));
-            __builtin_prefetch(scratch_space + ((i - 2) >> 1));
-        }
 
         // y3 = lambda * (x1 - x3) - y1
         points[i].x -= points[(i + num_points) >> 1].x;
         points[i].x *= points[i + 1].y;
         points[(i + num_points) >> 1].y = points[i].x - points[i].y;
+    }
+
+    // Backward pass: recover inverses in reverse order (Montgomery's trick: process the later
+    // pair (i+3) before the earlier (i+1) so each iteration unwinds one product from inv_acc).
+    // Loop variable `i_plus_4` stays positive to avoid size_t underflow when the loop exits.
+    for (size_t i_plus_4 = num_unrolled_pairs * 2; i_plus_4 > 0; i_plus_4 -= 4) {
+        size_t i = i_plus_4 - 4;
+
+        // lambda = (y2 - y1) / (x2 - x1)
+        {
+            const auto [r0, r1] = Fq::paired_mul(points[i + 3].y, inv_acc1, points[i + 1].y, inv_acc0);
+            points[i + 3].y = r0;
+            points[i + 1].y = r1;
+        }
+        {
+            const auto [r0, r1] = Fq::paired_mul(inv_acc1, points[i + 3].x, inv_acc0, points[i + 1].x);
+            inv_acc1 = r0;
+            inv_acc0 = r1;
+        }
+
+        const auto [lambda_sq_hi, lambda_sq_lo] = Fq::paired_sqr(points[i + 3].y, points[i + 1].y);
+
+        // x3 = lambda^2 - (x1 + x2)
+        const Fq x3_hi = lambda_sq_hi - scratch_space[(i + 2) >> 1];
+        const Fq x3_lo = lambda_sq_lo - scratch_space[i >> 1];
+
+        if (i >= 4) {
+            __builtin_prefetch(points + i - 4);
+            __builtin_prefetch(points + i - 3);
+            __builtin_prefetch(points + i - 2);
+            __builtin_prefetch(points + i - 1);
+            __builtin_prefetch(points + ((i + num_points - 4) >> 1));
+            __builtin_prefetch(points + ((i + num_points - 2) >> 1));
+            __builtin_prefetch(scratch_space + ((i - 4) >> 1));
+            __builtin_prefetch(scratch_space + ((i - 2) >> 1));
+        }
+
+        // y3 = lambda * (x1 - x3) - y1
+        const Fq t1 = points[i + 2].x - x3_hi;
+        const Fq t0 = points[i].x - x3_lo;
+
+        const auto [y3_hi, y3_lo] = Fq::paired_mul(t1, points[i + 3].y, t0, points[i + 1].y);
+
+        points[(i + 2 + num_points) >> 1].x = x3_hi;
+        points[(i + num_points) >> 1].x = x3_lo;
+        points[(i + 2 + num_points) >> 1].y = y3_hi - points[i + 2].y;
+        points[(i + num_points) >> 1].y = y3_lo - points[i].y;
     }
 }
 

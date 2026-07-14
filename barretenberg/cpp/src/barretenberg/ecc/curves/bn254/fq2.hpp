@@ -27,7 +27,6 @@ namespace bb {
  *   and store them as frobenius_on_twisted_curve_x and frobenius_on_twisted_curve_y.
  */
 struct Bn254Fq2Params {
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr fq twist_coeff_b_0{
         0x3bf938e377b802a8UL, 0x020b1b273633535dUL, 0x26b7edf049755260UL, 0x2514c6324384a86dUL
     };
@@ -46,26 +45,6 @@ struct Bn254Fq2Params {
     static constexpr fq frobenius_on_twisted_curve_y_1{
         0xa1d77ce45ffe77c7UL, 0x07affd117826d1dbUL, 0x6d16bd27bb7edc6bUL, 0x2c87200285defeccUL
     };
-#else
-    static constexpr fq twist_coeff_b_0{
-        0xdc19fa4aab489658UL, 0xd416744fbbf6e69UL, 0x8f7734ed0a8a033aUL, 0x19316b8353ee09bbUL
-    };
-    static constexpr fq twist_coeff_b_1{
-        0x1cfd999a3b9fece0UL, 0xbe166fb279c1a7c7UL, 0xe93a1ba45580154cUL, 0x283739c94d11a9baUL
-    };
-    static constexpr fq frobenius_on_twisted_curve_x_0{
-        0xecdea09b24a59190UL, 0x17db8ffeae2fe1c2UL, 0xbb09c97c6dabac4dUL, 0x2492b3d41d289af3UL
-    };
-    static constexpr fq frobenius_on_twisted_curve_x_1{
-        0xf1663598f1142ef1UL, 0x77ec057e0bf56062UL, 0xdd0baaecb677a631UL, 0x135e4e31d284d463UL
-    };
-    static constexpr fq frobenius_on_twisted_curve_y_0{
-        0xf46e7f60db1f0678UL, 0x31fc2eba5bcc5c3eUL, 0xedb3adc3086a2411UL, 0x1d46bd0f837817bcUL
-    };
-    static constexpr fq frobenius_on_twisted_curve_y_1{
-        0x6b3fbdf579a647d5UL, 0xcc568fb62ff64974UL, 0xc1bfbf4ac4348ac6UL, 0x15871d4d3940b4d3UL
-    };
-#endif
 };
 
 using fq2 = field2<fq, Bn254Fq2Params>;

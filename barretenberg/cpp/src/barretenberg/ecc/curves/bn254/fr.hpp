@@ -87,13 +87,6 @@ class Bn254FrParams {
     static constexpr uint64_t modulus_wasm_7 = 0xe5c2634;
     static constexpr uint64_t modulus_wasm_8 = 0x30644e;
 
-    // A little-endian representation of R^2 modulo the modulus (R=2^261 mod modulus) split into 4 64-bit words
-    // We use 2^261 in wasm, because 261=29*9, the 9 29-bit limbs used for arithmetic
-    static constexpr uint64_t r_squared_wasm_0 = 0x38c2e14b45b69bd4UL;
-    static constexpr uint64_t r_squared_wasm_1 = 0x0ffedb1885883377UL;
-    static constexpr uint64_t r_squared_wasm_2 = 0x7840f9f0abc6e54dUL;
-    static constexpr uint64_t r_squared_wasm_3 = 0x0a054a3e848b0f05UL;
-
     // 2^(-29) mod Modulus
     // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
@@ -107,26 +100,6 @@ class Bn254FrParams {
     static constexpr uint64_t r_inv_wasm_6 = 0x11f74a6c;
     static constexpr uint64_t r_inv_wasm_7 = 0x6fdaecb;
     static constexpr uint64_t r_inv_wasm_8 = 0x183227;
-
-    // A little-endian representation of the cubic root of 1 in Fr in Montgomery form for wasm (R=2^261 mod modulus)
-    // split into 4 64-bit words
-    static constexpr uint64_t cube_root_wasm_0 = 0x7334a1ce7065364dUL;
-    static constexpr uint64_t cube_root_wasm_1 = 0xae21578e4a14d22aUL;
-    static constexpr uint64_t cube_root_wasm_2 = 0xcea2148a96b51265UL;
-    static constexpr uint64_t cube_root_wasm_3 = 0x0038f7edf614a198UL;
-
-    // A little-endian representation of the primitive root of 1 Fr in Montgomery form for wasm (R=2^261 mod modulus)
-    // split into 4 64-bit words
-    static constexpr uint64_t primitive_root_wasm_0 = 0x2faf11711a27b370UL;
-    static constexpr uint64_t primitive_root_wasm_1 = 0xc23fe9fced28f1b8UL;
-    static constexpr uint64_t primitive_root_wasm_2 = 0x43a0fc9bbe2af541UL;
-    static constexpr uint64_t primitive_root_wasm_3 = 0x05d90b5719653a4fUL;
-
-    // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems
-    static constexpr uint64_t coset_generator_wasm_0 = 0xab46711cdffffcb2ULL;
-    static constexpr uint64_t coset_generator_wasm_1 = 0x2476607dbd2dfff1ULL;
-    static constexpr uint64_t coset_generator_wasm_2 = 0xe6b99ee0068dfc25ULL;
-    static constexpr uint64_t coset_generator_wasm_3 = 0x1484c05bce00b620ULL;
 
     // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
     // For specifics on how these have been derived, see ecc/fields/endomorphim_scalars.py

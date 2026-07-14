@@ -145,6 +145,11 @@ bb-cpp-wasm:
 bb-cpp-wasm-threads:
 	$(call build,$@,barretenberg/cpp,build_preset wasm-threads)
 
+# BB C++ WASM Threads SIMD - Multi-threaded WebAssembly build with relaxed-simd.
+# Test-only: bb.js currently bundles bb-cpp-wasm-threads (no relaxed-simd).
+bb-cpp-wasm-threads-simd:
+	$(call build,$@,barretenberg/cpp,build_preset wasm-threads-simd)
+
 # Cross-compile object phases (parallel with avm-transpiler cross-compile)
 bb-cpp-cross-arm64-linux-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-linux)
@@ -261,6 +266,9 @@ bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads
 	$(call test,$@,barretenberg/cpp,wasm_threads)
 
+bb-cpp-wasm-threads-simd-tests: bb-cpp-wasm-threads-simd
+	$(call test,$@,barretenberg/cpp,wasm_threads_simd)
+
 bb-cpp-asan-tests: bb-cpp-asan
 	$(call test,$@,barretenberg/cpp,asan)
 
@@ -287,7 +295,7 @@ bb-rs-tests: bb-rs
 
 bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
-bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
+bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-wasm-threads-simd-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
 #==============================================================================
 # IPC Codegen
