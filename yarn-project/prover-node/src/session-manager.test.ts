@@ -31,6 +31,8 @@ describe('SessionManager', () => {
 
   /** Mirror of fullSessions/partialSessions whose entries are stubs we control. */
   let stubs: StubSession[];
+  /** Sessions the manager passed to the failure-upload callback. */
+  let sessionFailures: EpochSession[];
   /** Resolves whenever the manager constructs a stub session. */
   let onConstruct: ((stub: StubSession) => void) | undefined;
 
@@ -55,6 +57,7 @@ describe('SessionManager', () => {
     store.listForEpoch.mockResolvedValue([]);
 
     stubs = [];
+    sessionFailures = [];
     onConstruct = undefined;
 
     manager = new TestSessionManager(
@@ -67,6 +70,10 @@ describe('SessionManager', () => {
         metrics,
         dateProvider: new DateProvider(),
         config: { maxPendingJobs: 0, tickIntervalMs: 60_000, finalizationDelayMs: undefined },
+        onSessionFailed: session => {
+          sessionFailures.push(session);
+          return Promise.resolve();
+        },
       },
       (spec, provers) => {
         const stub = makeStubSession(spec, provers);
@@ -256,11 +263,61 @@ describe('SessionManager', () => {
     expect(manager.getFullSession(EpochNumber(3))).toBeUndefined();
   });
 
-  it('re-opens an epoch whose session stopped but whose provers are healthy', async () => {
-    // A session-level failure (a transient top-tree prove or L1 submit error) settles the session in
-    // 'stopped' while its checkpoint provers succeeded. No prover has failed, so the next tick re-opens
-    // the epoch — the rebuilt session reuses the broker's completed sub-proofs and re-attempts the top
-    // tree / submit. (A doomed checkpoint prover, by contrast, would gate the reopen — see above.)
+  it('retains a full session that failed on its own account, uploads once, and does not re-prove it', async () => {
+    // A session-level failure (top-tree prove or L1 submit) with every checkpoint prover healthy ends the
+    // session in 'failed'. Because healthy provers rule out a prune, this is a genuine, race-free failure:
+    // it uploads a post-mortem exactly once, and the failed session is retained so the tick does not
+    // re-prove a deterministically-failing epoch.
+    mockNextUnprovenSlot(2, 6);
+    l2BlockSource.isEpochComplete.mockResolvedValue(true);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+    store.listInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
+
+    await manager.onTick();
+    expect(stubs.length).toBe(1);
+    const failed = stubs[0];
+    failed.terminate('failed');
+    await flushSessionCompletion();
+
+    // Uploaded exactly once, for this session.
+    expect(sessionFailures).toHaveLength(1);
+    expect(sessionFailures[0]).toBe(failed as unknown as EpochSession);
+
+    // Retained (not deleted) and never re-proved by the tick.
+    await manager.onTick();
+    await manager.onTick();
+    expect(stubs.length).toBe(1);
+    expect(manager.getFullSession(EpochNumber(3))).toBe(failed as unknown as EpochSession);
+    expect(sessionFailures).toHaveLength(1); // still just the one upload
+  });
+
+  it('replaces a retained failed session when its canonical content changes (re-add)', async () => {
+    // The one way a retained failed session is retried: its content changes. A re-add over new content
+    // replaces the marker with a fresh session so the epoch can be proven over the new provers.
+    mockNextUnprovenSlot(2, 6);
+    l2BlockSource.isEpochComplete.mockResolvedValue(true);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+    store.listInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
+
+    await manager.onTick();
+    stubs[0].terminate('failed');
+    await flushSessionCompletion();
+
+    // Content changes (a re-add at a different slot in the epoch) → the retained session is replaced.
+    store.listInSlotRange.mockReturnValue([proverForCheckpoint(2, 7)]);
+    await manager.onTick();
+
+    const replacement = manager.getFullSession(EpochNumber(3)) as unknown as StubSession | undefined;
+    expect(replacement).toBeDefined();
+    expect(replacement).not.toBe(stubs[0]);
+    expect(replacement!.isTerminal()).toBe(false);
+    expect(replacement!.provers.map(p => p.id)).toEqual([proverForCheckpoint(2, 7).id]);
+    expect(stubs.length).toBe(2);
+  });
+
+  it('does not upload when a session stops because a checkpoint prover failed', async () => {
+    // A 'stopped' session (a prover under it failed — possibly a prune) is not the session's own failure,
+    // so no post-mortem is uploaded (contrast with a 'failed' session, which uploads).
     mockNextUnprovenSlot(2, 6);
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
@@ -271,17 +328,12 @@ describe('SessionManager', () => {
     stubs[0].terminate('stopped');
     await flushSessionCompletion();
 
-    await manager.onTick();
-    const retried = manager.getFullSession(EpochNumber(3)) as unknown as StubSession | undefined;
-    expect(retried).toBeDefined();
-    expect(retried).not.toBe(stubs[0]);
-    expect(retried!.isTerminal()).toBe(false);
-    expect(stubs.length).toBe(2);
+    expect(sessionFailures).toEqual([]);
   });
 
-  it('onTick stops retrying once the epoch is proven (proven height advances past it)', async () => {
-    // Retry-to-converge terminates for free: once the epoch is proven, the proven tip advances so
-    // nextUnprovenEpoch moves on and the tick no longer selects the proven epoch.
+  it('onTick does not reopen an epoch once the proven height advances past it', async () => {
+    // Once the epoch is proven, the proven tip advances so nextUnprovenEpoch moves on and the tick no
+    // longer selects the proven epoch.
     mockNextUnprovenSlot(2, 6); // proven tip block 2 → first unproven slot 6 → epoch 3
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
@@ -290,7 +342,7 @@ describe('SessionManager', () => {
 
     await manager.onTick();
     expect(stubs.length).toBe(1);
-    stubs[0].terminate('stopped');
+    stubs[0].terminate('completed');
     await flushSessionCompletion();
 
     // Proven height jumps past epoch 3's blocks: the next unproven block is now in a later epoch.
@@ -857,8 +909,10 @@ type StubSession = {
   getId(): string;
   getState(): EpochProvingJobState;
   getEpochNumber(): EpochNumber;
+  getKind(): SessionSpec['kind'];
   getCheckpoints(): readonly CheckpointProver[];
   isTerminal(): boolean;
+  hasFailed(): boolean;
   cancel(reason?: string, opts?: { abortJobs?: boolean }): Promise<void>;
   start(): Promise<EpochProvingJobState>;
   whenDone(): Promise<EpochProvingJobState>;
@@ -895,6 +949,9 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
     getEpochNumber() {
       return this.spec.epochNumber;
     },
+    getKind() {
+      return this.spec.kind;
+    },
     getCheckpoints() {
       return this.provers;
     },
@@ -908,6 +965,9 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
         'timed-out',
       ];
       return terminal.includes(this.state);
+    },
+    hasFailed() {
+      return this.state === 'failed';
     },
     async cancel(reason?: string, opts?: { abortJobs?: boolean }) {
       this.cancelReasons.push(reason ?? 'cancelled');

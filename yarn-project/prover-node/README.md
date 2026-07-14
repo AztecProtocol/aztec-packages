@@ -50,9 +50,9 @@ The prover-node splits responsibility between four classes:
   translates each chain event into a single method call on the `SessionManager` or
   `ProofPublishingService`. It also performs side effects that don't belong on an
   `EpochSession`: registering new checkpoints with the store per event, and sweeping expired
-  epochs out of the cache and the store on a periodic ticker (see below). It is the sole author of an
-  epoch's terminal failure: when an epoch's proof-submission window closes with the epoch
-  still unproven, `expireEpoch` runs the post-mortem failure-upload before reaping the store.
+  epochs out of the cache and the store on a periodic ticker (see below). It uploads a post-mortem
+  snapshot when a full session reports its own genuine failure (via the session manager's
+  `onSessionFailed` callback — see `EpochSession.hasFailed()`).
 - **`CheckpointStore`** — a registry of `CheckpointProver` instances keyed by
   `(checkpointNumber, slot, archiveRoot)`. Each `CheckpointProver` runs its own sub-tree pipeline
   (tx gather → block processing → block-rollup proofs), starting eagerly the moment a
@@ -155,9 +155,9 @@ stateDiagram-v2
   awaiting_root --> publishing_proof: epoch proof ready, submit to L1
   publishing_proof --> completed: publish succeeds
   publishing_proof --> superseded: longer same-epoch candidate wins
-  publishing_proof --> stopped: L1 submission errored
-  awaiting_checkpoints --> stopped: top-tree prove errored
-  awaiting_root --> stopped: top-tree prove errored
+  publishing_proof --> failed: L1 submission errored (provers healthy)
+  awaiting_checkpoints --> stopped: a checkpoint prover failed
+  awaiting_root --> failed: top-tree prove errored (provers healthy)
   initialized --> timed_out: deadline
   awaiting_checkpoints --> timed_out: deadline (EpochSession or candidate)
   awaiting_root --> timed_out: deadline (EpochSession or candidate)
@@ -168,16 +168,21 @@ stateDiagram-v2
   cancelled --> [*]
   timed_out --> [*]
   stopped --> [*]
+  failed --> [*]
 ```
 
-A proving or submission fault never declares the epoch failed. It settles the `EpochSession` in
-the non-declaring terminal `stopped`: a fact about this attempt, not a verdict on the epoch. The
-reconciler is free to rebuild the epoch — over healthy provers it does so on the next tick; over a
-**failed** `CheckpointProver` it holds off until a prune/re-add installs a fresh one. The epoch is
-declared `failed` — with a post-mortem upload — only at its L1 proof-submission-window expiry, in
-`ProverNode.expireEpoch`. That is the single, race-free point where the proven tip is settled, so
-"did this epoch miss its window?" has an authoritative answer and no prune/fault classification is
-needed.
+A fault settles the `EpochSession` in one of two terminal states, and the difference is the whole
+point:
+
+- **`stopped`** — a `CheckpointProver` under the session failed (its block proofs rejected). This may
+  be a prune-induced fork fault, so it is *not* a verdict on the epoch and is *not* uploaded. The
+  reconciler drops the session and, guarded by `isFailed()`, does not rebuild over the failed prover;
+  a prune/re-add installs a fresh prover and the epoch is retried.
+- **`failed`** — the session's own work (top-tree prove or L1 submit) failed while *every* checkpoint
+  prover succeeded. Because healthy provers rule out a prune, this is a genuine, race-free failure
+  (`EpochSession.hasFailed()`). The reconciler retains such a full session (so the tick does not
+  re-prove a deterministically-failing epoch) and uploads a post-mortem exactly once. No prune/fault
+  classification is needed — the two states carry it.
 
 The non-terminal states track the window between `start()` and the L1 submission:
 
@@ -203,7 +208,7 @@ Outcome → state mapping:
 |---|---|
 | `published` | `completed` |
 | `superseded` | `superseded` |
-| `failed` | `stopped` (retryable — not a terminal epoch failure) |
+| `failed` | `failed` (genuine failure — provers were healthy) |
 | `expired` | `timed-out` |
 | `withdrawn` | `cancelled` |
 
@@ -352,10 +357,6 @@ sequenceDiagram
   PN->>PN: latestEpoch = getEpochAtSlot(latestSlot)
   PN->>PN: newlyExpiredUpTo = latestEpoch - (proofSubmissionEpochs + 1)
   loop for each newly-expired epoch
-    PN->>PN: isEpochFullyProven(epoch)?
-    alt unproven and store still has its provers
-      PN->>PN: tryUploadEpochFailure(epoch, provers) (post-mortem)
-    end
     PN->>L2: getBlocks({epoch, onlyCheckpointed})
     PN->>CC: releaseForBlocks(blocks)
     PN->>CS: reapExpired(epoch)
@@ -368,14 +369,13 @@ deliberately **not** run from `handleBlockStreamEvent` — expiry is a backgroun
 archiver's synced slot, not part of event processing — and because a `RunningPromise` never overlaps
 its own runs, no two sweeps can race. An epoch `E` is expired once the chain reaches the start of epoch
 `E + proofSubmissionEpochs + 1` — the deadline beyond which an L1 submission for `E` would be rejected.
-This is also the single point at which an epoch is declared a terminal **failure**: if `E` is not fully
-proven by now (the proven tip is settled, so the answer is authoritative), `expireEpoch` uploads a
-post-mortem snapshot built from `E`'s last-known canonical provers before reaping them. A monotonic
-high-water mark (`lastExpiredEpoch`) makes the sweep cheap and guarantees each epoch is swept — and
-uploaded — exactly once: it only advances after a sweep completes and never revisits an epoch. It is
-seeded at `start()` from the last fully-proven epoch (`resolveLastFullyProvenEpoch`), so on a restart we
-never re-sweep epochs that already reached L1. An epoch that left no provers behind (never re-added after
-a prune — another prover covers it) uploads nothing.
+Expiry only releases the chonk cache and reaps `E`'s provers; it does **not** upload a post-mortem. A
+missed-window epoch's provers may already have been pruned by the time it expires, so there would be
+nothing to upload — the post-mortem instead fires eagerly and race-free when a full session reports its
+own failure (see below). A monotonic high-water mark (`lastExpiredEpoch`) makes the sweep cheap: it only
+advances after a sweep completes and never revisits an epoch. It is seeded at `start()` from the last
+fully-proven epoch (`resolveLastFullyProvenEpoch`), so on a restart we never re-sweep epochs that already
+reached L1.
 
 ### Periodic tick
 
@@ -383,17 +383,15 @@ a prune — another prover covers it) uploads nothing.
 `reconcile({ kind: 'tick' })` every `tickIntervalMs`. The tick picks up epochs that
 became complete by time alone (no fresh checkpoint event) and advances to the
 next unproven epoch once the previous one lands on L1. The tick is not gated by any per-epoch
-bookkeeping; what keeps it from re-proving a doomed epoch is `openFullSessionIfReady` refusing to build
-a session when any `CheckpointProver` in the set has **failed** (`isFailed()`). So a stuck epoch is
-skipped cheaply each tick — no session, no proving — until a prune/re-add replaces the failed prover, or
-the epoch expires. Two consequences worth noting:
+bookkeeping; two things keep it from re-proving a doomed epoch:
 
-- A session that stops with its provers **healthy** — a transient top-tree prove or L1 submit error —
-  is re-opened by the next tick (nothing is failed), and the rebuilt session reuses the broker's
-  completed sub-proofs and re-attempts the top tree / submit. This is the desired retry for transient
-  submit failures.
-- A failure that leaves a prover **failed** is not retried by the tick over the same prover; it recovers
-  only when a prune/re-add installs a fresh prover, and otherwise fails at expiry.
+- `openFullSessionIfReady` refuses to build a session when any `CheckpointProver` in the set has
+  **failed** (`isFailed()`). So a prover fault (possibly a prune) skips the epoch cheaply each tick —
+  no session, no proving — until a prune/re-add installs a fresh prover.
+- A session that failed on its own account (`hasFailed()` — top-tree/submit failed with every prover
+  healthy) is **retained** by `recreateInvalidSessions` rather than deleted, so the tick's
+  `fullSessions.has(epoch)` check skips it. It is replaced only when its canonical content changes (a
+  re-add), so a deterministically-failing epoch is not re-proved every tick.
 
 Transient blockers (max-pending-jobs reached, archiver still indexing) create no session and no failed
 prover, so the next tick simply tries again.
@@ -503,20 +501,19 @@ by keeping the prover around.  Removing it on prune and rebuilding on re-add is 
 correct and simpler; the expensive block-rollup proofs are still reused when content re-appears,
 because the proving broker is content-addressed independently of the prover's lifetime.
 
-### Why is an epoch declared failed only at expiry, never on a proving fault?
+### How is a genuine failure told apart from a prune, without a racy classification?
 
 Knowledge of an L1 reorg reaches the prover-node on two causally unordered channels: the control
 plane (`chain-pruned` → `onPrune`) and the data plane (world-state unwinds, and an in-flight fork
-read faults inside a `CheckpointProver` mid-proof). If the `EpochSession` reacted to a fault by
-declaring the epoch `failed`, it would have to answer "was this a prune or a genuine failure?" —
-and every way to answer it samples control-plane state that lags the data-plane unwind, so the
-check is racy by construction. We remove the question instead: a fault is just a fact about the
-attempt (`stopped`), and — one level down — a fact about the prover that faulted (`isFailed()`). The
-reconciler simply won't build a session over a failed prover, so a doomed epoch is skipped rather than
-reasoned about; it recovers when a prune/re-add replaces the prover, and is declared `failed` only when
-its submission window closes with the proven tip settled. At that instant "did the epoch miss its
-window?" has an authoritative, race-free answer, and the failure and its post-mortem upload become a
-single deliberate event.
+read faults inside a `CheckpointProver` mid-proof). If the `EpochSession` reacted to a fault by asking
+"was this a prune or a genuine failure?", every answer would sample control-plane state that lags the
+data-plane unwind — racy by construction. We remove the question by pushing the fact down to where it
+is unambiguous: a `CheckpointProver` records `isFailed()` when *its* block proofs reject. The session
+then reads a clean signal: if any prover failed, the fault might be a prune (`stopped`) — don't upload,
+don't rebuild over it, recover on re-add; if *no* prover failed yet the session's own top-tree/submit
+work failed, that is definitively **not** a prune (`failed`) — a genuine, race-free failure that is
+retained (so a deterministic failure isn't re-proved every tick) and uploaded once. No control-plane
+sampling, no timing race — the two prover-level and session-level facts carry the whole decision.
 
 ## Configuration
 
@@ -526,7 +523,7 @@ single deliberate event.
 | `PROVER_NODE_MAX_PENDING_JOBS` | Cap on the number of non-terminal `EpochSession`s (full + partial).  When at limit, reconcile defers opening new full `EpochSession`s; explicit `startProof` calls throw. |
 | `PROVER_NODE_EPOCH_PROVING_DELAY_MS` | Optional sleep at the start of each `EpochSession`, before the TopTreeJob is constructed.  Used in tests to give late events time to land. |
 | `TX_GATHERING_TIMEOUT_MS` | Per-block tx gather deadline used by each `CheckpointProver`. |
-| `PROVER_NODE_FAILED_EPOCH_STORE` | If set, an epoch that expires unproven uploads its proving data (every `CheckpointProver`'s txs + register-time data, regardless of sub-tree completion) to this file store. |
+| `PROVER_NODE_FAILED_EPOCH_STORE` | If set, a full session that fails on its own account (top-tree/submit, provers healthy) uploads its proving data (every `CheckpointProver`'s txs + register-time data, regardless of sub-tree completion) to this file store. |
 | `PROVER_NODE_DISABLE_PROOF_PUBLISH` | If true, the publishing service runs `analyzeEpochProofSubmission` (estimates L1 fees) instead of actually submitting. |
 
 ## Failure handling and observability
@@ -544,14 +541,15 @@ Loggers:
 - `prover-node:checkpoint-prover` — sub-tree pipeline (gather, block processing).
 - `prover-client:chonk-cache` — chonk-verifier cache enqueue / release events.
 
-When an epoch expires unproven, `ProverNode.expireEpoch` calls `tryUploadEpochFailure(epoch, provers)`,
-which uses `SessionManager.buildProvingData(provers)` to walk every `CheckpointProver` the store still
-holds for the epoch and assemble an `EpochProvingJobData` snapshot — including every `CheckpointProver`'s
+When a full session ends in its own genuine failure (`EpochSession.hasFailed()` — top-tree/submit failed
+with every prover healthy), the session manager fires `onSessionFailed`, and `ProverNode` calls
+`tryUploadEpochFailure(epoch, session.getCheckpoints())`. That uses `SessionManager.buildProvingData(...)`
+to walk every `CheckpointProver` and assemble an `EpochProvingJobData` snapshot — including each prover's
 txs and register-time data even if its sub-tree never reached `isCompleted()`. This snapshot is what
 `uploadEpochProofFailure` ships to the configured file store along with a world-state + archiver backup,
-so the failure can be reproduced offline via `rerunEpochProvingJob`. Because this runs once at expiry —
-never on a mid-window proving fault — a pruned or transiently-failing epoch that later converges produces
-no spurious upload.
+so the failure can be reproduced offline via `rerunEpochProvingJob`. The upload is race-free (healthy
+provers rule out a prune) and fires once, because the failed session is retained and never re-run — so a
+pruned or transient prover fault (which ends `stopped`, not `failed`) produces no spurious upload.
 
 Metrics emitted by `EpochSession`s:
 

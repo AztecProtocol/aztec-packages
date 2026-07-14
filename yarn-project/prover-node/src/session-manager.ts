@@ -59,6 +59,12 @@ export type SessionManagerDeps = {
   metrics: ProverNodeJobMetrics;
   dateProvider: DateProvider;
   config: SessionManagerConfig;
+  /**
+   * Fired once when a full session ends in its own genuine failure (`EpochSession.hasFailed()` — top-tree
+   * or submit failed with every prover healthy). The owner uploads a post-mortem here. Not fired for a
+   * `stopped` session (a prover under it failed — possibly a prune), which is recovered on re-add instead.
+   */
+  onSessionFailed?: (session: EpochSession) => Promise<void>;
   bindings?: LoggerBindings;
 };
 
@@ -241,15 +247,30 @@ export class SessionManager {
 
   private recreateInvalidSessions(): void {
     for (const [key, session] of Array.from(this.fullSessions.entries())) {
+      const canonical = this.checkpointsForSpec(session.getSpec());
+      const contentChanged = !this.checkpointsMatch(session.getCheckpoints(), canonical);
+
       if (session.isTerminal()) {
+        // A full session that failed on its own account is retained as a "do not re-prove" marker while
+        // its content is unchanged — this is what stops the tick re-proving a deterministically-failing
+        // epoch. When the content changes (a re-add), it is replaced so the epoch retries over the new
+        // provers. Any other terminal full session is simply dropped.
+        if (session.hasFailed() && !contentChanged) {
+          continue;
+        }
         this.fullSessions.delete(key);
+        if (contentChanged && this.canBuildOver(canonical)) {
+          const newSession = this.constructSession(session.getSpec(), canonical);
+          this.fullSessions.set(key, newSession);
+          void this.runSession(newSession);
+        }
         continue;
       }
-      const canonical = this.checkpointsForSpec(session.getSpec());
-      if (!this.checkpointsMatch(session.getCheckpoints(), canonical)) {
+
+      if (contentChanged) {
         this.fireAndForgetCancel(session, 'canonical content changed');
         this.fullSessions.delete(key);
-        if (canonical.length > 0 && !this.hasFailedProver(canonical)) {
+        if (this.canBuildOver(canonical)) {
           const newSession = this.constructSession(session.getSpec(), canonical);
           this.fullSessions.set(key, newSession);
           void this.runSession(newSession);
@@ -265,7 +286,7 @@ export class SessionManager {
       if (!this.checkpointsMatch(session.getCheckpoints(), canonical)) {
         this.fireAndForgetCancel(session, 'canonical content changed');
         this.partialSessions.delete(key);
-        if (canonical.length > 0 && !this.hasFailedProver(canonical)) {
+        if (this.canBuildOver(canonical)) {
           const newSession = this.constructSession(session.getSpec(), canonical);
           this.partialSessions.set(key, newSession);
           void this.runSession(newSession);
@@ -274,9 +295,15 @@ export class SessionManager {
     }
   }
 
+  /** A session may be built over a checkpoint set only when it is non-empty and contains no failed prover. */
+  private canBuildOver(canonical: readonly CheckpointProver[]): boolean {
+    return canonical.length > 0 && !this.hasFailedProver(canonical);
+  }
+
   private async openFullSessionIfReady(epoch: EpochNumber): Promise<void> {
-    // `recreateInvalidSessions` runs at the top of every reconcile and deletes terminal sessions
-    // before this is called, so a session present here is live and already covers the epoch.
+    // A session present here already covers the epoch: either live, or a retained genuinely-failed
+    // session kept by `recreateInvalidSessions` as a "do not re-prove" marker. Either way, don't open
+    // another — the retained-failed one is replaced only when its canonical content changes.
     if (this.fullSessions.has(epoch)) {
       return;
     }
@@ -386,11 +413,21 @@ export class SessionManager {
       this.log.debug(`Skipping start for ${session.getId()}: already terminal (${session.getState()})`);
       return;
     }
-    // A proving or submission fault settles the session in a non-declaring terminal state
-    // ('stopped'); the reconciler rebuilds the epoch over current canonical content on a later
-    // pass, and the terminal 'failed' decision + post-mortem upload happen once, at expiry.
     const state = await session.start();
     this.log.info(`Session ${session.getId()} exited with state ${state}`);
+
+    // A full session that failed on its own account (top-tree/submit failed with every prover healthy)
+    // is a genuine, race-free failure: upload its post-mortem once. `recreateInvalidSessions` retains
+    // the terminal session so this fires exactly once (it is never re-run over the same content). A
+    // `stopped` session (a prover under it failed) is not uploaded — it may be a prune, and recovers on
+    // re-add.
+    if (session.getKind() === 'full' && session.hasFailed() && this.deps.onSessionFailed) {
+      try {
+        await this.deps.onSessionFailed(session);
+      } catch (err) {
+        this.log.error(`Error in onSessionFailed callback for epoch ${session.getEpochNumber()}`, err);
+      }
+    }
   }
 
   /**

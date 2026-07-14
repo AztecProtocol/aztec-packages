@@ -147,13 +147,14 @@ describe('EpochSession', () => {
       expect(state).toBe(expected);
     });
 
-    it('"failed" submit outcome propagates as a thrown error → state "stopped" (retryable)', async () => {
-      // A failed L1 submission is not a declared epoch failure — it ends the attempt in the
-      // non-declaring terminal 'stopped', leaving the reconciler free to retry within the window.
+    it('"failed" submit outcome propagates as a thrown error → state "failed" (healthy provers)', async () => {
+      // The provers all succeeded (a proof was produced) and only the L1 submission failed — a genuine,
+      // non-prune failure of the session's own work, so it ends in terminal 'failed'.
       publishingService.submit.mockResolvedValue('failed');
       const session = makeSession();
       const state = await session.start();
-      expect(state).toBe('stopped');
+      expect(state).toBe('failed');
+      expect(session.hasFailed()).toBe(true);
     });
 
     it('"withdrawn" outcome with no prior cancel falls back to "cancelled"', async () => {
@@ -300,6 +301,8 @@ describe('EpochSession', () => {
       const state = await session.start();
       expect(state).toBe('stopped');
       expect(session.isTerminal()).toBe(true);
+      // A failed prover under the session ⇒ 'stopped', NOT the session's own 'failed' (no upload).
+      expect(session.hasFailed()).toBe(false);
       // Failure happens before submission; the publishing service must never see the candidate.
       expect(publishingService.submit).not.toHaveBeenCalled();
     });
@@ -318,14 +321,15 @@ describe('EpochSession', () => {
       await expect(startResult).resolves.toBe('stopped');
     });
 
-    it('a prove that rejects for any reason ends the session in "stopped" without submitting', async () => {
-      // Belt-and-braces: any prove rejection (top-tree internal error, blob computation,
-      // etc.) follows the same path. The session swallows the error and reports 'stopped'.
+    it('a top-tree prove that rejects with healthy provers ends the session in "failed" without submitting', async () => {
+      // The provers are healthy but the top-tree (root) prove itself rejects — the session's own work
+      // failed, and since no prover failed this is definitively not a prune, so it ends in 'failed'.
       const session = makeSession({
         hooks: { topTreeProveOverride: () => Promise.reject(new Error('top-tree internal failure')) },
       });
       const state = await session.start();
-      expect(state).toBe('stopped');
+      expect(state).toBe('failed');
+      expect(session.hasFailed()).toBe(true);
       expect(publishingService.submit).not.toHaveBeenCalled();
     });
   });
@@ -465,6 +469,8 @@ function makeStubProver(checkpoint: Checkpoint, opts: { blockProofsError?: Error
     txs: new Map(),
     whenBlockProofsReady: () => blockProofs,
     isCancelled: () => false,
+    // A prover configured with a blockProofsError is one whose block proofs rejected — i.e. failed.
+    isFailed: () => opts.blockProofsError !== undefined,
     isCompleted: () => false,
     cancel: () => {},
     whenDone: () => Promise.resolve(),
