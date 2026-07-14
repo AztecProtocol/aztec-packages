@@ -3,6 +3,6 @@
 pub fn weighted_choices<'a>(entries: &[(&'a str, usize)]) -> Vec<&'a str> {
     entries
         .iter()
-        .flat_map(|&(s, n)| std::iter::repeat(s).take(n))
+        .flat_map(|&(s, n)| std::iter::repeat_n(s, n))
         .collect()
 }

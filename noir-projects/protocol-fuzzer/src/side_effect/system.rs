@@ -1,5 +1,5 @@
 use super::machine::SideEffectCommand;
-use crate::wallet::{AccountId, Bridge, WalletCommand};
+use crate::wallet::{AccountId, Bridge, ExecOutput, WalletCommand};
 
 pub struct SideEffectSystem<'a> {
     side_effect_artifact: String,
@@ -13,103 +13,79 @@ const PARENT_CONTRACT: &str = "contracts:parent0";
 impl From<&SideEffectCommand> for WalletCommand {
     fn from(cmd: &SideEffectCommand) -> Self {
         use SideEffectCommand::*;
-        let (method, from, args) = match cmd {
+        let args: Vec<String> = match cmd {
             CreateNote {
                 value,
                 owner,
                 storage_slot,
-                from,
                 ..
-            } => (
-                "call_create_note",
-                format!("accounts:test{from}"),
-                vec![
-                    format!("{value}"),
-                    format!("accounts:test{owner}"),
-                    format!("{storage_slot}"),
-                ],
-            ),
+            } => vec![
+                format!("{value}"),
+                format!("accounts:test{owner}"),
+                format!("{storage_slot}"),
+            ],
             CreateAndCompletePartialNote {
                 owner,
                 storage_slot,
                 value,
-                from,
-            } => (
-                "call_create_and_complete_partial_note",
-                format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{owner}"),
-                    format!("{storage_slot}"),
-                    format!("{value}"),
-                ],
-            ),
+                ..
+            } => vec![
+                format!("accounts:test{owner}"),
+                format!("{storage_slot}"),
+                format!("{value}"),
+            ],
             ViewNotesMany {
                 owner,
                 storage_slot,
                 active_or_nullified,
                 offset,
-                from,
-            } => (
-                "call_view_notes_many",
-                format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{owner}"),
-                    format!("{storage_slot}"),
-                    format!("{active_or_nullified}"),
-                    format!("{offset}"),
-                ],
-            ),
-            GetNotesMany {
+                ..
+            }
+            | GetNotesMany {
                 owner,
                 storage_slot,
                 active_or_nullified,
                 offset,
-                from,
-            } => (
-                "call_get_notes_many",
-                format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{owner}"),
-                    format!("{storage_slot}"),
-                    format!("{active_or_nullified}"),
-                    format!("{offset}"),
-                ],
-            ),
+                ..
+            } => vec![
+                format!("accounts:test{owner}"),
+                format!("{storage_slot}"),
+                format!("{active_or_nullified}"),
+                format!("{offset}"),
+            ],
             DestroyNote {
                 owner,
                 storage_slot,
-                from,
                 ..
-            } => (
-                "call_destroy_note",
-                format!("accounts:test{from}"),
-                vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
-            ),
-            TestNoteInclusion {
+            }
+            | TestNoteInclusion {
                 owner,
                 storage_slot,
-                from,
                 ..
-            } => (
-                "test_note_inclusion",
-                format!("accounts:test{from}"),
-                vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
-            ),
-            EmitNullifier {
-                nullifier, from, ..
-            } => (
-                "emit_nullifier",
-                format!("accounts:test{from}"),
-                vec![format!("{nullifier}")],
-            ),
-            TestNullifierInclusion {
-                nullifier, from, ..
-            } => (
-                "test_settled_nullifier_inclusion",
-                format!("accounts:test{from}"),
-                vec![format!("{nullifier}")],
-            ),
+            } => vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
+            EmitNullifier { nullifier, .. } | TestNullifierInclusion { nullifier, .. } => {
+                vec![format!("{nullifier}")]
+            }
+            SendL2ToL1Message {
+                content, recipient, ..
+            } => vec![
+                format!("{content}"),
+                // EthAddress is a struct { inner: Field }; the CLI's encodeArg
+                // expects a 0x-prefixed 32-byte hex string for single-field structs.
+                format!("0x{recipient:064x}"),
+            ],
+            EmitPrivateLog { tag, content, .. } => vec![format!("{tag}"), format!("{content}")],
+            RequestOvskApp { from, .. } => {
+                // The argument is the owner whose ovsk_app we request; passing
+                // `from` exercises the success path. A mismatched owner would
+                // test the failure path (kernel rejects unauthorized derivation).
+                vec![format!("accounts:test{from}")]
+            }
+            TestSettingTeardown { .. } => vec![],
         };
+
+        let from = format!("accounts:test{}", cmd.from());
+        let method = cmd.method_name();
 
         let (contract, method, args) = if cmd.via_parent() {
             let mut parent_args = vec![CHILD_CONTRACT.to_string()];
@@ -130,14 +106,14 @@ impl From<&SideEffectCommand> for WalletCommand {
 }
 
 impl<'a> SideEffectSystem<'a> {
-    pub(crate) fn execute_command(&self, cmd: &SideEffectCommand) -> anyhow::Result<String> {
+    pub(crate) fn execute_command(&self, cmd: &SideEffectCommand) -> anyhow::Result<ExecOutput> {
         self.bridge.execute(&WalletCommand::from(cmd))
     }
 
     pub(crate) fn execute_command_batch(
         &self,
         cmds: &[SideEffectCommand],
-    ) -> Vec<anyhow::Result<String>> {
+    ) -> Vec<anyhow::Result<ExecOutput>> {
         let wallet_cmds: Vec<WalletCommand> = cmds.iter().map(WalletCommand::from).collect();
         self.bridge.execute_many(&wallet_cmds)
     }
@@ -162,10 +138,40 @@ impl<'a> SideEffectSystem<'a> {
         )
     }
 
+    /// Smoke-test the kernel exercisers during setup: each is run both directly
+    /// and via the parent contract (cross-contract enqueue is a different kernel
+    /// call shape, so it needs its own check). They always succeed and have no
+    /// parameters to vary, so once these four pass, repeating them during
+    /// fuzzing wastes ~5-13s per redundant tx.
+    pub(crate) fn run_one_shot_smoke_tests(&self) -> anyhow::Result<()> {
+        for via_parent in [false, true] {
+            for cmd in [
+                SideEffectCommand::RequestOvskApp {
+                    from: 0,
+                    via_parent,
+                },
+                SideEffectCommand::TestSettingTeardown {
+                    from: 0,
+                    via_parent,
+                },
+            ] {
+                self.execute_command(&cmd)
+                    .map_err(|e| anyhow::anyhow!("one-shot smoke test {:?} failed: {e}", cmd))?;
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn new(bridge: &'a Bridge, artifacts_dir: &str) -> Self {
-        let dir = std::path::Path::new(artifacts_dir)
-            .canonicalize()
-            .unwrap_or_else(|e| panic!("cannot resolve artifacts dir {artifacts_dir:?}: {e}"));
+        // Resolve relative paths against the current dir, but tolerate paths
+        // that don't exist on the host: in Docker mode `artifacts_dir` points
+        // inside the container (the bridge will read the file there).
+        let path = std::path::Path::new(artifacts_dir);
+        let dir = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir().expect("cwd unavailable").join(path)
+        };
         let dir = dir.display();
         Self {
             side_effect_artifact: format!("{dir}/side_effect_contract-SideEffect.json"),

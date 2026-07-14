@@ -11,9 +11,13 @@ use aztec::macros::aztec;
 /// - Note hashes: `call_create_note`, `call_create_and_complete_partial_note`
 /// - Nullifiers (from note destruction): `call_destroy_note`
 /// - Raw nullifier emission: `emit_nullifier`
-/// - Note read requests: `call_get_notes_many`
+/// - Note read requests: `call_get_notes_many`, `test_note_inclusion`
 /// - Unconstrained note queries: `call_view_notes_many`
-/// - Archive inclusion proofs: `test_note_inclusion`, `test_settled_nullifier_inclusion`
+/// - Archive inclusion proofs: `test_settled_nullifier_inclusion`
+/// - L2->L1 messages: `send_l2_to_l1_message`
+/// - Private log emissions: `emit_private_log`
+/// - Key validation requests: `request_ovsk_app`
+/// - Public teardown execution: `test_setting_teardown` / `dummy_public_call`
 ///
 /// Uses `UintNote` with caller-chosen storage slots (no declared storage)
 /// so the fuzzer can exercise multiple independent note sets.
@@ -26,6 +30,7 @@ pub contract SideEffect {
     use aztec::{
         hash::compute_siloed_nullifier,
         history::nullifier::assert_nullifier_existed_by,
+        keys::getters::get_public_keys,
         macros::{
             functions::{external, initializer, noinitcheck},
             storage::storage,
@@ -39,8 +44,15 @@ pub contract SideEffect {
             note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, SortOrder},
             note_viewer_options::NoteViewerOptions,
         },
-        protocol::address::AztecAddress,
+        protocol::{
+            abis::function_selector::FunctionSelector,
+            address::{AztecAddress, EthAddress},
+            constants::PRIVATE_LOG_CIPHERTEXT_LEN,
+            traits::Hash,
+        },
     };
+
+    global VALUE_SELECTOR: PropertySelector = PropertySelector { index: 0, offset: 0, length: 32 };
 
     use uint_note::{PartialUintNote, UintNote};
 
@@ -62,14 +74,10 @@ pub contract SideEffect {
         );
     }
 
-    // Partial-note flow: the private phase hashes the owner, storage slot, and
-    // a random nonce into a "partial commitment" (without the value), emits an
-    // encrypted log for the recipient, and enqueues a public call. The public
-    // phase fills in the value, pushes the final note hash, and emits a public
-    // log so the recipient can reconstruct the full note. This lets the value
-    // be determined by public state (e.g. a token swap amount that depends on
-    // the current pool price) while keeping the owner private. Here the value
-    // is known upfront, but we still exercise the cross-phase machinery.
+    // Exercises the partial-note cross-phase flow: the private phase commits to
+    // (owner, storage_slot, nonce) without the value and enqueues a public call
+    // that fills in the value and finalizes the note hash. The fuzzer treats
+    // this as model-equivalent to call_create_note.
     // Value must be non-zero (0 is the "no note found" sentinel).
     #[external("private")]
     fn call_create_and_complete_partial_note(
@@ -91,22 +99,22 @@ pub contract SideEffect {
     fn call_destroy_note(owner: AztecAddress, storage_slot: Field) {
         let options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+            .sort(VALUE_SELECTOR, SortOrder.ASC);
         let confirmed_notes = get_notes(self.context, storage_slot, options);
 
         destroy_note(self.context, confirmed_notes.get(0));
     }
 
-    // test_note_inclusion: get_notes proves that a settled note exists in the
-    // note hash tree, and a pending note was emitted earlier in the tx. We
-    // assert len == 1 so the tx fails on empty slots, exercising the inclusion
-    // proof path only when a note actually exists.
+    // get_notes returns settled notes (proven via kernel read requests against
+    // the note hash tree) and pending notes (emitted earlier in this tx).
+    // Asserting len == 1 makes the tx fail on empty slots, so a successful
+    // call proves a note exists -- but doesn't distinguish settled from pending.
     #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
         let options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
             .set_limit(1)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+            .sort(VALUE_SELECTOR, SortOrder.ASC);
 
         let confirmed_notes = get_notes(self.context, storage_slot, options);
         assert_eq(confirmed_notes.len(), 1);
@@ -125,7 +133,7 @@ pub contract SideEffect {
         let mut options = NoteViewerOptions::new()
             .set_owner(owner)
             .set_offset(offset)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+            .sort(VALUE_SELECTOR, SortOrder.ASC);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
@@ -147,7 +155,7 @@ pub contract SideEffect {
         let mut options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
             .set_offset(offset)
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
+            .sort(VALUE_SELECTOR, SortOrder.ASC);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
@@ -159,15 +167,72 @@ pub contract SideEffect {
         [v0, v1]
     }
 
-    // TODO: Add more functions that push data directly to the context (both
-    // private and public) to test more side-effect scenarios -- e.g. pushing
-    // note hashes, log hashes, l2-to-l1 messages directly.
+    // Push a raw nullifier (not linked to any note hash). The kernel siloes it
+    // with the contract address before inserting into the nullifier tree. If the
+    // same value is emitted twice, the second tx fails (duplicate nullifier).
     #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
         self.context.push_nullifier_unsafe(nullifier);
     }
 
+    // Send a cross-chain L2->L1 message. The base rollup sha256-hashes
+    // (l2Sender, rollupVersion, l1Recipient, chainId, content) and appends the
+    // hash to TxEffect.l2ToL1Msgs; an L1 contract verifies it against the
+    // rollup outbox.
+    #[external("private")]
+    #[noinitcheck]
+    fn send_l2_to_l1_message(content: Field, recipient: EthAddress) {
+        self.context.message_portal(recipient, content);
+    }
+
+    // Emit a private log with a plaintext tag. Uses `emit_private_log_unsafe`
+    // (bypasses the usual ECDH tag derivation) so the fuzzer can predict the
+    // siloed tag from (contractAddr, tag) and query the node for the log.
+    // Body padded to PRIVATE_LOG_CIPHERTEXT_LEN; only the first field carries
+    // data.
+    #[external("private")]
+    #[noinitcheck]
+    fn emit_private_log(tag: Field, content: Field) {
+        let log = [content].concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 1]);
+        self.context.emit_private_log_unsafe(tag, log, 1);
+    }
+
+    // Request the app-scoped outgoing viewing secret key (ovsk_app): look up the
+    // account's master outgoing viewing public key (ovpk_m), hash it, and ask the
+    // kernel for the corresponding app-siloed secret. Exercises the kernel's key
+    // validation request path.
+    #[external("private")]
+    #[noinitcheck]
+    fn request_ovsk_app(account: AztecAddress) {
+        let ovpk_m = get_public_keys(account).ovpk_m;
+        let _ = self.context.request_ovsk_app(ovpk_m.hash());
+    }
+
+    // Schedule a public teardown function. Teardown is a special public call
+    // that runs after app logic, even if app logic reverts. Useful for cleanup
+    // (e.g. refunding gas). Here we schedule a no-op (`dummy_public_call`) to
+    // exercise the kernel's teardown plumbing.
+    #[external("private")]
+    #[noinitcheck]
+    fn test_setting_teardown() {
+        self.context.set_public_teardown_function(
+            self.address,
+            comptime { FunctionSelector::from_signature("dummy_public_call()") },
+            [],
+            false,
+        );
+    }
+
+    // No-op public function used as the teardown target by test_setting_teardown.
+    #[external("public")]
+    fn dummy_public_call() {}
+
+    // Verify that a nullifier exists in the nullifier tree at the anchor block.
+    // The nullifier must be siloed (hash of contract address + raw value) because
+    // the tree stores siloed nullifiers. The anchor block header pins the proof
+    // to a specific historical state, so this only works for nullifiers that were
+    // already settled (not pending in the current tx).
     #[external("private")]
     fn test_settled_nullifier_inclusion(nullifier: Field) {
         let header = self.context.get_anchor_block_header();
@@ -175,6 +240,8 @@ pub contract SideEffect {
         assert_nullifier_existed_by(header, siloed);
     }
 
+    // Public counterpart of call_create_and_complete_partial_note -- fills in
+    // the value and finalizes the note hash. See comment on that function.
     #[external("public")]
     fn call_complete_partial_note(partial_note: PartialUintNote, storage_slot: Field, value: u128) {
         partial_note.complete(self.context, self.address, storage_slot, value);

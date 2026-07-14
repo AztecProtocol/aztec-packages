@@ -17,7 +17,9 @@ struct Args {
 enum MachineCommand {
     /// Fuzz the Token contract (mint/burn/transfer, public and private)
     Token(TokenArgs),
-    /// Fuzz note lifecycle, nullifier emission, and cross-contract calls
+    /// Fuzz note lifecycle, nullifier emission, L2->L1 messages, private logs,
+    /// and kernel exercisers (key validation, public teardown) -- both direct
+    /// and via a parent contract
     SideEffect(SideEffectArgs),
 }
 
@@ -63,6 +65,11 @@ struct SideEffectArgs {
     /// Directory containing compiled contract artifacts.
     #[arg(long, default_value = "/tmp")]
     artifacts_dir: String,
+    /// Include one-shot kernel exercisers (RequestOvskApp, TestSettingTeardown)
+    /// in the random command pool. They are always smoke-tested at setup
+    /// regardless of this flag.
+    #[arg(long, default_value_t = false)]
+    include_one_shots: bool,
 }
 
 fn parse_hex_u64(s: &str) -> Result<u64, String> {
@@ -111,7 +118,7 @@ fn main() {
             let mut machine = token::TokenMachine::new(Some(&bridge));
             machine.min_tokens = token_args.min_tokens;
             machine.max_tokens = token_args.max_tokens;
-            log::debug!("Starting token machine with parameters: {:?}", &machine);
+            log::debug!("Starting token machine with parameters: {:?}", machine);
             builder.run(|u| {
                 smt::run_batched(
                     u,
@@ -127,10 +134,11 @@ fn main() {
                 storage_slots: se_args.storage_slots,
                 bridge: Some(&bridge),
                 artifacts_dir: se_args.artifacts_dir.clone(),
+                include_one_shots: se_args.include_one_shots,
             };
             log::debug!(
                 "Starting side-effect machine with parameters: {:?}",
-                &machine
+                machine
             );
             builder.run(|u| {
                 smt::run_batched(
@@ -172,21 +180,6 @@ mod integration_tests {
         std::env::var("ARTIFACTS_DIR").unwrap_or_else(|_| "/tmp".to_string())
     }
 
-    /// Verifies the sandbox is reachable and test accounts can be imported.
-    /// Run this first to diagnose setup issues before running heavier tests.
-    /// Prefixed with `_0` so it sorts first alphabetically (`_` < `a` in
-    /// ASCII, and Rust functions are snake_case). #[serial] tests run in
-    /// alphabetical order.
-    #[test]
-    #[ignore = "requires sandbox"]
-    #[serial]
-    fn _0_sandbox_smoke() {
-        let bridge = init_test_env();
-        bridge
-            .import_test_accounts()
-            .expect("import test accounts failed");
-    }
-
     /// Deploys 1 token, runs 5 random operations. Requires a running sandbox.
     #[test]
     #[ignore = "requires sandbox"]
@@ -214,6 +207,7 @@ mod integration_tests {
             storage_slots: 2,
             bridge: Some(bridge),
             artifacts_dir: artifacts_dir(),
+            include_one_shots: false,
         };
         smt::fixed_size_builder(1024).run(|u| smt::run(u, &mut machine, 5))
     }
@@ -281,6 +275,7 @@ mod integration_tests {
             storage_slots: 1,
             bridge: Some(bridge),
             artifacts_dir: artifacts_dir(),
+            include_one_shots: false,
         };
         let state = side_effect::machine::SideEffectState {
             accounts: vec![0, 1, 2],
@@ -338,6 +333,7 @@ mod integration_tests {
                 storage_slots: 3,
                 bridge: None,
                 artifacts_dir: artifacts_dir(),
+                include_one_shots: false,
             };
             let mut state = machine.gen_state(&mut u).unwrap();
             let mut commands = Vec::new();

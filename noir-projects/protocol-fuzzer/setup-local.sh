@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Sets up a local Aztec sandbox for use with the protocol fuzzer.
-# No Docker required — everything runs on the host.
+# No Docker required -- everything runs on the host.
 #
 # Prerequisites:
 #   cd $REPO_ROOT && ./bootstrap.sh build yarn-project
@@ -43,7 +43,7 @@ TRANSPILER="${TRANSPILER:-${REPO_ROOT}/avm-transpiler/target/release/avm-transpi
 log()  { echo "==> $*"; }
 die()  { echo "ERROR: $*" >&2; exit 1; }
 
-# PIDs of background processes we start — killed if the script fails partway through.
+# PIDs of background processes we start -- killed if the script fails partway through.
 BG_PIDS=()
 SETUP_COMPLETE=false
 cleanup() {
@@ -51,14 +51,14 @@ cleanup() {
         return
     fi
     if [ ${#BG_PIDS[@]} -gt 0 ]; then
-        log "Setup failed — stopping background processes: ${BG_PIDS[*]}"
+        log "Setup failed -- stopping background processes: ${BG_PIDS[*]}"
         kill "${BG_PIDS[@]}" 2>/dev/null || true
         wait "${BG_PIDS[@]}" 2>/dev/null || true
     fi
 }
 trap cleanup EXIT
 
-# kill_on_port PORT — kill any process listening on this TCP port
+# kill_on_port PORT -- kill any process listening on this TCP port
 kill_on_port() {
     local port=$1 pids
     pids=$(lsof -ti "tcp:${port}" 2>/dev/null || true)

@@ -16,7 +16,7 @@ set -euo pipefail
 
 CONTAINER_NAME="aztec-sandbox-nightly"
 # Last nightly tag verified to work with the current contract source code.
-KNOWN_GOOD_TAG="5.0.0-nightly.20260402"
+KNOWN_GOOD_TAG="5.0.0-nightly.20260512"
 WRAPPER_DIR="${HOME}/.local/bin"
 WRAPPER_PATH="${WRAPPER_DIR}/aztec-wallet"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -213,6 +213,11 @@ for contract_pkg in side_effect_contract parent_contract; do
     docker cp "${CONTAINER_NAME}:/tmp/nightly-build/target/${artifact}.json" \
         "${CONTRACTS_DIR}/target/${artifact}.json"
     log "Artifact copied to contracts/target/${artifact}.json"
+
+    # Also place a copy at /tmp/ inside the container so the default
+    # --artifacts-dir (/tmp) works without the user knowing the build path.
+    docker exec "$CONTAINER_NAME" cp \
+        "/tmp/nightly-build/target/${artifact}.json" "/tmp/${artifact}.json"
 done
 
 # --------------------------------------------------------------------------- #
