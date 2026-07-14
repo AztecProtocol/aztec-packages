@@ -48,6 +48,7 @@ import {
   type InteractiveHandshakeCustomRequest,
   type RecipientSignature,
   createInteractiveHandshakeResponder,
+  restoreInteractiveHandshakes,
 } from '@aztec/wallet-sdk/delivery';
 
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
@@ -168,9 +169,20 @@ export class EmbeddedWallet extends BaseWallet {
       // on demand from the account secret persisted in the wallet DB.
       getSigningKey: async recipient =>
         deriveMasterMessageSigningSecretKey((await this.walletDB.retrieveAccount(recipient)).secretKey),
-      backup: { store: entry => this.walletDB.storeHandshakeBackup(entry) },
+      backup: entry => this.walletDB.storeHandshakeBackup(entry),
     });
     return responder(request);
+  }
+
+  /**
+   * Re-registers an account's interactive handshakes from durable backup into PXE. Interactive handshakes are the one
+   * piece of account metadata PXE cannot rebuild from the chain, so they are restored as the account itself is
+   * registered into PXE (see {@link createAccountInternal}), when the account's keys are present for PXE to derive
+   * each handshake's scanning secret. Idempotent, and a no-op for an account with no backed-up handshakes.
+   */
+  protected async restoreInteractiveHandshakesForAccount(recipient: AztecAddress): Promise<void> {
+    const entries = (await this.walletDB.listHandshakeBackups()).filter(entry => entry.recipient.equals(recipient));
+    await restoreInteractiveHandshakes(this.pxe, entries);
   }
 
   /**
@@ -447,6 +459,9 @@ export class EmbeddedWallet extends BaseWallet {
         !existingArtifact ? await accountManager.getAccountContract().getContractArtifact() : undefined,
         accountManager.getSecretKey(),
       );
+      // The account's keys are now in PXE, so its interactive handshakes (account metadata PXE cannot rebuild from
+      // the chain) can be re-registered from backup for scanning to rediscover their messages.
+      await this.restoreInteractiveHandshakesForAccount(instance.address);
       if (type === 'schnorr_initializerless') {
         const constructor = artifact.functions.find(f => f.name === 'constructor');
         if (!constructor) {

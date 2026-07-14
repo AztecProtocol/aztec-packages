@@ -112,7 +112,7 @@ describe('EmbeddedWallet', () => {
     });
   });
 
-  describe('respondToInteractiveHandshake', () => {
+  describe('interactive handshakes', () => {
     let walletDB: WalletDB;
     let completeAddress: CompleteAddress;
     let registerTaggingSecretSource: jest.MockedFunction<PXE['registerTaggingSecretSource']>;
@@ -178,12 +178,39 @@ describe('EmbeddedWallet', () => {
       expect(registerTaggingSecretSource).not.toHaveBeenCalled();
       expect(await walletDB.listHandshakeBackups()).toEqual([]);
     });
+
+    it("re-derives an account's handshakes from backup, mapping each stored ephPkX to the source ephPk", async () => {
+      // The recipient authorized two handshakes; a PXE reinstall keeps the durable wallet DB but loses the sources.
+      const firstEphPkX = Fr.random();
+      const secondEphPkX = Fr.random();
+      await walletDB.storeHandshakeBackup({ recipient: completeAddress.address, ephPkX: firstEphPkX });
+      await walletDB.storeHandshakeBackup({ recipient: completeAddress.address, ephPkX: secondEphPkX });
+      // A different account's handshake must not be dragged in: PXE could not derive its secret here anyway.
+      await walletDB.storeHandshakeBackup({ recipient: (await CompleteAddress.random()).address, ephPkX: Fr.random() });
+
+      await wallet.restoreInteractiveHandshakesForAccount(completeAddress.address);
+
+      // Both of this account's handshakes are re-registered (order is not significant) and the other account's is
+      // not, each stored ephPkX mapped back to the source ephPk.
+      expect(registerTaggingSecretSource).toHaveBeenCalledTimes(2);
+      expect(registerTaggingSecretSource.mock.calls).toContainEqual([
+        { kind: 'handshake', recipient: completeAddress.address, ephPk: firstEphPkX },
+      ]);
+      expect(registerTaggingSecretSource.mock.calls).toContainEqual([
+        { kind: 'handshake', recipient: completeAddress.address, ephPk: secondEphPkX },
+      ]);
+    });
   });
 });
 
 class TestWallet extends EmbeddedWallet {
   override getAccounts(): Promise<Aliased<AztecAddress>[]> {
     return Promise.resolve([]);
+  }
+
+  // Exposes the protected per-account handshake restore, which production drives from account registration.
+  override restoreInteractiveHandshakesForAccount(recipient: AztecAddress): Promise<void> {
+    return super.restoreInteractiveHandshakesForAccount(recipient);
   }
 }
 
