@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./base-wallet": "./dest/base-wallet/index.js",
+    "./delivery": "./dest/delivery/index.js",
     "./extension/handlers": "./dest/extension/handlers/index.js",
     "./extension/provider": "./dest/extension/provider/index.js",
     "./iframe/handlers": "./dest/iframe/handlers/index.js",
@@ -16,6 +17,7 @@
   "typedocOptions": {
     "entryPoints": [
       "./src/base-wallet/index.ts",
+      "./src/delivery/index.ts",
       "./src/extension/handlers/index.ts",
       "./src/extension/provider/index.ts",
       "./src/iframe/handlers/index.ts",
@@ -80,7 +82,9 @@
     "@aztec/entrypoints": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/pxe": "workspace:^",
-    "@aztec/stdlib": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "zod": "^4"
   },
   "devDependencies": {
     "@aztec/noir-contracts.js": "workspace:^",
