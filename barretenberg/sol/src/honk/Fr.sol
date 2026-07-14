@@ -15,6 +15,8 @@ using {equal as ==} for Fr global;
 
 uint256 constant SUBGROUP_SIZE = 256;
 uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
+// SUBGROUP_SIZE⁻¹ mod MODULUS — precomputed so checkEvalsConsistency need not invert the constant 256 on chain.
+Fr constant SUBGROUP_SIZE_INVERSE = Fr.wrap(0x3033ea246e506e898e97f570caffd704cb0bb460313fb720b29e139e5c100001);
 uint256 constant P = MODULUS;
 Fr constant SUBGROUP_GENERATOR = Fr.wrap(0x07b0c561a6148404f086204a9f36ffb0617942546750f230c893619174a57a76);
 Fr constant SUBGROUP_GENERATOR_INVERSE = Fr.wrap(0x204bd3277422fad364751ad938e2b5e6a54cf8c68712848a692c553d0329f5d6);
@@ -80,7 +82,38 @@ library FrLib {
         return Fr.wrap(result);
     }
 
-    // TODO: Montgomery's batch inversion trick
+    /// @notice Invert a batch of field elements with a single modexp via Montgomery's trick.
+    /// @dev results[i] = (∏_{j<i} v[j]) · (∏_j v[j])⁻¹ · (∏_{j>i} v[j]) = v[i]⁻¹.
+    ///      The whole batch costs one modexp instead of one per element. Reverts with
+    ///      InvertOfZero iff any input is zero: the field has no zero divisors, so the
+    ///      total product is zero exactly when some element is zero — observably identical
+    ///      to calling invert() on each element.
+    function batchInvert(Fr[] memory values) internal view returns (Fr[] memory results) {
+        uint256 n = values.length;
+        results = new Fr[](n);
+        if (n == 0) {
+            return results;
+        }
+
+        // Forward pass: results[i] holds the product of all values before index i.
+        Fr acc = ONE;
+        for (uint256 i = 0; i < n; ++i) {
+            results[i] = acc;
+            acc = acc * values[i];
+        }
+
+        // acc is now the product of every element; it is zero iff some element was zero.
+        require(Fr.unwrap(acc) != 0, Errors.InvertOfZero());
+        acc = invert(acc); // the single modexp
+
+        // Backward pass: peel one element off the running inverse product at a time.
+        for (uint256 i = n; i > 0; --i) {
+            uint256 j = i - 1;
+            results[j] = results[j] * acc;
+            acc = acc * values[j];
+        }
+    }
+
     function div(Fr numerator, Fr denominator) internal view returns (Fr) {
         unchecked {
             return numerator * invert(denominator);

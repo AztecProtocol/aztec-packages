@@ -278,6 +278,22 @@ abstract contract NegativeTestBaseZK is TestBase {
         verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
     }
 
+    /// @notice An off-curve shplonkQ still rejects the proof despite seeding the MSM accumulator.
+    /// @dev shplonkQ is the first batchMul term and its scalar is statically 1, so it seeds the
+    ///      accumulator without an ecMul. Its on-curve validity is still enforced by the first
+    ///      in-loop ecAdd: feeding the off-curve point (1, 1) makes the bn256 precompile fail and
+    ///      consume all forwarded gas, so the call reverts without data (mirroring the non-ZK
+    ///      test_OffCurve_ShplonkQ). shplonkQ occupies bytes [len-128, len-64) (kzgQuotient is last).
+    function test_OffCurve_ShplonkQ() public virtual {
+        bytes memory proof = copyProof();
+
+        // (1, 1) is < Q on both coordinates but not on the curve (1 != 1 + 3).
+        setG1Point(proof, proof.length - 128, 1, 1);
+
+        vm.expectRevert(bytes(""));
+        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
+    }
+
     /*//////////////////////////////////////////////////////////////
                     SHPLEMINI / PAIRING FAILURES
     //////////////////////////////////////////////////////////////*/

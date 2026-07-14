@@ -166,27 +166,21 @@ abstract contract BaseHonkVerifier is IVerifier {
         ];
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
-        // TODO: opt: use same array mem for each iteratioon
-        // Performing Barycentric evaluations
-        // Compute B(x)
+        // Performing Barycentric evaluations.
+        // Compute B(x) = ∏ (x - i) and the per-point denominators DENOM[i]·(x - i) in a single
+        // pass, caching (x - i) which both use, then invert all denominators with one modexp.
         Fr numeratorValue = ONE;
+        Fr[] memory denominators = new Fr[](BATCHED_RELATION_PARTIAL_LENGTH);
         for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
+            Fr challengeMinusI = roundChallenge - Fr.wrap(i);
+            numeratorValue = numeratorValue * challengeMinusI;
+            denominators[i] = BARYCENTRIC_LAGRANGE_DENOMINATORS[i] * challengeMinusI;
         }
 
-        // Calculate domain size $N of inverses -- TODO: montgomery's trick
-        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
-        for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
-            inv = inv * (roundChallenge - Fr.wrap(i));
-            inv = FrLib.invert(inv);
-            denominatorInverses[i] = inv;
-        }
+        Fr[] memory denominatorInverses = FrLib.batchInvert(denominators);
 
         for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            Fr term = roundUnivariates[i];
-            term = term * denominatorInverses[i];
-            targetSum = targetSum + term;
+            targetSum = targetSum + roundUnivariates[i] * denominatorInverses[i];
         }
 
         // Scale the sum by the value of B(x)
@@ -207,12 +201,24 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[] memory scalars = new Fr[](NUMBER_UNSHIFTED + $LOG_N + 2);
         Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED + $LOG_N + 2);
 
-        mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
-        mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
+        // Batch-invert every Shplonk/Gemini denominator with a single modexp:
+        //   [i]          = z - r^{2^i}   for i in [0, $LOG_N)
+        //   [$LOG_N + i] = z + r^{2^i}   for i in [0, $LOG_N)
+        //   [2*$LOG_N]   = r             (for the 1/r shift factor)
+        mem.shplonkInverses = new Fr[](2 * $LOG_N + 1);
+        for (uint256 i = 0; i < $LOG_N; ++i) {
+            mem.shplonkInverses[i] = tp.shplonkZ - powers_of_evaluation_challenge[i];
+            mem.shplonkInverses[$LOG_N + i] = tp.shplonkZ + powers_of_evaluation_challenge[i];
+        }
+        mem.shplonkInverses[2 * $LOG_N] = tp.geminiR;
+        mem.shplonkInverses = FrLib.batchInvert(mem.shplonkInverses);
+
+        mem.posInvertedDenominator = mem.shplonkInverses[0];
+        mem.negInvertedDenominator = mem.shplonkInverses[$LOG_N];
 
         mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
-        mem.shiftedScalar =
-            tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
+        mem.shiftedScalar = mem.shplonkInverses[2 * $LOG_N]
+            * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = ONE;
         commitments[0] = proof.shplonkQ;
@@ -351,9 +357,9 @@ abstract contract BaseHonkVerifier is IVerifier {
         // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
         // Compute scalar multipliers for each fold commitment
         for (uint256 i = 0; i < $LOG_N - 1; ++i) {
-            // Update inverted denominators
-            mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
-            mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+            // Inverted denominators for r^{2^(i+1)}, precomputed in the batch above
+            mem.posInvertedDenominator = mem.shplonkInverses[i + 1];
+            mem.negInvertedDenominator = mem.shplonkInverses[$LOG_N + i + 1];
 
             // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
             mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
@@ -419,7 +425,14 @@ abstract contract BaseHonkVerifier is IVerifier {
         assembly {
             let free := mload(0x40)
 
-            let count := 0x01
+            // scalars[0] is statically 1, so the first MSM term equals commitments[0] (shplonkQ).
+            // Seed the accumulator with it directly, skipping one ecMul. Its on-curve validity is
+            // still enforced by the first in-loop ecAdd, which rejects off-curve inputs.
+            let first := mload(add(base, 0x20))
+            mstore(free, mload(first))
+            mstore(add(free, 0x20), mload(add(first, 0x20)))
+
+            let count := 0x02
             for {} lt(count, add(limit, 1)) { count := add(count, 1) } {
                 // Get loop offsets
                 let base_base := add(base, mul(count, 0x20))

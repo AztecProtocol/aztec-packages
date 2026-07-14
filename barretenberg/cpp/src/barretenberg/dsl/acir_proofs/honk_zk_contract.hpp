@@ -54,6 +54,8 @@ using {equal as ==} for Fr global;
 
 uint256 constant SUBGROUP_SIZE = 256;
 uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
+// SUBGROUP_SIZE⁻¹ mod MODULUS — precomputed so checkEvalsConsistency need not invert the constant 256 on chain.
+Fr constant SUBGROUP_SIZE_INVERSE = Fr.wrap(0x3033ea246e506e898e97f570caffd704cb0bb460313fb720b29e139e5c100001);
 uint256 constant P = MODULUS;
 Fr constant SUBGROUP_GENERATOR = Fr.wrap(0x07b0c561a6148404f086204a9f36ffb0617942546750f230c893619174a57a76);
 Fr constant SUBGROUP_GENERATOR_INVERSE = Fr.wrap(0x204bd3277422fad364751ad938e2b5e6a54cf8c68712848a692c553d0329f5d6);
@@ -117,6 +119,38 @@ library FrLib {
         }
 
         return Fr.wrap(result);
+    }
+
+    /// @notice Invert a batch of field elements with a single modexp via Montgomery's trick.
+    /// @dev results[i] = (∏_{j<i} v[j]) · (∏_j v[j])⁻¹ · (∏_{j>i} v[j]) = v[i]⁻¹.
+    ///      The whole batch costs one modexp instead of one per element. Reverts with
+    ///      InvertOfZero iff any input is zero: the field has no zero divisors, so the
+    ///      total product is zero exactly when some element is zero — observably identical
+    ///      to calling invert() on each element.
+    function batchInvert(Fr[] memory values) internal view returns (Fr[] memory results) {
+        uint256 n = values.length;
+        results = new Fr[](n);
+        if (n == 0) {
+            return results;
+        }
+
+        // Forward pass: results[i] holds the product of all values before index i.
+        Fr acc = ONE;
+        for (uint256 i = 0; i < n; ++i) {
+            results[i] = acc;
+            acc = acc * values[i];
+        }
+
+        // acc is now the product of every element; it is zero iff some element was zero.
+        require(Fr.unwrap(acc) != 0, Errors.InvertOfZero());
+        acc = invert(acc); // the single modexp
+
+        // Backward pass: peel one element off the running inverse product at a time.
+        for (uint256 i = n; i > 0; --i) {
+            uint256 j = i - 1;
+            results[j] = results[j] * acc;
+            acc = acc * values[j];
+        }
     }
 
     function div(Fr numerator, Fr denominator) internal view returns (Fr) {
@@ -1483,6 +1517,9 @@ library CommitmentSchemeLib {
         Fr scalingFactorNeg;
         // Fold_i(r^{2^i}) reconstructed by Verifier
         Fr[] foldPosEvaluations;
+        // All Shplonk/Gemini denominator inverses, computed with a single batch inversion:
+        // [i] = 1/(z - r^{2^i}), [logSize + i] = 1/(z + r^{2^i}), then 1/r and (ZK) 1/(z - g·r).
+        Fr[] shplonkInverses;
     }
 
     // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., m-1
@@ -1494,14 +1531,27 @@ library CommitmentSchemeLib {
         uint256 logSize
     ) internal view returns (Fr[] memory) {
         Fr[] memory foldPosEvaluations = new Fr[](logSize);
+
+        // Each round divides by (challengePower·(1 - u) + u), which depends only on
+        // (challengePower, u) and not on the running accumulator. Precompute every denominator
+        // and invert them all with a single modexp before folding.
+        Fr[] memory denominators = new Fr[](logSize);
+        for (uint256 i = 0; i < logSize; ++i) {
+            Fr challengePower = geminiEvalChallengePowers[i];
+            Fr u = sumcheckUChallenges[i];
+            denominators[i] = challengePower * (ONE - u) + u;
+        }
+        Fr[] memory invertedDenominators = FrLib.batchInvert(denominators);
+
         for (uint256 i = logSize; i > 0; --i) {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = sumcheckUChallenges[i - 1];
 
-            Fr batchedEvalRoundAcc = ((challengePower * batchedEvalAccumulator * Fr.wrap(2)) - geminiEvaluations[i - 1]
+            Fr batchedEvalRoundAcc =
+            ((challengePower * batchedEvalAccumulator * Fr.wrap(2)) - geminiEvaluations[i - 1]
                     * (challengePower * (ONE - u) - u));
             // Divide by the denominator
-            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ONE - u) + u).invert();
+            batchedEvalRoundAcc = batchedEvalRoundAcc * invertedDenominators[i - 1];
 
             batchedEvalAccumulator = batchedEvalRoundAcc;
             foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
@@ -1794,7 +1844,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr lagrangeFirst;
         Fr lagrangeLast;
         Fr rootPower;
-        Fr[SUBGROUP_SIZE] denominators; // this has to disappear
+        Fr[] denominators;
         Fr diff;
     }
 
@@ -1963,17 +2013,18 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
-        // Performing Barycentric evaluations
-        // Compute B(x)
+        // Performing Barycentric evaluations.
+        // Compute B(x) = ∏ (x - i) and the per-point denominators DENOM[i]·(x - i) in a single
+        // pass, caching (x - i) which both use, then invert all denominators with one modexp.
         Fr numeratorValue = Fr.wrap(1);
+        Fr[] memory denominators = new Fr[](ZK_BATCHED_RELATION_PARTIAL_LENGTH);
         for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
+            Fr challengeMinusI = roundChallenge - Fr.wrap(i);
+            numeratorValue = numeratorValue * challengeMinusI;
+            denominators[i] = BARYCENTRIC_LAGRANGE_DENOMINATORS[i] * challengeMinusI;
         }
 
-        Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
-        for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
-            denominatorInverses[i] = FrLib.invert(BARYCENTRIC_LAGRANGE_DENOMINATORS[i] * (roundChallenge - Fr.wrap(i)));
-        }
+        Fr[] memory denominatorInverses = FrLib.batchInvert(denominators);
 
         for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             targetSum = targetSum + roundUnivariates[i] * denominatorInverses[i];
@@ -1996,12 +2047,26 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr[] memory scalars = new Fr[]($MSMSize);
         Honk.G1Point[] memory commitments = new Honk.G1Point[]($MSMSize);
 
-        mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
-        mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
+        // Batch-invert every Shplonk/Gemini denominator with a single modexp:
+        //   [i]            = z - r^{2^i}   for i in [0, $LOG_N)
+        //   [$LOG_N + i]   = z + r^{2^i}   for i in [0, $LOG_N)
+        //   [2*$LOG_N]     = r             (for the 1/r shift factor)
+        //   [2*$LOG_N + 1] = z - g·r       (Libra denominator; z - r is reused from index 0)
+        mem.shplonkInverses = new Fr[](2 * $LOG_N + 2);
+        for (uint256 i = 0; i < $LOG_N; ++i) {
+            mem.shplonkInverses[i] = tp.shplonkZ - powers_of_evaluation_challenge[i];
+            mem.shplonkInverses[$LOG_N + i] = tp.shplonkZ + powers_of_evaluation_challenge[i];
+        }
+        mem.shplonkInverses[2 * $LOG_N] = tp.geminiR;
+        mem.shplonkInverses[2 * $LOG_N + 1] = tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR;
+        mem.shplonkInverses = FrLib.batchInvert(mem.shplonkInverses);
+
+        mem.posInvertedDenominator = mem.shplonkInverses[0];
+        mem.negInvertedDenominator = mem.shplonkInverses[$LOG_N];
 
         mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
-        mem.shiftedScalar =
-            tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
+        mem.shiftedScalar = mem.shplonkInverses[2 * $LOG_N]
+            * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = Fr.wrap(1);
         commitments[0] = proof.shplonkQ;
@@ -2151,9 +2216,9 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             bool dummy_round = i >= ($LOG_N - 1);
 
             if (!dummy_round) {
-                // Update inverted denominators
-                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
-                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+                // Inverted denominators for r^{2^(i+1)}, precomputed in the batch above
+                mem.posInvertedDenominator = mem.shplonkInverses[i + 1];
+                mem.negInvertedDenominator = mem.shplonkInverses[$LOG_N + i + 1];
 
                 // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
                 mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
@@ -2174,9 +2239,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         boundary += $LOG_N - 1;
 
-        // Finalize the batch opening claim
-        mem.denominators[0] = Fr.wrap(1).div(tp.shplonkZ - tp.geminiR);
-        mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
+        // Finalize the batch opening claim. Both Libra denominators were inverted in the batch
+        // above: 1/(z - r) is index 0 (since r^{2^0} = r) and 1/(z - g·r) is index 2*$LOG_N + 1.
+        mem.denominators[0] = mem.shplonkInverses[0];
+        mem.denominators[1] = mem.shplonkInverses[2 * $LOG_N + 1];
         mem.denominators[2] = mem.denominators[0];
         mem.denominators[3] = mem.denominators[0];
 
@@ -2236,7 +2302,14 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr libraEval
     ) internal view returns (bool check) {
         Fr one = Fr.wrap(1);
-        Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE) - one;
+
+        // vanishingPolyEval = r^SUBGROUP_SIZE - 1. SUBGROUP_SIZE is a power of two, so r^SUBGROUP_SIZE
+        // is obtained by repeated squaring rather than a modexp.
+        Fr vanishingPolyEval = geminiR;
+        for (uint256 sq = 1; sq < SUBGROUP_SIZE; sq <<= 1) {
+            vanishingPolyEval = vanishingPolyEval.sqr();
+        }
+        vanishingPolyEval = vanishingPolyEval - one;
         require(vanishingPolyEval != Fr.wrap(0), Errors.GeminiChallengeInSubgroup());
 
         SmallSubgroupIpaIntermediates memory mem;
@@ -2249,16 +2322,24 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             }
         }
 
+        // All SUBGROUP_SIZE denominators g^{-idx}·r - 1 are known up front, so invert them with a
+        // single modexp. They are guaranteed non-zero here: a zero denominator means r = g^idx lies
+        // in the subgroup, which forces r^SUBGROUP_SIZE = 1 and would already have tripped the
+        // GeminiChallengeInSubgroup revert above.
+        mem.denominators = new Fr[](SUBGROUP_SIZE);
         mem.rootPower = one;
-        mem.challengePolyEval = Fr.wrap(0);
         for (uint256 idx = 0; idx < SUBGROUP_SIZE; idx++) {
             mem.denominators[idx] = mem.rootPower * geminiR - one;
-            mem.denominators[idx] = mem.denominators[idx].invert();
-            mem.challengePolyEval = mem.challengePolyEval + mem.challengePolyLagrange[idx] * mem.denominators[idx];
             mem.rootPower = mem.rootPower * SUBGROUP_GENERATOR_INVERSE;
         }
+        mem.denominators = FrLib.batchInvert(mem.denominators);
 
-        Fr numerator = vanishingPolyEval * Fr.wrap(SUBGROUP_SIZE).invert();
+        mem.challengePolyEval = Fr.wrap(0);
+        for (uint256 idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            mem.challengePolyEval = mem.challengePolyEval + mem.challengePolyLagrange[idx] * mem.denominators[idx];
+        }
+
+        Fr numerator = vanishingPolyEval * SUBGROUP_SIZE_INVERSE;
         mem.challengePolyEval = mem.challengePolyEval * numerator;
         mem.lagrangeFirst = mem.denominators[0] * numerator;
         mem.lagrangeLast = mem.denominators[SUBGROUP_SIZE - 1] * numerator;
@@ -2289,7 +2370,14 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         assembly {
             let free := mload(0x40)
 
-            let count := 0x01
+            // scalars[0] is statically 1, so the first MSM term equals commitments[0] (shplonkQ).
+            // Seed the accumulator with it directly, skipping one ecMul. Its on-curve validity is
+            // still enforced by the first in-loop ecAdd, which rejects off-curve inputs.
+            let first := mload(add(base, 0x20))
+            mstore(free, mload(first))
+            mstore(add(free, 0x20), mload(add(first, 0x20)))
+
+            let count := 0x02
             for {} lt(count, add(limit, 1)) { count := add(count, 1) } {
                 // Get loop offsets
                 let base_base := add(base, mul(count, 0x20))

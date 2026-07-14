@@ -32,6 +32,9 @@ library CommitmentSchemeLib {
         Fr scalingFactorNeg;
         // Fold_i(r^{2^i}) reconstructed by Verifier
         Fr[] foldPosEvaluations;
+        // All Shplonk/Gemini denominator inverses, computed with a single batch inversion:
+        // [i] = 1/(z - r^{2^i}), [logSize + i] = 1/(z + r^{2^i}), then 1/r and (ZK) 1/(z - g·r).
+        Fr[] shplonkInverses;
     }
 
     // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., m-1
@@ -43,14 +46,27 @@ library CommitmentSchemeLib {
         uint256 logSize
     ) internal view returns (Fr[] memory) {
         Fr[] memory foldPosEvaluations = new Fr[](logSize);
+
+        // Each round divides by (challengePower·(1 - u) + u), which depends only on
+        // (challengePower, u) and not on the running accumulator. Precompute every denominator
+        // and invert them all with a single modexp before folding.
+        Fr[] memory denominators = new Fr[](logSize);
+        for (uint256 i = 0; i < logSize; ++i) {
+            Fr challengePower = geminiEvalChallengePowers[i];
+            Fr u = sumcheckUChallenges[i];
+            denominators[i] = challengePower * (ONE - u) + u;
+        }
+        Fr[] memory invertedDenominators = FrLib.batchInvert(denominators);
+
         for (uint256 i = logSize; i > 0; --i) {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = sumcheckUChallenges[i - 1];
 
-            Fr batchedEvalRoundAcc = ((challengePower * batchedEvalAccumulator * Fr.wrap(2)) - geminiEvaluations[i - 1]
+            Fr batchedEvalRoundAcc =
+            ((challengePower * batchedEvalAccumulator * Fr.wrap(2)) - geminiEvaluations[i - 1]
                     * (challengePower * (ONE - u) - u));
             // Divide by the denominator
-            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ONE - u) + u).invert();
+            batchedEvalRoundAcc = batchedEvalRoundAcc * invertedDenominators[i - 1];
 
             batchedEvalAccumulator = batchedEvalRoundAcc;
             foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
