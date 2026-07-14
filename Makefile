@@ -55,7 +55,7 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests ipc-codegen-tests
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests noir-contracts-avm-tests release-image-tests spartan claude-tests ipc-codegen-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
@@ -66,7 +66,10 @@ full: fast bb-full-tests bb-cpp-full yarn-project-benches
 # and l1-contracts; bb-sol adds the Solidity gas benchmark's generated verifier; bb-acir
 # builds barretenberg/acir_tests, whose headless-test harness (ts-node) the bb browser
 # memory bench (ci_benchmark_browser_memory.sh) drives.
-bench: yarn-project-benches bb-sol bb-acir
+bench: yarn-project-benches bb-sol bb-acir bb-avm-contract-benches
+
+# The AVM contract benches need the noir contracts built.
+bb-avm-contract-benches: bb-cpp-native noir-contracts
 
 # Release. Everything plus copy bb cross compiles to ts projects.
 release: fast bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy ipc-runtime-cross
@@ -350,6 +353,9 @@ mock-protocol-circuits: noir bb-cpp-native
 
 noir-contracts: noir bb-cpp-native
 	$(call build,$@,noir-projects/noir-contracts)
+
+noir-contracts-avm-tests: noir-contracts bb-cpp-native
+	$(call test,$@,noir-projects/noir-contracts,avm_contracts)
 
 aztec-nr: noir bb-cpp-native
 	$(call build,$@,noir-projects/aztec-nr)

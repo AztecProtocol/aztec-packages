@@ -245,6 +245,8 @@ function test_cmds_native {
 
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
+    # Skip vm2_contracts_tests because it requires contract artifacts that are built in noir-projects.
+    [[ "$bin_name" == "vm2_contracts_tests" ]] && continue
 
     $bin --gtest_list_tests | \
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
@@ -363,6 +365,14 @@ function ultrahonk_rollup_bench_cmds {
 
 function bench_cmds {
   prefix="$hash:CPUS=8"
+  # AVM public-tx apps simulation benchmark.
+  # Requires the AVM-enabled native build and the noir-contracts artifacts (present at bench time).
+  if [ "${AVM:-1}" -eq 1 ]; then
+    echo "$prefix barretenberg/cpp/scripts/run_avm_apps_bench.sh $native_build_dir/bin/apps_bench"
+    # AVM bulk proving benchmark. Full proving is heavy, so it runs isolated with more cores and
+    # memory.
+    echo "$hash:ISOLATE=1:CPUS=16:MEM=16g:TIMEOUT=1800 barretenberg/cpp/scripts/run_avm_bulk_proving_bench.sh $native_build_dir/bin/bulk_proving_bench"
+  fi
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"

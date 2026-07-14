@@ -212,7 +212,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
    *
    * This function can be (it is) overridden by a subclass (AvmProvingTester)
    * to do more work (like prove and verify) while still reusing existing
-   * test fixtures (like amm_test). That is why it is not named "simulate*".
+   * test fixtures (like bulk_test). That is why it is not named "simulate*".
    */
   public async executeTxWithLabel(
     txLabel: string,
