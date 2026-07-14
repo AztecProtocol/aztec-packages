@@ -44,7 +44,18 @@ export type CheckpointProverDeps = {
    * Fired for prune-induced faults too; that is intentional and harmless.
    */
   onFailed?: (prover: CheckpointProver) => void;
+  /**
+   * Test-only hook: if set, invoked at the start of checkpoint execution instead of proving. Lets e2e
+   * tests force a sub-tree failure (it should throw) to exercise the checkpoint failure/upload path.
+   */
+  checkpointProveOverride?: () => Promise<never>;
   log: Logger;
+};
+
+/** Test-only hooks the store injects into every `CheckpointProver` it constructs. */
+export type CheckpointProverTestHooks = {
+  /** If set, invoked at the start of checkpoint execution instead of proving; should throw to fail. */
+  checkpointProveOverride?: () => Promise<never>;
 };
 
 /** Inputs that fully describe a checkpoint at register time. */
@@ -241,6 +252,11 @@ export class CheckpointProver {
     let subTreeStarted = false;
 
     try {
+      // Test hook: force a sub-tree failure to exercise the checkpoint failure/upload path.
+      if (this.deps.checkpointProveOverride) {
+        await this.deps.checkpointProveOverride();
+      }
+
       for (const [hash, tx] of txs) {
         this.txs.set(hash, tx);
       }

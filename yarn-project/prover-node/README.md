@@ -543,10 +543,13 @@ Loggers:
 - `prover-client:chonk-cache` — chonk-verifier cache enqueue / release events.
 
 Failed proving data is uploaded to the configured file store (`PROVER_NODE_FAILED_EPOCH_STORE`) at two
-levels, so it can be reproduced offline via `rerunEpochProvingJob`. Both build an `EpochProvingJobData`
-snapshot with `SessionManager.buildProvingData(...)` — every `CheckpointProver`'s txs and register-time
-data, even if its sub-tree never reached `isCompleted()` — and ship it via `uploadEpochProofFailure`
-alongside a world-state + archiver backup:
+levels, and re-proved offline by the matching downloader/rerunner: an epoch job via
+`downloadEpochProvingJob` + `rerunEpochProvingJob`, and a single checkpoint via the same download plus
+`rerunCheckpointProvingJob` (which rebuilds just that checkpoint's sub-tree prover and awaits its block
+proofs — no epoch top-tree or L1 submit). Both upload levels build an `EpochProvingJobData` snapshot with
+`SessionManager.buildProvingData(...)` — every `CheckpointProver`'s txs and register-time data, even if
+its sub-tree never reached `isCompleted()` — and ship it via `uploadEpochProofFailure` alongside a
+world-state + archiver backup:
 
 - **Per checkpoint.** When a `CheckpointProver`'s block proofs reject for a non-cancel reason (a sub-tree
   fault or a prune-induced fork fault), it fires its `onFailed` callback and `ProverNode` uploads that one

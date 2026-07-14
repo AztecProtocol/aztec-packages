@@ -47,7 +47,7 @@ import {
 import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js';
 import { CheckpointStore, type RegisterCheckpointData } from './checkpoint-store.js';
 import type { SpecificProverNodeConfig } from './config.js';
-import type { CheckpointProver } from './job/checkpoint-prover.js';
+import type { CheckpointProver, CheckpointProverTestHooks } from './job/checkpoint-prover.js';
 import type { EpochSessionHooks } from './job/epoch-session.js';
 import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import { ProofPublishingService } from './proof-publishing-service.js';
@@ -601,6 +601,14 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       throw new Error('ProverNode not started; call start() before setting session hooks.');
     }
     this.sessionManager.setSessionHooks(hooks);
+  }
+
+  /**
+   * Installs checkpoint-prover test hooks (e.g. forcing a sub-tree failure) applied to every
+   * CheckpointProver constructed after this call. For the e2e harness only.
+   */
+  public setCheckpointHooks(hooks: CheckpointProverTestHooks): void {
+    this.checkpointStore.setTestHooks(hooks);
   }
 
   /**
