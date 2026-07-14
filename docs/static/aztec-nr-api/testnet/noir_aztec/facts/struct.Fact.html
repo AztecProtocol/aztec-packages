@@ -34,6 +34,8 @@
 <li><a href="struct.Fact.html">Fact</a></div></li>
 <li><a href="struct.FactCollection.html">FactCollection</a></div></li>
 <li><a href="struct.OriginBlock.html">OriginBlock</a></div></li>
+<li><a href="struct.OriginBlockState.html">OriginBlockState</a></div></li>
+<li><a href="struct.RetractableFactOrigin.html">RetractableFactOrigin</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.delete_fact_collection.html">delete_fact_collection</a></div></li>
@@ -49,7 +51,7 @@
 <pre><code>pub struct Fact {
     pub fact_type_id: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     pub payload: <a href="../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt;,
-    pub origin_block: <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a>&gt;,
+    pub origin_block: <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../noir_aztec/facts/struct.RetractableFactOrigin.html" class="struct">RetractableFactOrigin</a>&gt;,
 }
 </code></pre>
 <div class="comments">
@@ -61,7 +63,7 @@
 <p>A user-defined identifier for fact kinds. Typically used to determine how to deserialize <code>payload</code>.</p>
 </div>
 </div><div id="structfield.payload" class="struct-field"><code class="code-header">payload: <a href="../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.origin_block" class="struct-field"><code class="code-header">origin_block: <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a>&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.origin_block" class="struct-field"><code class="code-header">origin_block: <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../noir_aztec/facts/struct.RetractableFactOrigin.html" class="struct">RetractableFactOrigin</a>&gt;</code></div>
 <div class="padded-description"><div class="comments">
 <p>The block the fact is associated to, if any. A fact with an origin block is said to be a 'retractable' fact,
 and will be automatically deleted if its origin block gets pruned in a reorg. Typically used by facts
@@ -70,13 +72,13 @@ associated with a transaction (e.g. 'processed entry X using data from tx Y in b
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-Fact"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/facts/struct.Fact.html" class="struct">Fact</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 5]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 6]) -> Self</code>
 
 <code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h3 id="impl-Serialize-for-Fact"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/facts/struct.Fact.html" class="struct">Fact</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 5]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 6]</code>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 

@@ -18,28 +18,6 @@
 <h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
 <div id="crate-version">0.0.0</div>
 <h2><a href="#struct">Struct PrivateContext</a></h2>
-<h3>Fields</h3>
-<ul class="sidebar-list">
-<li><a href="#structfield.anchor_block_header">anchor_block_header</a></li>
-<li><a href="#structfield.args_hash">args_hash</a></li>
-<li><a href="#structfield.contract_class_logs_hashes">contract_class_logs_hashes</a></li>
-<li><a href="#structfield.expected_non_revertible_side_effect_counter">expected_non_revertible_side_effect_counter</a></li>
-<li><a href="#structfield.expected_revertible_side_effect_counter">expected_revertible_side_effect_counter</a></li>
-<li><a href="#structfield.expiration_timestamp">expiration_timestamp</a></li>
-<li><a href="#structfield.inputs">inputs</a></li>
-<li><a href="#structfield.is_fee_payer">is_fee_payer</a></li>
-<li><a href="#structfield.l2_to_l1_msgs">l2_to_l1_msgs</a></li>
-<li><a href="#structfield.last_key_validation_requests">last_key_validation_requests</a></li>
-<li><a href="#structfield.min_revertible_side_effect_counter">min_revertible_side_effect_counter</a></li>
-<li><a href="#structfield.note_hashes">note_hashes</a></li>
-<li><a href="#structfield.nullifiers">nullifiers</a></li>
-<li><a href="#structfield.private_call_requests">private_call_requests</a></li>
-<li><a href="#structfield.private_logs">private_logs</a></li>
-<li><a href="#structfield.public_call_requests">public_call_requests</a></li>
-<li><a href="#structfield.public_teardown_call_request">public_teardown_call_request</a></li>
-<li><a href="#structfield.return_hash">return_hash</a></li>
-<li><a href="#structfield.side_effect_counter">side_effect_counter</a></li>
-</ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#assert_note_exists">assert_note_exists</a></li>
@@ -61,7 +39,9 @@
 <li><a href="#get_anchor_block_header">get_anchor_block_header</a></li>
 <li><a href="#get_args_hash">get_args_hash</a></li>
 <li><a href="#get_block_header_at">get_block_header_at</a></li>
+<li><a href="#get_side_effect_counter">get_side_effect_counter</a></li>
 <li><a href="#in_revertible_phase">in_revertible_phase</a></li>
+<li><a href="#is_static_call">is_static_call</a></li>
 <li><a href="#maybe_msg_sender">maybe_msg_sender</a></li>
 <li><a href="#message_portal">message_portal</a></li>
 <li><a href="#new">new</a></li>
@@ -106,28 +86,8 @@
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">context</a></div>
 <h1>Struct <span id="struct" class="struct">PrivateContext</span></h1>
-<pre><code>pub struct PrivateContext {
-    pub inputs: <a href="../../noir_aztec/context/inputs/struct.PrivateContextInputs.html" class="struct">PrivateContextInputs</a>,
-    pub side_effect_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
-    pub min_revertible_side_effect_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
-    pub is_fee_payer: <a href="../../std/primitive.bool.html" class="primitive">bool</a>,
-    pub args_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-    pub return_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-    pub expiration_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a>,
-    pub note_hashes: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;, 16&gt;,
-    pub nullifiers: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;, 16&gt;,
-    pub private_call_requests: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 8&gt;,
-    pub public_call_requests: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;, 32&gt;,
-    pub public_teardown_call_request: <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>,
-    pub l2_to_l1_msgs: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;, 8&gt;,
-    pub anchor_block_header: <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
-    pub private_logs: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a>&gt;, 16&gt;,
-    pub contract_class_logs_hashes: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a>&gt;, 1&gt;,
-    pub last_key_validation_requests: [<a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html" class="struct">KeyValidationRequest</a>&gt;; 4],
-    pub expected_non_revertible_side_effect_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
-    pub expected_revertible_side_effect_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
-    <span class="comment">/* private fields */</span>
-}
+<pre><code>pub struct PrivateContext
+{ <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
 <h2>PrivateContext</h2>
@@ -224,27 +184,7 @@ in a particular runtime (private, public or utility), and so are intentionally o
 [Private|Public|Utility]Context structs. This gives smart contract developers a much faster feedback loop if
 they're making a mistake, as an error will be thrown by the LSP or when they compile their contract.</p>
 </div>
-<h2>Fields</h2>
-<div id="structfield.inputs" class="struct-field"><code class="code-header">inputs: <a href="../../noir_aztec/context/inputs/struct.PrivateContextInputs.html" class="struct">PrivateContextInputs</a></code></div>
-<div class="padded-description"></div><div id="structfield.side_effect_counter" class="struct-field"><code class="code-header">side_effect_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></div>
-<div class="padded-description"></div><div id="structfield.min_revertible_side_effect_counter" class="struct-field"><code class="code-header">min_revertible_side_effect_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></div>
-<div class="padded-description"></div><div id="structfield.is_fee_payer" class="struct-field"><code class="code-header">is_fee_payer: <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></div>
-<div class="padded-description"></div><div id="structfield.args_hash" class="struct-field"><code class="code-header">args_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
-<div class="padded-description"></div><div id="structfield.return_hash" class="struct-field"><code class="code-header">return_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
-<div class="padded-description"></div><div id="structfield.expiration_timestamp" class="struct-field"><code class="code-header">expiration_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></div>
-<div class="padded-description"></div><div id="structfield.note_hashes" class="struct-field"><code class="code-header">note_hashes: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;, 16&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.nullifiers" class="struct-field"><code class="code-header">nullifiers: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;, 16&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.private_call_requests" class="struct-field"><code class="code-header">private_call_requests: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 8&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.public_call_requests" class="struct-field"><code class="code-header">public_call_requests: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>&gt;, 32&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.public_teardown_call_request" class="struct-field"><code class="code-header">public_teardown_call_request: <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></div>
-<div class="padded-description"></div><div id="structfield.l2_to_l1_msgs" class="struct-field"><code class="code-header">l2_to_l1_msgs: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;, 8&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.anchor_block_header" class="struct-field"><code class="code-header">anchor_block_header: <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></div>
-<div class="padded-description"></div><div id="structfield.private_logs" class="struct-field"><code class="code-header">private_logs: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a>&gt;, 16&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.contract_class_logs_hashes" class="struct-field"><code class="code-header">contract_class_logs_hashes: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a>&gt;, 1&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.last_key_validation_requests" class="struct-field"><code class="code-header">last_key_validation_requests: [<a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html" class="struct">KeyValidationRequest</a>&gt;; 4]</code></div>
-<div class="padded-description"></div><div id="structfield.expected_non_revertible_side_effect_counter" class="struct-field"><code class="code-header">expected_non_revertible_side_effect_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></div>
-<div class="padded-description"></div><div id="structfield.expected_revertible_side_effect_counter" class="struct-field"><code class="code-header">expected_revertible_side_effect_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></div>
-<div class="padded-description"></div><h2>Implementations</h2>
+<h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a></code></h3>
 
 <div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(inputs: <a href="../../noir_aztec/context/inputs/struct.PrivateContextInputs.html" class="struct">PrivateContextInputs</a>, args_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
@@ -330,6 +270,18 @@ selectors of private functions are baked into the preimage of the contract addre
 protocol's kernel circuits to identify each private function and ensure the correct one is being executed.</p>
 <p>Used internally for function dispatch and call verification.</p>
 </div>
+</div><code id="is_static_call" class="code-header">pub fn <a href="#is_static_call"><span class="fn">is_static_call</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns whether this call is being executed as part of a static call.</p>
+<p>Similar to Solidity's <code>STATICCALL</code>, a static call is read-only: neither this function nor any of its nested
+calls may emit side-effects (new notes, nullifiers, logs, L2-&gt;L1 messages, etc.). A call is considered static
+if it was invoked as a static call or if any of its ancestor calls were.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>bool</code> - <code>true</code> if this call (or an ancestor call) is a static call.</li>
+</ul>
+</div>
 </div><code id="get_args_hash" class="code-header">pub fn <a href="#get_args_hash"><span class="fn">get_args_hash</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
@@ -345,6 +297,18 @@ makes the arguments neatly available to the body of your private function.</p>
 <li>Arguments are hashed to reduce proof size and verification time</li>
 <li>Enables efficient argument passing in recursive function calls</li>
 <li>The hash can be used to retrieve the original arguments from the PXE.</li>
+</ul>
+</div>
+</div><code id="get_side_effect_counter" class="code-header">pub fn <a href="#get_side_effect_counter"><span class="fn">get_side_effect_counter</span></a>(self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the current value of the side-effect counter, i.e. the counter that will be assigned to the next
+side-effect emitted by this function.</p>
+<p>Low-level function: Ordinarily, smart contract developers will not need to access this. See <code>next_counter</code> for
+details on how side-effect counters are assigned and why they exist.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>u32</code> - The current side-effect counter.</li>
 </ul>
 </div>
 </div><code id="push_note_hash" class="code-header">pub fn <a href="#push_note_hash"><span class="fn">push_note_hash</span></a>(&mut self, note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
@@ -664,10 +628,10 @@ proof to be submitted -- especially if the block was near the start of an epoch.
 specific layout. docs:start:context_message_portal</li>
 </ul>
 </div>
-</div><code id="consume_l1_to_l2_message" class="code-header">pub fn <a href="#consume_l1_to_l2_message"><span class="fn">consume_l1_to_l2_message</span></a>(
+</div><code id="consume_l1_to_l2_message" class="code-header">pub fn <a href="#consume_l1_to_l2_message"><span class="fn">consume_l1_to_l2_message</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     &mut self,
     content: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-    secret: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    secret: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N],
     sender: <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>,
     leaf_index: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
 )</code>
@@ -687,7 +651,7 @@ to wait until the messages are copied before you can consume them.</p>
 <h4>Arguments</h4>
 <ul>
 <li><code>content</code> - The message content that was sent from L1</li>
-<li><code>secret</code> - Secret value used for message privacy (if needed)</li>
+<li><code>secret</code> - Secret fields used for message privacy (if needed)</li>
 <li><code>sender</code> - Ethereum address that sent the message</li>
 <li><code>leaf_index</code> - Index of the message in the L1-to-L2 message tree</li>
 </ul>

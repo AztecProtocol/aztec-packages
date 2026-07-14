@@ -47,12 +47,14 @@
 <h1>Module <span id="mod" class="module">constrained_delivery</span></h1>
 <div class="comments">
 <p>Sender-side helpers for constrained message delivery.</p>
-<p>Constrained messages form per-<code>(sender, recipient, secret)</code> sequences, each send anchored to the handshake
-registry at an incrementing index. Two consequences shape the whole flow: sends on one sequence are strictly
-ordered across transactions (parallel sends collide or fail the predecessor check, while distinct recipients are
-distinct sequences and parallelize), and batching several sends onto one sequence within a transaction requires
-an already-committed handshake.</p>
-<p>See [<code>constrain_secret</code>] for how a send is anchored to the registry,</p></div>
+<p>Constrained messages form per-<code>(sender, recipient, handshake secrets)</code> sequences, each send anchored to the
+handshake registry at an incrementing index. Two consequences shape the whole flow: sends on one sequence are
+strictly ordered across transactions (parallel sends collide or fail the predecessor check, while distinct
+recipients are distinct sequences and parallelize), and batching several sends onto one sequence within a
+transaction requires an already-committed handshake.</p>
+<p>A pre-existing handshake's secrets are anchored to the registry by [<code>constrain_preexisting_handshake_secrets</code>]
+before its constrained tag is emitted; every constrained send then emits the same sequence nullifier via
+[<code>emit_sequence_nullifier</code>].</p></div>
 <h2 id="globals">Globals</h2><ul class="item-list">
 <li><div class="item-name"><a href="global.VALIDATE_HANDSHAKE_SELECTOR.html" class="global">VALIDATE_HANDSHAKE_SELECTOR</a></div><div class="item-description"></div></li>
 </ul>

@@ -55,7 +55,7 @@
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::facts</div>
 <h1>Module <span id="mod" class="module">facts</span></h1>
 <div class="comments">
-<p>Storage of immutable facts grouped into collections.</p>
+<p>Per-contract storage of immutable facts grouped into collections.</p>
 <p>A fact is a contract-defined, typed, immutable datum. Facts are grouped into collections identified by a
 <code>(collection type, collection id)</code> tuple.</p>
 <p>They are stored in PXE's FactStore, which automatically deals with reorgs by removing any facts
@@ -65,6 +65,8 @@ associated with blocks that have been pruned.</p>
 <li><div class="item-name"><a href="struct.Fact.html" class="struct">Fact</a></div><div class="item-description">A single immutable fact in a collection.</div></li>
 <li><div class="item-name"><a href="struct.FactCollection.html" class="struct">FactCollection</a></div><div class="item-description">A fact collection as returned by the store.</div></li>
 <li><div class="item-name"><a href="struct.OriginBlock.html" class="struct">OriginBlock</a></div><div class="item-description">The block a retractable fact originates from.</div></li>
+<li><div class="item-name"><a href="struct.OriginBlockState.html" class="struct">OriginBlockState</a></div><div class="item-description">Chain state of a retractable fact's origin block, mirroring the L2 chain tips.</div></li>
+<li><div class="item-name"><a href="struct.RetractableFactOrigin.html" class="struct">RetractableFactOrigin</a></div><div class="item-description">A retractable fact's origin block.</div></li>
 </ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.delete_fact_collection.html" class="fn">delete_fact_collection</a></div><div class="item-description">Deletes a fact collection, removing all its facts from PXE storage.</div></li>

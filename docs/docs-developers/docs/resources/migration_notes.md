@@ -9,6 +9,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `tx_request_salt` field
 
 The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's salt. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `tx_request_salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
@@ -16,6 +17,105 @@ The init kernel now always injects the protocol nullifier (`H(tx_request)`) as t
 The salt serves two purposes. It keeps `H(tx_request)` (the protocol nullifier) unpredictable, preventing a dictionary attack that guesses the tx-request preimage to recompute the nullifier. It also lets the init kernel bind the proof to a specific tx request: the kernel asserts `tx_request_salt` equals `tx_request.salt`, so a third party holding the proof cannot rebind it to a different request (and thus a different protocol nullifier).
 
 Because `tx_request_salt` is now part of the private function's public inputs, an app or account contract can read it. Together with the other public inputs (the call context, `args_hash`, `tx_context`, and the function selector), an entrypoint can reconstruct the full `tx_request` and verify a signature over `tx_request.hash()`, instead of over a separate payload. This lets an account authorize the complete, kernel-checked transaction request rather than just the calls it contains. Building on that, the protocol nullifier can be made to provide a transaction's replay protection and cancellation directly, reducing the number of nullifiers an account needs to emit. This is not done by the standard entrypoint today; see issues #461 (the protocol/design direction) and #462 (the Aztec.nr account-layer work) for the full picture.
+=======
+## 5.0.0
+
+### [PXE] Local PXE database is reset on upgrade
+
+The persisted tagging stores now key every entry by the self-describing `<kind>:<secret>:<app>` form of `AppTaggingSecret`; unconstrained secrets previously used a two-part `<secret>:<app>` key. This bumps the PXE data schema version, and there is no forward migration for the old keys: on first open the PXE clears any database whose stored schema version differs from the current one. The wipe resets the entire PXE store, not just the tagging data, because all of it shares one backing database.
+
+**Impact**: On upgrade your local PXE state is reset. You must re-register accounts and re-sync from genesis. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path.
+
+### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
+
+`TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
+that want the same default wallet strategy for both onchain delivery modes. The new naming reflects that these helpers
+configure the TXE default wallet strategy hook; contract-fixed delivery derivations bypass that default.
+
+For mode-specific defaults and hook semantics, see the
+[`resolveTaggingSecretStrategy` test helper docs](/developers/testnet/docs/foundational-topics/pxe/execution_hooks#resolvetaggingsecretstrategy).
+
+### [Aztec.nr] L1-to-L2 message consumption takes the secret as an array
+
+`PrivateContext::consume_l1_to_l2_message` and `PublicContext::consume_l1_to_l2_message` now take the message secret as an arbitrary-length array `[Field; N]` instead of a single `Field`, so a consumer can derive its secret hash from more than one field. The helpers `compute_secret_hash` and `compute_l1_to_l2_message_nullifier` are likewise now generic over the secret length. A single-field secret behaves exactly as before (the hashes are unchanged for `N = 1`) — just wrap it in an array.
+
+**Migration:**
+
+```diff
+- context.consume_l1_to_l2_message(content, secret, sender, leaf_index);
++ context.consume_l1_to_l2_message(content, [secret], sender, leaf_index);
+```
+
+```diff
+- let secret_hash = compute_secret_hash(secret);
++ let secret_hash = compute_secret_hash([secret]);
+```
+
+**Impact**: Contracts that consume L1-to-L2 messages, or that call `compute_secret_hash` / `compute_l1_to_l2_message_nullifier`, must wrap their single-field secret in an array. Already-deployed contracts are unaffected: their unchanged bytecode keeps working, as PXE serves the previous L1-to-L2 membership-witness oracle through a compatibility adaptor.
+
+### [Aztec.js] `computeL1ToL2MessageNullifier` replaced by `computeFeeJuiceMessageNullifier`
+
+The `@aztec/stdlib` helper `computeL1ToL2MessageNullifier(contract, messageHash, secret)`, which returned the siloed message nullifier, has been removed. Its replacement `computeFeeJuiceMessageNullifier(messageHash, secret)` returns the **unsiloed** nullifier — siloing now happens at the point where the nullifier is looked up. `getL1ToL2MessageWitness` accordingly takes an optional `{ contractAddress, nullifier }` (unsiloed) and silos internally. `computeSecretHash` is unchanged, and `getNonNullifiedL1ToL2MessageWitness` keeps the same signature.
+
+**Migration:**
+
+```diff
+- const nullifier = await computeL1ToL2MessageNullifier(contract, messageHash, secret);
++ // computeFeeJuiceMessageNullifier returns the UNSILOED nullifier; silo it before looking it up, or hand the
++ // unsiloed value to getL1ToL2MessageWitness which silos for you.
++ const nullifier = await siloNullifier(contract, await computeFeeJuiceMessageNullifier(messageHash, secret));
+```
+
+**Impact**: Only affects code calling these low-level messaging helpers directly - most integrations use `getNonNullifiedL1ToL2MessageWitness`, which is unchanged.
+
+### [Aztec.js] Account signing keys are no longer derived from the privacy secret
+
+Schnorr account signing keys used to be derived from the account's privacy secret (via the now-removed `deriveSigningKey`), which meant the ownership key could be reconstructed from a value the PXE holds. The relationship is now reversed: the signing key is the root, and the privacy secret is derived from it with `deriveSecretKeyFromSigningKey` (exported from `@aztec/accounts/utils`).
+
+As a result:
+
+- `deriveSigningKey` is removed.
+- `getSchnorrAccountContractAddress` and `getSchnorrInitializerlessAccountContractAddress` now take the signing key first and an optional secret: `(signingPrivateKey, salt, secretKey?)`. When `secretKey` is omitted it is derived from the signing key.
+- The embedded wallet's `createSchnorrAccount` and `createSchnorrInitializerlessAccount` now require an explicit signing key argument.
+
+**Migration:**
+
+```diff
+- import { deriveSigningKey } from '@aztec/stdlib/keys';
+- const signingKey = deriveSigningKey(secret);
+- const address = await getSchnorrAccountContractAddress(secret, salt, signingKey);
++ import { GrumpkinScalar } from '@aztec/aztec.js/fields';
++ const signingKey = GrumpkinScalar.random(); // supply your own signing key
++ const address = await getSchnorrAccountContractAddress(signingKey, salt, secret);
+```
+
+**Impact**: Account addresses change, since both the signing key and the privacy secret feed the address. Code that derived the signing key from the secret, or passed the secret first to the address helpers, no longer compiles.
+
+### [Aztec.nr] `MessageContext` removed: message processing uses `ResolvedTx`
+
+`aztec::messages::processing::MessageContext` has been removed in favor of the new `ResolvedTx`, which carries the same `tx_hash`, `unique_note_hashes_in_tx`, and `first_nullifier_in_tx`, plus `block_number` and `block_hash`. The offchain handoff type `OffchainMessageWithContext` is likewise renamed to `OffchainMessageWithTx`.
+
+This affects contracts that implement a custom message handler (registered via `AztecConfig::custom_message_handler`): the handler's context parameter is now a `ResolvedTx`.
+
+**Migration:**
+
+```diff
+  use aztec::messages::processing::{
+-     enqueue_event_for_validation, MessageContext,
++     enqueue_event_for_validation, ResolvedTx,
+  };
+
+  unconstrained fn handle_my_message(
+      // ...
+-     message_context: MessageContext,
++     resolved_tx: ResolvedTx,
+      scope: AztecAddress,
+  ) {
+-     // ...message_context.tx_hash...
++     // ...resolved_tx.tx_hash...
+  }
+```
+>>>>>>> origin/public-next
 
 ### [PXE] `pxe.updateContract` removed and `pxe.registerContract` no longer takes an artifact
 
@@ -44,6 +144,10 @@ Registering classes and instances are now separate, unvalidated operations. `reg
 
 - `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/public-next
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
 `AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:
@@ -68,6 +172,27 @@ The PXE never receives the seed nor the message-signing and fallback secret keys
 
 **Impact**: Importing `AccountWithSecretKey`, or calling `getSecretKey()`/`getEncryptionSecret()` on the result of `getAccount()`, no longer compiles. The signer `getAccount()` returns is otherwise unchanged, and passing a single `Fr` or a `MasterSecretKeys` to `wallet.registerContract` keeps working.
 
+<<<<<<< HEAD
+=======
+### [CLI] `aztec-wallet` `--secret-key` is renamed to `--signing-key`
+
+`aztec-wallet` accounts are now rooted on their signing key rather than on a privacy secret. The `--secret-key` option (on `create-account` and `simulate`) is renamed to `--signing-key`, and the `SECRET_KEY` environment variable to `SIGNING_KEY`. When creating an account, a random signing key is generated by default and the privacy secret is derived from it.
+
+**Migration:**
+
+```diff
+- aztec-wallet create-account --secret-key 0x...
++ aztec-wallet create-account --signing-key 0x...
+```
+
+**Impact**: The value you save and restore for an account is now its signing key, and account addresses change, so existing wallet databases and funded addresses are not carried over.
+
+### [Bot] `senderPrivateKey` is now the account signing key
+
+The transaction bot previously derived its account's signing key from the configured `senderPrivateKey`. That value is now used directly as the signing key, with the privacy secret derived from it.
+
+**Impact**: The bot's account address changes for a given `senderPrivateKey`, so the account must be re-funded at its new address.
+>>>>>>> origin/public-next
 
 ### [PXE] Unconstrained delivery defaults to a non-interactive handshake for external recipients
 
@@ -268,7 +393,17 @@ while i > 0 {
 }
 ```
 
+<<<<<<< HEAD
 ## 5.0.0-rc.1
+=======
+### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `tx_request_salt` field
+
+The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's salt. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `tx_request_salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
+
+The salt serves two purposes. It keeps `H(tx_request)` (the protocol nullifier) unpredictable, preventing a dictionary attack that guesses the tx-request preimage to recompute the nullifier. It also lets the init kernel bind the proof to a specific tx request: the kernel asserts `tx_request_salt` equals `tx_request.salt`, so a third party holding the proof cannot rebind it to a different request (and thus a different protocol nullifier).
+
+Because `tx_request_salt` is now part of the private function's public inputs, an app or account contract can read it. Together with the other public inputs (the call context, `args_hash`, `tx_context`, and the function selector), an entrypoint can reconstruct the full `tx_request` and verify a signature over `tx_request.hash()`, instead of over a separate payload. This lets an account authorize the complete, kernel-checked transaction request rather than just the calls it contains. Building on that, the protocol nullifier can be made to provide a transaction's replay protection and cancellation directly, reducing the number of nullifiers an account needs to emit. This is not done by the standard entrypoint today; see issues #461 (the protocol/design direction) and #462 (the Aztec.nr account-layer work) for the full picture.
+>>>>>>> origin/public-next
 
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 
@@ -397,9 +532,7 @@ The `set_sender_for_tags` oracle has been removed. Contracts that used it to ove
 + note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
 ```
 
-When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender. The wallet SDK supplies that default from the transaction's `from` address, with an optional `sendMessagesAs` override for flows that have no signing account (e.g. self-paid deploys, which `DeployAccountMethod` sets automatically).
-
-Account contracts therefore no longer need to call `set_sender_for_tags(self.address)` in their entrypoints: those calls have been removed from the standard Schnorr and ECDSA account contracts, and you can drop them — along with the old `get` → `set(self.address)` → work → `set(prev)` save/restore idiom in constructors — from any custom account contract.
+When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
 
 ### [Aztec.nr] `MessageDelivery` API syntax change
 
@@ -460,11 +593,11 @@ Account contracts therefore no longer need to call `set_sender_for_tags(self.add
 
 ### [Protocol] Remaining protocol-contract addresses compacted to 1-3
 
-After the `auth_registry`, `multi_call_entrypoint`, and `public_checks` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
+After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `4`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
 
 To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
 
@@ -580,7 +713,6 @@ type LogResult = {
   blockHash: BlockHash;
   blockTimestamp: UInt64;
   txHash: TxHash;
-  txIndexWithinBlock: number;
   logIndexWithinTx: number;
   noteHashes?: Fr[]; // present only when includeEffects is set
   nullifiers?: Fr[]; // all nullifiers of the tx, not just the first
@@ -707,7 +839,7 @@ If you need to customize source or block range, construct the struct manually wi
 
 Ships together with immutables hash changes (shown below).
 
-Per [AZIP-8](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-8.md), `PublicKeys` no longer carries its master public keys as elliptic curve points. All of them except `ivpk_m` (`npk_m`, `ovpk_m`, `tpk_m`, and the new `mspk_m` and `fbpk_m`) are now exposed only as their poseidon2 hash digests; only `ivpk_m` (the master incoming viewing key) remains a point because address derivation needs it as a curve point.
+Per [AZIP-8](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-8.md), `PublicKeys` no longer carries the four master public keys as elliptic curve points. Three of them (`npk_m`, `ovpk_m`, `tpk_m`) are now exposed only as their poseidon2 hash digests; only `ivpk_m` (the master incoming viewing key) remains a point because address derivation needs it as a curve point.
 
 **This is a hard fork:** every contract address and account address derived from a non-default `PublicKeys` changes.
 
@@ -724,13 +856,13 @@ The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_
 
 **Custom account contracts.** Wallets that ship their own Noir account contracts must recompile. Macro-generated calldata extraction and the `request_nsk_app` / `request_ovsk_app` paths use the hash form natively.
 
-**TS / wallet author migration.** The `PublicKeys` constructor signature changes from four `Point`s to `(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr, mspkMHash: Fr, fbpkMHash: Fr)` (the new `mspk_m` message-signing and `fbpk_m` fallback keys are also exposed as hashes). `KeyValidationRequest` carries `pkMHash: Fr` instead of `pkM: Point`. `KeyStore.getMasterSecretKey` now takes a `pkMHash: Fr` rather than a `Point`. Callers using the auto-generated TS binding pick this up automatically; callers that hand-roll the arg buffer must update.
+**TS / wallet author migration.** The `PublicKeys` constructor signature changes from four `Point`s to `(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr)`. `KeyValidationRequest` carries `pkMHash: Fr` instead of `pkM: Point`. `KeyStore.getMasterSecretKey` now takes a `pkMHash: Fr` rather than a `Point`. Callers using the auto-generated TS binding pick this up automatically; callers that hand-roll the arg buffer must update.
 
 **Wallet UI.** Any panel that displayed `masterNullifierPublicKey`, `masterOutgoingViewingPublicKey`, or `masterTaggingPublicKey` as Grumpkin points will no longer compile against the new `PublicKeys` class. The points themselves are no longer in `ContractInstancePublished` and cannot be recovered from the onchain record. Switch to displaying the hashes (`npkMHash`, `ovpkMHash`, `tpkMHash`) or drop the display.
 
-**PXE storage migration.** `DatabaseVersionManager` deletes pre-v6 databases on first open: users will see registered accounts, contacts, address aliases, and synced notes wiped. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path. There is no forward migration because the address derived from a given secret changes (the new `public_keys_hash` is over single-key digests, not raw points). Previous addresses are not recoverable from the same secret; assets and notes attached to them are inaccessible at the protocol level.
+**PXE storage migration.** `DatabaseVersionManager` deletes pre-v6 databases on first open: users will see registered accounts, contacts, address aliases, and synced notes wiped. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path. There is no forward migration because the address derived from a given secret changes (the new `public_keys_hash` is over four single-key digests, not four raw points). Previous addresses are not recoverable from the same secret; assets and notes attached to them are inaccessible at the protocol level.
 
-**Indexer / event-decoder migration.** The `ContractInstancePublished` private log payload is now 15 fields:
+**Indexer / event-decoder migration.** The `ContractInstancePublished` private log payload is now 13 fields:
 
 ```text
 [ MAGIC, address, version, salt, class_id, init_hash,
@@ -739,8 +871,6 @@ The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_
   ivpk_m.x, ivpk_m.y,
   ovpk_m_hash,
   tpk_m_hash,
-  mspk_m_hash,
-  fbpk_m_hash,
   deployer ]
 ```
 
@@ -762,7 +892,7 @@ salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [sal
 - You parse the `ContractInstancePublished` private log directly. The event payload has an extra field, with `immutables_hash` inserted between `initialization_hash` and the public-keys block:
 
   ```
-  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(7), deployer]
+  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(5), deployer]
   ```
 
 - You call `ContractInstanceRegistry.publish_for_public_execution` directly. The function now takes 6 arguments instead of 5, with `immutables_hash` inserted between `initialization_hash` and `public_keys`:
@@ -801,21 +931,6 @@ If you were already using `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec
 
 - context.emit_raw_note_log_vec_unsafe(tag, log, note_hash_counter);
 + context.emit_raw_note_log_unsafe(tag, log, note_hash_counter);
-```
-
-If you were manually padding an array and passing a shorter length, build a `BoundedVec` from just the meaningful fields instead:
-
-```diff
-- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
-- context.emit_private_log_unsafe(tag, padded, 2);
-+ context.emit_private_log_unsafe(tag, BoundedVec::from_array(payload));
-```
-
-If you were passing the full array, wrap it with `BoundedVec::from_array`:
-
-```diff
-- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
-+ context.emit_private_log_unsafe(tag, BoundedVec::from_array(ciphertext));
 ```
 
 ### [bb.js / accounts / aztec.nr] Schnorr signatures switched to Poseidon2
@@ -965,7 +1080,7 @@ await deploy.send({ from: bob }); // throws: deployer is locked to alice
 + const deploy = MyContract.deploy(wallet, ...args, { publicKeys });
 ```
 
-`ContractDeployer.deploy(...)` now takes the constructor args first and the instantiation options as its second argument (pass `{}` for the instantiation to use defaults and rely on lazy locking from `from`):
+`ContractDeployer.deploy(...)` now takes the instantiation argument as its first parameter (pass `{}` to use defaults and rely on lazy locking from `from`):
 
 ```diff
 - const cd = new ContractDeployer(artifact, wallet);
@@ -1021,8 +1136,6 @@ If you relied on a bundled bare-name binary for general use:
 - Or install Foundry / nargo separately via `foundryup` / `noirup`.
 
 If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
-
-The installer also no longer adds `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, so the ~40 transitive npm bins it used to leak (`jest`, `tsc`, `tsserver`, ...) are gone and no longer shadow your own installs. If you installed an earlier version, your shell profile (`~/.bashrc` / `~/.zshrc`) may still contain the old `PATH` line — re-run the installer once to replace it, open a fresh shell, and confirm `$HOME/.aztec/current/node_modules/.bin` no longer appears in `echo $PATH`.
 
 ### [Stdlib] `SimulationOverrides.contracts` entries no longer carry an artifact
 
@@ -1095,6 +1208,14 @@ pxe.proveTx(txRequest, { scopes });
 // When from === NO_FROM (e.g. self-paid account deploy), supply the tag sender explicitly:
 pxe.proveTx(txRequest, { scopes, senderForTags: deployedAddress });
 ```
+
+### [Aztec.nr] `set_sender_for_tags` is now scoped to the calling contract
+
+`set_sender_for_tags` previously persisted through nested calls. It is now scoped to the contract that calls it: nested calls, siblings, and parents are unaffected and always start from the initial default. This closes a silent note-discovery DoS vector where any nested callee could overwrite the tag sender for legitimate contracts called below it.
+
+The wallet SDK now supplies the default sender-for-tags from the transaction's `from` address, with an optional `sendMessagesAs` override for flows that don't have a signing account (e.g. self-paid deploys, which `DeployAccountMethod` sets automatically). Account contracts therefore no longer need to call `set_sender_for_tags(self.address)` in their entrypoints; those calls have been removed from the standard schnorr and ECDSA account contracts, and you can drop the equivalent call in any custom account contract.
+
+The save/restore idiom previously used in account-contract constructors (`get` → `set(self.address)` → work → `set(prev)`) is also no longer needed and has been removed: the override never leaks out of the constructor, so there is nothing to restore.
 
 ### [Aztec Node] Unified `getBlock` / `getCheckpoint` RPC API
 
@@ -1202,6 +1323,24 @@ If your code asks for `includeAttestations` / `includeL1PublishInfo` and might l
 
 Confirmed checkpoints previously reported `feeAssetPriceModifier = 0n` regardless of the value observed on L1, because the archiver dropped the field on checkpoint confirmation. The field is now persisted and returned correctly on `CheckpointResponse`. Any wallet or indexer logic that special-cased `0n` as a sentinel for "no modifier" will need to be updated; it is now a valid value in its own right.
 
+### [CLI] `aztec-up` no longer exposes transitive npm bins on PATH
+
+The `aztec-up` installer used to add `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, which put ~40 transitive npm bins (`jest`, `tsc`, `tsserver`, `semver`, `uuid`, `json5`, ...) onto your interactive shell and silently shadowed your own installed versions of those tools. Only the seven `@aztec/*`-owned bins (`aztec`, `aztec-wallet`, `bb`, `bb-cli`, `blob-client`, `noir-codegen`, `txe`) are now exposed.
+
+If you had an Aztec version installed before this release, your shell profile (`~/.bashrc` or `~/.zshrc`) still contains the old `PATH` line. Re-run the installer once (replacing `[VERSION]` with whichever toolchain version you're on, e.g. `4.2.0`) to replace it:
+
+```bash
+VERSION=[VERSION] bash -i <(curl -sL https://install.aztec.network)
+```
+
+Open a fresh shell and confirm the leak is gone:
+
+```bash
+echo $PATH
+```
+
+`$HOME/.aztec/current/node_modules/.bin` should no longer appear in the output. You'll also see your own `jest`, `tsc`, etc. again instead of the ones bundled with the Aztec toolchain.
+
 ### [Protocol] Domain separators introduced for merkle-node, block-headers, and blob hashes
 
 Several protocol hashes that previously used bare `poseidon2_hash` are now domain-separated via `poseidon2_hash_with_separator`. This is a security hardening change — it prevents a value produced by one hash context from being reinterpreted in another (e.g. a sibling path from one tree being transported to another).
@@ -1239,6 +1378,33 @@ Regenerate these values from a fresh build of this release — do not copy them 
 `poseidon2HashWithSeparator` is exported from `@aztec/foundation/crypto/poseidon`; the `DomainSeparator` enum and the matching `DOM_SEP__*` constants are defined in `@aztec/constants`. The new entries listed above are additions — existing separator names are unchanged.
 
 For TypeScript consumers, `@aztec/stdlib/hash` exports ready-made helpers that wrap the right separator: `computeMerkleHash` (append-only), `computeNullifierMerkleHash`, and `computePublicDataMerkleHash`. Prefer these over calling `poseidon2HashWithSeparator` directly so the separator choice stays colocated with the tree.
+
+### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
+
+`emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
+
+```diff
+- context.emit_private_log_unsafe(tag, log, length);
++ context.emit_private_log_vec_unsafe(tag, bounded_vec_log);
+- context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
++ context.emit_raw_note_log_vec_unsafe(tag, bounded_vec_log, note_hash_counter);
+```
+
+If you were manually padding an array and passing a shorter length, you can now create a `BoundedVec` from just the meaningful fields:
+
+```diff
+- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
+- context.emit_private_log_unsafe(tag, padded, 2);
++ let log = BoundedVec::from_array(payload);
++ context.emit_private_log_vec_unsafe(tag, log);
+```
+
+If you were passing the full array, wrap it with `BoundedVec::from_array`:
+
+```diff
+- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
++ context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array(ciphertext));
+```
 
 ### [aztec-nr] Nullifier membership witness oracle returns split types
 
@@ -1296,6 +1462,7 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 ```
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
+
 
 ### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
 
