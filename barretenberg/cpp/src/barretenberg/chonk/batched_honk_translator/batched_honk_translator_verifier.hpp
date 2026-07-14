@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/verifier_commitments.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
@@ -43,7 +44,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     using MegaZKVerifierInstance = VerifierInstance_<MegaZKFlavorT>;
     using MegaZKVKAndHash = typename MegaZKFlavorT::VKAndHash;
     using Transcript = std::conditional_t<IsRecursive, UltraStdlibTranscript, NativeTranscript>;
-    using MegaZKVerifierCommitments = typename MegaZKFlavorT::VerifierCommitments;
+    using MegaZKVerifierCommitments = typename VerifierCommitmentsConstructor<MegaZKFlavorT>::Commitments;
     using TransVerifierCommitments = typename TransFlavor::VerifierCommitments;
 
     // Proof type: stdlib::Proof<UltraCircuitBuilder> for recursive, HonkProof for native.
@@ -95,12 +96,11 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
 
     /**
      * @brief Result of Phase 1 (MegaZK Oink verification).
-     * @details Contains the data that callers need between Phase 1 and Phase 2.
      */
     struct OinkResult {
         std::vector<FF> public_inputs;
-        Commitment kernel_calldata_commitment;
         std::array<Commitment, MegaZKFlavorT::NUM_WIRES> ecc_op_wires;
+        Commitment kernel_calldata_commitment;
     };
 
     /**
@@ -114,7 +114,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     /**
      * @brief Phase 1: Verify the MegaZK Oink phase on the shared transcript.
      * @details Loads mega_zk_proof into the transcript, runs OinkVerifier, stores verifier instance.
-     * @return OinkResult with public inputs, kernel calldata commitment, and ECC op wires.
+     * @return OinkResult with public inputs and ECC op wires.
      */
     OinkResult verify_mega_zk_oink(const Proof& mega_zk_proof);
 
@@ -161,7 +161,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     std::vector<FF> joint_challenge;
     typename MegaZKFlavorT::AllValues mega_zk_evals;
     typename TransFlavor::AllValues trans_evals;
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments;
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments;
     FF libra_evaluation;
     FF libra_challenge;
 

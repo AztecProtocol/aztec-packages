@@ -10,6 +10,7 @@ import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
 export { getPackageInfo } from './package_info.js';
+export * from '../hooks/index.js';
 
 /**
  * Configuration settings for the prover factory

@@ -2,8 +2,8 @@ use crate::{
     context::PrivateContext,
     event::{event_emission::NewEvent, event_interface::EventInterface},
     messages::{
+        delivery::{do_private_message_delivery, MessageDeliveryBuilder},
         logs::event::encode_private_event_message,
-        message_delivery::{do_private_message_delivery, MessageDeliveryBuilder},
     },
 };
 use crate::protocol::{address::AztecAddress, traits::Serialize};
@@ -38,7 +38,7 @@ where
     ///
     /// The message is first encrypted to the recipient's public key, ensuring no other actor can read it.
     ///
-    /// The `delivery_mode` is produced by the [`crate::messages::message_delivery::MessageDelivery`] entrypoints
+    /// The `delivery_mode` is produced by the [`crate::messages::delivery::MessageDelivery`] entrypoints
     /// (`offchain`, `onchain_unconstrained`, or `onchain_constrained`). It informs costs (both proving time and TX
     /// fees) as well as delivery guarantees, and must be a compile-time constant.
     ///

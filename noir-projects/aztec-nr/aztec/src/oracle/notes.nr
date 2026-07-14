@@ -1,3 +1,4 @@
+use crate::messages::delivery::OnchainDeliveryMode;
 use crate::note::{HintedNote, note_interface::NoteType};
 
 use crate::protocol::{address::AztecAddress, traits::Packable};
@@ -192,19 +193,22 @@ unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient
 ///
 /// The caller already holds the tagging `secret`, whether obtained from [`get_app_tagging_secret`] or computed by the
 /// contract, and only needs the simulator to hand out a fresh per-secret, per-mode index; the caller computes the tag
-/// itself. `mode` is one of [`ONCHAIN_UNCONSTRAINED`](crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED) /
-/// [`ONCHAIN_CONSTRAINED`](crate::messages::message_delivery::ONCHAIN_CONSTRAINED) and determines the per-mode index
-/// counter. Offchain messages are not tagged, so only the onchain delivery variants should reach this oracle.
+/// itself. `mode` is converted into the [`OnchainDeliveryMode`] selecting the per-mode index counter, so callers can
+/// pass either a concrete on-chain delivery builder or an explicit mode. Offchain messages are not tagged, so only the
+/// onchain delivery variants can be used by this oracle.
 ///
 /// The simulator persists the index increment only if the tagged log is found in an actual block; a reverting
 /// transaction can otherwise cause the sender to skip indices and later produce notes that are not found by the
 /// recipient.
-pub unconstrained fn get_next_tagging_index(secret: Field, mode: u8) -> u32 {
-    get_next_tagging_index_oracle(secret, mode)
+pub unconstrained fn get_next_tagging_index<M>(secret: Field, mode: M) -> u32
+where
+    M: Into<OnchainDeliveryMode>,
+{
+    get_next_tagging_index_oracle(secret, mode.into())
 }
 
 #[oracle(aztec_prv_getNextTaggingIndex)]
-unconstrained fn get_next_tagging_index_oracle(_secret: Field, _mode: u8) -> u32 {}
+unconstrained fn get_next_tagging_index_oracle(_secret: Field, _mode: OnchainDeliveryMode) -> u32 {}
 
 /// Gets the sender for tags.
 ///
@@ -219,22 +223,3 @@ pub(crate) unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
 
 #[oracle(aztec_prv_getSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
-
-mod test {
-    use crate::macros::oracle_testing::oracle_test;
-    use crate::protocol::{address::AztecAddress, traits::FromField};
-    use super::get_sender_for_tags_oracle;
-
-    #[oracle_test("some")]
-    unconstrained fn get_sender_for_tags_some() {
-        let result = get_sender_for_tags_oracle();
-        assert(result.is_some(), "expected Some");
-        assert_eq(result.unwrap(), AztecAddress::from_field(42));
-    }
-
-    #[oracle_test("none")]
-    unconstrained fn get_sender_for_tags_none() {
-        let result = get_sender_for_tags_oracle();
-        assert(result.is_none(), "expected None");
-    }
-}

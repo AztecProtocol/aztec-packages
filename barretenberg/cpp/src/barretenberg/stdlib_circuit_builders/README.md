@@ -111,13 +111,15 @@ The execution trace is constructed in the form of **blocks** (`ExecutionTraceBlo
 - `poseidon2_external` — Poseidon2 external rounds
 - `poseidon2_internal` — Poseidon2 internal rounds
 
-**Mega blocks** (includes all Ultra blocks, plus):
+**Mega blocks** (Ultra blocks except the two Poseidon2 blocks, plus):
 - `ecc_op` — Deferred ECC operations for Goblin (must be first in trace)
 - `busread` — Databus read operations
-- `poseidon2_quad_internal` — Poseidon2 K=4 internal-round compression
+- `poseidon2` — all five Poseidon2 gate kinds (external, initial-external, K=4 internal, terminal, transition-entry)
 
-Mega does not use the Ultra `poseidon2_internal` block for Poseidon2. The canonical Poseidon2
-circuit layout and soundness argument live in `stdlib/hash/poseidon2/README.md`.
+Where Ultra splits Poseidon2 across `poseidon2_external` and `poseidon2_internal`, Mega puts all five
+gate kinds in the single `poseidon2` block, so each permutation's rows are contiguous and the
+external↔internal boundary binds via `w_shift`. The canonical Poseidon2 circuit layout and soundness
+argument live in `stdlib/hash/poseidon2/README.md`.
 
 Within a given block, the corresponding gate selector is not always non-zero (hence why we have to track its values at all). This is because many gates make use of a shift mechanism that allow the constraint at row `i` to incorporate wire values at row `i+1`. In this case, row `i+1` may or may not be otherwise constrained, i.e. the gate selector at row `i+1` may take value 0.
 

@@ -11,7 +11,7 @@ import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { format } from 'util';
@@ -32,6 +32,9 @@ const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 //
 // 3. Run the tests:
 //    yarn test:e2e e2e_local_network_example.test.ts
+// End-to-end example of connecting to the --local-network quickstart. Runs against a pre-started
+// docker-compose stack (AZTEC_NODE_URL); demonstrates account loading, token deployment, and transfers
+// using only the public aztec.js npm API.
 describe('e2e_local_network_example', () => {
   it('local network example works', async () => {
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE LOCAL NETWORK //////////////
@@ -183,7 +186,8 @@ describe('e2e_local_network_example', () => {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
     const maxFeesPerGas = await getPaddedMaxFeesPerGas(node);
-    const gasSettings = GasSettings.fallback({ maxFeesPerGas });
+    const gasLimits = Gas.from((await node.getNodeInfo()).txsLimits.gas);
+    const gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas });
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, alice, wallet, gasSettings);
     const { receipt: receiptForAlice } = await bananaCoin.methods
       .transfer(bob, amountTransferToBob)

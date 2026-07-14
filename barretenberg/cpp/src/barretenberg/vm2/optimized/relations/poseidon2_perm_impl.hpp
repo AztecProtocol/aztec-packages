@@ -1,12 +1,36 @@
+// Hand-tuned implementation of the poseidon2_perm relation to make compile times tolerable
+//
+// Replaces the auto-generated `generated/relations/poseidon2_perm_impl.hpp`.
+//
+// Subrelation layout:
+//   0        boolean selector
+//   1..4     initial external-matrix layer on the input state
+//   5..20    4 initial full rounds (4 subrelations each)
+//   21..79   56 partial rounds, quad-compressed (see poseidon2_quad_params.hpp)
+//   80..95   4 final full rounds (4 subrelations each)
+//   96..99   outputs
+//
+// Note on reading constants
+// Round constants and the internal-matrix diagonal D_i are read directly as native `bb::fr` from the
+// shared `constexpr` tables in `poseidon2_params.hpp` / `poseidon2_quad_params.hpp`.
+//
+// While the underlying fields are the same, the proving build uses `FF == bb::fr` and the recursive build uses `FF ==
+// stdlib::field_t`. This difference in c++ type can subtly cause the recursive build to fail to compile if a native
+// constant is on the left of a multiply, because `bb::fr * stdlib::field_t` has no overload (field_t has no conversion
+// operator to bb::fr but there is an implicit conversion the other way).
+//
+// This really only impacts the Poseidon2QuadBn254Params multiplications since the standard round constants are used
+// additively. But this does mean we have to be careful to keep the native-loaded constants on the right of multiplies,
+// otherwise we get a compile error in the recursive build.
 #pragma once
-
-#include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 
 #include <array>
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_quad_params.hpp"
 #include "barretenberg/vm2/constraining/relations/relation_macros.hpp"
+#include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 
 namespace bb::avm2 {
 
@@ -17,145 +41,76 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
                                                    [[maybe_unused]] const RelationParameters<FF_>&,
                                                    [[maybe_unused]] const FF_& scaling_factor)
 {
-    using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
+    // Read constants natively; see the file header for the operand-order rule that keeps the diagonal
+    // multiplies compiling under the recursive flavor.
+    using PParams = bb::crypto::Poseidon2Bn254ScalarFieldParams;
+    using PQuad = bb::crypto::Poseidon2QuadBn254Params;
     using C = ColumnAndShifts;
 
-    // Note this vector is arranged in *subrelation* order NOT in state order
-    // Refer to generated/poseidon2_perm_impl.hpp for the order of subrelations in each round
-    std::array<std::array<C, 4>, 64> round_cols = { {
-        //=========================================
-        // Initial Full Round Columns
-        //=========================================
-        { C::poseidon2_perm_T_0_4, C::poseidon2_perm_T_0_5, C::poseidon2_perm_T_0_6, C::poseidon2_perm_T_0_7 },
-        { C::poseidon2_perm_T_1_4, C::poseidon2_perm_T_1_5, C::poseidon2_perm_T_1_6, C::poseidon2_perm_T_1_7 },
-        { C::poseidon2_perm_T_2_4, C::poseidon2_perm_T_2_5, C::poseidon2_perm_T_2_6, C::poseidon2_perm_T_2_7 },
-        { C::poseidon2_perm_T_3_4, C::poseidon2_perm_T_3_5, C::poseidon2_perm_T_3_6, C::poseidon2_perm_T_3_7 },
-        //=========================================
-        // Partial Round Columns
-        //=========================================
-        { C::poseidon2_perm_B_4_0, C::poseidon2_perm_B_4_1, C::poseidon2_perm_B_4_2, C::poseidon2_perm_B_4_3 },
-        { C::poseidon2_perm_B_5_0, C::poseidon2_perm_B_5_1, C::poseidon2_perm_B_5_2, C::poseidon2_perm_B_5_3 },
-        { C::poseidon2_perm_B_6_0, C::poseidon2_perm_B_6_1, C::poseidon2_perm_B_6_2, C::poseidon2_perm_B_6_3 },
-        { C::poseidon2_perm_B_7_0, C::poseidon2_perm_B_7_1, C::poseidon2_perm_B_7_2, C::poseidon2_perm_B_7_3 },
-        { C::poseidon2_perm_B_8_0, C::poseidon2_perm_B_8_1, C::poseidon2_perm_B_8_2, C::poseidon2_perm_B_8_3 },
-        { C::poseidon2_perm_B_9_0, C::poseidon2_perm_B_9_1, C::poseidon2_perm_B_9_2, C::poseidon2_perm_B_9_3 },
-        { C::poseidon2_perm_B_10_0, C::poseidon2_perm_B_10_1, C::poseidon2_perm_B_10_2, C::poseidon2_perm_B_10_3 },
-        { C::poseidon2_perm_B_11_0, C::poseidon2_perm_B_11_1, C::poseidon2_perm_B_11_2, C::poseidon2_perm_B_11_3 },
-        { C::poseidon2_perm_B_12_0, C::poseidon2_perm_B_12_1, C::poseidon2_perm_B_12_2, C::poseidon2_perm_B_12_3 },
-        { C::poseidon2_perm_B_13_0, C::poseidon2_perm_B_13_1, C::poseidon2_perm_B_13_2, C::poseidon2_perm_B_13_3 },
-        { C::poseidon2_perm_B_14_0, C::poseidon2_perm_B_14_1, C::poseidon2_perm_B_14_2, C::poseidon2_perm_B_14_3 },
-        { C::poseidon2_perm_B_15_0, C::poseidon2_perm_B_15_1, C::poseidon2_perm_B_15_2, C::poseidon2_perm_B_15_3 },
-        { C::poseidon2_perm_B_16_0, C::poseidon2_perm_B_16_1, C::poseidon2_perm_B_16_2, C::poseidon2_perm_B_16_3 },
-        { C::poseidon2_perm_B_17_0, C::poseidon2_perm_B_17_1, C::poseidon2_perm_B_17_2, C::poseidon2_perm_B_17_3 },
-        { C::poseidon2_perm_B_18_0, C::poseidon2_perm_B_18_1, C::poseidon2_perm_B_18_2, C::poseidon2_perm_B_18_3 },
-        { C::poseidon2_perm_B_19_0, C::poseidon2_perm_B_19_1, C::poseidon2_perm_B_19_2, C::poseidon2_perm_B_19_3 },
-        { C::poseidon2_perm_B_20_0, C::poseidon2_perm_B_20_1, C::poseidon2_perm_B_20_2, C::poseidon2_perm_B_20_3 },
-        { C::poseidon2_perm_B_21_0, C::poseidon2_perm_B_21_1, C::poseidon2_perm_B_21_2, C::poseidon2_perm_B_21_3 },
-        { C::poseidon2_perm_B_22_0, C::poseidon2_perm_B_22_1, C::poseidon2_perm_B_22_2, C::poseidon2_perm_B_22_3 },
-        { C::poseidon2_perm_B_23_0, C::poseidon2_perm_B_23_1, C::poseidon2_perm_B_23_2, C::poseidon2_perm_B_23_3 },
-        { C::poseidon2_perm_B_24_0, C::poseidon2_perm_B_24_1, C::poseidon2_perm_B_24_2, C::poseidon2_perm_B_24_3 },
-        { C::poseidon2_perm_B_25_0, C::poseidon2_perm_B_25_1, C::poseidon2_perm_B_25_2, C::poseidon2_perm_B_25_3 },
-        { C::poseidon2_perm_B_26_0, C::poseidon2_perm_B_26_1, C::poseidon2_perm_B_26_2, C::poseidon2_perm_B_26_3 },
-        { C::poseidon2_perm_B_27_0, C::poseidon2_perm_B_27_1, C::poseidon2_perm_B_27_2, C::poseidon2_perm_B_27_3 },
-        { C::poseidon2_perm_B_28_0, C::poseidon2_perm_B_28_1, C::poseidon2_perm_B_28_2, C::poseidon2_perm_B_28_3 },
-        { C::poseidon2_perm_B_29_0, C::poseidon2_perm_B_29_1, C::poseidon2_perm_B_29_2, C::poseidon2_perm_B_29_3 },
-        { C::poseidon2_perm_B_30_0, C::poseidon2_perm_B_30_1, C::poseidon2_perm_B_30_2, C::poseidon2_perm_B_30_3 },
-        { C::poseidon2_perm_B_31_0, C::poseidon2_perm_B_31_1, C::poseidon2_perm_B_31_2, C::poseidon2_perm_B_31_3 },
-        { C::poseidon2_perm_B_32_0, C::poseidon2_perm_B_32_1, C::poseidon2_perm_B_32_2, C::poseidon2_perm_B_32_3 },
-        { C::poseidon2_perm_B_33_0, C::poseidon2_perm_B_33_1, C::poseidon2_perm_B_33_2, C::poseidon2_perm_B_33_3 },
-        { C::poseidon2_perm_B_34_0, C::poseidon2_perm_B_34_1, C::poseidon2_perm_B_34_2, C::poseidon2_perm_B_34_3 },
-        { C::poseidon2_perm_B_35_0, C::poseidon2_perm_B_35_1, C::poseidon2_perm_B_35_2, C::poseidon2_perm_B_35_3 },
-        { C::poseidon2_perm_B_36_0, C::poseidon2_perm_B_36_1, C::poseidon2_perm_B_36_2, C::poseidon2_perm_B_36_3 },
-        { C::poseidon2_perm_B_37_0, C::poseidon2_perm_B_37_1, C::poseidon2_perm_B_37_2, C::poseidon2_perm_B_37_3 },
-        { C::poseidon2_perm_B_38_0, C::poseidon2_perm_B_38_1, C::poseidon2_perm_B_38_2, C::poseidon2_perm_B_38_3 },
-        { C::poseidon2_perm_B_39_0, C::poseidon2_perm_B_39_1, C::poseidon2_perm_B_39_2, C::poseidon2_perm_B_39_3 },
-        { C::poseidon2_perm_B_40_0, C::poseidon2_perm_B_40_1, C::poseidon2_perm_B_40_2, C::poseidon2_perm_B_40_3 },
-        { C::poseidon2_perm_B_41_0, C::poseidon2_perm_B_41_1, C::poseidon2_perm_B_41_2, C::poseidon2_perm_B_41_3 },
-        { C::poseidon2_perm_B_42_0, C::poseidon2_perm_B_42_1, C::poseidon2_perm_B_42_2, C::poseidon2_perm_B_42_3 },
-        { C::poseidon2_perm_B_43_0, C::poseidon2_perm_B_43_1, C::poseidon2_perm_B_43_2, C::poseidon2_perm_B_43_3 },
-        { C::poseidon2_perm_B_44_0, C::poseidon2_perm_B_44_1, C::poseidon2_perm_B_44_2, C::poseidon2_perm_B_44_3 },
-        { C::poseidon2_perm_B_45_0, C::poseidon2_perm_B_45_1, C::poseidon2_perm_B_45_2, C::poseidon2_perm_B_45_3 },
-        { C::poseidon2_perm_B_46_0, C::poseidon2_perm_B_46_1, C::poseidon2_perm_B_46_2, C::poseidon2_perm_B_46_3 },
-        { C::poseidon2_perm_B_47_0, C::poseidon2_perm_B_47_1, C::poseidon2_perm_B_47_2, C::poseidon2_perm_B_47_3 },
-        { C::poseidon2_perm_B_48_0, C::poseidon2_perm_B_48_1, C::poseidon2_perm_B_48_2, C::poseidon2_perm_B_48_3 },
-        { C::poseidon2_perm_B_49_0, C::poseidon2_perm_B_49_1, C::poseidon2_perm_B_49_2, C::poseidon2_perm_B_49_3 },
-        { C::poseidon2_perm_B_50_0, C::poseidon2_perm_B_50_1, C::poseidon2_perm_B_50_2, C::poseidon2_perm_B_50_3 },
-        { C::poseidon2_perm_B_51_0, C::poseidon2_perm_B_51_1, C::poseidon2_perm_B_51_2, C::poseidon2_perm_B_51_3 },
-        { C::poseidon2_perm_B_52_0, C::poseidon2_perm_B_52_1, C::poseidon2_perm_B_52_2, C::poseidon2_perm_B_52_3 },
-        { C::poseidon2_perm_B_53_0, C::poseidon2_perm_B_53_1, C::poseidon2_perm_B_53_2, C::poseidon2_perm_B_53_3 },
-        { C::poseidon2_perm_B_54_0, C::poseidon2_perm_B_54_1, C::poseidon2_perm_B_54_2, C::poseidon2_perm_B_54_3 },
-        { C::poseidon2_perm_B_55_0, C::poseidon2_perm_B_55_1, C::poseidon2_perm_B_55_2, C::poseidon2_perm_B_55_3 },
-        { C::poseidon2_perm_B_56_0, C::poseidon2_perm_B_56_1, C::poseidon2_perm_B_56_2, C::poseidon2_perm_B_56_3 },
-        { C::poseidon2_perm_B_57_0, C::poseidon2_perm_B_57_1, C::poseidon2_perm_B_57_2, C::poseidon2_perm_B_57_3 },
-        { C::poseidon2_perm_B_58_0, C::poseidon2_perm_B_58_1, C::poseidon2_perm_B_58_2, C::poseidon2_perm_B_58_3 },
-        { C::poseidon2_perm_B_59_0, C::poseidon2_perm_B_59_1, C::poseidon2_perm_B_59_2, C::poseidon2_perm_B_59_3 },
-        //=========================================
-        // Final Full Round Columns
-        //=========================================
-        { C::poseidon2_perm_T_60_4, C::poseidon2_perm_T_60_5, C::poseidon2_perm_T_60_6, C::poseidon2_perm_T_60_7 },
-        { C::poseidon2_perm_T_61_4, C::poseidon2_perm_T_61_5, C::poseidon2_perm_T_61_6, C::poseidon2_perm_T_61_7 },
-        { C::poseidon2_perm_T_62_4, C::poseidon2_perm_T_62_5, C::poseidon2_perm_T_62_6, C::poseidon2_perm_T_62_7 },
-        { C::poseidon2_perm_T_63_4, C::poseidon2_perm_T_63_5, C::poseidon2_perm_T_63_6, C::poseidon2_perm_T_63_7 },
-    } };
+    //=========================================
+    // Helpers (state-update + constraint emission)
+    //=========================================
+    // Add the round constants to every lane.
+    const auto add_round_constant = []<typename T, typename U>(std::array<T, 4>& state, const std::array<U, 4>& rc) {
+        for (size_t k = 0; k < 4; ++k) {
+            state[k] += rc[k];
+        }
+    };
+
+    const auto power_of_5 = []<typename T>(const T& x) {
+        auto acc = x.sqr();
+        acc = acc.sqr();
+        return acc * x;
+    };
+
+    // Full-round S-box: x -> x^5 on every lane.
+    const auto s_box = [&]<typename T>(std::array<T, 4>& state) {
+        for (auto& x : state) {
+            x = power_of_5(x);
+        }
+    };
+
+    // External (MDS) matrix layer applied to `input`, constrained against the four witness output
+    // columns `out` at subrelations [Index, Index + 4). Computes the four Poseidon2 MDS outputs
+    // (t4..t7) from the input lanes and pins each witness output column to its value.
+    const auto constrain_external_matrix = [&]<size_t Index, typename T>(const std::array<T, 4>& input,
+                                                                         const std::array<C, 4>& out) {
+        const auto t0 = input[0] + input[1];
+        const auto t1 = input[2] + input[3];
+        const auto t2 = FF(2) * input[1] + t1;
+        const auto t3 = FF(2) * input[3] + t0;
+        const auto t4 = FF(4) * t1 + t3;
+        const auto t5 = FF(4) * t0 + t2;
+        const auto t6 = t3 + t5;
+        const auto t7 = t2 + t4;
+        {
+            using View = typename std::tuple_element_t<Index + 0, ContainerOverSubrelations>::View;
+            auto tmp =
+                static_cast<View>(in.get(C::poseidon2_perm_sel)) * (static_cast<View>(in.get(out[0])) - CView(t4));
+            std::get<Index + 0>(evals) += (tmp * scaling_factor);
+        }
+        {
+            using View = typename std::tuple_element_t<Index + 1, ContainerOverSubrelations>::View;
+            auto tmp =
+                static_cast<View>(in.get(C::poseidon2_perm_sel)) * (static_cast<View>(in.get(out[1])) - CView(t5));
+            std::get<Index + 1>(evals) += (tmp * scaling_factor);
+        }
+        {
+            using View = typename std::tuple_element_t<Index + 2, ContainerOverSubrelations>::View;
+            auto tmp =
+                static_cast<View>(in.get(C::poseidon2_perm_sel)) * (static_cast<View>(in.get(out[2])) - CView(t6));
+            std::get<Index + 2>(evals) += (tmp * scaling_factor);
+        }
+        {
+            using View = typename std::tuple_element_t<Index + 3, ContainerOverSubrelations>::View;
+            auto tmp =
+                static_cast<View>(in.get(C::poseidon2_perm_sel)) * (static_cast<View>(in.get(out[3])) - CView(t7));
+            std::get<Index + 3>(evals) += (tmp * scaling_factor);
+        }
+    };
 
     //=========================================
-    // HELPER FUNCTIONS
-    //=========================================
-    const auto full_round_add_constant = []<typename T, typename U>(std::array<T, 4>& state,
-                                                                    const std::array<U, 4>& rc) {
-        state[0] += rc[0];
-        state[1] += rc[1];
-        state[2] += rc[2];
-        state[3] += rc[3];
-    };
-
-    const auto full_round_s_box = []<typename T>(std::array<T, 4>& state) {
-        // For t = 4, the s-box is A^5, B^5, C^5, D^5
-        state[0] = state[0] * state[0] * state[0] * state[0] * state[0]; // A^5
-        state[1] = state[1] * state[1] * state[1] * state[1] * state[1]; // B^5
-        state[2] = state[2] * state[2] * state[2] * state[2] * state[2]; // C^5
-        state[3] = state[3] * state[3] * state[3] * state[3] * state[3]; // D^5
-    };
-
-    const auto external_matrix_mul = []<typename T>(std::array<T, 4>& state) {
-        // Taken from poseidon2 paper - Appendix B
-        auto t0 = state[0] + state[1];
-        auto t1 = state[2] + state[3];
-        auto t2 = FF(2) * state[1] + t1;
-        auto t3 = FF(2) * state[3] + t0;
-        auto t4 = FF(4) * t1 + t3;
-        auto t5 = FF(4) * t0 + t2;
-        auto t6 = t3 + t5;
-        auto t7 = t2 + t4;
-        state[0] = t6;
-        state[1] = t5;
-        state[2] = t7;
-        state[3] = t4;
-    };
-
-    // In partial round only the first state is updated
-    const auto partial_round_add_constant = []<typename T, typename U>(std::array<T, 4>& state, const U& rc) {
-        state[0] += rc;
-    };
-
-    // In partial round only the first state is updated
-    const auto partial_round_s_box = []<typename T>(std::array<T, 4>& state) {
-        state[0] = state[0] * state[0] * state[0] * state[0] * state[0]; // A^5
-    };
-
-    // The partial round uses the internal matrix diagonal minus one values.
-    // Computes: result[i] = (D_i - 1) * state[i] + sum = D_i * state[i] + (sum of other elements)
-    const auto internal_matrix_mul =
-        []<typename T, typename U>(std::array<T, 4>& state,
-                                   const std::array<U, 4>& internal_matrix_diagonal_minus_one) {
-            auto sum = state[0] + state[1] + state[2] + state[3];
-            for (size_t i = 0; i < 4; ++i) {
-                state[i] = state[i] * internal_matrix_diagonal_minus_one[i] + sum;
-            }
-        };
-
-    //=========================================
-    // Start Accumulation Relations
+    // Subrelation 0: selector booleanity
     //=========================================
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -164,222 +119,217 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
         std::get<0>(evals) += (tmp * scaling_factor);
     }
 
-    // Initial state is the input
-    auto state = std::array{
-        in.get(C::poseidon2_perm_a_0),
-        in.get(C::poseidon2_perm_a_1),
-        in.get(C::poseidon2_perm_a_2),
-        in.get(C::poseidon2_perm_a_3),
-    };
+    //=========================================
+    // Subrelations 1..4: initial external matrix on the input state
+    //=========================================
+    {
+        // Initial state is the input
+        const std::array input = {
+            in.get(C::poseidon2_perm_a_0),
+            in.get(C::poseidon2_perm_a_1),
+            in.get(C::poseidon2_perm_a_2),
+            in.get(C::poseidon2_perm_a_3),
+        };
+        constexpr std::array<C, 4> out = {
+            C::poseidon2_perm_EXT_LAYER_4,
+            C::poseidon2_perm_EXT_LAYER_5,
+            C::poseidon2_perm_EXT_LAYER_6,
+            C::poseidon2_perm_EXT_LAYER_7,
+        };
+        // 1 here is the index offset of the first subrelation in this block (the initial external-matrix layer is
+        // subrelations 1..4).
+        constrain_external_matrix.template operator()<1>(input, out);
+    }
 
     //=========================================
-    // Start Permutation Algorithm
+    // Subrelations 5..20: 4 initial full rounds
     //=========================================
-    // The poseidon2 permutation algorithm consists of:
-    // 1) Initial External Matrix Multiplication
-    // 2) 4x Initial Full Rounds
-    // 3) 56x Partial Rounds
-    // 4) 4x Final Full Rounds
-
-    external_matrix_mul(state);
-    // Set the columns after the external matrix multiplication
-    {
-        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                   (static_cast<View>(in.get(C::poseidon2_perm_EXT_LAYER_4)) - CView(state[3]));
-        std::get<1>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                   (static_cast<View>(in.get(C::poseidon2_perm_EXT_LAYER_5)) - CView(state[1]));
-        std::get<2>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                   (static_cast<View>(in.get(C::poseidon2_perm_EXT_LAYER_6)) - CView(state[0]));
-        std::get<3>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                   (static_cast<View>(in.get(C::poseidon2_perm_EXT_LAYER_7)) - CView(state[2]));
-        std::get<4>(evals) += (tmp * scaling_factor);
-    }
-
     // The permutation rounds start at subrelation index 5
     constexpr size_t START_RELATION_OF_PERM = 5;
-    // We need to populate each state round with by retrieving the witness rather than mutating the state
-    // in place. Otherwise we do not end up with the correct subrelation length.
-    state = std::array{
-        in.get(C::poseidon2_perm_EXT_LAYER_6),
-        in.get(C::poseidon2_perm_EXT_LAYER_5),
-        in.get(C::poseidon2_perm_EXT_LAYER_7),
-        in.get(C::poseidon2_perm_EXT_LAYER_4),
+    // The initial 4 full rounds input and output columns
+    constexpr std::array<std::array<C, 4>, 4> initial_input_cols = { {
+        { C::poseidon2_perm_EXT_LAYER_6,
+          C::poseidon2_perm_EXT_LAYER_5,
+          C::poseidon2_perm_EXT_LAYER_7,
+          C::poseidon2_perm_EXT_LAYER_4 },
+        { C::poseidon2_perm_T_0_6, C::poseidon2_perm_T_0_5, C::poseidon2_perm_T_0_7, C::poseidon2_perm_T_0_4 },
+        { C::poseidon2_perm_T_1_6, C::poseidon2_perm_T_1_5, C::poseidon2_perm_T_1_7, C::poseidon2_perm_T_1_4 },
+        { C::poseidon2_perm_T_2_6, C::poseidon2_perm_T_2_5, C::poseidon2_perm_T_2_7, C::poseidon2_perm_T_2_4 },
+    } };
+    constexpr std::array<std::array<C, 4>, 4> initial_out_cols = { {
+        { C::poseidon2_perm_T_0_4, C::poseidon2_perm_T_0_5, C::poseidon2_perm_T_0_6, C::poseidon2_perm_T_0_7 },
+        { C::poseidon2_perm_T_1_4, C::poseidon2_perm_T_1_5, C::poseidon2_perm_T_1_6, C::poseidon2_perm_T_1_7 },
+        { C::poseidon2_perm_T_2_4, C::poseidon2_perm_T_2_5, C::poseidon2_perm_T_2_6, C::poseidon2_perm_T_2_7 },
+        { C::poseidon2_perm_T_3_4, C::poseidon2_perm_T_3_5, C::poseidon2_perm_T_3_6, C::poseidon2_perm_T_3_7 },
+    } };
+    // Execute the full rounds: ARK -> S-box -> external matrix.
+    bb::constexpr_for<0, 4, 1>([&]<size_t I>() {
+        constexpr size_t sub_index_offset = START_RELATION_OF_PERM + (4 * I);
+        std::array state = {
+            in.get(initial_input_cols[I][0]),
+            in.get(initial_input_cols[I][1]),
+            in.get(initial_input_cols[I][2]),
+            in.get(initial_input_cols[I][3]),
+        };
+        add_round_constant(state, PParams::round_constants[I]);
+        s_box(state);
+        constrain_external_matrix.template operator()<sub_index_offset>(state, initial_out_cols[I]);
+    });
+
+    //=========================================
+    // Subrelations 21..79: 56 partial rounds (K=4 quad-compressed chain)
+    //=========================================
+    // The 56 internal rounds constrain witnesses on state[0] only; the other three lanes evolve linearly so are
+    // handled by intermediate polys. We unroll the S-boxed lane into ALPHA and carry the three linear lanes as (X, Y,
+    // Z), so a single chain reproduces all 56 rounds. The diagonal coefficients are D_1..D_4 from the quad params.
+    //
+    // The chain follows: ARK_n = B_{n-1}_0 + C_n_0; ALPHA_n = ARK_n^5; (X, Y, Z) update.
+    // Stored as arrays with ALPHA[i] := ALPHA_{i+1}, X[i] := X_{i+1}, Y[i] := Y_{i+1}, Z[i] := Z_{i+1}.
+    // Read from the previous full round output
+    const auto poseidon2_perm_B_3_0 = in.get(C::poseidon2_perm_T_3_6);
+    const auto poseidon2_perm_B_3_1 = in.get(C::poseidon2_perm_T_3_5);
+    const auto poseidon2_perm_B_3_2 = in.get(C::poseidon2_perm_T_3_7);
+    const auto poseidon2_perm_B_3_3 = in.get(C::poseidon2_perm_T_3_4);
+    constexpr std::array<C, 56> B_partial_cols = {
+        C::poseidon2_perm_B_4_0,  C::poseidon2_perm_B_5_0,  C::poseidon2_perm_B_6_0,  C::poseidon2_perm_B_7_0,
+        C::poseidon2_perm_B_8_0,  C::poseidon2_perm_B_9_0,  C::poseidon2_perm_B_10_0, C::poseidon2_perm_B_11_0,
+        C::poseidon2_perm_B_12_0, C::poseidon2_perm_B_13_0, C::poseidon2_perm_B_14_0, C::poseidon2_perm_B_15_0,
+        C::poseidon2_perm_B_16_0, C::poseidon2_perm_B_17_0, C::poseidon2_perm_B_18_0, C::poseidon2_perm_B_19_0,
+        C::poseidon2_perm_B_20_0, C::poseidon2_perm_B_21_0, C::poseidon2_perm_B_22_0, C::poseidon2_perm_B_23_0,
+        C::poseidon2_perm_B_24_0, C::poseidon2_perm_B_25_0, C::poseidon2_perm_B_26_0, C::poseidon2_perm_B_27_0,
+        C::poseidon2_perm_B_28_0, C::poseidon2_perm_B_29_0, C::poseidon2_perm_B_30_0, C::poseidon2_perm_B_31_0,
+        C::poseidon2_perm_B_32_0, C::poseidon2_perm_B_33_0, C::poseidon2_perm_B_34_0, C::poseidon2_perm_B_35_0,
+        C::poseidon2_perm_B_36_0, C::poseidon2_perm_B_37_0, C::poseidon2_perm_B_38_0, C::poseidon2_perm_B_39_0,
+        C::poseidon2_perm_B_40_0, C::poseidon2_perm_B_41_0, C::poseidon2_perm_B_42_0, C::poseidon2_perm_B_43_0,
+        C::poseidon2_perm_B_44_0, C::poseidon2_perm_B_45_0, C::poseidon2_perm_B_46_0, C::poseidon2_perm_B_47_0,
+        C::poseidon2_perm_B_48_0, C::poseidon2_perm_B_49_0, C::poseidon2_perm_B_50_0, C::poseidon2_perm_B_51_0,
+        C::poseidon2_perm_B_52_0, C::poseidon2_perm_B_53_0, C::poseidon2_perm_B_54_0, C::poseidon2_perm_B_55_0,
+        C::poseidon2_perm_B_56_0, C::poseidon2_perm_B_57_0, C::poseidon2_perm_B_58_0, C::poseidon2_perm_B_59_0
     };
+    // This is the type of the element that is "chained" through the 56 partial rounds.
+    // Its type is the result of a univariate (for the prover) or an FF (for the verifier) multiplied by the
+    // diagonal constant D_2.
+    using ChainElem = std::decay_t<decltype(in.get(C::poseidon2_perm_T_3_5) * PQuad::D2)>;
+    std::array<ChainElem, 56> alphas_arr{};
+    std::array<ChainElem, 55> xs_arrs{};
+    std::array<ChainElem, 55> ys_arrs{};
+    std::array<ChainElem, 55> zs_arrs{};
+    // The first partial round reads the previous full round's output (B_3_0..3) and computes the first ALPHA/X/Y/Z.
+    {
+        const auto ark = poseidon2_perm_B_3_0 + PParams::round_constants[4][0];
+        alphas_arr[0] = power_of_5(ark);
+        xs_arrs[0] = poseidon2_perm_B_3_1 * PQuad::D2 + poseidon2_perm_B_3_2 + poseidon2_perm_B_3_3 + alphas_arr[0];
+        ys_arrs[0] = poseidon2_perm_B_3_1 + poseidon2_perm_B_3_2 * PQuad::D3 + poseidon2_perm_B_3_3 + alphas_arr[0];
+        zs_arrs[0] = poseidon2_perm_B_3_1 + poseidon2_perm_B_3_2 + poseidon2_perm_B_3_3 * PQuad::D4 + alphas_arr[0];
+    }
+    // Compute the remaining 55 partial rounds in a single chain.
+    bb::constexpr_for<1, 56, 1>([&]<size_t i>() {
+        const auto ark = in.get(B_partial_cols[i - 1]) + PParams::round_constants[i + 4][0];
+        alphas_arr[i] = power_of_5(ark);
+        if constexpr (i < 55) {
+            xs_arrs[i] = xs_arrs[i - 1] * PQuad::D2 + ys_arrs[i - 1] + zs_arrs[i - 1] + alphas_arr[i];
+            ys_arrs[i] = xs_arrs[i - 1] + ys_arrs[i - 1] * PQuad::D3 + zs_arrs[i - 1] + alphas_arr[i];
+            zs_arrs[i] = xs_arrs[i - 1] + ys_arrs[i - 1] + zs_arrs[i - 1] * PQuad::D4 + alphas_arr[i];
+        }
+    });
+    // Assign the witnesses to the subrelations in order, using the pre-computed ALPHA/X/Y/Z arrays.
+    // Subrelations 21..76: each partial round sets each B_n_0 column to D_1 * ALPHA + (carried lanes).
+    bb::constexpr_for<0, 56, 1>([&]<size_t i>() {
+        constexpr size_t PARTIAL_ROUND_SUB_INDEX = 21 + i;
+        using View = typename std::tuple_element_t<PARTIAL_ROUND_SUB_INDEX, ContainerOverSubrelations>::View;
+        if constexpr (i == 0) {
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(B_partial_cols[i])) -
+                        (CView(PQuad::D1) * CView(alphas_arr[i]) + CView(poseidon2_perm_B_3_1) +
+                         CView(poseidon2_perm_B_3_2) + CView(poseidon2_perm_B_3_3)));
+            std::get<PARTIAL_ROUND_SUB_INDEX>(evals) += (tmp * scaling_factor);
+        } else {
+            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                       (static_cast<View>(in.get(B_partial_cols[i])) -
+                        (CView(PQuad::D1) * CView(alphas_arr[i]) + CView(xs_arrs[i - 1]) + CView(ys_arrs[i - 1]) +
+                         CView(zs_arrs[i - 1])));
+            std::get<PARTIAL_ROUND_SUB_INDEX>(evals) += (tmp * scaling_factor);
+        }
+    });
+    // Subrelations 77..79: sets the remaining three lanes of the final partial state (B_59_1/2/3).
+    {
+        using View = typename std::tuple_element_t<77, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+            (static_cast<View>(in.get(C::poseidon2_perm_B_59_1)) -
+             (CView(PQuad::D2) * CView(xs_arrs[54]) + CView(ys_arrs[54]) + CView(zs_arrs[54]) + CView(alphas_arr[55])));
+        std::get<77>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<78, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+            (static_cast<View>(in.get(C::poseidon2_perm_B_59_2)) -
+             (CView(xs_arrs[54]) + CView(PQuad::D3) * CView(ys_arrs[54]) + CView(zs_arrs[54]) + CView(alphas_arr[55])));
+        std::get<78>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<79, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+            (static_cast<View>(in.get(C::poseidon2_perm_B_59_3)) -
+             (CView(xs_arrs[54]) + CView(ys_arrs[54]) + CView(PQuad::D4) * CView(zs_arrs[54]) + CView(alphas_arr[55])));
+        std::get<79>(evals) += (tmp * scaling_factor);
+    }
 
-    // Start of the 4 Initial Full Rounds
-    constexpr_for<0, 4, 1>([&]<size_t i>() {
-        constexpr size_t relation_offset = START_RELATION_OF_PERM + (i * 4);
-        full_round_add_constant(state, Poseidon2Params::round_constants[i]);
-        full_round_s_box(state);
-        external_matrix_mul(state);
-        // Set state 0
-        {
-            using View = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][0])) - CView(state[3]));
-            std::get<relation_offset>(evals) += (tmp * scaling_factor);
-        }
-        // Set state 1
-        {
-            using View = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][1])) - CView(state[1]));
-            std::get<relation_offset + 1>(evals) += (tmp * scaling_factor);
-        }
-        // Set state 3
-        {
-            using View = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][2])) - CView(state[0]));
-            std::get<relation_offset + 2>(evals) += (tmp * scaling_factor);
-        }
-        // Set state 4
-        {
-            using View = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][3])) - CView(state[2]));
-            std::get<relation_offset + 3>(evals) += (tmp * scaling_factor);
-        }
-
-        // Set the state to be used in next round, this step helps to ensure subrelation length is correct
-        state = std::array{
-            in.get(round_cols[i][2]),
-            in.get(round_cols[i][1]),
-            in.get(round_cols[i][3]),
-            in.get(round_cols[i][0]),
+    //=========================================
+    // Subrelations 80..95: 4 final full rounds
+    //=========================================
+    // Round 60 reads the partial chain's terminal state {B_59_0..3} in order; rounds 61..63 read the
+    // previous round's outputs permuted as {out_2, out_1, out_3, out_0}.
+    constexpr std::array<std::array<C, 4>, 4> final_in_state = { {
+        { C::poseidon2_perm_B_59_0, C::poseidon2_perm_B_59_1, C::poseidon2_perm_B_59_2, C::poseidon2_perm_B_59_3 },
+        { C::poseidon2_perm_T_60_6, C::poseidon2_perm_T_60_5, C::poseidon2_perm_T_60_7, C::poseidon2_perm_T_60_4 },
+        { C::poseidon2_perm_T_61_6, C::poseidon2_perm_T_61_5, C::poseidon2_perm_T_61_7, C::poseidon2_perm_T_61_4 },
+        { C::poseidon2_perm_T_62_6, C::poseidon2_perm_T_62_5, C::poseidon2_perm_T_62_7, C::poseidon2_perm_T_62_4 },
+    } };
+    constexpr std::array<std::array<C, 4>, 4> final_out = { {
+        { C::poseidon2_perm_T_60_4, C::poseidon2_perm_T_60_5, C::poseidon2_perm_T_60_6, C::poseidon2_perm_T_60_7 },
+        { C::poseidon2_perm_T_61_4, C::poseidon2_perm_T_61_5, C::poseidon2_perm_T_61_6, C::poseidon2_perm_T_61_7 },
+        { C::poseidon2_perm_T_62_4, C::poseidon2_perm_T_62_5, C::poseidon2_perm_T_62_6, C::poseidon2_perm_T_62_7 },
+        { C::poseidon2_perm_T_63_4, C::poseidon2_perm_T_63_5, C::poseidon2_perm_T_63_6, C::poseidon2_perm_T_63_7 },
+    } };
+    bb::constexpr_for<0, 4, 1>([&]<size_t I>() {
+        constexpr size_t base = 80 + (4 * I);
+        std::array state = {
+            in.get(final_in_state[I][0]),
+            in.get(final_in_state[I][1]),
+            in.get(final_in_state[I][2]),
+            in.get(final_in_state[I][3]),
         };
+        add_round_constant(state, PParams::round_constants[60 + I]);
+        s_box(state);
+        constrain_external_matrix.template operator()<base>(state, final_out[I]);
     });
 
-    // 56 Partial Rounds, from round 4 to round 60. (Note: This starts at relation 21)
-    constexpr_for<4, 60, 1>([&]<size_t i>() {
-        constexpr size_t relation_offset = START_RELATION_OF_PERM + (i * 4);
-        partial_round_add_constant(state, Poseidon2Params::round_constants[i][0]);
-        partial_round_s_box(state);
-        internal_matrix_mul(state, Poseidon2Params::internal_matrix_diagonal_minus_one);
-        // Set the state 0
-        {
-            using View = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][0])) - CView(state[0]));
-            std::get<relation_offset>(evals) += (tmp * scaling_factor);
-        }
-        // Set the state 1
-        {
-            using View = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][1])) - CView(state[1]));
-            std::get<relation_offset + 1>(evals) += (tmp * scaling_factor);
-        }
-        // Set the state 2
-        {
-            using View = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][2])) - CView(state[2]));
-            std::get<relation_offset + 2>(evals) += (tmp * scaling_factor);
-        }
-        // Set the state 3
-        {
-            using View = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][3])) - CView(state[3]));
-            std::get<relation_offset + 3>(evals) += (tmp * scaling_factor);
-        }
-
-        // Set the state to be used in next round, this step helps to ensure subrelation length is correct
-        state = std::array{
-            in.get(round_cols[i][0]),
-            in.get(round_cols[i][1]),
-            in.get(round_cols[i][2]),
-            in.get(round_cols[i][3]),
-        };
+    //=========================================
+    // Subrelations 96..99: outputs
+    //=========================================
+    // The output b_k equals the final permuted state {T_63_6, T_63_5, T_63_7, T_63_4}.
+    constexpr std::array<C, 4> output_cols = {
+        C::poseidon2_perm_b_0,
+        C::poseidon2_perm_b_1,
+        C::poseidon2_perm_b_2,
+        C::poseidon2_perm_b_3,
+    };
+    constexpr std::array<C, 4> final_state_cols = {
+        C::poseidon2_perm_T_63_6,
+        C::poseidon2_perm_T_63_5,
+        C::poseidon2_perm_T_63_7,
+        C::poseidon2_perm_T_63_4,
+    };
+    bb::constexpr_for<0, 4, 1>([&]<size_t I>() {
+        constexpr size_t sub_idx = 96 + I;
+        using View = typename std::tuple_element_t<sub_idx, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
+                   (static_cast<View>(in.get(output_cols[I])) - static_cast<View>(in.get(final_state_cols[I])));
+        std::get<sub_idx>(evals) += (tmp * scaling_factor);
     });
-
-    // 4 Full Rounds, from round 60 to round 64. (Note: This starts at relation 245)
-    constexpr_for<60, 64, 1>([&]<size_t i>() {
-        constexpr size_t relation_offset = START_RELATION_OF_PERM + (i * 4);
-        full_round_add_constant(state, Poseidon2Params::round_constants[i]);
-        full_round_s_box(state);
-        external_matrix_mul(state);
-        // Set the state 0
-        {
-            using View = typename std::tuple_element_t<relation_offset, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][0])) - CView(state[3]));
-            std::get<relation_offset>(evals) += (tmp * scaling_factor);
-        }
-        // Set the state 1
-        {
-            using View = typename std::tuple_element_t<relation_offset + 1, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][1])) - CView(state[1]));
-            std::get<relation_offset + 1>(evals) += (tmp * scaling_factor);
-        }
-        // Set the state 2
-        {
-            using View = typename std::tuple_element_t<relation_offset + 2, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][2])) - CView(state[0]));
-            std::get<relation_offset + 2>(evals) += (tmp * scaling_factor);
-        }
-        // Set the state 3
-        {
-            using View = typename std::tuple_element_t<relation_offset + 3, ContainerOverSubrelations>::View;
-            auto tmp = static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-                       (static_cast<View>(in.get(round_cols[i][3])) - CView(state[2]));
-            std::get<relation_offset + 3>(evals) += (tmp * scaling_factor);
-        }
-
-        // Set the state to be used in next round, this step helps to ensure subrelation length is correct
-        state = std::array{
-            in.get(round_cols[i][2]),
-            in.get(round_cols[i][1]),
-            in.get(round_cols[i][3]),
-            in.get(round_cols[i][0]),
-        };
-    });
-
-    // Write to outputs
-    {
-        using View = typename std::tuple_element_t<261, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-            (static_cast<View>(in.get(C::poseidon2_perm_b_0)) - static_cast<View>(in.get(C::poseidon2_perm_T_63_6)));
-        std::get<261>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<262, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-            (static_cast<View>(in.get(C::poseidon2_perm_b_1)) - static_cast<View>(in.get(C::poseidon2_perm_T_63_5)));
-        std::get<262>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<263, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-            (static_cast<View>(in.get(C::poseidon2_perm_b_2)) - static_cast<View>(in.get(C::poseidon2_perm_T_63_7)));
-        std::get<263>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<264, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_perm_sel)) *
-            (static_cast<View>(in.get(C::poseidon2_perm_b_3)) - static_cast<View>(in.get(C::poseidon2_perm_T_63_4)));
-        std::get<264>(evals) += (tmp * scaling_factor);
-    }
 }
 
 } // namespace bb::avm2

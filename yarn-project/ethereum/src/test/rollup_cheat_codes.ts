@@ -4,6 +4,7 @@ import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -242,6 +243,56 @@ export class RollupCheatCodes {
         `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
       );
     });
+  }
+
+  /**
+   * Polls the rollup until its current epoch reaches `epoch`. Unlike {@link advanceToEpoch} this does
+   * not warp the L1 clock; it only waits for the chain to reach `epoch` through external activity.
+   */
+  public async waitForEpoch(epoch: EpochNumber, opts: { timeout?: number; interval?: number } = {}): Promise<void> {
+    await retryUntil(
+      async () => (await this.getEpoch()) >= epoch || undefined,
+      `rollup epoch >= ${epoch}`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
+  }
+
+  /**
+   * Polls the rollup until its current slot reaches `slot`. Unlike {@link advanceToSlot} this does not
+   * warp the L1 clock; it only waits for the chain to reach `slot` through external activity.
+   */
+  public async waitForSlot(slot: SlotNumber, opts: { timeout?: number; interval?: number } = {}): Promise<void> {
+    await retryUntil(
+      async () => (await this.getSlot()) >= slot || undefined,
+      `rollup slot >= ${slot}`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
+  }
+
+  /**
+   * Polls the rollup until its pending checkpoint settles below `checkpoint` on a freshly mined, non-zero
+   * checkpoint, and returns that new pending checkpoint number. Reads the L1 rollup contract directly
+   * rather than a node, since a rollback lands on L1 first.
+   *
+   * A prune can momentarily drop the pending checkpoint to 0 before the post-deadline propose mines its
+   * replacement, so a caller detecting a rollback wants the new lower checkpoint, not that transient
+   * empty state — hence the non-zero guard.
+   */
+  public async waitForCheckpointBelow(
+    checkpoint: CheckpointNumber,
+    opts: { timeout?: number; interval?: number } = {},
+  ): Promise<CheckpointNumber> {
+    return await retryUntil(
+      async () => {
+        const { pending } = await this.getTips();
+        return pending > 0 && pending < checkpoint ? pending : undefined;
+      },
+      `rollup checkpoint in (0, ${checkpoint})`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
   }
 
   /**

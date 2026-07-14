@@ -285,13 +285,42 @@ fq12 reduced_ate_pairing_batch_precomputed(const g1::affine_element* P_affines,
                                            const miller_lines* lines,
                                            const size_t num_points)
 {
+    bool has_infinity_point = false;
     for (size_t i = 0; i < num_points; ++i) {
         if (!P_affines[i].on_curve()) {
             bb::assert_failure("reduced_ate_pairing_batch_precomputed: one of the points is not on the curve.");
         }
+        // A G1 point at infinity contributes e(P_i, Q_i) = 1 to the product, so it must be excluded from the
+        // Miller loop rather than fed in as a regular point (on_curve() returns true for the point at infinity).
+        if (P_affines[i].is_point_at_infinity()) {
+            has_infinity_point = true;
+        }
     }
 
-    fq12 result = miller_loop_batch(P_affines, lines, num_points);
+    if (!has_infinity_point) {
+        fq12 result = miller_loop_batch(P_affines, lines, num_points);
+        result = final_exponentiation_easy_part(result);
+        result = final_exponentiation_tricky_part(result);
+        return result;
+    }
+
+    // Drop the infinity points along with their precomputed lines so the two arrays stay index-aligned.
+    std::vector<g1::affine_element> filtered_points;
+    std::vector<miller_lines> filtered_lines;
+    filtered_points.reserve(num_points);
+    filtered_lines.reserve(num_points);
+    for (size_t i = 0; i < num_points; ++i) {
+        if (!P_affines[i].is_point_at_infinity()) {
+            filtered_points.emplace_back(P_affines[i]);
+            filtered_lines.emplace_back(lines[i]);
+        }
+    }
+
+    if (filtered_points.empty()) {
+        return fq12::one();
+    }
+
+    fq12 result = miller_loop_batch(filtered_points.data(), filtered_lines.data(), filtered_points.size());
     result = final_exponentiation_easy_part(result);
     result = final_exponentiation_tricky_part(result);
     return result;

@@ -1,4 +1,7 @@
 #include "barretenberg/vm2/constraining/full_row.hpp"
+
+#include <cstddef>
+
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 

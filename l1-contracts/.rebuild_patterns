@@ -6,7 +6,7 @@
 ^l1-contracts/foundry.toml
 ^l1-contracts/foundry.lock
 ^l1-contracts/package.json
-^l1-contracts/scripts/forge_broadcast.js
+^l1-contracts/scripts/forge_broadcast\.js$
 ^l1-contracts/scripts/network-defaults.json
 ^l1-contracts/l1-artifacts/scripts/.*
 ^l1-contracts/l1-artifacts/package.json

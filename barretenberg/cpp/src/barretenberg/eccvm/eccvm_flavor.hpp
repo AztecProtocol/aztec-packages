@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/std_array.hpp"
@@ -17,7 +18,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
@@ -25,6 +25,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_set_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_shiftable_init_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -67,7 +68,7 @@ class ECCVMFlavor {
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
-    static constexpr size_t NUM_WIRES = 85;
+    static constexpr size_t NUM_WIRES = 86;
 
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
@@ -75,46 +76,14 @@ class ECCVMFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 117 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_ALL_ENTITIES = 118;
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 118 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_ALL_ENTITIES = 119;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 4;
     // The total number of witness entities not including shifts.
-    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_WITNESS_ENTITIES = 87;
-    // The number of entities in ShiftedEntities.
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
-    // The number of entities in DerivedWitnessEntities that are not going to be shifted.
-    static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
-    // Indices into the Shplemini commitments vector that identify which "to-be-shifted" witness commitments in the
-    // unshifted block are duplicated in the shifted block, so their scalar muls can be merged.
-    //
-    // Shplemini's remove_repeated_commitments uses offset = HasZK ? 2 : 1. For ECCVM (HasZK=true), offset=2
-    // accounts for the Shplonk:Q commitment and the gemini_masking_poly that precede the Precomputed+Witness
-    // block in the commitments vector. The indices below are therefore relative to the start of
-    // {PrecomputedEntities + WitnessEntities} (i.e. they exclude MaskingEntities, which is covered by the offset).
-    //
-    // original_start: index of the first to-be-shifted entity within {Precomputed + Witness}
-    //               = NUM_PRECOMPUTED + NUM_WIRE_NON_SHIFTED (= NUM_WITNESS - NUM_DERIVED_NON_SHIFTED - NUM_SHIFTED)
-    // duplicate_start: index where the shifted copies begin = NUM_PRECOMPUTED + NUM_WITNESS
-    static constexpr size_t NUM_WIRE_NON_SHIFTED =
-        NUM_WITNESS_ENTITIES - NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES;
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRE_NON_SHIFTED,
-                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
-                                NUM_SHIFTED_ENTITIES);
-
-    // Pin entity counts and REPEATED_COMMITMENTS indices so that any layout change triggers a compile error.
-    // The to-be-shifted witnesses must form a contiguous block starting at NUM_WIRE_NON_SHIFTED within WitnessEntities.
-    static_assert(NUM_WIRE_NON_SHIFTED == 60, "WireNonShiftedEntities size changed — update REPEATED_COMMITMENTS");
-    static_assert(NUM_MASKING_POLYNOMIALS == 1, "MaskingEntities size changed — review REPEATED_COMMITMENTS offset");
-    static_assert(REPEATED_COMMITMENTS.first.original_start == 64,
-                  "REPEATED_COMMITMENTS original_start changed — verify Shplemini offset convention");
-    static_assert(REPEATED_COMMITMENTS.first.duplicate_start == 91,
-                  "REPEATED_COMMITMENTS duplicate_start changed — verify Shplemini offset convention");
-    static_assert(REPEATED_COMMITMENTS.first.count == 26, "REPEATED_COMMITMENTS count changed");
-
+    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 87 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_WITNESS_ENTITIES = 88;
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
@@ -124,12 +93,17 @@ class ECCVMFlavor {
                                   ECCVMMSMRelation<FF>,
                                   ECCVMSetRelation<FF>,
                                   ECCVMLookupRelation<FF>,
-                                  ECCVMBoolsRelation<FF>>;
+                                  ECCVMBoolsRelation<FF>,
+                                  ECCVMShiftableInitRelation<FF>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+
+    // ECCVM has many high-degree subrelations, so per-relation thread dispatch pays off; it opts into parallel
+    // relation batching (see ParallelizesRelationBatching).
+    static constexpr bool PARALLELIZE_RELATION_BATCHING = true;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -141,8 +115,24 @@ class ECCVMFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
+    // Masking budget of the committed sumcheck: per round, the verifier's view exposes 3 Libra-sensitive functionals
+    // of the round univariate U_i — its evaluation at 0, the chained target T_{i+1} = U_i(u_i), and the non-hiding
+    // commitment [U_i] — and the pair-sum bookkeeping U_i(0) + U_i(1) = T_i consumes one Libra coefficient, so the
+    // Libra masking univariates must have length 3 + 1 = 4. The BN254 ZK flavors pin their (non-committed) budget
+    // with an analogous static_assert. See sumcheck/docs/committed_sumcheck_zk.md.
+    static_assert(Curve::LIBRA_UNIVARIATES_LENGTH == 4,
+                  "Committed sumcheck requires LIBRA_UNIVARIATES_LENGTH == #revealed evaluations (3) + 1");
+    static_assert(Curve::LIBRA_UNIVARIATES_LENGTH * CONST_ECCVM_LOG_N + 1 < Curve::SUBGROUP_SIZE,
+                  "Concatenated Libra polynomial must fit in the SmallSubgroupIPA subgroup");
+
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<FF>();
+
+    static constexpr size_t TRIPLE_IPA_PROOF_LENGTH =
+        /* TripleIPA cross sums (cross_F_shift, cross_F_P, cross_shift_P) */ (3 * num_frs_fq) +
+        /* TripleIPA L and R round commitments */ (2 * CONST_ECCVM_LOG_N * num_frs_comm) +
+        /* TripleIPA G_0 commitment */ (num_frs_comm) +
+        /* TripleIPA a_0 evaluation */ (num_frs_fq);
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH =
@@ -157,31 +147,29 @@ class ECCVMFlavor {
         /* 7. Libra claimed evaluation */ (num_frs_fq) +
         /* 8. Libra grand sum commitment */ (num_frs_comm) +
         /* 9. Libra quotient commitment */ (num_frs_comm) +
-        /* 10. CONST_ECCVM_LOG_N - 1 Gemini Fold commitments */
-        ((CONST_ECCVM_LOG_N - 1) * num_frs_comm) +
-        /* 11. CONST_ECCVM_LOG_N Gemini a evaluations */
-        (CONST_ECCVM_LOG_N * num_frs_fq) +
-        /* 12. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fq) +
-        /* 13. Shplonk Q commitment */ (num_frs_comm) +
-        /* 14. Translator concatenated masking term commitment */ (num_frs_comm) +
-        /* 15 Translator op evaluation */ (num_frs_fq) +
-        /* 16 Translator Px evaluation */ (num_frs_fq) +
-        /* 17 Translator Py evaluation */ (num_frs_fq) +
-        /* 18 Translator z1 evaluation */ (num_frs_fq) +
-        /* 19 Translator z2 evaluation */ (num_frs_fq) +
-        /* 20 Translator concatenated masking term evaluation */ (num_frs_fq) +
-        /* 21 Translator grand sum commitment */ (num_frs_comm) +
-        /* 22 Translator quotient commitment */ (num_frs_comm) +
-        /* 23 Translator concatenation eval */ (num_frs_fq) +
-        /* 24 Translator grand sum shift eval */ (num_frs_fq) +
-        /* 25 Translator grand sum eval */ (num_frs_fq) +
-        /* 26 Translator quotient eval */ (num_frs_fq) +
-        /* 27 Shplonk Q commitment */ (num_frs_comm);
+        /* 10. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals */
+        (NUM_SMALL_IPA_TRANSCRIPT_EVALS * num_frs_fq) +
+        /* 11. Translator concatenated masking term commitment */ (num_frs_comm) +
+        /* 12. Translator op evaluation */ (num_frs_fq) +
+        /* 13. Translator Px evaluation */ (num_frs_fq) +
+        /* 14. Translator Py evaluation */ (num_frs_fq) +
+        /* 15. Translator z1 evaluation */ (num_frs_fq) +
+        /* 16. Translator z2 evaluation */ (num_frs_fq) +
+        /* 17. Translator concatenated masking term evaluation */ (num_frs_fq) +
+        /* 18. Translator grand sum commitment */ (num_frs_comm) +
+        /* 19. Translator quotient commitment */ (num_frs_comm) +
+        /* 20. Translator concatenation eval */ (num_frs_fq) +
+        /* 21. Translator grand sum shift eval */ (num_frs_fq) +
+        /* 22. Translator grand sum eval */ (num_frs_fq) +
+        /* 23. Translator quotient eval */ (num_frs_fq) +
+        /* 24. TripleIPA pow-tensor masking commitment */ (num_frs_comm) +
+        /* 25. TripleIPA pow-tensor masking evaluation */ (num_frs_fq) +
+        /* 26. Shplonk Q commitment (single TripleIPA Shplonk reduction) */ (num_frs_comm);
 
-    // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
+    // The translation opening-claim step outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
     // SmallSubgroupIPA witness polynomials.
-    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_OPENING_CLAIMS + 1;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
@@ -273,7 +261,8 @@ class ECCVMFlavor {
                               transcript_msm_infinity,                    // column 56
                               transcript_msm_x_inverse,                   // column 57
                               transcript_msm_count_zero_at_transition,    // column 58
-                              transcript_msm_count_at_transition_inverse) // column 59
+                              transcript_msm_count_at_transition_inverse, // column 59
+                              msm_round_minus_31_inv)                     // column 60
     };
 
     /**
@@ -412,14 +401,31 @@ class ECCVMFlavor {
         }
         auto get_msm_wires()
         {
-            return RefArray{ this->msm_size_of_msm,  this->msm_add2,         this->msm_add3,
-                             this->msm_add4,         this->msm_x1,           this->msm_y1,
-                             this->msm_x2,           this->msm_y2,           this->msm_x3,
-                             this->msm_y3,           this->msm_x4,           this->msm_y4,
-                             this->msm_collision_x1, this->msm_collision_x2, this->msm_collision_x3,
-                             this->msm_collision_x4, this->msm_lambda1,      this->msm_lambda2,
-                             this->msm_lambda3,      this->msm_lambda4,      this->msm_slice1,
-                             this->msm_slice2,       this->msm_slice3,       this->msm_slice4 };
+            return RefArray{ this->msm_size_of_msm,
+                             this->msm_add2,
+                             this->msm_add3,
+                             this->msm_add4,
+                             this->msm_x1,
+                             this->msm_y1,
+                             this->msm_x2,
+                             this->msm_y2,
+                             this->msm_x3,
+                             this->msm_y3,
+                             this->msm_x4,
+                             this->msm_y4,
+                             this->msm_collision_x1,
+                             this->msm_collision_x2,
+                             this->msm_collision_x3,
+                             this->msm_collision_x4,
+                             this->msm_lambda1,
+                             this->msm_lambda2,
+                             this->msm_lambda3,
+                             this->msm_lambda4,
+                             this->msm_slice1,
+                             this->msm_slice2,
+                             this->msm_slice3,
+                             this->msm_slice4,
+                             this->msm_round_minus_31_inv };
         }
         auto get_shifted_msm_wires()
         {
@@ -787,6 +793,19 @@ class ECCVMFlavor {
             lagrange_second.at(trace_offset + 1) = 1;
             lagrange_third.at(trace_offset + 2) = 1;
             lagrange_last.at(dyadic_num_rows - 1) = 1;
+
+            static const auto MSM_ROUND_MINUS_31_INV_BY_ROUND = []() {
+                std::array<FF, LAST_ADDITION_ROUND + 2> table{};
+                for (size_t round = 0; round < table.size(); ++round) {
+                    // IMPORTANT: when round == LAST_ADDITION_ROUND, the entry is exactly 0 because
+                    // (round - LAST_ADDITION_ROUND)^-1 is undefined. Every other slot stores the canonical inverse.
+                    table[round] = (round == LAST_ADDITION_ROUND)
+                                       ? FF(0)
+                                       : (FF(static_cast<uint32_t>(round)) - FF(LAST_ADDITION_ROUND)).invert();
+                }
+                return table;
+            }();
+
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
@@ -885,6 +904,10 @@ class ECCVMFlavor {
                     msm_size_of_msm.set_if_valid_index(idx, msm_rows[i].msm_size);
                     msm_count.set_if_valid_index(idx, msm_rows[i].msm_count);
                     msm_round.set_if_valid_index(idx, msm_rows[i].msm_round);
+                    // IMPORTANT: when msm_round == 31, this witness is exactly 0 because (31 - 31)^-1 does not exist.
+                    // On every other active MSM row it is the precomputed inverse (msm_round - 31)^-1.
+                    msm_round_minus_31_inv.set_if_valid_index(idx,
+                                                              MSM_ROUND_MINUS_31_INV_BY_ROUND[msm_rows[i].msm_round]);
                     msm_add1.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[0].add));
                     msm_add2.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[1].add));
                     msm_add3.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[2].add));
@@ -1048,6 +1071,7 @@ class ECCVMFlavor {
             Base::transcript_msm_x_inverse = "TRANSCRIPT_MSM_X_INVERSE";
             Base::transcript_msm_count_zero_at_transition = "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION";
             Base::transcript_msm_count_at_transition_inverse = "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE";
+            Base::msm_round_minus_31_inv = "MSM_ROUND_MINUS_31_INV";
             Base::z_perm = "Z_PERM";
             Base::z_perm_shift = "Z_PERM_SHIFT";
             Base::lookup_inverses = "LOOKUP_INVERSES";

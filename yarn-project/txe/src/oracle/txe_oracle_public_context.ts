@@ -5,7 +5,7 @@ import type { ContractStore } from '@aztec/pxe/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstancePreimageWithAddress } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   MerkleTreeId,
@@ -125,34 +125,36 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return value;
   }
 
-  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
+  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
     return this.getContractInstanceMember(address, i => i.deployer.toField());
   }
 
-  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
-    return this.getContractInstanceMember(address, i => i.currentContractClassId);
+  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
+    // TXE has no contract updates, so the current class always equals the original.
+    return this.getContractInstanceMember(address, i => i.originalContractClassId);
   }
 
-  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
+  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
     return this.getContractInstanceMember(address, i => i.initializationHash);
   }
 
-  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
+  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
     return this.getContractInstanceMember(address, i => i.immutablesHash);
   }
 
+  // The one-element array mirrors the oracles' Noir return type, `[GetContractInstanceResult; 1]`.
   private async getContractInstanceMember(
     address: AztecAddress,
-    accessor: (instance: ContractInstanceWithAddress) => Fr,
-  ): Promise<{ member: Fr; exists: boolean }> {
+    accessor: (instance: ContractInstancePreimageWithAddress) => Fr,
+  ): Promise<{ member: Fr; exists: boolean }[]> {
     const instance = await this.contractStore.getContractInstance(address);
     if (!instance) {
-      return { member: Fr.ZERO, exists: false };
+      return [{ member: Fr.ZERO, exists: false }];
     }
-    return { member: accessor(instance), exists: true };
+    return [{ member: accessor(instance), exists: true }];
   }
 
-  returndataSize(): Promise<Fr> {
+  returndataSize(): Promise<number> {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
     );
@@ -164,19 +166,19 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     );
   }
 
-  call(_l2Gas: number, _daGas: number, _address: AztecAddress, _argsLength: number, _args: Fr[]): Promise<Fr[]> {
+  call(_l2Gas: number, _daGas: number, _address: AztecAddress, _argsLength: number, _args: Fr[]): Promise<void> {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
     );
   }
 
-  staticCall(_l2Gas: number, _daGas: number, _address: AztecAddress, _argsLength: number, _args: Fr[]): Promise<Fr[]> {
+  staticCall(_l2Gas: number, _daGas: number, _address: AztecAddress, _argsLength: number, _args: Fr[]): Promise<void> {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
     );
   }
 
-  successCopy(): Promise<Fr> {
+  successCopy(): Promise<boolean> {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
     );

@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace bb {
@@ -38,6 +39,23 @@ struct cycle_node {
 };
 
 using CyclicPermutation = std::vector<cycle_node>;
+
+/**
+ * @brief Copy cycles for all variables of a circuit in CSR (flat) form.
+ * @details One cycle per real variable; cycle i occupies nodes[offsets[i] .. offsets[i+1]).
+ * A flat layout avoids materializing one heap-allocated vector per variable (hundreds of
+ * thousands per circuit).
+ */
+struct CopyCycles {
+    std::vector<uint32_t> offsets; // size = num_cycles + 1
+    std::vector<cycle_node> nodes;
+
+    size_t size() const { return offsets.empty() ? 0 : offsets.size() - 1; }
+    std::span<const cycle_node> operator[](size_t i) const
+    {
+        return { nodes.data() + offsets[i], offsets[i + 1] - offsets[i] };
+    }
+};
 
 /**
  * @brief Compute Honk-style permutation sigma/id polynomials and add to prover_instance.
@@ -69,7 +87,7 @@ using CyclicPermutation = std::vector<cycle_node>;
 template <typename Flavor>
 void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuilder& circuit,
                                               typename Flavor::ProverPolynomials& polynomials,
-                                              const std::vector<CyclicPermutation>& copy_cycles)
+                                              const CopyCycles& copy_cycles)
 {
     using FF = typename Flavor::FF;
     constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
@@ -119,7 +137,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
         parallel_for_heuristic(
             copy_cycles.size(),
             [&](size_t cycle_idx) {
-                const CyclicPermutation& cycle = copy_cycles[cycle_idx];
+                const std::span<const cycle_node> cycle = copy_cycles[cycle_idx];
                 const auto cycle_size = cycle.size();
                 if (cycle_size == 0) {
                     return;

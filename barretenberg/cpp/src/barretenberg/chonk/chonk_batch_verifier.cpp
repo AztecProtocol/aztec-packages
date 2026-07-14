@@ -1,7 +1,6 @@
 #ifndef __wasm__
 #include "chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -199,11 +198,11 @@ void ChonkBatchVerifier::coordinator_loop()
             continue;
         }
 
-        // ── Phase 2: batch IPA verification ────────────────────────────
+        // ── Phase 2: batch TripleIPA verification ────────────────────────────
         auto ipa_start = std::chrono::steady_clock::now();
         bool ok = batch_check(reduce_results, passed_indices);
-        double ipa_ms = ms_since(ipa_start);
-        double reduce_ms = ms_between(reduce_start, ipa_start);
+        const double ipa_ms = ms_since(ipa_start);
+        const double reduce_ms = ms_between(reduce_start, ipa_start);
 
         info("ChonkBatchVerifier: batch of ",
              passed_indices.size(),
@@ -235,7 +234,7 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
 
     for (uint32_t w = 0; w < num_workers; ++w) {
         workers.emplace_back([&]() {
-            // Each worker thread is single-threaded for reduce_to_ipa_claim
+            // Each worker thread is single-threaded for reduce_to_triple_ipa_opening
             set_parallel_for_concurrency(1);
             while (true) {
                 size_t idx = work_index.fetch_add(1, std::memory_order_relaxed);
@@ -247,12 +246,11 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
 
                 try {
                     ChonkNativeVerifier verifier(vks_[req.vk_index]);
-                    auto reduced = verifier.reduce_to_ipa_claim(req.proof);
+                    auto reduced = verifier.reduce_to_triple_ipa_opening(req.proof);
 
                     results[idx] = ReduceResult{
                         .request_id = req.request_id,
-                        .ipa_claim = std::move(reduced.ipa_claim),
-                        .ipa_proof = std::move(reduced.ipa_proof),
+                        .triple_ipa_opening = std::move(reduced.triple_ipa_opening),
                         .all_checks_passed = reduced.all_checks_passed,
                         .error_message = reduced.all_checks_passed ? "" : "reduction failed",
                         .enqueue_time = req.enqueue_time,
@@ -261,20 +259,18 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
                 } catch (const std::exception& e) {
                     results[idx] = ReduceResult{
                         .request_id = req.request_id,
-                        .ipa_claim = {},
-                        .ipa_proof = {},
+                        .triple_ipa_opening = std::nullopt,
                         .all_checks_passed = false,
-                        .error_message = std::string("reduce_to_ipa_claim threw: ") + e.what(),
+                        .error_message = std::string("reduce_to_triple_ipa_opening threw: ") + e.what(),
                         .enqueue_time = req.enqueue_time,
                         .reduce_ms = ms_since(t0),
                     };
                 } catch (...) {
                     results[idx] = ReduceResult{
                         .request_id = req.request_id,
-                        .ipa_claim = {},
-                        .ipa_proof = {},
+                        .triple_ipa_opening = std::nullopt,
                         .all_checks_passed = false,
-                        .error_message = "reduce_to_ipa_claim threw unknown exception",
+                        .error_message = "reduce_to_triple_ipa_opening threw unknown exception",
                         .enqueue_time = req.enqueue_time,
                         .reduce_ms = ms_since(t0),
                     };
@@ -298,18 +294,13 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
     set_parallel_for_concurrency(num_cores_);
 
     try {
-        // Collect IPA claims and transcripts for batch verification
-        std::vector<OpeningClaim<curve::Grumpkin>> claims;
-        std::vector<std::shared_ptr<NativeTranscript>> transcripts;
-        claims.reserve(indices.size());
-        transcripts.reserve(indices.size());
+        std::vector<ECCVMVerifier::DeferredTripleIpaOpening::Accumulator> accumulators;
+        accumulators.reserve(indices.size());
         for (size_t idx : indices) {
-            claims.push_back(results[idx].ipa_claim);
-            transcripts.push_back(std::make_shared<NativeTranscript>(results[idx].ipa_proof));
+            accumulators.push_back(results[idx].triple_ipa_opening.value().reduce_to_accumulator());
         }
 
-        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-        return IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
+        return ECCVMVerifier::batch_verify_accumulators(accumulators);
     } catch (const std::exception& e) {
         info("ChonkBatchVerifier: batch_check exception: ", e.what());
         return false;
@@ -366,7 +357,7 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
 void ChonkBatchVerifier::emit_ok(const std::vector<ReduceResult>& results,
                                  const std::vector<size_t>& indices,
                                  std::chrono::steady_clock::time_point reduce_start,
-                                 double ipa_ms,
+                                 double pcs_ms,
                                  uint32_t depth)
 {
     for (size_t idx : indices) {
@@ -376,7 +367,7 @@ void ChonkBatchVerifier::emit_ok(const std::vector<ReduceResult>& results,
             .status = static_cast<uint8_t>(VerifyStatus::OK),
             .error_message = "",
             .time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start),
-            .time_in_verify_ms = rr.reduce_ms + ipa_ms,
+            .time_in_verify_ms = rr.reduce_ms + pcs_ms,
             .batch_failure_count = depth,
         });
     }

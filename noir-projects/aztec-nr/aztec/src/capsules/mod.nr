@@ -103,40 +103,17 @@ impl<T> CapsuleArray<T> {
 
     /// Calls a function on each element of the array.
     ///
-    /// The function `f` is called once with each array value and its corresponding index. The order in which values
-    /// are processed is arbitrary.
+    /// The function `f` is called once with each array value and its corresponding index, in order (from the first
+    /// element to the last).
     ///
-    /// ## Array Mutation
-    ///
-    /// It is safe to delete the current element (and only the current element) from inside the callback via `remove`:
-    /// ```noir
-    /// array.for_each(|index, value| {
-    ///   if some_condition(value) {
-    ///     array.remove(index); // safe only for this index
-    ///   }
-    /// }
-    /// ```
-    ///
-    /// If all elements in the array need to iterated over and then removed, then using `for_each` results in optimal
-    /// efficiency.
-    ///
-    /// It is **not** safe to push new elements into the array from inside the callback.
+    /// Structurally mutating the array from inside the callback (e.g. via `push` or `remove`) is **not** supported:
+    /// it can cause elements to be skipped, visited more than once, or read out of bounds.
     pub unconstrained fn for_each<Env>(self, f: unconstrained fn[Env](u32, T) -> ())
     where
         T: Deserialize,
     {
-        // Iterating over all elements is simple, but we want to do it in such a way that a) deleting the current
-        // element is safe to do, and b) deleting *all* elements is optimally efficient. This is because CapsuleArrays
-        // are typically used to hold pending tasks, so iterating them while clearing completed tasks (sometimes
-        // unconditionally, resulting in a full clear) is a very common access pattern.
-        //
-        // The way we achieve this is by iterating backwards: each element can always be deleted since it won't change
-        // any preceding (lower) indices, and if every element is deleted then every element will (in turn) be the last
-        // element. This results in an optimal full clear since `remove` will be able to skip the `capsules::copy` call
-        // to shift any elements past the deleted one (because there will be none).
-        let mut i = self.len();
-        while i > 0 {
-            i -= 1;
+        let n = self.len();
+        for i in 0..n {
             f(i, self.get(i));
         }
     }
@@ -271,7 +248,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn for_each_called_with_all_elements() {
+    unconstrained fn for_each_called_with_all_elements_in_order() {
         let mut env = TestEnvironment::new();
         let scope = env.create_light_account();
         env.private_context(|context| {
@@ -282,79 +259,13 @@ mod test {
             array.push(5);
             array.push(6);
 
-            // We store all values that we were called with and check that all (value, index) tuples are present. Note
-            // that we do not care about the order in which each tuple was passed to the closure.
             let called_with = &mut BoundedVec::<(u32, Field), 3>::new();
             array.for_each(|index, value| { called_with.push((index, value)); });
 
             assert_eq(called_with.len(), 3);
-            assert(called_with.any(|(index, value)| (index == 0) & (value == 4)));
-            assert(called_with.any(|(index, value)| (index == 1) & (value == 5)));
-            assert(called_with.any(|(index, value)| (index == 2) & (value == 6)));
-        });
-    }
-
-    #[test]
-    unconstrained fn for_each_remove_some() {
-        let mut env = TestEnvironment::new();
-        let scope = env.create_light_account();
-        env.private_context(|context| {
-            let contract_address = context.this_address();
-            let array = CapsuleArray::at(contract_address, SLOT, scope);
-
-            array.push(4);
-            array.push(5);
-            array.push(6);
-
-            array.for_each(|index, _| {
-                if index == 1 {
-                    array.remove(index);
-                }
-            });
-
-            assert_eq(array.len(), 2);
-            assert_eq(array.get(0), 4);
-            assert_eq(array.get(1), 6);
-        });
-    }
-
-    #[test]
-    unconstrained fn for_each_remove_all() {
-        let mut env = TestEnvironment::new();
-        let scope = env.create_light_account();
-        env.private_context(|context| {
-            let contract_address = context.this_address();
-            let array = CapsuleArray::at(contract_address, SLOT, scope);
-
-            array.push(4);
-            array.push(5);
-            array.push(6);
-
-            array.for_each(|index, _| { array.remove(index); });
-
-            assert_eq(array.len(), 0);
-        });
-    }
-
-    #[test]
-    unconstrained fn for_each_remove_all_no_copy() {
-        let mut env = TestEnvironment::new();
-        let scope = env.create_light_account();
-        env.private_context(|context| {
-            let contract_address = context.this_address();
-            let array = CapsuleArray::at(contract_address, SLOT, scope);
-
-            array.push(4);
-            array.push(5);
-            array.push(6);
-
-            // We test that the aztec_utl_copyCapsule was never called, which is the expensive operation we want to
-            // avoid.
-            let mock = std::test::OracleMock::mock("aztec_utl_copyCapsule");
-
-            array.for_each(|index, _| { array.remove(index); });
-
-            assert_eq(mock.times_called(), 0);
+            assert_eq(called_with.get(0), (0, 4));
+            assert_eq(called_with.get(1), (1, 5));
+            assert_eq(called_with.get(2), (2, 6));
         });
     }
 

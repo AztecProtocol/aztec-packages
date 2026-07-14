@@ -183,18 +183,6 @@ function block_capacity_bench_cmds {
   echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/block_capacity.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple block_capacity.test.ts"
 }
 
-function bench_10tps_cmds {
-  # Mix: 1 tps of high-value + 9 tps of low-value, total still 10 tps. The
-  # high-value lane is what we measure for the headline client-observed
-  # inclusion latency (low-value txs pay near-network-min and are allowed to
-  # fail fee checks, so they would skew the headline if measured).
-  local high_value_tps=1
-  local low_value_tps=9
-  local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
-  local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for initial committee formation
-  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
-}
-
 function network_bench {
   rm -rf bench-out
   mkdir -p bench-out
@@ -237,41 +225,75 @@ function block_capacity_bench {
   block_capacity_bench_cmds | parallelize 1
 }
 
-function bench_10tps {
+# One point of the inclusion sweep: a fixed 1 TPS of high-value txs (the
+# measured inclusion lane) plus (TARGET_TPS - 1) TPS of low-value background
+# traffic to bring total load to the target. So inclusion latency is always
+# measured for a properly-paying user's tx while the network runs at TARGET_TPS.
+# Tagged with a shared BENCH_SWEEP_ID so the 1/5/10 points group as one sweep
+# (schema v5). Each point runs in its own namespace.
+function bench_inclusion_point_cmds {
+  local tps=${TARGET_TPS:-10}
+  local high_value_tps=1
+  # Low-value lane makes up the difference to the target; clamp at 0 for a 1 TPS
+  # target. awk handles any fractional TARGET_TPS.
+  local low_value_tps
+  low_value_tps=$(awk "BEGIN{l=${tps}-${high_value_tps}; if(l<0)l=0; print l}")
+  local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
+  local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for committee formation
+  local scenario="incl_${tps/./_}tps"
+  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.${scenario}.bench.json BENCH_SCENARIO=${scenario} LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+}
+
+function bench_inclusion_point {
   rm -rf bench-out
   mkdir -p bench-out
 
   local env_file="$1"
   source_network_env $env_file
 
-  echo_header "spartan bench-10tps"
+  local tps=${TARGET_TPS:-10}
+  echo_header "spartan inclusion-sweep point (${tps} TPS)"
   gcp_auth
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
-  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${COMMIT_HASH:0:10}}"
-  bench_10tps_cmds | parallelize 1
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-incl-${tps}tps-${COMMIT_HASH:0:10}}"
+  # Capture the load-test exit code but do NOT abort: a degraded point (e.g. a
+  # higher-TPS point that misses its target, or any failed assertion) still
+  # produced inclusion records worth scraping. We always scrape below, then
+  # re-surface the failure at the end so the job status still reflects it.
+  local test_rc=0
+  bench_inclusion_point_cmds | parallelize 1 || test_rc=$?
+  if [[ "$test_rc" -ne 0 ]]; then
+    echo "[bench_inclusion_point] load test exited ${test_rc}; scraping captured data anyway"
+  fi
 
   local metadata="/tmp/n_tps_timing_data.json"
-  local run_json="bench-out/bench-10tps-${BENCH_RUN_ID}.json"
+  local run_json="bench-out/bench-inclusion-${tps}tps-${BENCH_RUN_ID}.json"
   if [[ -f "$metadata" ]]; then
     local started=$(jq -r .startedAt < "$metadata")
     local ended=$(jq -r .endedAt < "$metadata")
-    echo "Scraping bench-10tps run ${BENCH_RUN_ID} (started=${started} ended=${ended})"
+    echo "Scraping inclusion-sweep point ${tps} TPS (run ${BENCH_RUN_ID}, started=${started} ended=${ended})"
     NAMESPACE="$NAMESPACE" GCP_PROJECT_ID="${GCP_PROJECT_ID:-}" ./scripts/bench_10tps/bench_scrape.ts \
       --run-id "$BENCH_RUN_ID" \
       --started "$started" \
       --ended "$ended" \
-      --target-tps 10 \
+      --target-tps "$tps" \
+      --sweep-id "${BENCH_SWEEP_ID:-}" \
+      --sweep-label "${BENCH_SWEEP_LABEL:-inclusion-sweep}" \
+      --benchmark-type "${BENCH_BENCHMARK_TYPE:-ingress-inclusion}" \
       --workload sha256_hash_1024 \
       --output "$run_json" \
       --inclusion-records "$metadata" \
       --wait-for-pending-zero \
       --max-pending-wait-seconds "${BENCH_SCRAPE_MAX_PENDING_WAIT_SECONDS:-3600}" \
-      || echo "[bench_10tps] scraper failed (non-fatal)"
+      || echo "[bench_inclusion_point] scraper failed (non-fatal)"
     network_bench_upload "$run_json" || echo "[network_bench] upload failed (non-fatal)"
   else
-    echo "[bench_10tps] no timing metadata at ${metadata}; skipping scraper"
+    echo "[bench_inclusion_point] no timing metadata at ${metadata}; skipping scraper"
   fi
+
+  # Re-surface the load-test failure (if any) now that data has been scraped.
+  return "$test_rc"
 }
 
 function network_bench_upload {
@@ -287,12 +309,12 @@ function network_bench_upload {
 
   # Reject anything that's not the schema we've designed the index against.
   local schema=$(jq -r .schemaVersion "$run_json")
-  if [[ "$schema" != "3" ]]; then
-    echo "[network_bench] run JSON has schemaVersion '$schema', expected '3'; skipping upload"
+  if [[ "$schema" != "5" ]]; then
+    echo "[network_bench] run JSON has schemaVersion '$schema', expected '5'; skipping upload"
     return 0
   fi
 
-  local bucket="gs://aztec-testnet/network_bench"
+  local bucket="${NETWORK_BENCH_BUCKET:-gs://aztec-testnet/network_bench}"
   local run_id=$(jq -r .run.runId "$run_json")
   local target="${bucket}/${run_id}.json"
 
@@ -305,6 +327,9 @@ function network_bench_upload {
     startedAt: .run.startedAt,
     endedAt: .run.endedAt,
     targetTps: .run.targetTps,
+    sweepId: .run.sweepId,
+    sweepLabel: .run.sweepLabel,
+    benchmarkType: .run.benchmarkType,
     workload: .run.workload,
     testDurationSeconds: .run.testDurationSeconds,
     namespace: .run.namespace,
@@ -327,7 +352,7 @@ function network_bench_upload {
     gcloud storage cp "${bucket}/index.json" "$idx_local"
   elif echo "$desc_err" | grep -qiE 'not.?found|matched no objects|404'; then
     echo "[network_bench] no remote index.json yet; seeding empty"
-    echo '{"schemaVersion":"1","runs":[]}' > "$idx_local"
+    echo '{"schemaVersion":"2","runs":[]}' > "$idx_local"
   else
     echo "[network_bench] cannot read remote index.json:"
     echo "$desc_err" | head -5
@@ -335,7 +360,7 @@ function network_bench_upload {
   fi
 
   jq --argjson entry "$entry" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
-    .schemaVersion = "1"
+    .schemaVersion = "2"
     | .generatedAt = $ts
     | .runs = ((.runs // []) | map(select(.runId != $entry.runId)) + [$entry]
               | sort_by(.endedAt) | reverse)
@@ -416,7 +441,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_10tps)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_inclusion_point)
     env_file="$1"
     $cmd "$env_file"
     ;;
@@ -458,6 +483,9 @@ case "$cmd" in
     ;;
   "hash")
     echo $(hash)
+    ;;
+  "network_bench_upload")
+    network_bench_upload "$1"
     ;;
   test|test_cmds|gke|build|gcp_auth)
     $cmd

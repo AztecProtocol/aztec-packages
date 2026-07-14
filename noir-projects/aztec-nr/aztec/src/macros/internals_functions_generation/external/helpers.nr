@@ -98,8 +98,8 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
             let params_quote_without_parentheses = params
                 .map(|(_, param_type): (Quoted, Type)| {
                     quote {
-                    <$param_type as aztec::protocol::traits::Serialize>::N
-                }
+                        <$param_type as aztec::protocol::traits::Serialize>::N
+                    }
                 })
                 .join(quote {+});
             quote { ($params_quote_without_parentheses) }
@@ -110,7 +110,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
     };
     let invalid_nonce_message = f"Invalid authwit nonce. When '{from_arg_name}' and 'msg_sender' are the same, '{nonce_arg_name}' must be zero"
         .as_quoted_str();
-    quote {         
+    quote {
         if (!$from_arg_name_quoted.eq(self.msg_sender())) {
             $fn_call(self.context, $from_arg_name_quoted);
         } else {

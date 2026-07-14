@@ -70,6 +70,7 @@ Codex
 COEP
 Colour
 colour
+immutables
 colums
 Commiting
 completer

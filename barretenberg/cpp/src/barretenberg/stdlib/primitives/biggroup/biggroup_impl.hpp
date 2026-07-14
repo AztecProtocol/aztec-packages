@@ -47,11 +47,11 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert
     // This works because: (1) after reduction, each limb is non-negative and range-constrained,
     // so sum=0 iff all limbs=0; (2) max sum is 8 * 2^68 ≈ 2^71 << n ≈ 2^254, so no native wraparound.
     field_ct limb_sum = 0;
-    for (const auto& limb : _x.binary_basis_limbs) {
-        limb_sum += limb.element;
+    for (size_t i = 0; i < Fq::NUM_LIMBS; ++i) {
+        limb_sum += _x.get_limb(i).element;
     }
-    for (const auto& limb : _y.binary_basis_limbs) {
-        limb_sum += limb.element;
+    for (size_t i = 0; i < Fq::NUM_LIMBS; ++i) {
+        limb_sum += _y.get_limb(i).element;
     }
     _is_infinity = limb_sum.is_zero();
 
@@ -76,6 +76,8 @@ element<C, Fq, Fr, G>::element(const Fq& x_in,
     , _y(y_in)
     , _is_infinity(is_infinity.normalize())
 {
+    BB_ASSERT(!(_x.is_constant() && _y.is_constant() && !_is_infinity.is_constant()),
+              "biggroup: constant coordinates with non-constant infinity flag");
     if (assert_on_curve) {
         validate_on_curve();
     }
@@ -755,9 +757,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         // `builder::evaluate_partial_non_native_field_multiplication` is called. (the 1st mul_left, mul_right elements
         // will trigger builder::evaluate_non_native_field_multiplication
         //  when Fq::mult_madd is called - this term cannot be cached so we want to make sure it is unique)
-        std::copy(previous_y.mul_left.begin(), previous_y.mul_left.end(), std::back_inserter(y_4.mul_left));
-        std::copy(previous_y.mul_right.begin(), previous_y.mul_right.end(), std::back_inserter(y_4.mul_right));
-        std::copy(previous_y.add.begin(), previous_y.add.end(), std::back_inserter(y_4.add));
+        y_4.mul_left.insert(y_4.mul_left.end(), previous_y.mul_left.begin(), previous_y.mul_left.end());
+        y_4.mul_right.insert(y_4.mul_right.end(), previous_y.mul_right.begin(), previous_y.mul_right.end());
+        y_4.add.insert(y_4.add.end(), previous_y.add.begin(), previous_y.add.end());
 
         previous_x = x_4;
         previous_y = y_4;
@@ -1004,33 +1006,31 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul_internal(const std::vecto
         // If points are linearly dependent, we randomise them using a free-witness offset generator.
         // We do this to ensure that the x-coordinates of the points are all distinct. This is required
         // while creating the ROM lookup table with the points.
-        std::tie(points, scalars) = mask_points(points, scalars);
+        auto [masked_points, masked_scalars, _offset_generator] = mask_points(points, scalars);
+        points = std::move(masked_points);
+        scalars = std::move(masked_scalars);
     }
 
     BB_ASSERT_EQ(
         points.size(), scalars.size(), "biggroup batch_mul: points and scalars size mismatch after handling edgecases");
 
-    // Separate out zero scalars and corresponding points (because NAF(0) = NAF(modulus) which is 254 bits long)
-    // Also add the last point and scalar to big_points and big_scalars (because its a 254-bit scalar)
-    // We do this only if max_num_bits != 0 (i.e. we are not forced to use 254 bits anyway)
+    // Partition scalars into big and small paths using compile-time information.
+    // Since `with_edgecases` appends a 254-bit randomization scalar at the end (via
+    // `mask_points`), the last scalar must go to big. Everything else routes by
+    // `max_num_bits`: `0` forces the full-width path, anything else uses the small path.
     const size_t original_size = scalars.size();
     std::vector<Fr> big_scalars;
     std::vector<element> big_points;
     std::vector<Fr> small_scalars;
     std::vector<element> small_points;
     for (size_t i = 0; i < original_size; ++i) {
-        if (max_num_bits == 0) {
+        const bool is_last_scalar_big = (i == original_size - 1) && with_edgecases;
+        if (max_num_bits == 0 || is_last_scalar_big) {
             big_points.emplace_back(points[i]);
             big_scalars.emplace_back(scalars[i]);
         } else {
-            const bool is_last_scalar_big = ((i == original_size - 1) && with_edgecases);
-            if (scalars[i].get_value() == 0 || is_last_scalar_big) {
-                big_points.emplace_back(points[i]);
-                big_scalars.emplace_back(scalars[i]);
-            } else {
-                small_points.emplace_back(points[i]);
-                small_scalars.emplace_back(scalars[i]);
-            }
+            small_points.emplace_back(points[i]);
+            small_scalars.emplace_back(scalars[i]);
         }
     }
 

@@ -1,3 +1,4 @@
+import { normalizeSignature } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { CommitteeAttestation } from '../block/index.js';
@@ -18,9 +19,15 @@ export function orderAttestations(
   for (const attestation of attestations) {
     const sender = attestation.getSender();
     if (sender) {
+      // Canonicalize the recovery byte to v ∈ {27, 28} before it reaches the L1 bundle. A committee
+      // member (or a peer mutating the byte in flight) can emit an equivalent signature in yParity form
+      // (v = 0/1); left as-is it makes `packAttestations` (empty iff v === 0) and `getSigners` (empty iff
+      // r,s,v all zero) disagree, reverting `propose()` with SignersSizeMismatch, and a v = 1 byte would
+      // later revert epoch proving in ECDSA.recover. `sender` recovered, so the signature is non-empty
+      // and low-s, and normalizeSignature preserves the recovered address.
       attestationMap.set(
         sender.toString(),
-        CommitteeAttestation.fromAddressAndSignature(sender, attestation.signature),
+        CommitteeAttestation.fromAddressAndSignature(sender, normalizeSignature(attestation.signature)),
       );
     }
   }

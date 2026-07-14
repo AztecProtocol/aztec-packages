@@ -5,6 +5,7 @@ namespace bb::utils {
 std::vector<uint8_t> hex_to_bytes(const std::string& hex)
 {
     std::vector<uint8_t> bytes;
+    bytes.reserve(hex.length() / 2);
 
     for (unsigned int i = 0; i < hex.length(); i += 2) {
         std::string byteString = hex.substr(i, 2);

@@ -335,10 +335,6 @@ describe('P2P Client', () => {
       await expect(client.getL2Tips()).resolves.toEqual({
         proposed: { number: BlockNumber(100), hash: expect.any(String) },
         checkpointed: { block: { number: BlockNumber(100), hash: expect.any(String) }, checkpoint: anyCheckpoint },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(100), hash: expect.any(String) },
-          checkpoint: anyCheckpoint,
-        },
         proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
@@ -349,7 +345,6 @@ describe('P2P Client', () => {
 
       await expect(client.getL2Tips()).resolves.toEqual({
         proposed: { number: BlockNumber(90), hash: expect.any(String) },
-        proposedCheckpoint: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         checkpointed: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
@@ -362,7 +357,6 @@ describe('P2P Client', () => {
 
       await expect(client.getL2Tips()).resolves.toEqual({
         proposed: { number: BlockNumber(92), hash: expect.any(String) },
-        proposedCheckpoint: { block: { number: BlockNumber(92), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         checkpointed: { block: { number: BlockNumber(92), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
         finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
@@ -402,6 +396,43 @@ describe('P2P Client', () => {
       blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
       expect(await client.getSyncedLatestBlockNum()).toEqual(102);
+    });
+
+    it('prepares the pool for the last synced block slot after marking txs mined', async () => {
+      await client.start();
+
+      blockSource.addProposedBlocks([
+        await L2Block.random(BlockNumber(101), { slotNumber: SlotNumber(150) }),
+        await L2Block.random(BlockNumber(102), { slotNumber: SlotNumber(151) }),
+      ]);
+      await client.sync();
+
+      // Release is driven by the synced block slot, not the wall clock: prepareForSlot is ultimately
+      // driven with the last synced block's slot (regardless of how the stream batches the blocks),
+      // never reads the epoch cache, and never targets a slot beyond what has synced.
+      expect(txPool.prepareForSlot).toHaveBeenLastCalledWith(SlotNumber(151));
+      const preparedSlots = txPool.prepareForSlot.mock.calls.map(([slot]) => Number(slot));
+      expect(Math.max(...preparedSlots)).toBe(151);
+      expect(epochCache.getCurrentAndNextSlot).not.toHaveBeenCalled();
+      // Mined-marking runs before the matching-slot release within the handler.
+      expect(txPool.handleMinedBlock.mock.invocationCallOrder.at(-1)!).toBeLessThan(
+        txPool.prepareForSlot.mock.invocationCallOrder.at(-1)!,
+      );
+    });
+
+    it('does not re-prepare for a slot that does not advance', async () => {
+      await client.start();
+
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(101), { slotNumber: SlotNumber(150) })]);
+      await client.sync();
+      const callsAfterFirst = txPool.prepareForSlot.mock.calls.length;
+      expect(txPool.prepareForSlot).toHaveBeenLastCalledWith(SlotNumber(150));
+
+      // A later block at an earlier slot must not advance the prepared-for slot
+      blockSource.addProposedBlocks([await L2Block.random(BlockNumber(102), { slotNumber: SlotNumber(149) })]);
+      await client.sync();
+      expect(txPool.prepareForSlot.mock.calls.length).toBe(callsAfterFirst);
+      expect(txPool.prepareForSlot).not.toHaveBeenCalledWith(SlotNumber(149));
     });
 
     it('handles proven and finalized chain behind starting point', async () => {

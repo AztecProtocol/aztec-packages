@@ -5,15 +5,48 @@ import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, flipSignature } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { CommitteeAttestation, EthAddress } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import {
+  CommitteeAttestation,
+  CommitteeAttestationsAndSigners,
+  EthAddress,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
+import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { TEST_COORDINATION_SIGNATURE_CONTEXT } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 
 import { makeSignedPublishedCheckpoint } from '../test/mock_structs.js';
-import { getAttestationInfoFromPublishedCheckpoint, validateCheckpointAttestations } from './validation.js';
+import { getAttestationInfoFromPublishedCheckpoint, validateAttestations } from './validation.js';
+
+/**
+ * Blob-path wrapper over the shared attestation validator, used only by these tests. Production
+ * invalidation always originates from the calldata path (validateCheckpointAttestationsFromCalldata);
+ * this repacks a fully decoded checkpoint's attestations to supply the verbatimAttestations field.
+ */
+function validateCheckpointAttestations(
+  publishedCheckpoint: PublishedCheckpoint,
+  epochCache: EpochCache,
+  constants: Pick<L1RollupConstants, 'epochDuration'>,
+  signatureContext: CoordinationSignatureContext,
+  logger?: Logger,
+): Promise<ValidateCheckpointResult> {
+  const { checkpoint, attestations } = publishedCheckpoint;
+  const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+  const verbatimAttestations = CommitteeAttestationsAndSigners.packAttestations(attestations);
+  return validateAttestations(
+    payload,
+    attestations,
+    verbatimAttestations,
+    checkpoint.toCheckpointInfo(),
+    epochCache,
+    constants,
+    logger,
+  );
+}
 
 describe('validateCheckpointAttestations', () => {
   let epochCache: MockProxy<EpochCache>;
@@ -229,6 +262,30 @@ describe('validateCheckpointAttestations', () => {
       expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
       expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
       expect(result.committee).toEqual(committee);
+      expect(result.invalidIndex).toBe(2);
+    });
+
+    it('fails if an attestation is in yParity (v in {0, 1}) form even though it recovers to the right member', async () => {
+      const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee);
+
+      // Rewrite index 2's canonical signature to its yParity form: same (r, s), recovery byte 0/1. It still
+      // recovers to the same committee member off-chain, but L1 ECDSA.recover rejects v not in {27, 28}.
+      const original = checkpoint.attestations[2];
+      const yParity = new Signature(original.signature.r, original.signature.s, original.signature.v - 27);
+      checkpoint.attestations[2] = new CommitteeAttestation(original.address, yParity);
+
+      const attestations = getAttestationInfoFromPublishedCheckpoint(checkpoint, TEST_COORDINATION_SIGNATURE_CONTEXT);
+      expect(attestations[2].status).toBe('invalid-signature');
+
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
+      assert(!result.valid);
+      assert(result.reason === 'invalid-attestation');
       expect(result.invalidIndex).toBe(2);
     });
 

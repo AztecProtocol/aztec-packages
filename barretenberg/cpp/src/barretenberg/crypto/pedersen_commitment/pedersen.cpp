@@ -22,7 +22,7 @@ namespace bb::crypto {
  */
 template <typename Curve>
 typename Curve::AffineElement pedersen_commitment_base<Curve>::commit_native(const std::vector<Fq>& inputs,
-                                                                             const GeneratorContext context)
+                                                                             const GeneratorContext& context)
 {
     const auto generators = context.generators->get(inputs.size(), context.offset, context.domain_separator);
     Element result = Group::point_at_infinity;

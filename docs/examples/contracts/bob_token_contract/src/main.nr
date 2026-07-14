@@ -7,7 +7,7 @@ pub contract BobToken {
     // docs:end:start
     use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Map, Owned, PublicMutable},
     };

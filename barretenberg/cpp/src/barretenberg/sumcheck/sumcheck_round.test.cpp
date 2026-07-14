@@ -1,9 +1,13 @@
 #include "sumcheck_round.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/tuple.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/sumcheck_test_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/relations/utils.hpp"
 
 #include <gtest/gtest.h>
@@ -310,7 +314,7 @@ TEST(SumcheckRound, ComputeEffectiveRoundSize)
 /**
  * @brief Test that compute_effective_round_size excludes disabled rows for ZK flavors
  * @details For ZK flavors, we always cap at round_size - 2 (disabled rows are handled separately
- * via compute_disabled_contribution)
+ * via compute_offset_area_contribution)
  */
 TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
 {
@@ -401,7 +405,7 @@ TEST(SumcheckRound, ExtendEdgesShortMonomial)
 
 /**
  * @brief Test extend_edges with full barycentric extension (non-short-monomial flavor)
- * @details Uses MultilinearBatchingFlavor which has USE_SHORT_MONOMIALS=false to test that
+ * @details Uses a flavor with USE_SHORT_MONOMIALS=false to test that
  * the barycentric extension to MAX_PARTIAL_RELATION_LENGTH works correctly.
  */
 TEST(SumcheckRound, ExtendEdges)
@@ -942,4 +946,100 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
 
         info("Multiple rounds: Builder correctly detects failure in one of multiple rounds");
     }
+}
+
+/**
+ * @brief The row-parallel main-loop contribution must equal the scalar path bit-for-bit.
+ *
+ * @details Runs `compute_univariate<FF>` and `compute_univariate<VectorField<FF::Params>>` over the same
+ * random prover polynomials and asserts equal `SumcheckRoundUnivariate`. On native, `VectorField` is the scalar
+ * fallback, so this exercises only the lane orchestration (stride-2 gather, per-lane gate-separator gather,
+ * horizontal reduce, scalar tail); the SIMD arithmetic itself is covered by `VectorFieldTest` on WASM and
+ * end-to-end by the WASM proving tests.
+ *
+ * ZK flavors: the ZK offset-area / Libra contributions are added on top by `sumcheck.hpp`, so they sit outside
+ * `compute_univariate`'s return value. Both lanes honour `excluded_head_size`, so main-loop contributions must
+ * match for ZK too.
+ *
+ * `round_size = 32` covers multiple full 10-row SIMD batches plus a non-empty scalar tail.
+ *
+ * @param zero_entity_indices entities to zero instead of randomizing. Zeroing a relation's gating selector
+ * makes its `skip()` fire on every batch (row-parallel) and every row (scalar); the two must still agree.
+ */
+template <typename Flavor> void check_row_parallel_matches_scalar(const std::vector<size_t>& zero_entity_indices = {})
+{
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+
+    static_assert(SupportsSimdSumcheck<Flavor>, "flavor should support the row-parallel path");
+    // The SIMD element path doesn't implement row-skipping; locking the absence of `skip_entire_row` here
+    // keeps future flavors honest -- adding it must come with a row-parallel implementation.
+    static_assert(!isRowSkippable<Flavor, typename Flavor::ProverPolynomials, size_t>,
+                  "row-parallel target must not be row-skippable");
+
+    const size_t log_n = 5;
+    const size_t round_size = size_t{ 1 } << log_n; // 32
+
+    // Random full-size polynomials per entity. Parity only cares that the two paths read the same inputs;
+    // proof validity is irrelevant.
+    std::vector<bb::Polynomial<FF>> random_polynomials(Flavor::NUM_ALL_ENTITIES);
+    for (size_t entity = 0; entity < random_polynomials.size(); ++entity) {
+        auto& poly = random_polynomials[entity];
+        poly = bb::Polynomial<FF>(round_size);
+        const bool zero_this =
+            std::find(zero_entity_indices.begin(), zero_entity_indices.end(), entity) != zero_entity_indices.end();
+        if (!zero_this) {
+            for (size_t i = 0; i < round_size; ++i) {
+                poly.at(i) = FF::random_element();
+            }
+        }
+    }
+    ProverPolynomials prover_polynomials;
+    for (auto [prover_poly, random_poly] : zip_view(prover_polynomials.get_all(), random_polynomials)) {
+        prover_poly = random_poly.share();
+    }
+
+    const auto relation_parameters = bb::RelationParameters<FF>::get_random();
+
+    std::vector<FF> betas(log_n);
+    for (auto& beta : betas) {
+        beta = FF::random_element();
+    }
+    GateSeparatorPolynomial<FF> gate_separators(betas, log_n);
+
+    std::array<FF, Flavor::NUM_SUBRELATIONS - 1> alphas;
+    for (auto& alpha : alphas) {
+        alpha = FF::random_element();
+    }
+
+    using Round = SumcheckProverRound<Flavor>;
+
+    Round round_scalar(round_size);
+    const auto result_scalar =
+        round_scalar.template compute_univariate<FF>(prover_polynomials, relation_parameters, gate_separators, alphas);
+
+    Round round_vec(round_size);
+    const auto result_vec = round_vec.template compute_univariate<bb::VectorField<typename FF::Params>>(
+        prover_polynomials, relation_parameters, gate_separators, alphas);
+
+    EXPECT_EQ(result_scalar, result_vec);
+}
+
+// Non-row-skipping flavors that expose `Relations_` (Ultra/Mega family) dispatch to `VectorField` under
+// WASM; each must be bit-identical to the scalar (`FF`) path. Add follow-up short-monomial flavors here.
+template <typename Flavor> class RowParallelParity : public ::testing::Test {};
+using RowParallelFlavors = ::testing::Types<MegaFlavor, MegaZKFlavor, UltraFlavor, UltraZKFlavor>;
+TYPED_TEST_SUITE(RowParallelParity, RowParallelFlavors);
+
+TYPED_TEST(RowParallelParity, MatchesScalar)
+{
+    check_row_parallel_matches_scalar<TypeParam>();
+}
+
+// Standalone (not in the typed suite) because it names `MegaFlavor::EntityId::q_arith`. Zeroing `q_arith`
+// makes `ArithmeticRelation::skip()` fire on every batch / row, exercising the batched-skip branch on the
+// row-parallel side and the per-row skip on the scalar side -- they must still agree.
+TEST(SumcheckRound, RowParallelSkipFiresMatchesScalarMega)
+{
+    check_row_parallel_matches_scalar<MegaFlavor>({ static_cast<size_t>(MegaFlavor::EntityId::q_arith) });
 }

@@ -99,7 +99,7 @@ describe('hash', () => {
   });
 
   it('computes public data tree leaf slot', async () => {
-    const contractAddress = AztecAddress.fromField(new Fr(987));
+    const contractAddress = AztecAddress.fromFieldUnsafe(new Fr(987));
     const storageSlot = new Fr(123);
     const res = await computePublicDataTreeLeafSlot(contractAddress, storageSlot);
     expect(res.toString()).toMatchInlineSnapshot(
@@ -172,7 +172,7 @@ describe('hash', () => {
 
   it('empty L2ToL1Message siloing matches Noir', () => {
     const nonEmptyHash = computeL2ToL1MessageHash({
-      l2Sender: AztecAddress.fromField(new Fr(0)),
+      l2Sender: AztecAddress.fromFieldUnsafe(new Fr(0)),
       l1Recipient: EthAddress.fromField(new Fr(0)),
       content: new Fr(0),
       rollupVersion: new Fr(0),
@@ -193,7 +193,7 @@ describe('hash', () => {
 
   it('L2ToL1Message siloing matches Noir', () => {
     const nonEmptyHash = computeL2ToL1MessageHash({
-      l2Sender: AztecAddress.fromField(new Fr(3)),
+      l2Sender: AztecAddress.fromFieldUnsafe(new Fr(3)),
       l1Recipient: EthAddress.fromField(new Fr(1)),
       content: new Fr(2),
       rollupVersion: new Fr(4),

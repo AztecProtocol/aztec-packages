@@ -33,21 +33,23 @@ void TranslatorOpcodeConstraintShortRelationImpl<FF>::accumulate(ContainerOverSu
     using View = TranslatorShortMonomialView<Accumulator>;
 
     auto op = View(in.op);
-    const auto lagrange_mini_masking = View(in.lagrange_mini_masking);
+    const auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+    const auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
     static const FF minus_three = FF(-3);
     static const FF minus_four = FF(-4);
     static const FF minus_eight = FF(-8);
-    static const FF minus_one = FF(-1);
     const auto op_minus_three = op + minus_three;
     const auto op_minus_four = op + minus_four;
     const auto op_minus_eight = op + minus_eight;
 
-    // Contribution (1) op(op-3)(op-4)(op-8))
+    // Contribution (1) opcode validity:
+    //   - even rows: op·(op-3)·(op-4)·(op-8) = 0, i.e. op ∈ {0,3,4,8}
+    //   - odd rows:  op = 0
+    // Mirrors TranslatorOpcodeConstraintRelation (the full-monomial variant); see it for the soundness rationale.
     auto tmp_1 = Accumulator((op * scaling_factor) * op_minus_three) * Accumulator(op_minus_four * op_minus_eight);
-    tmp_1 *= Accumulator(lagrange_mini_masking + minus_one);
+    tmp_1 *= Accumulator(lagrange_even_in_minicircuit);
+    tmp_1 += Accumulator((op * scaling_factor) * lagrange_odd_in_minicircuit);
     std::get<0>(accumulators) += tmp_1;
-
-    const auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
 
     auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
     auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);

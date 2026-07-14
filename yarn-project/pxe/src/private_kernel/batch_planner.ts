@@ -150,7 +150,6 @@ export function appendApp(
     acc.feePayer,
     acc.expirationTimestamp,
     acc.isPrivateOnly,
-    acc.claimedFirstNullifier,
     acc.claimedRevertibleCounter,
   );
 }

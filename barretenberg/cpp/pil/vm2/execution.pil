@@ -131,7 +131,6 @@ include "opcodes/sstore.pil";
  *     - #[EXEC_SPEC_READ] -> precomputed: read execution spec (gas costs, register info, subtrace dispatch).
  *
  *   Gas (dynamic):
- *     - #[DYN_L2_FACTOR_BITWISE] -> precomputed: tag-based byte length for bitwise gas.
  *     - #[CHECK_RADIX_GT_256] -> gt: compare radix > 256.
  *     - #[GET_P_LIMBS] -> precomputed: lookup num_p_limbs for to_radix gas.
  *     - #[GET_MAX_LIMBS] -> gt: compare num_limbs > num_p_limbs.
@@ -378,7 +377,7 @@ pol commit sel_instruction_fetching_failure; // @boolean (by definition below)
 
 pol commit exec_opcode;
 pol commit addressing_mode;
-pol commit op[7];  // operands
+pol commit op[5];  // operands
 
 // We now proceed to fetch the instruction.
 
@@ -419,9 +418,7 @@ sel_instruction_fetching_success {
     op[1],
     op[2],
     op[3],
-    op[4],
-    op[5],
-    op[6]
+    op[4]
 } in instr_fetching.sel {
     instr_fetching.pc,
     instr_fetching.bytecode_id,
@@ -432,9 +429,7 @@ sel_instruction_fetching_success {
     instr_fetching.op2,
     instr_fetching.op3,
     instr_fetching.op4,
-    instr_fetching.op5,
-    instr_fetching.op6,
-    instr_fetching.op7
+    instr_fetching.op5
 };
 
 /**************************************************************************************************
@@ -457,8 +452,6 @@ sel_instruction_fetching_success {
     sel_op_is_address[2],
     sel_op_is_address[3],
     sel_op_is_address[4],
-    sel_op_is_address[5],
-    sel_op_is_address[6],
     // decomposed selectors
     subtrace_id,
     subtrace_operation_id,
@@ -468,29 +461,21 @@ sel_instruction_fetching_success {
     sel_mem_op_reg[1],
     sel_mem_op_reg[2],
     sel_mem_op_reg[3],
-    sel_mem_op_reg[4],
-    sel_mem_op_reg[5],
     // read / write per register
     rw_reg[0],
     rw_reg[1],
     rw_reg[2],
     rw_reg[3],
-    rw_reg[4],
-    rw_reg[5],
     // whether we should perform a tag check on the register
     sel_tag_check_reg[0],
     sel_tag_check_reg[1],
     sel_tag_check_reg[2],
     sel_tag_check_reg[3],
-    sel_tag_check_reg[4],
-    sel_tag_check_reg[5],
     // expected register tag to perform the check against
     expected_tag_reg[0],
     expected_tag_reg[1],
     expected_tag_reg[2],
-    expected_tag_reg[3],
-    expected_tag_reg[4],
-    expected_tag_reg[5]
+    expected_tag_reg[3]
 } in
 precomputed.sel_exec_spec {
     // execution opcode
@@ -506,8 +491,6 @@ precomputed.sel_exec_spec {
     precomputed.sel_op_is_address[2],
     precomputed.sel_op_is_address[3],
     precomputed.sel_op_is_address[4],
-    precomputed.sel_op_is_address[5],
-    precomputed.sel_op_is_address[6],
     // decomposed selectors
     precomputed.subtrace_id,
     precomputed.subtrace_operation_id,
@@ -517,29 +500,21 @@ precomputed.sel_exec_spec {
     precomputed.sel_mem_op_reg[1],
     precomputed.sel_mem_op_reg[2],
     precomputed.sel_mem_op_reg[3],
-    precomputed.sel_mem_op_reg[4],
-    precomputed.sel_mem_op_reg[5],
     // read / write per register
     precomputed.rw_reg[0],
     precomputed.rw_reg[1],
     precomputed.rw_reg[2],
     precomputed.rw_reg[3],
-    precomputed.rw_reg[4],
-    precomputed.rw_reg[5],
     // whether we should perform a tag check on the register
     precomputed.sel_tag_check_reg[0],
     precomputed.sel_tag_check_reg[1],
     precomputed.sel_tag_check_reg[2],
     precomputed.sel_tag_check_reg[3],
-    precomputed.sel_tag_check_reg[4],
-    precomputed.sel_tag_check_reg[5],
     // expected register tag to perform the check against
     precomputed.expected_tag_reg[0],
     precomputed.expected_tag_reg[1],
     precomputed.expected_tag_reg[2],
-    precomputed.expected_tag_reg[3],
-    precomputed.expected_tag_reg[4],
-    precomputed.expected_tag_reg[5]
+    precomputed.expected_tag_reg[3]
 };
 
 //////// ADDRESSING ////////
@@ -549,7 +524,7 @@ precomputed.sel_exec_spec {
 pol SEL_RESOLVE_ADDRESS = sel_instruction_fetching_success;
 
 // resolved operands
-pol commit rop[7];
+pol commit rop[5];
 
 // NOTE: Constraints on the resolved operands are in addressing.pil.
 // The "output we want" is sel_addressing_error from addressing.pil.
@@ -564,17 +539,18 @@ pol commit sel_read_registers; // @boolean (by definition)
 sel_read_registers = SEL_RESOLVE_ADDRESS - sel_addressing_error;
 
 // Registers
-pol commit register[6];
+pol commit register[4];
+
 // Memory Accesses
-pol commit sel_mem_op_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
+pol commit sel_mem_op_reg[4]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Read / Write selectors
-pol commit rw_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
+pol commit rw_reg[4]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Memory Tag
-pol commit mem_tag_reg[6];
+pol commit mem_tag_reg[4];
 // Whether we should perform a tag check on the register
-pol commit sel_tag_check_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
+pol commit sel_tag_check_reg[4]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Expected tag
-pol commit expected_tag_reg[6];
+pol commit expected_tag_reg[4];
 
 // NOTE: Constraints on the registers are in execution/registers.pil.
 // The "output we want is" sel_register_read_error from execution/registers.pil.
@@ -609,7 +585,6 @@ pol commit dyn_gas_id; // from precomputed.pil (#[EXEC_SPEC_READ])
 pol commit sel_gas_calldata_copy; // @boolean
 pol commit sel_gas_returndata_copy; // @boolean
 pol commit sel_gas_to_radix; // @boolean
-pol commit sel_gas_bitwise; // @boolean
 pol commit sel_gas_emit_public_log; // @boolean
 pol commit sel_gas_sstore; // @boolean
 
@@ -617,7 +592,6 @@ pol commit sel_gas_sstore; // @boolean
 sel_gas_calldata_copy * (1 - sel_gas_calldata_copy) = 0;
 sel_gas_returndata_copy * (1 - sel_gas_returndata_copy) = 0;
 sel_gas_to_radix * (1 - sel_gas_to_radix) = 0;
-sel_gas_bitwise * (1 - sel_gas_bitwise) = 0;
 sel_gas_emit_public_log * (1 - sel_gas_emit_public_log) = 0;
 sel_gas_sstore * (1 - sel_gas_sstore) = 0;
 
@@ -625,21 +599,11 @@ sel_gas_sstore * (1 - sel_gas_sstore) = 0;
 sel_gas_calldata_copy * constants.AVM_DYN_GAS_ID_CALLDATACOPY +
 sel_gas_returndata_copy * constants.AVM_DYN_GAS_ID_RETURNDATACOPY +
 sel_gas_to_radix * constants.AVM_DYN_GAS_ID_TORADIX +
-sel_gas_bitwise * constants.AVM_DYN_GAS_ID_BITWISE +
 sel_gas_emit_public_log * constants.AVM_DYN_GAS_ID_EMITPUBLICLOG +
 sel_gas_sstore * constants.AVM_DYN_GAS_ID_SSTORE
    // We force the selectors to be 0 if we failed before gas checks
    // or when we are not in the execution subtrace.
 = sel_check_gas * dyn_gas_id;
-
-//////////////////////////////////////////
-// Bitwise, Dynamic L2 Gas Calculation
-//////////////////////////////////////////
-// For bitwise, the tag determines the dynamic_l2_gas_factor
-#[DYN_L2_FACTOR_BITWISE]
-sel_gas_bitwise { mem_tag_reg[0], dynamic_l2_gas_factor }
-in
-precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_byte_length };
 
 //////////////////////////////////////////
 // ToRadixBE, Dynamic L2 Gas Calculation
@@ -757,9 +721,9 @@ sel_gas_emit_public_log * (/*log_size=*/ register[0] - dynamic_da_gas_factor) = 
 #[DYN_DA_GAS_IS_ZERO]
 (1 - sel_gas_sstore - sel_gas_emit_public_log) * dynamic_da_gas_factor = 0;
 
-// Except BITWISE, TORADIX, EMITPUBLICLOG, CALLDATACOPY, RETURNDATACOPY, all opcodes have a zero dynamic l2 gas.
+// Except TORADIX, EMITPUBLICLOG, CALLDATACOPY, RETURNDATACOPY, all opcodes have a zero dynamic l2 gas.
 #[DYN_L2_GAS_IS_ZERO]
-(1 - sel_gas_bitwise - sel_gas_to_radix - sel_gas_emit_public_log - sel_gas_calldata_copy - sel_gas_returndata_copy) * dynamic_l2_gas_factor = 0;
+(1 - sel_gas_to_radix - sel_gas_emit_public_log - sel_gas_calldata_copy - sel_gas_returndata_copy) * dynamic_l2_gas_factor = 0;
 
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution
@@ -1110,11 +1074,11 @@ sel_exec_dispatch_bitwise {
     register[0], mem_tag_reg[0],
     register[1], mem_tag_reg[1],
     register[2], mem_tag_reg[2]
-} in bitwise.start {
+} in bitwise.sel_bitwise_opcode {
     bitwise.op_id, bitwise.err,
-    bitwise.acc_ia, bitwise.tag_a,
-    bitwise.acc_ib, bitwise.tag_b,
-    bitwise.acc_ic, bitwise.tag_c
+    bitwise.ia, bitwise.tag_a,
+    bitwise.ib, bitwise.tag_b,
+    bitwise.ic, bitwise.tag_c
 };
 
 // CAST DISPATCHING

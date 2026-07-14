@@ -1,6 +1,6 @@
 # External Audit Scope: cycle_group
 
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
@@ -31,7 +31,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 The `cycle_group` module provides implementations of in-circuit elliptic curve operations over the Grumpkin curve, the embedded curve for Barretenberg's BN254-based proving system. Grumpkin is a cofactor-1 curve defined over BN254's scalar field, making its base field operations native to the circuit.
 
-For more details see [`src/barretenberg/stdlib/primitives/group/README.md`](https://github.com/AztecProtocol/aztec-packages/blob/a48c205d6dcd4338f5b83b4fda18bff6015be07b/barretenberg/cpp/src/barretenberg/stdlib/primitives/group/README.md)
+For more details see [`src/barretenberg/stdlib/primitives/group/README.md`](https://github.com/AztecProtocol/aztec-packages-private/blob/a48c205d6dcd4338f5b83b4fda18bff6015be07b/barretenberg/cpp/src/barretenberg/stdlib/primitives/group/README.md)
 
 ## Test Files
 1. `stdlib/primitives/group/cycle_group.test.cpp`

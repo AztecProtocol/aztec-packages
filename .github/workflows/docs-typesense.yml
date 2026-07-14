@@ -40,6 +40,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [ -z "$TYPESENSE_API_KEY" ] || [ -z "$TYPESENSE_HOST" ]; then
+            echo "Typesense secrets are not configured; skipping docs search reindex."
+            exit 0
+          fi
+
           docker run \
             -e "TYPESENSE_API_KEY=$TYPESENSE_API_KEY" \
             -e "TYPESENSE_HOST=$TYPESENSE_HOST" \

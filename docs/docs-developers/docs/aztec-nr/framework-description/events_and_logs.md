@@ -30,7 +30,7 @@ struct Transfer {
 In private functions, emit events using `self.emit()` and deliver them to recipients:
 
 ```rust
-use aztec::messages::message_delivery::MessageDelivery;
+use aztec::messages::delivery::MessageDelivery;
 
 #[external("private")]
 fn transfer(to: AztecAddress, amount: u128) {
@@ -111,7 +111,7 @@ const publicLogs = block?.body.txEffects.flatMap(tx => tx.publicLogs) ?? [];
 
 Event data published onchain is stored in Ethereum blobs, which incurs costs. Consider:
 
-- Use `OFFCHAIN` delivery for lower costs when you have custom delivery infrastructure
+- Use offchain delivery for lower costs when you have custom delivery infrastructure
 - Only emit events when necessary for your application's functionality
 
 ## Next steps

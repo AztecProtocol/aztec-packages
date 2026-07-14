@@ -9,10 +9,18 @@
 #include "nested_containers.hpp"
 #include <algorithm>
 
-template <typename T>
-concept IsField = std::same_as<T, bb::fr> /* || std::same_as<T, grumpkin::fr> */;
-
 namespace bb {
+
+/**
+ * @brief True for the accumulator type used by the sumcheck PROVER, as opposed to either verifier.
+ * @details The prover accumulates relation contributions into Univariates (which expose ::LENGTH); both the native
+ * and in-circuit verifiers accumulate into scalars (no ::LENGTH). Prover-only relation fast paths (data-dependent
+ * skips, alternate multiply orders) are guarded on this concept so they never alter the verifier's computation,
+ * which would change the verification key. Defined once here so the prover/verifier distinction inside the shared
+ * `accumulate` has a single, intent-revealing definition.
+ */
+template <typename Accumulator>
+concept IsProverAccumulator = requires { Accumulator::LENGTH; };
 
 template <typename T>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {
@@ -63,6 +71,12 @@ template <typename Relation, size_t subrelation_index> constexpr bool subrelatio
  * optimized away based on a single check
  *
  * @details The skip function should return true if relation can be skipped and false if it can't
+ *
+ * @note The prover's row-skipping and effective-round-size optimizations
+ * (SumcheckProverRound::compute_effective_round_size) assume every subrelation term carries a witness factor, so a
+ * row with all witnesses zero contributes nothing. A new relation that violates this must not rely on those
+ * optimizations.
+ *
  * @tparam Relation The relation type
  * @tparam AllEntities The type containing UnivariateViews with witness and selector values
  */
@@ -85,6 +99,25 @@ concept isRowSkippable =
     requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& input, const EdgeType edge_idx) {
         { Flavor::skip_entire_row(input, edge_idx) } -> std::same_as<bool>;
     };
+
+/**
+ * @brief A relation is "offset-only" if its contribution enters the round univariate scaled by
+ * `L(x) = L_0 + L_1 + L_2 + L_3` — the indicator of the offset-area rows
+ * `0 .. NUM_DISABLED_ROWS_IN_SUMCHECK - 1`.
+ *
+ * @details Main-domain relations are scaled by `(1 - L)`; offset-only relations by `L`. Per
+ * Lagrange orthogonality, main-domain contributions vanish on the offset area and offset-only
+ * contributions vanish elsewhere. A relation opts in by declaring
+ * `static constexpr bool IS_OFFSET_ONLY = true;`; without the tag it defaults to main-domain.
+ *
+ * Typical use: boundary conditions of the form "entity = 0 on rows 0..3", made
+ * verifier-checkable without altering sumcheck behavior for flavors that omit the tag.
+ */
+template <typename Relation>
+concept IsOffsetOnlyRelation = requires {
+    { Relation::IS_OFFSET_ONLY } -> std::convertible_to<bool>;
+    requires Relation::IS_OFFSET_ONLY;
+};
 
 /**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the

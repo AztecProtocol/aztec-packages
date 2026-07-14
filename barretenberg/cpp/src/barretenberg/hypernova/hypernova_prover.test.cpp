@@ -1,23 +1,30 @@
 #include "barretenberg/hypernova/hypernova_prover.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "gtest/gtest.h"
 
+#include <optional>
+
 using namespace bb;
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1553): improve testing
-class HypernovaFoldingProverTests : public ::testing::Test {
+// The stateful folding prover is flavor-agnostic; accumulate_instance is templated on the instance flavor. Run the
+// suite over both Chonk instance flavors (MegaKernelFlavor and MegaAppFlavor).
+template <typename Flavor_> class HypernovaFoldingProverTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
   public:
-    using Builder = HypernovaFoldingProver::Flavor::CircuitBuilder;
-    using ProverInstance = HypernovaFoldingProver::ProverInstance;
-    using CommitmentKey = HypernovaFoldingProver::Flavor::CommitmentKey;
+    using Flavor = Flavor_;
+    using Builder = Flavor::CircuitBuilder;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using CommitmentKey = Flavor::CommitmentKey;
     using Transcript = HypernovaFoldingProver::Transcript;
+    using Accumulator = HypernovaFoldingProver::Accumulator;
 
-    enum class TamperingMode : uint8_t { None, Accumulator };
+    static constexpr size_t LOG_NUM_GATES = 4;
 
-    static std::shared_ptr<ProverInstance> generate_new_instance(size_t log_num_gates = 4)
+    static std::shared_ptr<ProverInstance> generate_new_instance(size_t log_num_gates = LOG_NUM_GATES)
     {
         Builder builder;
 
@@ -25,12 +32,13 @@ class HypernovaFoldingProverTests : public ::testing::Test {
         MockCircuits::add_arithmetic_gates_with_public_inputs(builder);
         MockCircuits::add_lookup_gates(builder);
 
-        auto instance = std::make_shared<ProverInstance>(builder);
-
-        return instance;
+        return std::make_shared<ProverInstance>(builder);
     }
 
-    static bool validate_accumulator(HypernovaFoldingProver::Accumulator& accumulator)
+    /**
+     * @brief Check that an accumulator's claimed evaluations and commitments are consistent with its polynomials.
+     */
+    static bool validate_accumulator(Accumulator& accumulator)
     {
         auto ck = CommitmentKey(accumulator.dyadic_size);
 
@@ -56,65 +64,61 @@ class HypernovaFoldingProverTests : public ::testing::Test {
                  "commitment.");
             return false;
         }
-
         return true;
     }
 
-    static void tampering(HypernovaFoldingProver::Accumulator& accumulator, const TamperingMode& mode)
+    /**
+     * @brief Run a folding session: accumulate `num_instances` fresh instances on a new transcript, then finalize
+     * against an optional previous accumulator. Returns the folded accumulator.
+     */
+    static Accumulator fold_session(size_t num_instances,
+                                    std::optional<Accumulator> previous_accumulator = std::nullopt)
     {
-        switch (mode) {
-        case TamperingMode::None:
-            break;
-        case TamperingMode::Accumulator:
-            // Tamper with the accumulator by changing the unshifted polynomial
-            // Note that changing the challenge would not produce an invalid accumulator as the validity of the
-            // evaluations for an accumulator is checked by the Sumcheck performed to turn an instance into an
-            // accumulators
-            accumulator.non_shifted_polynomial.at(0) = HypernovaFoldingProver::FF::random_element();
-            break;
-        }
-    };
-
-    static HypernovaFoldingProver::Accumulator test_folding(const TamperingMode& mode)
-    {
-        // Generate accumulator
-        auto instance = generate_new_instance();
         auto transcript = std::make_shared<Transcript>();
-
         HypernovaFoldingProver prover(transcript);
-        auto accumulator = prover.instance_to_accumulator(instance);
-        tampering(accumulator, mode);
-
-        // Folding
-        auto incoming_instance = generate_new_instance(5);
-
-        auto folding_transcript = std::make_shared<Transcript>();
-        HypernovaFoldingProver folding_prover(folding_transcript);
-        auto [_, folded_accumulator] = folding_prover.fold(std::move(accumulator), incoming_instance);
-
-        return folded_accumulator;
+        for (size_t i = 0; i < num_instances; ++i) {
+            prover.template accumulate_instance<Flavor>(generate_new_instance(LOG_NUM_GATES + i));
+        }
+        auto [_proof, accumulator] = prover.finalize(std::move(previous_accumulator));
+        return std::move(accumulator);
     }
 };
 
-TEST_F(HypernovaFoldingProverTests, InstanceToAccumulator)
+using ProverTestFlavors = ::testing::Types<MegaKernelFlavor, MegaAppFlavor>;
+TYPED_TEST_SUITE(HypernovaFoldingProverTests, ProverTestFlavors);
+
+// A single instance with no previous accumulator: finalize returns the lone claim (no batching).
+TYPED_TEST(HypernovaFoldingProverTests, SingleInstance)
 {
-    auto instance = generate_new_instance();
-    auto transcript = std::make_shared<Transcript>();
-
-    HypernovaFoldingProver prover(transcript);
-    auto accumulator = prover.instance_to_accumulator(instance);
-
-    EXPECT_TRUE(validate_accumulator(accumulator));
+    auto accumulator = TestFixture::fold_session(/*num_instances=*/1);
+    EXPECT_TRUE(TestFixture::validate_accumulator(accumulator));
 }
 
-TEST_F(HypernovaFoldingProverTests, Fold)
+// Variable-width folding (no previous accumulator): every width yields a consistent accumulator.
+TYPED_TEST(HypernovaFoldingProverTests, FoldVariableWidth)
 {
-    auto folded_accumulator = test_folding(TamperingMode::None);
-    EXPECT_TRUE(validate_accumulator(folded_accumulator));
+    for (size_t num_instances = 2; num_instances <= CHONK_MAX_CLAIMS_PER_KERNEL; ++num_instances) {
+        auto accumulator = TestFixture::fold_session(num_instances);
+        EXPECT_TRUE(TestFixture::validate_accumulator(accumulator)) << "width " << num_instances;
+    }
 }
 
-TEST_F(HypernovaFoldingProverTests, TamperAccumulator)
+// Folding starting from a (valid) previous accumulator yields a consistent accumulator.
+TYPED_TEST(HypernovaFoldingProverTests, FoldWithPreviousAccumulator)
 {
-    auto folded_accumulator = test_folding(TamperingMode::Accumulator);
-    EXPECT_FALSE(validate_accumulator(folded_accumulator));
+    for (size_t num_instances = 2; num_instances < CHONK_MAX_CLAIMS_PER_KERNEL; ++num_instances) {
+        auto previous_accumulator = TestFixture::fold_session(/*num_instances=*/1);
+        auto accumulator = TestFixture::fold_session(num_instances, std::move(previous_accumulator));
+        EXPECT_TRUE(TestFixture::validate_accumulator(accumulator)) << "width " << num_instances;
+    }
+}
+
+// Folding starting from a tampered previous accumulator yields an inconsistent accumulator (the polynomial no longer
+// opens to the claimed evaluation/commitment). This is the "previous invalid accumulator" failure mode.
+TYPED_TEST(HypernovaFoldingProverTests, TamperPreviousAccumulator)
+{
+    auto previous_accumulator = TestFixture::fold_session(/*num_instances=*/1);
+    previous_accumulator.non_shifted_polynomial.at(0) = HypernovaFoldingProver::FF::random_element();
+    auto accumulator = TestFixture::fold_session(/*num_instances=*/2, std::move(previous_accumulator));
+    EXPECT_FALSE(TestFixture::validate_accumulator(accumulator));
 }

@@ -1,8 +1,8 @@
 #include "barretenberg/vm2/constraining/polynomials.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
-#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -34,7 +34,7 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
 
                            poly = AvmProver::Polynomial(
                                /*memory size*/ allocated_size,
-                               /*largest possible index*/ MAX_AVM_TRACE_SIZE, // TODO(#16660): use real size?
+                               /*largest possible index*/ MAX_AVM_TRACE_SIZE,
                                /*make shiftable with offset*/ 1);
                        }
                    }));

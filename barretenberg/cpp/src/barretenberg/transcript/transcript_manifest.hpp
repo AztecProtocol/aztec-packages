@@ -14,7 +14,7 @@ class TranscriptManifest {
         std::vector<std::string> challenge_label;
         std::vector<std::pair<std::string, size_t>> entries;
 
-        void print()
+        void print() const
         {
             for (auto& label : challenge_label) {
                 info("\tchallenge: ", label);
@@ -82,7 +82,7 @@ class TranscriptManifest {
 
     [[nodiscard]] size_t size() const { return manifest.size(); }
 
-    RoundData operator[](const size_t& round) { return manifest[round]; };
+    const RoundData& operator[](size_t round) const { return manifest.at(round); };
 
     bool operator==(const TranscriptManifest& other) const = default;
 };

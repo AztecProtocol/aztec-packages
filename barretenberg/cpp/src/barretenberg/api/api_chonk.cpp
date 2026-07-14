@@ -22,20 +22,30 @@
 namespace bb {
 namespace { // anonymous namespace
 
+CircuitKind parse_circuit_kind(const std::string& s)
+{
+    if (s == "app") {
+        return CircuitKind::App;
+    }
+    if (s == "kernel") {
+        return CircuitKind::Kernel;
+    }
+    if (s == "hiding") {
+        return CircuitKind::HidingKernel;
+    }
+    throw_or_abort("write_chonk_vk: --circuit_kind must be one of 'app' / 'kernel' / 'hiding' (got '" + s + "')");
+    __builtin_unreachable();
+}
+
 /**
- * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
- * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
- * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
- *
- * @param bytecode ACIR bytecode of the circuit
- * @param output_path Directory to write the VK (or "-" for stdout)
- * @param flags API flags including output_format and use_zk_flavor (selects MegaZKFlavor vs MegaFlavor)
+ * @brief Compute and write a Chonk VK in the per-kind flavor selected by `flags.circuit_kind`
+ * (app → MegaApp, kernel → MegaKernel, hiding → MegaZK). Delegates to ChonkComputeVk; the dummy
+ * IVC inputs that make a kernel's recursion constraints satisfiable are handled in the ACIR layer.
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response =
-        bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .use_zk_flavor = flags.use_zk_flavor }
-            .execute();
+    const CircuitKind kind = parse_circuit_kind(flags.circuit_kind);
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .kind = kind }.execute();
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {
@@ -60,12 +70,18 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
+    std::vector<CircuitKind> kinds;
+    kinds.reserve(raw_steps.size());
+    for (const auto& step : raw_steps) {
+        kinds.push_back(step.kind);
+    }
+    bbapi::ChonkStart{ .kinds = std::move(kinds) }.execute(request);
     info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (size_t i = 0; i < raw_steps.size(); ++i) {
         const auto& step = raw_steps[i];
         bbapi::ChonkLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+            .kind = step.kind,
         }
             .execute(request);
 
@@ -101,7 +117,7 @@ void ChonkAPI::prove(const Flags& flags,
         vinfo("writing Chonk vk in directory ", output_dir);
         // Write CHONK vk for the hiding kernel (last step) — proven as MegaZK.
         Flags hiding_flags = flags;
-        hiding_flags.use_zk_flavor = true;
+        hiding_flags.circuit_kind = "hiding";
         write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, hiding_flags);
     }
 }
@@ -220,11 +236,10 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        const bool use_zk_flavor = (i == raw_steps.size() - 1);
         auto response =
             bbapi::ChonkCheckPrecomputedVk{
                 .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
-                .use_zk_flavor = use_zk_flavor,
+                .kind = step.kind,
             }
                 .execute();
 

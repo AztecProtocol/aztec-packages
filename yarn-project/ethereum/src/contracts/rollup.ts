@@ -83,6 +83,7 @@ export type ViemHeader = {
   feeRecipient: `0x${string}`;
   gasFees: ViemGasFees;
   totalManaUsed: bigint;
+  accumulatedFees: bigint;
 };
 
 export type ViemGasFees = {
@@ -554,8 +555,9 @@ export class RollupContract {
     return EthAddress.fromString(await this.rollup.read.owner());
   }
 
-  async getActiveAttesterCount(): Promise<number> {
-    return Number(await this.rollup.read.getActiveAttesterCount());
+  async getActiveAttesterCount(options?: { blockNumber?: bigint }): Promise<number> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return Number(await this.rollup.read.getActiveAttesterCount(options));
   }
 
   public async getSlashingProposerAddress() {
@@ -812,7 +814,7 @@ export class RollupContract {
   }
 
   async getEpochProofPublicInputs(
-    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly ViemHeader[], `0x${string}`],
   ): Promise<Fr[]> {
     const result = await this.rollup.read.getEpochProofPublicInputs(args);
     return result.map(Fr.fromString);
@@ -1190,13 +1192,20 @@ export class RollupContract {
   }
 
   async getAttesters(timestamp?: bigint): Promise<EthAddress[]> {
-    const attesterSize = await this.getActiveAttesterCount();
+    // Pin every read to a single L1 block so the attester count and the chunked index reads
+    // observe a consistent set. Without this, the count and each chunk default to `latest` and
+    // can straddle a block boundary (or reorg), yielding an inconsistent or truncated set.
+    const block = await this.client.getBlock();
+    const blockNumber = block.number ?? undefined;
+    const ts = timestamp ?? block.timestamp;
+    const attesterSize = await this.getActiveAttesterCount({ blockNumber });
     const gse = new GSEContract(this.client, await this.getGSE());
-    const ts = timestamp ?? (await this.client.getBlock()).timestamp;
     const indices = Array.from({ length: attesterSize }, (_, i) => BigInt(i));
     const chunks = chunk(indices, 1000);
 
-    const results = await Promise.all(chunks.map(chunk => gse.getAttestersFromIndicesAtTime(this.address, ts, chunk)));
+    const results = await Promise.all(
+      chunks.map(chunk => gse.getAttestersFromIndicesAtTime(this.address, ts, chunk, { blockNumber })),
+    );
     return results.flat().map(addr => EthAddress.fromString(addr));
   }
 

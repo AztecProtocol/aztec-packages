@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,9 +13,9 @@ template <typename FF_> class bitwiseImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 4, 5, 5, 3, 3, 5, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 30> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 5, 4, 4, 5
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,65 +36,49 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
     static constexpr const std::string_view NAME = "bitwise";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SEL_ON_START_OR_END = 3;
-    static constexpr size_t SR_TRACE_CONTINUITY = 4;
-    static constexpr size_t SR_START_AFTER_LATCH = 5;
-    static constexpr size_t SR_BITW_NO_EXTERNAL_START_ON_ERROR = 9;
-    static constexpr size_t SR_END_ON_ERROR = 13;
-    static constexpr size_t SR_ERR_ONLY_ON_START = 14;
-    static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 16;
-    static constexpr size_t SR_INPUT_TAG_CANNOT_BE_FF = 17;
-    static constexpr size_t SR_INPUT_TAGS_SHOULD_MATCH = 18;
-    static constexpr size_t SR_BITW_OP_ID_REL_CONTINUITY = 19;
-    static constexpr size_t SR_BITW_CTR_DECREMENT = 20;
-    static constexpr size_t SR_BITW_END_FOR_CTR_ONE = 21;
-    static constexpr size_t SR_BITW_INIT_A = 22;
-    static constexpr size_t SR_BITW_INIT_B = 23;
-    static constexpr size_t SR_BITW_INIT_C = 24;
-    static constexpr size_t SR_BITW_ACC_REL_A = 25;
-    static constexpr size_t SR_BITW_ACC_REL_B = 26;
-    static constexpr size_t SR_BITW_ACC_REL_C = 27;
+    static constexpr size_t SR_INPUT_TAG_CANNOT_BE_FF = 9;
+    static constexpr size_t SR_INPUT_TAGS_SHOULD_MATCH = 10;
+    static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 12;
+    static constexpr size_t SR_BITW_NO_EXTERNAL_ON_ERROR = 13;
+    static constexpr size_t SR_BITW_SIMD_ONLY_ON_U128 = 18;
+    static constexpr size_t SR_BITW_TAG_LEN_DECOMPOSITION = 19;
+    static constexpr size_t SR_BITW_RECOMP_A = 24;
+    static constexpr size_t SR_BITW_RECOMP_B = 25;
+    static constexpr size_t SR_BITW_RECOMP_C = 26;
+    static constexpr size_t SR_BITW_RECOMP_A_SIMD = 27;
+    static constexpr size_t SR_BITW_RECOMP_B_SIMD = 28;
+    static constexpr size_t SR_BITW_RECOMP_C_SIMD = 29;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
-        case SR_SEL_ON_START_OR_END:
-            return "SEL_ON_START_OR_END";
-        case SR_TRACE_CONTINUITY:
-            return "TRACE_CONTINUITY";
-        case SR_START_AFTER_LATCH:
-            return "START_AFTER_LATCH";
-        case SR_BITW_NO_EXTERNAL_START_ON_ERROR:
-            return "BITW_NO_EXTERNAL_START_ON_ERROR";
-        case SR_END_ON_ERROR:
-            return "END_ON_ERROR";
-        case SR_ERR_ONLY_ON_START:
-            return "ERR_ONLY_ON_START";
-        case SR_RES_TAG_SHOULD_MATCH_INPUT:
-            return "RES_TAG_SHOULD_MATCH_INPUT";
         case SR_INPUT_TAG_CANNOT_BE_FF:
             return "INPUT_TAG_CANNOT_BE_FF";
         case SR_INPUT_TAGS_SHOULD_MATCH:
             return "INPUT_TAGS_SHOULD_MATCH";
-        case SR_BITW_OP_ID_REL_CONTINUITY:
-            return "BITW_OP_ID_REL_CONTINUITY";
-        case SR_BITW_CTR_DECREMENT:
-            return "BITW_CTR_DECREMENT";
-        case SR_BITW_END_FOR_CTR_ONE:
-            return "BITW_END_FOR_CTR_ONE";
-        case SR_BITW_INIT_A:
-            return "BITW_INIT_A";
-        case SR_BITW_INIT_B:
-            return "BITW_INIT_B";
-        case SR_BITW_INIT_C:
-            return "BITW_INIT_C";
-        case SR_BITW_ACC_REL_A:
-            return "BITW_ACC_REL_A";
-        case SR_BITW_ACC_REL_B:
-            return "BITW_ACC_REL_B";
-        case SR_BITW_ACC_REL_C:
-            return "BITW_ACC_REL_C";
+        case SR_RES_TAG_SHOULD_MATCH_INPUT:
+            return "RES_TAG_SHOULD_MATCH_INPUT";
+        case SR_BITW_NO_EXTERNAL_ON_ERROR:
+            return "BITW_NO_EXTERNAL_ON_ERROR";
+        case SR_BITW_SIMD_ONLY_ON_U128:
+            return "BITW_SIMD_ONLY_ON_U128";
+        case SR_BITW_TAG_LEN_DECOMPOSITION:
+            return "BITW_TAG_LEN_DECOMPOSITION";
+        case SR_BITW_RECOMP_A:
+            return "BITW_RECOMP_A";
+        case SR_BITW_RECOMP_B:
+            return "BITW_RECOMP_B";
+        case SR_BITW_RECOMP_C:
+            return "BITW_RECOMP_C";
+        case SR_BITW_RECOMP_A_SIMD:
+            return "BITW_RECOMP_A_SIMD";
+        case SR_BITW_RECOMP_B_SIMD:
+            return "BITW_RECOMP_B_SIMD";
+        case SR_BITW_RECOMP_C_SIMD:
+            return "BITW_RECOMP_C_SIMD";
         }
+#endif
         return std::to_string(index);
     }
 };

@@ -173,8 +173,10 @@ BENCHMARK(construct_proof_ultrahonk_1M_gates_dyadic_2_21)->Unit(kMillisecond);
 
 int main(int argc, char** argv)
 {
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     // Enable BB_BENCH profiling
     bb::detail::use_bb_bench = true;
+#endif
 
     // Run benchmarks
     ::benchmark::Initialize(&argc, argv);
@@ -183,9 +185,11 @@ int main(int argc, char** argv)
     ::benchmark::RunSpecifiedBenchmarks();
     ::benchmark::Shutdown();
 
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     // Print detailed profiling stats
     std::cout << "\n=== Detailed BB_BENCH Profiling Stats ===\n";
     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
+#endif
 
     return 0;
 }

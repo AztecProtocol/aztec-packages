@@ -170,4 +170,51 @@ TYPED_TEST(TranscriptTests, VectorChallengeGeneration)
     this->check_circuit();
 }
 
+/**
+ * @brief Short (127-bit) challenges agree between prover and verifier.
+ */
+TYPED_TEST(TranscriptTests, ShortChallengeGeneration)
+{
+    using FF = typename TestFixture::FF;
+
+    NativeTranscript prover;
+    prover.send_to_verifier("data", bb::fr::random_element());
+    std::array<std::string, 3> labels = { "alpha", "beta", "gamma" };
+    auto [p_alpha, p_beta, p_gamma] = prover.template get_short_challenges<bb::fr>(labels);
+    auto p_single = prover.template get_short_challenge<bb::fr>("delta");
+
+    typename TestFixture::Transcript verifier(this->export_proof(prover));
+    verifier.template receive_from_prover<FF>("data");
+    auto [v_alpha, v_beta, v_gamma] = verifier.template get_short_challenges<FF>(labels);
+    auto v_single = verifier.template get_short_challenge<FF>("delta");
+
+    EXPECT_EQ(p_alpha, this->to_native(v_alpha));
+    EXPECT_EQ(p_beta, this->to_native(v_beta));
+    EXPECT_EQ(p_gamma, this->to_native(v_gamma));
+    EXPECT_EQ(p_single, this->to_native(v_single));
+
+    this->check_circuit();
+}
+
+/**
+ * @brief The full challenge is the raw hash; the matching short challenge is its low 127-bit limb. From an
+ * identical transcript state the two differ, and the short one fits in 127 bits.
+ */
+TEST(TranscriptShortVsFull, ShortIsLowLimbOfFull)
+{
+    NativeTranscript prover_full;
+    NativeTranscript prover_short;
+    const bb::fr data = bb::fr::random_element();
+    prover_full.send_to_verifier("data", data);
+    prover_short.send_to_verifier("data", data);
+
+    const bb::fr full = prover_full.get_challenge<bb::fr>("c");
+    const bb::fr short_challenge = prover_short.get_short_challenge<bb::fr>("c");
+
+    // The short challenge is exactly the low limb of split_challenge applied to the full challenge.
+    EXPECT_EQ(short_challenge, NativeTranscript::Codec::split_challenge(full)[0]);
+    EXPECT_NE(short_challenge, full);
+    EXPECT_LT(uint256_t(short_challenge).get_msb(), 127); // fits in 127 bits
+}
+
 } // namespace bb::test

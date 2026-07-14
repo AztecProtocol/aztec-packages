@@ -53,6 +53,12 @@ namespace keccakf1600;
 // The round function is composed of 5 sub-functions: theta, rho, pi, chi, and iota.
 // Main low-level operations are: XOR, AND, bit rotations
 // All the sub-functions operate over a state of 25 64-bit values.
+//
+// Bitwise operations XOR, AND are invoked with lookups to bitwise.pil through 2 flavors:
+// - Standard 64-bit operations (bitwise.sel_keccak)
+// - SIMD-64 operations (bitwise.sel_simd_64) which packs 2 64-bit operations into a single row.
+// We try to use as many SIMD-64 lookups as possible in order to minimize the number of lookups in
+// this file. However, we do not push too the limit in order to keep the constraints readable.
 
 //#################################################################################################
 //                  High-Level Trace Structure Columns
@@ -105,7 +111,7 @@ sel' * (start' - LATCH_CONDITION) = 0;
 // error is defined below after round function
 pol commit sel_no_error; // @boolean (by definition)
 #[SEL_NO_ERROR]
-sel * (sel_no_error - 1 + error) = 0;
+sel_no_error = sel * (1 - error);
 
 // Round number which starts at 1 and ends at AVM_KECCAKF1600_NUM_ROUNDS (24).
 pol commit round;
@@ -146,7 +152,7 @@ pol commit state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
            state_in_40, state_in_41, state_in_42, state_in_43, state_in_44;
 
 // Theta function consists of three steps
-// 1) For each column index i in state_in_ij, we XOR the 5 values state_in_ij (denoted by A[i, j]) together.
+// 1) For each index i in state_in_ij, we XOR the 5 values state_in_ij (denoted by A[i, j]) together.
 //    - C[i] = A[i, 0] ^ A[i, 1] ^ A[i, 2] ^ A[i, 3] ^ A[i, 4]
 // 2) Compute the xor of the adjacent column parities with a left rotation. Note the index is performed mod 5
 //    - D[i] = C[i - 1] ^ rotl (C[i + 1], 1)
@@ -155,12 +161,18 @@ pol commit state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
 //
 // Since we make use of the bitwise trace to compute these xors, we need to define intermediate values
 // for each xor computation. We denote these intermediate values as theta_xor_row_i.
-// theta_xor_i1 = state_in_i0 ^ state_in_i1
-// theta_xor_i2 = theta_xor_i1 ^ state_in_i2
-// theta_xor_i3 = theta_xor_i2 ^ state_in_i3
-// theta_xor_row_i = theta_xor_i3 ^ state_in_i4
+// Step 0: theta_xor_i1 = state_in_i0 ^ state_in_i1
+// Step 1: theta_xor_i2 = theta_xor_i1 ^ state_in_i2
+// Step 2: theta_xor_i3 = theta_xor_i2 ^ state_in_i3
+// Step 3: theta_xor_row_i = theta_xor_i3 ^ state_in_i4
 
-// We need 4 lookups to bitwise gadgets per theta_xor_i
+// Computations for the i indices (0,1), (2,3) are computed in SIMD-64 pairs, i.e.,
+// for step j, we group:
+// - theta_xor_0j and theta_xor_1j together.
+// - theta_xor_2j and theta_xor_3j together.
+//
+// These pairs need to match the simulation gadget (keccakf1600.cpp).
+// Computation for the index i = 4 is computed in a scalar manner.
 
 //#############################################################################
 //                  Theta XOR Computation Index 0
@@ -168,139 +180,110 @@ pol commit state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
 
 // state_in_00 ^ state_in_01 = theta_xor_01
 pol commit theta_xor_01;
-#[THETA_XOR_01]
-sel_no_error { bitwise_xor_op_id, state_in_00, state_in_01, theta_xor_01, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_01 ^ state_in_02 = theta_xor_02
 pol commit theta_xor_02;
-#[THETA_XOR_02]
-sel_no_error { bitwise_xor_op_id, theta_xor_01, state_in_02, theta_xor_02, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_02 ^ state_in_03 = theta_xor_03
 pol commit theta_xor_03;
-#[THETA_XOR_03]
-sel_no_error { bitwise_xor_op_id, theta_xor_02, state_in_03, theta_xor_03, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_03 ^ state_in_04 = theta_xor_row_0
 pol commit theta_xor_row_0;
-#[THETA_XOR_ROW_0]
-sel_no_error { bitwise_xor_op_id, theta_xor_03, state_in_04, theta_xor_row_0, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-//#############################################################################
-//                  Theta XOR Computation Index 1
-//#############################################################################
-
-// state_in_10 ^ state_in_11 = theta_xor_11
 pol commit theta_xor_11;
-#[THETA_XOR_11]
-sel_no_error { bitwise_xor_op_id, state_in_10, state_in_11, theta_xor_11, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_11 ^ state_in_12 = theta_xor_12
 pol commit theta_xor_12;
-#[THETA_XOR_12]
-sel_no_error { bitwise_xor_op_id, theta_xor_11, state_in_12, theta_xor_12, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_12 ^ state_in_13 = theta_xor_13
 pol commit theta_xor_13;
-#[THETA_XOR_13]
-sel_no_error { bitwise_xor_op_id, theta_xor_12, state_in_13, theta_xor_13, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_13 ^ state_in_14 = theta_xor_row_1
 pol commit theta_xor_row_1;
-#[THETA_XOR_ROW_1]
-sel_no_error { bitwise_xor_op_id, theta_xor_13, state_in_14, theta_xor_row_1, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-//#############################################################################
-//                  Theta XOR Computation Index 2
-//#############################################################################
-
-// state_in_20 ^ state_in_21 = theta_xor_21
 pol commit theta_xor_21;
-#[THETA_XOR_21]
-sel_no_error { bitwise_xor_op_id, state_in_20, state_in_21, theta_xor_21, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_21 ^ state_in_22 = theta_xor_22
 pol commit theta_xor_22;
-#[THETA_XOR_22]
-sel_no_error { bitwise_xor_op_id, theta_xor_21, state_in_22, theta_xor_22, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_22 ^ state_in_23 = theta_xor_23
 pol commit theta_xor_23;
-#[THETA_XOR_23]
-sel_no_error { bitwise_xor_op_id, theta_xor_22, state_in_23, theta_xor_23, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_23 ^ state_in_24 = theta_xor_row_2
 pol commit theta_xor_row_2;
-#[THETA_XOR_ROW_2]
-sel_no_error { bitwise_xor_op_id, theta_xor_23, state_in_24, theta_xor_row_2, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-//#############################################################################
-//                  Theta XOR Computation Index 3
-//#############################################################################
-
-// state_in_30 ^ state_in_31 = theta_xor_31
 pol commit theta_xor_31;
-#[THETA_XOR_31]
-sel_no_error { bitwise_xor_op_id, state_in_30, state_in_31, theta_xor_31, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_31 ^ state_in_32 = theta_xor_32
 pol commit theta_xor_32;
-#[THETA_XOR_32]
-sel_no_error { bitwise_xor_op_id, theta_xor_31, state_in_32, theta_xor_32, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_32 ^ state_in_33 = theta_xor_33
 pol commit theta_xor_33;
-#[THETA_XOR_33]
-sel_no_error { bitwise_xor_op_id, theta_xor_32, state_in_33, theta_xor_33, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_33 ^ state_in_34 = theta_xor_row_3
 pol commit theta_xor_row_3;
-#[THETA_XOR_ROW_3]
-sel_no_error { bitwise_xor_op_id, theta_xor_33, state_in_34, theta_xor_row_3, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-//#############################################################################
-//                  Theta XOR Computation Index 4
-//#############################################################################
-
-// state_in_40 ^ state_in_41 = theta_xor_41
 pol commit theta_xor_41;
-#[THETA_XOR_41]
-sel_no_error { bitwise_xor_op_id, state_in_40, state_in_41, theta_xor_41, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_41 ^ state_in_42 = theta_xor_42
 pol commit theta_xor_42;
-#[THETA_XOR_42]
-sel_no_error { bitwise_xor_op_id, theta_xor_41, state_in_42, theta_xor_42, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_42 ^ state_in_43 = theta_xor_43
 pol commit theta_xor_43;
-#[THETA_XOR_43]
-sel_no_error { bitwise_xor_op_id, theta_xor_42, state_in_43, theta_xor_43, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// theta_xor_43 ^ state_in_44 = theta_xor_row_4
 pol commit theta_xor_row_4;
+
+// --- Step 0 ---
+// state_in_i0 ^ state_in_i1 = theta_xor_i1
+
+// i = 0,1
+// [state_in_00, state_in_10] ^ [state_in_01, state_in_11] = [theta_xor_01, theta_xor_11]
+#[THETA_XOR_SIMD_01]
+sel_no_error { bitwise_xor_op_id, state_in_00, state_in_10, state_in_01, state_in_11, theta_xor_01, theta_xor_11 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+
+// i = 2,3
+// [state_in_20, state_in_30] ^ [state_in_21, state_in_31] = [theta_xor_21, theta_xor_31]
+#[THETA_XOR_SIMD_21]
+sel_no_error { bitwise_xor_op_id, state_in_20, state_in_30, state_in_21, state_in_31, theta_xor_21, theta_xor_31 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+
+// i = 4
+// state_in_40 ^ state_in_41 = theta_xor_41
+#[THETA_XOR_41]
+sel_no_error { bitwise_xor_op_id, state_in_40, state_in_41, theta_xor_41, tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
+
+// --- Step 1 ---
+// theta_xor_i1 ^ state_in_i2 = theta_xor_i2
+
+// i = 0,1
+// [theta_xor_01, theta_xor_11] ^ [state_in_02, state_in_12] = [theta_xor_02, theta_xor_12]
+#[THETA_XOR_SIMD_02]
+sel_no_error { bitwise_xor_op_id, theta_xor_01, theta_xor_11, state_in_02, state_in_12, theta_xor_02, theta_xor_12 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+
+// i = 2,3
+// [theta_xor_21, theta_xor_31] ^ [state_in_22, state_in_32] = [theta_xor_22, theta_xor_32]
+#[THETA_XOR_SIMD_22]
+sel_no_error { bitwise_xor_op_id, theta_xor_21, theta_xor_31, state_in_22, state_in_32, theta_xor_22, theta_xor_32 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+
+// i = 4
+// theta_xor_41 ^ state_in_42 = theta_xor_42
+#[THETA_XOR_42]
+sel_no_error { bitwise_xor_op_id, theta_xor_41, state_in_42, theta_xor_42, tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
+
+// --- Step 2 ---
+// theta_xor_i2 ^ state_in_i3 = theta_xor_i3
+
+// i = 0,1
+// [theta_xor_02, theta_xor_12] ^ [state_in_03, state_in_13] = [theta_xor_03, theta_xor_13]
+#[THETA_XOR_SIMD_03]
+sel_no_error { bitwise_xor_op_id, theta_xor_02, theta_xor_12, state_in_03, state_in_13, theta_xor_03, theta_xor_13 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+
+// i = 2,3
+// [theta_xor_22, theta_xor_32] ^ [state_in_23, state_in_33] = [theta_xor_23, theta_xor_33]
+#[THETA_XOR_SIMD_23]
+sel_no_error { bitwise_xor_op_id, theta_xor_22, theta_xor_32, state_in_23, state_in_33, theta_xor_23, theta_xor_33 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+
+// i = 4
+// theta_xor_42 ^ state_in_43 = theta_xor_43
+#[THETA_XOR_43]
+sel_no_error { bitwise_xor_op_id, theta_xor_42, state_in_43, theta_xor_43, tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
+
+// --- Step 3 ---
+// theta_xor_i3 ^ state_in_i4 = theta_xor_row_i
+
+// i = 0,1
+// [theta_xor_03, theta_xor_13] ^ [state_in_04, state_in_14] = [theta_xor_row_0, theta_xor_row_1]
+#[THETA_XOR_ROW_SIMD_0]
+sel_no_error { bitwise_xor_op_id, theta_xor_03, theta_xor_13, state_in_04, state_in_14, theta_xor_row_0, theta_xor_row_1 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+
+// i = 2,3
+// [theta_xor_23, theta_xor_33] ^ [state_in_24, state_in_34] = [theta_xor_row_2, theta_xor_row_3]
+#[THETA_XOR_ROW_SIMD_2]
+sel_no_error { bitwise_xor_op_id, theta_xor_23, theta_xor_33, state_in_24, state_in_34, theta_xor_row_2, theta_xor_row_3 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+
+// i = 4
+// theta_xor_43 ^ state_in_44 = theta_xor_row_4
 #[THETA_XOR_ROW_4]
-sel_no_error { bitwise_xor_op_id, theta_xor_43, state_in_44, theta_xor_row_4, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+sel_no_error { bitwise_xor_op_id, theta_xor_43, state_in_44, theta_xor_row_4, tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
+
 
 //#############################################################################
 //                  Theta XOR ROTL1 Computation
@@ -379,30 +362,22 @@ theta_xor_row_rotl1_4 = 2 * theta_xor_row_4 - theta_xor_row_msb_4 * (2**64 - 1);
 // For each row i, we need to compute the xor between theta_xor_row_{i-1} with theta_xor_row_rotl1_{i+1}
 // We denote the result as: theta_combined_xor_i.
 
-pol commit theta_combined_xor_0;
-#[THETA_COMBINED_XOR_0]
-sel_no_error { bitwise_xor_op_id, theta_xor_row_4, theta_xor_row_rotl1_1, theta_combined_xor_0, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+pol commit theta_combined_xor[5];
+// theta_combined_xor[i] = theta_xor_row[(i+4)%5] XOR rotl1(theta_xor_row[(i+1)%5]).
+// We group into SIMD-64 pairs:
+// - theta_combined_xor[0] and theta_combined_xor[1] comutations
+// - theta_combined_xor[2] and theta_combined_xor[3] computations
+#[THETA_COMBINED_XOR_SIMD_0]
+sel_no_error { bitwise_xor_op_id, theta_xor_row_4, theta_xor_row_0, theta_xor_row_rotl1_1, theta_xor_row_rotl1_2, theta_combined_xor[0], theta_combined_xor[1] } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-pol commit theta_combined_xor_1;
-#[THETA_COMBINED_XOR_1]
-sel_no_error { bitwise_xor_op_id, theta_xor_row_0, theta_xor_row_rotl1_2, theta_combined_xor_1, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[THETA_COMBINED_XOR_SIMD_2]
+sel_no_error { bitwise_xor_op_id, theta_xor_row_1, theta_xor_row_2, theta_xor_row_rotl1_3, theta_xor_row_rotl1_4, theta_combined_xor[2], theta_combined_xor[3] } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-pol commit theta_combined_xor_2;
-#[THETA_COMBINED_XOR_2]
-sel_no_error { bitwise_xor_op_id, theta_xor_row_1, theta_xor_row_rotl1_3, theta_combined_xor_2, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-pol commit theta_combined_xor_3;
-#[THETA_COMBINED_XOR_3]
-sel_no_error { bitwise_xor_op_id, theta_xor_row_2, theta_xor_row_rotl1_4, theta_combined_xor_3, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-pol commit theta_combined_xor_4;
 #[THETA_COMBINED_XOR_4]
-sel_no_error { bitwise_xor_op_id, theta_xor_row_3, theta_xor_row_rotl1_0, theta_combined_xor_4, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+sel_no_error { bitwise_xor_op_id, theta_xor_row_3, theta_xor_row_rotl1_0, theta_combined_xor[4], tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
 
 //#############################################################################
 //                  State after Theta
@@ -416,110 +391,69 @@ pol commit state_theta_00, state_theta_01, state_theta_02, state_theta_03, state
            state_theta_30, state_theta_31, state_theta_32, state_theta_33, state_theta_34,
            state_theta_40, state_theta_41, state_theta_42, state_theta_43, state_theta_44;
 
-// ##################### STATE_THETA Row 0 ##############################
-#[STATE_THETA_00]
-sel_no_error { bitwise_xor_op_id, state_in_00, theta_combined_xor_0, state_theta_00, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+// state_theta[i][j] = state_in[i][j] XOR theta_combined_xor[i].
+// SIMD-64: the 25 lanes are paired in flat order idx = 5*i + j (lanes (idx, idx+1) share one row,
+// lane 0 = low/ia/ib/ic, lane 1 = high/ia_simd/ib_simd/ic_simd); the last lane 24 (state index 44) stays scalar.
+// We group into SIMD-64 pairs:
+// - state_theta_00 and state_theta_01 computations
+// - state_theta_02 and state_theta_03 computations
+// - state_theta_04 and state_theta_10 computations
+// - state_theta_11 and state_theta_12 computations
+// - state_theta_13 and state_theta_14 computations
+// - ....
+// - state_theta_42 and state_theta_43 computations
+#[STATE_THETA_SIMD_00]
+sel_no_error { bitwise_xor_op_id, state_in_00, state_in_01, theta_combined_xor[0], theta_combined_xor[0], state_theta_00, state_theta_01 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_01]
-sel_no_error { bitwise_xor_op_id, state_in_01, theta_combined_xor_0, state_theta_01, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_02]
+sel_no_error { bitwise_xor_op_id, state_in_02, state_in_03, theta_combined_xor[0], theta_combined_xor[0], state_theta_02, state_theta_03 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_02]
-sel_no_error { bitwise_xor_op_id, state_in_02, theta_combined_xor_0, state_theta_02, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_04]
+sel_no_error { bitwise_xor_op_id, state_in_04, state_in_10, theta_combined_xor[0], theta_combined_xor[1], state_theta_04, state_theta_10 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_03]
-sel_no_error { bitwise_xor_op_id, state_in_03, theta_combined_xor_0, state_theta_03, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_11]
+sel_no_error { bitwise_xor_op_id, state_in_11, state_in_12, theta_combined_xor[1], theta_combined_xor[1], state_theta_11, state_theta_12 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_04]
-sel_no_error { bitwise_xor_op_id, state_in_04, theta_combined_xor_0, state_theta_04, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_13]
+sel_no_error { bitwise_xor_op_id, state_in_13, state_in_14, theta_combined_xor[1], theta_combined_xor[1], state_theta_13, state_theta_14 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// ##################### STATE_THETA Row 1 ##############################
-#[STATE_THETA_10]
-sel_no_error { bitwise_xor_op_id, state_in_10, theta_combined_xor_1, state_theta_10, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_20]
+sel_no_error { bitwise_xor_op_id, state_in_20, state_in_21, theta_combined_xor[2], theta_combined_xor[2], state_theta_20, state_theta_21 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_11]
-sel_no_error { bitwise_xor_op_id, state_in_11, theta_combined_xor_1, state_theta_11, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_22]
+sel_no_error { bitwise_xor_op_id, state_in_22, state_in_23, theta_combined_xor[2], theta_combined_xor[2], state_theta_22, state_theta_23 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_12]
-sel_no_error { bitwise_xor_op_id, state_in_12, theta_combined_xor_1, state_theta_12, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_24]
+sel_no_error { bitwise_xor_op_id, state_in_24, state_in_30, theta_combined_xor[2], theta_combined_xor[3], state_theta_24, state_theta_30 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_13]
-sel_no_error { bitwise_xor_op_id, state_in_13, theta_combined_xor_1, state_theta_13, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_31]
+sel_no_error { bitwise_xor_op_id, state_in_31, state_in_32, theta_combined_xor[3], theta_combined_xor[3], state_theta_31, state_theta_32 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_14]
-sel_no_error { bitwise_xor_op_id, state_in_14, theta_combined_xor_1, state_theta_14, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_33]
+sel_no_error { bitwise_xor_op_id, state_in_33, state_in_34, theta_combined_xor[3], theta_combined_xor[3], state_theta_33, state_theta_34 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// ##################### STATE_THETA Row 2 ##############################
-#[STATE_THETA_20]
-sel_no_error { bitwise_xor_op_id, state_in_20, theta_combined_xor_2, state_theta_20, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_40]
+sel_no_error { bitwise_xor_op_id, state_in_40, state_in_41, theta_combined_xor[4], theta_combined_xor[4], state_theta_40, state_theta_41 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_21]
-sel_no_error { bitwise_xor_op_id, state_in_21, theta_combined_xor_2, state_theta_21, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_THETA_SIMD_42]
+sel_no_error { bitwise_xor_op_id, state_in_42, state_in_43, theta_combined_xor[4], theta_combined_xor[4], state_theta_42, state_theta_43 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-#[STATE_THETA_22]
-sel_no_error { bitwise_xor_op_id, state_in_22, theta_combined_xor_2, state_theta_22, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_23]
-sel_no_error { bitwise_xor_op_id, state_in_23, theta_combined_xor_2, state_theta_23, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_24]
-sel_no_error { bitwise_xor_op_id, state_in_24, theta_combined_xor_2, state_theta_24, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// ##################### STATE_THETA Row 3 ##############################
-#[STATE_THETA_30]
-sel_no_error { bitwise_xor_op_id, state_in_30, theta_combined_xor_3, state_theta_30, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_31]
-sel_no_error { bitwise_xor_op_id, state_in_31, theta_combined_xor_3, state_theta_31, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_32]
-sel_no_error { bitwise_xor_op_id, state_in_32, theta_combined_xor_3, state_theta_32, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_33]
-sel_no_error { bitwise_xor_op_id, state_in_33, theta_combined_xor_3, state_theta_33, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_34]
-sel_no_error { bitwise_xor_op_id, state_in_34, theta_combined_xor_3, state_theta_34, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// ##################### STATE_THETA Row 4 ##############################
-#[STATE_THETA_40]
-sel_no_error { bitwise_xor_op_id, state_in_40, theta_combined_xor_4, state_theta_40, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_41]
-sel_no_error { bitwise_xor_op_id, state_in_41, theta_combined_xor_4, state_theta_41, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_42]
-sel_no_error { bitwise_xor_op_id, state_in_42, theta_combined_xor_4, state_theta_42, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-#[STATE_THETA_43]
-sel_no_error { bitwise_xor_op_id, state_in_43, theta_combined_xor_4, state_theta_43, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
+// Odd lane out (state index 44): plain scalar U64 bitwise lookup.
 #[STATE_THETA_44]
-sel_no_error { bitwise_xor_op_id, state_in_44, theta_combined_xor_4, state_theta_44, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+sel_no_error { bitwise_xor_op_id, state_in_44, theta_combined_xor[4], state_theta_44, tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
 
 //#############################################################################
 //                      Rho round function
@@ -720,7 +654,7 @@ state_rho_44 = POW_ROT_LEN_44 * state_theta_44 - state_theta_hi_44 * (2**64 - 1)
 
 
 // Range check constraints for the range-checked limb of the rotation.
-// For a <= 32, we range check state_theta_hi < 2^a 
+// For a <= 32, we range check state_theta_hi < 2^a
 // For a > 32, we range check state_theta_low < 2^(64-a)
 // state_theta_ij's are 64-bit via [#STATE_THETA_ij] bitwise lookup.
 // state_rho_ij's are 64-bit via bitwise lookups during chi.
@@ -988,129 +922,66 @@ pol commit state_pi_and_00, state_pi_and_01, state_pi_and_02, state_pi_and_03, s
            state_pi_and_40, state_pi_and_41, state_pi_and_42, state_pi_and_43, state_pi_and_44;
 
 // STATE_PI_20 = state_rho_22
-#[STATE_PI_AND_00]
-sel_no_error { bitwise_and_op_id, state_pi_not_10, state_rho_22, state_pi_and_00, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+// state_pi_and[i][j] = NOT(pi[(i+1)%5][j]) AND pi[(i+2)%5][j]. SIMD-64 pairs flat idx 5i+j; last lane 24 (state index 44) scalar.
+// We group into SIMD-64 pairs:
+// - state_pi_and_00 and state_pi_and_01 computations
+// - state_pi_and_02 and state_pi_and_03 computations
+// - state_pi_and_04 and state_pi_and_10 computations
+// - state_pi_and_11 and state_pi_and_12 computations
+// - state_pi_and_22 and state_pi_and_23 computations
+// ....
+// - state_pi_and_42 and state_pi_and_43 computations
+#[STATE_PI_AND_SIMD_00]
+sel_no_error { bitwise_and_op_id, state_pi_not_10, state_pi_not_11, state_rho_22, state_rho_02, state_pi_and_00, state_pi_and_01 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_21 = state_rho_02
-#[STATE_PI_AND_01]
-sel_no_error { bitwise_and_op_id, state_pi_not_11, state_rho_02, state_pi_and_01, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_02]
+sel_no_error { bitwise_and_op_id, state_pi_not_12, state_pi_not_13, state_rho_32, state_rho_12, state_pi_and_02, state_pi_and_03 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_22 = state_rho_32
-#[STATE_PI_AND_02]
-sel_no_error { bitwise_and_op_id, state_pi_not_12, state_rho_32, state_pi_and_02, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_04]
+sel_no_error { bitwise_and_op_id, state_pi_not_14, state_pi_not_20, state_rho_42, state_rho_33, state_pi_and_04, state_pi_and_10 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_23 = state_rho_12
-#[STATE_PI_AND_03]
-sel_no_error { bitwise_and_op_id, state_pi_not_13, state_rho_12, state_pi_and_03, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_11]
+sel_no_error { bitwise_and_op_id, state_pi_not_21, state_pi_not_22, state_rho_13, state_rho_43, state_pi_and_11, state_pi_and_12 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_24 = state_rho_42
-#[STATE_PI_AND_04]
-sel_no_error { bitwise_and_op_id, state_pi_not_14, state_rho_42, state_pi_and_04, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_13]
+sel_no_error { bitwise_and_op_id, state_pi_not_23, state_pi_not_24, state_rho_23, state_rho_03, state_pi_and_13, state_pi_and_14 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_30 = state_rho_33
-#[STATE_PI_AND_10]
-sel_no_error { bitwise_and_op_id, state_pi_not_20, state_rho_33, state_pi_and_10, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_20]
+sel_no_error { bitwise_and_op_id, state_pi_not_30, state_pi_not_31, state_rho_44, state_rho_24, state_pi_and_20, state_pi_and_21 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_31 = state_rho_13
-#[STATE_PI_AND_11]
-sel_no_error { bitwise_and_op_id, state_pi_not_21, state_rho_13, state_pi_and_11, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_22]
+sel_no_error { bitwise_and_op_id, state_pi_not_32, state_pi_not_33, state_rho_04, state_rho_34, state_pi_and_22, state_pi_and_23 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_32 = state_rho_43
-#[STATE_PI_AND_12]
-sel_no_error { bitwise_and_op_id, state_pi_not_22, state_rho_43, state_pi_and_12, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_24]
+sel_no_error { bitwise_and_op_id, state_pi_not_34, state_pi_not_40, state_rho_14, state_theta_00, state_pi_and_24, state_pi_and_30 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_33 = state_rho_23
-#[STATE_PI_AND_13]
-sel_no_error { bitwise_and_op_id, state_pi_not_23, state_rho_23, state_pi_and_13, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_31]
+sel_no_error { bitwise_and_op_id, state_pi_not_41, state_pi_not_42, state_rho_30, state_rho_10, state_pi_and_31, state_pi_and_32 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_34 = state_rho_03
-#[STATE_PI_AND_14]
-sel_no_error { bitwise_and_op_id, state_pi_not_24, state_rho_03, state_pi_and_14, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_33]
+sel_no_error { bitwise_and_op_id, state_pi_not_43, state_pi_not_44, state_rho_40, state_rho_20, state_pi_and_33, state_pi_and_34 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_40 = state_rho_44
-#[STATE_PI_AND_20]
-sel_no_error { bitwise_and_op_id, state_pi_not_30, state_rho_44, state_pi_and_20, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_40]
+sel_no_error { bitwise_and_op_id, state_pi_not_00, state_pi_not_01, state_rho_11, state_rho_41, state_pi_and_40, state_pi_and_41 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_41 = state_rho_24
-#[STATE_PI_AND_21]
-sel_no_error { bitwise_and_op_id, state_pi_not_31, state_rho_24, state_pi_and_21, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_PI_AND_SIMD_42]
+sel_no_error { bitwise_and_op_id, state_pi_not_02, state_pi_not_03, state_rho_21, state_rho_01, state_pi_and_42, state_pi_and_43 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_42 = state_rho_04
-#[STATE_PI_AND_22]
-sel_no_error { bitwise_and_op_id, state_pi_not_32, state_rho_04, state_pi_and_22, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_43 = state_rho_34
-#[STATE_PI_AND_23]
-sel_no_error { bitwise_and_op_id, state_pi_not_33, state_rho_34, state_pi_and_23, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_44 = state_rho_14
-#[STATE_PI_AND_24]
-sel_no_error { bitwise_and_op_id, state_pi_not_34, state_rho_14, state_pi_and_24, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_00 = STATE_RHO_00 = state_theta_00
-#[STATE_PI_AND_30]
-sel_no_error { bitwise_and_op_id, state_pi_not_40, state_theta_00, state_pi_and_30, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_01 = state_rho_30
-#[STATE_PI_AND_31]
-sel_no_error { bitwise_and_op_id, state_pi_not_41, state_rho_30, state_pi_and_31, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_02 = state_rho_10
-#[STATE_PI_AND_32]
-sel_no_error { bitwise_and_op_id, state_pi_not_42, state_rho_10, state_pi_and_32, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_03 = state_rho_40
-#[STATE_PI_AND_33]
-sel_no_error { bitwise_and_op_id, state_pi_not_43, state_rho_40, state_pi_and_33, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_04 = state_rho_20
-#[STATE_PI_AND_34]
-sel_no_error { bitwise_and_op_id, state_pi_not_44, state_rho_20, state_pi_and_34, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_10 = state_rho_11
-#[STATE_PI_AND_40]
-sel_no_error { bitwise_and_op_id, state_pi_not_00, state_rho_11, state_pi_and_40, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_11 = state_rho_41
-#[STATE_PI_AND_41]
-sel_no_error { bitwise_and_op_id, state_pi_not_01, state_rho_41, state_pi_and_41, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_12 = state_rho_21
-#[STATE_PI_AND_42]
-sel_no_error { bitwise_and_op_id, state_pi_not_02, state_rho_21, state_pi_and_42, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_13 = state_rho_01
-#[STATE_PI_AND_43]
-sel_no_error { bitwise_and_op_id, state_pi_not_03, state_rho_01, state_pi_and_43, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_14 = state_rho_31
 #[STATE_PI_AND_44]
-sel_no_error { bitwise_and_op_id, state_pi_not_04, state_rho_31, state_pi_and_44, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+sel_no_error { bitwise_and_op_id, state_pi_not_04, state_rho_31, state_pi_and_44, tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
 
 //#################### chi final XOR Computation ########################################
 // state_chi_ij = state_pi_ij ^ state_pi_and_ij
@@ -1122,129 +993,66 @@ pol commit state_chi_00, state_chi_01, state_chi_02, state_chi_03, state_chi_04,
            state_chi_40, state_chi_41, state_chi_42, state_chi_43, state_chi_44;
 
 // STATE_PI_00 = STATE_RHO_00 = state_theta_00
-#[STATE_CHI_00]
-sel_no_error { bitwise_xor_op_id, state_theta_00, state_pi_and_00, state_chi_00, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+// state_chi[i][j] = pi[i][j] XOR state_pi_and[i][j]. SIMD-64 pairs flat idx 5i+j; last lane 24 (state index 44) scalar.
+// We group into SIMD-64 pairs:
+// - state_chi_00 and state_chi_01 computations
+// - state_chi_02 and state_chi_03 computations
+// - state_chi_04 and state_chi_10 computations
+// - state_chi_11 and state_chi_12 computations
+// - state_chi_13 and state_chi_14 computations
+// - ....
+// - state_chi_42 and state_chi_43 computations
+#[STATE_CHI_SIMD_00]
+sel_no_error { bitwise_xor_op_id, state_theta_00, state_rho_30, state_pi_and_00, state_pi_and_01, state_chi_00, state_chi_01 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_01 = state_rho_30
-#[STATE_CHI_01]
-sel_no_error { bitwise_xor_op_id, state_rho_30, state_pi_and_01, state_chi_01, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_02]
+sel_no_error { bitwise_xor_op_id, state_rho_10, state_rho_40, state_pi_and_02, state_pi_and_03, state_chi_02, state_chi_03 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_02 = state_rho_10
-#[STATE_CHI_02]
-sel_no_error { bitwise_xor_op_id, state_rho_10, state_pi_and_02, state_chi_02, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_04]
+sel_no_error { bitwise_xor_op_id, state_rho_20, state_rho_11, state_pi_and_04, state_pi_and_10, state_chi_04, state_chi_10 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_03 = state_rho_40
-#[STATE_CHI_03]
-sel_no_error { bitwise_xor_op_id, state_rho_40, state_pi_and_03, state_chi_03, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_11]
+sel_no_error { bitwise_xor_op_id, state_rho_41, state_rho_21, state_pi_and_11, state_pi_and_12, state_chi_11, state_chi_12 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_04 = state_rho_20
-#[STATE_CHI_04]
-sel_no_error { bitwise_xor_op_id, state_rho_20, state_pi_and_04, state_chi_04, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_13]
+sel_no_error { bitwise_xor_op_id, state_rho_01, state_rho_31, state_pi_and_13, state_pi_and_14, state_chi_13, state_chi_14 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_10 = state_rho_11
-#[STATE_CHI_10]
-sel_no_error { bitwise_xor_op_id, state_rho_11, state_pi_and_10, state_chi_10, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_20]
+sel_no_error { bitwise_xor_op_id, state_rho_22, state_rho_02, state_pi_and_20, state_pi_and_21, state_chi_20, state_chi_21 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_11 = state_rho_41
-#[STATE_CHI_11]
-sel_no_error { bitwise_xor_op_id, state_rho_41, state_pi_and_11, state_chi_11, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_22]
+sel_no_error { bitwise_xor_op_id, state_rho_32, state_rho_12, state_pi_and_22, state_pi_and_23, state_chi_22, state_chi_23 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_12 = state_rho_21
-#[STATE_CHI_12]
-sel_no_error { bitwise_xor_op_id, state_rho_21, state_pi_and_12, state_chi_12, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_24]
+sel_no_error { bitwise_xor_op_id, state_rho_42, state_rho_33, state_pi_and_24, state_pi_and_30, state_chi_24, state_chi_30 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_13 = state_rho_01
-#[STATE_CHI_13]
-sel_no_error { bitwise_xor_op_id, state_rho_01, state_pi_and_13, state_chi_13, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_31]
+sel_no_error { bitwise_xor_op_id, state_rho_13, state_rho_43, state_pi_and_31, state_pi_and_32, state_chi_31, state_chi_32 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_14 = state_rho_31
-#[STATE_CHI_14]
-sel_no_error { bitwise_xor_op_id, state_rho_31, state_pi_and_14, state_chi_14, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_33]
+sel_no_error { bitwise_xor_op_id, state_rho_23, state_rho_03, state_pi_and_33, state_pi_and_34, state_chi_33, state_chi_34 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_20 = state_rho_22
-#[STATE_CHI_20]
-sel_no_error { bitwise_xor_op_id, state_rho_22, state_pi_and_20, state_chi_20, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_40]
+sel_no_error { bitwise_xor_op_id, state_rho_44, state_rho_24, state_pi_and_40, state_pi_and_41, state_chi_40, state_chi_41 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_21 = state_rho_02
-#[STATE_CHI_21]
-sel_no_error { bitwise_xor_op_id, state_rho_02, state_pi_and_21, state_chi_21, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+#[STATE_CHI_SIMD_42]
+sel_no_error { bitwise_xor_op_id, state_rho_04, state_rho_34, state_pi_and_42, state_pi_and_43, state_chi_42, state_chi_43 } in
+bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
 
-// STATE_PI_22 = state_rho_32
-#[STATE_CHI_22]
-sel_no_error { bitwise_xor_op_id, state_rho_32, state_pi_and_22, state_chi_22, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_23 = state_rho_12
-#[STATE_CHI_23]
-sel_no_error { bitwise_xor_op_id, state_rho_12, state_pi_and_23, state_chi_23, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_24 = state_rho_42
-#[STATE_CHI_24]
-sel_no_error { bitwise_xor_op_id, state_rho_42, state_pi_and_24, state_chi_24, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_30 = state_rho_33
-#[STATE_CHI_30]
-sel_no_error { bitwise_xor_op_id, state_rho_33, state_pi_and_30, state_chi_30, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_31 = state_rho_13
-#[STATE_CHI_31]
-sel_no_error { bitwise_xor_op_id, state_rho_13, state_pi_and_31, state_chi_31, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_32 = state_rho_43
-#[STATE_CHI_32]
-sel_no_error { bitwise_xor_op_id, state_rho_43, state_pi_and_32, state_chi_32, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_33 = state_rho_23
-#[STATE_CHI_33]
-sel_no_error { bitwise_xor_op_id, state_rho_23, state_pi_and_33, state_chi_33, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_34 = state_rho_03
-#[STATE_CHI_34]
-sel_no_error { bitwise_xor_op_id, state_rho_03, state_pi_and_34, state_chi_34, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_40 = state_rho_44
-#[STATE_CHI_40]
-sel_no_error { bitwise_xor_op_id, state_rho_44, state_pi_and_40, state_chi_40, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_41 = state_rho_24
-#[STATE_CHI_41]
-sel_no_error { bitwise_xor_op_id, state_rho_24, state_pi_and_41, state_chi_41, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_42 = state_rho_04
-#[STATE_CHI_42]
-sel_no_error { bitwise_xor_op_id, state_rho_04, state_pi_and_42, state_chi_42, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_43 = state_rho_34
-#[STATE_CHI_43]
-sel_no_error { bitwise_xor_op_id, state_rho_34, state_pi_and_43, state_chi_43, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
-
-// STATE_PI_44 = state_rho_14
 #[STATE_CHI_44]
-sel_no_error { bitwise_xor_op_id, state_rho_14, state_pi_and_44, state_chi_44, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+sel_no_error { bitwise_xor_op_id, state_rho_14, state_pi_and_44, state_chi_44, tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
 
 //#############################################################################
 //                      Iota round function
@@ -1262,8 +1070,8 @@ pol commit state_iota_00;
 sel_no_error { round, round_cst } in precomputed.sel_keccak { precomputed.idx, precomputed.keccak_round_constant };
 
 #[STATE_IOTA_00]
-sel_no_error { bitwise_xor_op_id, state_chi_00, round_cst, state_iota_00, tag_u64 } in
-bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.tag_a };
+sel_no_error { bitwise_xor_op_id, state_chi_00, round_cst, state_iota_00, tag_u64, tag_u64 } in
+bitwise.sel_keccak { bitwise.op_id, bitwise.ia, bitwise.ib, bitwise.ic, bitwise.tag_a, bitwise.tag_b };
 
 //#############################################################################
 //                      Next state Inputs OR Outputs

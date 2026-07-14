@@ -207,9 +207,11 @@ class FrCodec {
     }
 
     /**
-     * @brief Convert an `fr` challenge to a target type (fr or fq). Assumes challenge is "short".
+     * @brief Convert a short (≤127-bit limb) challenge to a target type (fr or fq).
+     * @details Input is a single 127-bit limb produced by `split_challenge`. For `fq` (a Grumpkin scalar) the
+     * value must fit in the lower two simulated bigfield limbs, which is what the short width guarantees.
      */
-    template <typename T> static T convert_challenge(const bb::fr& challenge)
+    template <typename T> static T convert_short_challenge(const bb::fr& challenge)
     {
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
@@ -218,6 +220,22 @@ class FrCodec {
                          2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION,
                          "field_conversion: convert challenge");
             return fq(challenge);
+        }
+    }
+
+    /**
+     * @brief Convert a full-width challenge to a target type (fr or fq).
+     * @details For `fq` (a Grumpkin scalar) the conversion is exact and canonical: the BN254 scalar modulus `r`
+     * is smaller than the base modulus `q`, so every challenge value (`< r`) is `< q` and reinterprets directly
+     * as an `fq` element with no reduction. This mirrors the recursive `StdlibCodec::convert_full_challenge`,
+     * which splits the same value into bigfield limbs.
+     */
+    template <typename T> static T convert_full_challenge(const bb::fr& challenge)
+    {
+        if constexpr (std::is_same_v<T, bb::fr>) {
+            return challenge;
+        } else if constexpr (std::is_same_v<T, fq>) {
+            return fq(static_cast<uint256_t>(challenge));
         }
     }
 };
@@ -343,9 +361,9 @@ class U256Codec {
     }
 
     /**
-     * @brief Convert an `fr` challenge to a target type (fr or fq). Assumes challenge is "short".
+     * @brief Convert a short (≤127-bit limb) challenge to a target type (fr or fq).
      */
-    template <typename T> static T convert_challenge(const bb::fr& challenge)
+    template <typename T> static T convert_short_challenge(const bb::fr& challenge)
     {
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
@@ -354,6 +372,18 @@ class U256Codec {
                          2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION,
                          "field_conversion: convert challenge");
             return fq(challenge);
+        }
+    }
+
+    /**
+     * @brief Convert a full-width challenge to a target type (fr or fq); exact since `r < q`.
+     */
+    template <typename T> static T convert_full_challenge(const bb::fr& challenge)
+    {
+        if constexpr (std::is_same_v<T, bb::fr>) {
+            return challenge;
+        } else if constexpr (std::is_same_v<T, fq>) {
+            return fq(static_cast<uint256_t>(challenge));
         }
     }
 };

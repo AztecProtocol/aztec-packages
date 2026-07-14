@@ -3,9 +3,9 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: Trait crate::authwit::authorization_interface::AuthorizationInterface not found
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:36:43
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-36 │     let authorization_interface = quote { crate::authwit::authorization_interface::AuthorizationInterface };
+   │     let authorization_interface = quote { crate::authwit::authorization_interface::AuthorizationInterface };
    │                                           ---------------------------------------------------------------
    │
    ┌─ src/main.nr:24:5
@@ -15,9 +15,9 @@ error: Trait crate::authwit::authorization_interface::AuthorizationInterface not
    │
 
 error: Could not resolve 'authwit' in path
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:37:54
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-37 │     let authorization_selector_type = quote { crate::authwit::AuthorizationSelector };
+   │     let authorization_selector_type = quote { crate::authwit::AuthorizationSelector };
    │                                                      -------
    │
    ┌─ src/main.nr:24:5
@@ -27,9 +27,9 @@ error: Could not resolve 'authwit' in path
    │
 
 error: check_trait_impl_where_clause_matches_trait_where_clause: missing trait ID
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:23:16
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-23 │     let name = s.name();
+   │     let name = s.name();
    │                --------
    │
    ┌─ src/main.nr:24:5
@@ -39,10 +39,10 @@ error: check_trait_impl_where_clause_matches_trait_where_clause: missing trait I
    │
 
 error: check_trait_impl_method_matches_declaration: missing trait impl
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:42:16
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-42 │             fn get_authorization_selector(self) -> $authorization_selector_type {
-   │                --------------------------
+   │                 fn get_authorization_selector(self) -> $authorization_selector_type {
+   │                    --------------------------
    │
    ┌─ src/main.nr:24:5
    │
@@ -60,8 +60,8 @@ error: Selector collision detected between authorizations 'EventCollision8370082
     1: AuthorizationSelectorCollision::#[authorization]
             at src/main.nr:27:5
     2: authorization
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:65:5
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
     3: register_authorization
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:15:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
 
 Aborting due to 5 previous errors

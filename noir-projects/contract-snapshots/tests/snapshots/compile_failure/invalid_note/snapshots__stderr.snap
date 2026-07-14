@@ -3,33 +3,35 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: InvalidNote has a packed length of 9 fields, which exceeds the maximum allowed length of 8 fields. See https://docs.aztec.network/errors/4
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/notes.nr:52:17
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/notes.nr:<line>:<col>
    │
-52 │                 std::static_assert(note_packed_len <= $max_note_packed_len, f"{note_type_name} has a packed length of {note_packed_len} fields, which exceeds the maximum allowed length of {max_note_packed_len} fields. See https://docs.aztec.network/errors/4");
+   │                 std::static_assert(note_packed_len <= $max_note_packed_len, f"{note_type_name} has a packed length of {note_packed_len} fields, which exceeds the maximum allowed length of {max_note_packed_len} fields. See https://docs.aztec.network/errors/4");
    │                 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
    │
    = Call stack:
       1: generate_sync_state
-             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:269:13
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
       2: do_sync_state
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:144:5
-      3: EphemeralArray<T>::for_each
-             at <repo>/noir-projects/aztec-nr/aztec/src/ephemeral/mod.nr:99:13
-      4: do_sync_state
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:153:13
-      5: process_message_ciphertext
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/process_message.nr:41:9
-      6: process_message_plaintext
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/process_message.nr:76:13
-      7: process_private_note_msg
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:46:9
-      8: attempt_note_discovery
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:83:28
-      9: attempt_note_nonce_discovery
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr:46:27
-     10: generate_contract_library_method_compute_note_hash
-             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec/compute_note_hash_and_nullifier.nr:107:53
-     11: generate_note_type_impl
-             at <repo>/noir-projects/aztec-nr/aztec/src/macros/notes.nr:52:17
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:<line>:<col>
+      3: sync_state_with_secrets
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:<line>:<col>
+      4: UnconstrainedArray<T, Oracle>::for_each
+             at <repo>/noir-projects/aztec-nr/aztec/src/unconstrained_array/mod.nr:<line>:<col>
+      5: sync_state_with_secrets
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:<line>:<col>
+      6: process_message_ciphertext
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/process_message.nr:<line>:<col>
+      7: process_message_plaintext
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/process_message.nr:<line>:<col>
+      8: process_private_note_msg
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:<line>:<col>
+      9: attempt_note_discovery
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:<line>:<col>
+     10: attempt_note_nonce_discovery
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr:<line>:<col>
+     11: generate_contract_library_method_compute_note_hash
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec/compute_note_hash_and_nullifier.nr:<line>:<col>
+     12: generate_note_type_impl
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/notes.nr:<line>:<col>
 
 Aborting due to 1 previous error

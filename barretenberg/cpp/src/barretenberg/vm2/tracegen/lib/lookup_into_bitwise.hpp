@@ -1,12 +1,18 @@
 #pragma once
 
-#include <cassert>
+#include <cstdint>
 
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 
 namespace bb::avm2::tracegen {
 
 template <typename LookupSettings> class LookupIntoBitwise : public IndexedLookupTraceBuilder<LookupSettings> {
+  public:
+    // Inherit the base constructors (incl. the outer_dst_selector one) so the interaction can be registered
+    // with an explicit outer selector (precomputed.sel_range_16); the base process() then toggles the
+    // fine-grained DST_SELECTOR (precomputed.sel_bitwise) only on the rows actually read.
+    using IndexedLookupTraceBuilder<LookupSettings>::IndexedLookupTraceBuilder;
+
   protected:
     using TupleType = typename IndexedLookupTraceBuilder<LookupSettings>::TupleType;
     // This is an efficient implementation of indexing into the precomputed table.

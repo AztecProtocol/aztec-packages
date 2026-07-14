@@ -262,3 +262,25 @@ These use Google Benchmark's `compare.py` for statistical analysis. Note: compar
 - **Release the lock promptly** — don't hold it while analyzing results locally.
 - **Build locally, run remotely** — the remote machine is for execution only. Never build on it.
 - **HARDWARE_CONCURRENCY=16** is the standard on the remote machine. Match it for WASM comparisons.
+
+## Input artifacts: validate freshness BEFORE building
+
+A stale input file on the bencher fails in the worst possible order: you build
+two large binaries (minutes), ship them, and only then discover the artifact
+predates a serialization change ("Missing field ..."). The September-2025
+`~/avm_inputs.bin` cost a full bb-avm A/B build before its first parse error.
+
+Rules, in order, before building anything against an input artifact found on
+the bencher (or any ad-hoc path):
+
+1. **Check the mtime first**: `ssh ... ls -la <artifact>`. If it predates the
+   last serialization-affecting change to its format (when in doubt: more than
+   a few weeks old), treat it as stale until proven otherwise.
+2. **Parse-smoke it with an existing binary before any build**: any current
+   binary that can read the format (even a stale-ish one already on the box)
+   surfaces a format mismatch in seconds.
+3. **Prefer pinned, regenerable inputs over found files**: chonk flows have
+   `scripts/chonk_inputs.sh download` (content-hash pinned, CI-refreshed).
+   For formats without a pinned pipeline (e.g. AVM inputs), say so explicitly
+   in the report and propose regeneration rather than silently substituting a
+   proxy workload.

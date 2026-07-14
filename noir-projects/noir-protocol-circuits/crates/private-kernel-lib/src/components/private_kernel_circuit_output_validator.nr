@@ -129,11 +129,6 @@ impl PrivateKernelCircuitOutputValidator {
             "mismatch is_private_only",
         );
         assert_eq(
-            self.output.claimed_first_nullifier,
-            previous_kernel.claimed_first_nullifier,
-            "mismatch claimed_first_nullifier",
-        );
-        assert_eq(
             self.output.claimed_revertible_counter,
             previous_kernel.claimed_revertible_counter,
             "mismatch claimed_revertible_counter",

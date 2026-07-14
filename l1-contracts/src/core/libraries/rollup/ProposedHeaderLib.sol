@@ -29,6 +29,7 @@ struct ProposedHeader {
   bytes32 feeRecipient;
   GasFees gasFees;
   uint256 totalManaUsed;
+  uint256 accumulatedFees;
 }
 
 /**
@@ -62,7 +63,8 @@ library ProposedHeaderLib {
         _header.feeRecipient,
         _header.gasFees.feePerDaGas,
         _header.gasFees.feePerL2Gas,
-        _header.totalManaUsed
+        _header.totalManaUsed,
+        _header.accumulatedFees
       )
     );
   }

@@ -294,28 +294,6 @@ TEST(GasConstrainingTest, NoCheckNoOOG)
     EXPECT_THROW(check_relation<gas>(trace), std::runtime_error);
 }
 
-TEST(GasConstrainingTest, DynGasFactorBitwise)
-{
-    PrecomputedTraceBuilder precomputed_builder;
-    TestTraceContainer trace({
-        {
-            { C::execution_sel, 1 },
-            { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U16) },
-            { C::execution_sel_gas_bitwise, 1 },
-            { C::execution_dynamic_l2_gas_factor, get_tag_bytes(ValueTag::U16) },
-        },
-    });
-
-    precomputed_builder.process_tag_parameters(trace);
-    precomputed_builder.process_misc(trace, 7); // Need at least clk values from 0-6 for the lookup
-    check_interaction<ExecutionTraceBuilder, lookup_execution_dyn_l2_factor_bitwise_settings>(trace);
-
-    trace.set(C::execution_dynamic_l2_gas_factor, 0, 100); // Set to some random value that can't be looked up
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<tracegen::ExecutionTraceBuilder, lookup_execution_dyn_l2_factor_bitwise_settings>(trace)),
-        "Failed.*EXECUTION_DYN_L2_FACTOR_BITWISE. Could not find tuple in destination.");
-}
-
 TEST(GasConstrainingTest, DynGasFactorToRadix)
 {
     PrecomputedTraceBuilder precomputed_builder;
@@ -352,7 +330,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadix)
               { C::gt_res, num_limbs > num_p_limbs ? 1 : 0 },
           } });
 
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_to_radix_safe_limbs(trace);
 
     check_interaction<ExecutionTraceBuilder,
@@ -363,7 +341,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadix)
 
     trace.set(C::execution_dynamic_l2_gas_factor, 0, 100); // Set to some random value is incorrect
     EXPECT_THROW_WITH_MESSAGE((check_relation<execution>(trace, execution::SR_DYN_L2_FACTOR_TO_RADIX_BE)),
-                              ".*subrelation DYN_L2_FACTOR_TO_RADIX_BE failed.*");
+                              execution::get_subrelation_label(execution::SR_DYN_L2_FACTOR_TO_RADIX_BE));
 }
 
 TEST(GasConstrainingTest, DynGasFactorInvalidRadix)
@@ -402,7 +380,7 @@ TEST(GasConstrainingTest, DynGasFactorInvalidRadix)
               { C::gt_res, num_limbs > num_p_limbs ? 1 : 0 },
           } });
 
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_to_radix_safe_limbs(trace);
 
     check_interaction<ExecutionTraceBuilder,
@@ -450,7 +428,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadixInvalidRadixLt2)
                                    { C::gt_res, 1 }, // 20 > 0
                                } });
 
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_to_radix_safe_limbs(trace);
 
     // To Radix fails because radix < 2, but the lookup constraints must still satisfied for the gas relation to hold.

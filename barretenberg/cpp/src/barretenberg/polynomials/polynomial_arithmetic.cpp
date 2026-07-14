@@ -8,11 +8,12 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/fields/vectorized_for.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/polynomials/accumulator.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include <math.h>
 #include <memory.h>
-#include <memory>
-#include <mutex>
 
 namespace bb::polynomial_arithmetic {
 
@@ -184,13 +185,20 @@ template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n
 }
 
 // This function computes sum of all scalars in a given array.
+//
+// Loop abstraction: vectorized_for<VECTOR_FIELD_WIDTH> emits
+// ContiguousVectorIndex<W> in the bulk and ScalarIndex in the tail. The
+// kernel reads from a non-owning PolynomialSpan view of the input array;
+// span[ctx] returns Fr for ScalarIndex and a VectorField for
+// ContiguousVectorIndex<W>. Accumulator<Fr> dispatches its operator+= on
+// the argument type, so the kernel body stays as one line. reduce()
+// horizontal-adds the W vector lanes together with the scalar slot.
 template <typename Fr> Fr compute_sum(const Fr* src, const size_t n)
 {
-    Fr result = 0;
-    for (size_t i = 0; i < n; ++i) {
-        result += src[i];
-    }
-    return result;
+    PolynomialSpan<const Fr> view{ 0, std::span<const Fr>(src, n) };
+    Accumulator<Fr> acc;
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(0, n, [&](auto ctx) { acc += view[ctx]; });
+    return acc.reduce();
 }
 
 // This function computes the polynomial (x - a)(x - b)(x - c)... given n distinct roots (a, b, c, ...).

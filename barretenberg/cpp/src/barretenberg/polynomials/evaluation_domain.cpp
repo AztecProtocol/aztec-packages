@@ -40,6 +40,7 @@ void compute_lookup_table_single(const Fr& input_root,
     BB_ASSERT(size >= 2);
     const size_t num_rounds = static_cast<size_t>(numeric::get_msb(size));
 
+    round_roots.reserve(num_rounds - 1);
     round_roots.emplace_back(&roots[0]);
     for (size_t i = 1; i < num_rounds - 1; ++i) {
         round_roots.emplace_back(round_roots.back() + (1UL << i));

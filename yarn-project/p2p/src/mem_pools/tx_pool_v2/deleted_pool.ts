@@ -52,8 +52,8 @@ export class DeletedPool {
   /** Persisted map: txHash -> DeletedTxState (serialized) - for prune-based soft deletions */
   #deletedTxsDB: AztecAsyncMap<string, Buffer>;
 
-  /** Reference to the main txs database for hard deletion */
-  #txsDB: AztecAsyncMap<string, Buffer>;
+  /** Hard-deletes a tx's stored data (tx blob and proof) from the pool's stores. */
+  #deleteTxData: (txHash: string) => Promise<void>;
 
   /** In-memory state for transactions from pruned blocks */
   #state: Map<string, DeletedTxState> = new Map();
@@ -69,10 +69,10 @@ export class DeletedPool {
 
   #log: Logger;
 
-  constructor(store: AztecAsyncKVStore, txsDB: AztecAsyncMap<string, Buffer>, log: Logger) {
+  constructor(store: AztecAsyncKVStore, deleteTxData: (txHash: string) => Promise<void>, log: Logger) {
     this.#deletedTxsDB = store.openMap('deleted_txs');
     this.#slotDeletedDB = store.openSet('slot_deleted_txs');
-    this.#txsDB = txsDB;
+    this.#deleteTxData = deleteTxData;
     this.#log = log;
   }
 
@@ -100,7 +100,7 @@ export class DeletedPool {
     // Slot-deleted txs are stale after restart - hard-delete them all
     let slotDeletedCount = 0;
     for await (const txHash of this.#slotDeletedDB.entriesAsync()) {
-      await this.#txsDB.delete(txHash);
+      await this.#deleteTxData(txHash);
       await this.#slotDeletedDB.delete(txHash);
       slotDeletedCount++;
     }
@@ -234,7 +234,7 @@ export class DeletedPool {
     for (const txHash of toHardDelete) {
       this.#state.delete(txHash);
       await this.#deletedTxsDB.delete(txHash);
-      await this.#txsDB.delete(txHash);
+      await this.#deleteTxData(txHash);
     }
 
     this.#log.debug(`Finalized ${toHardDelete.length} txs from pruned blocks at block ${finalizedBlockNumber}`, {
@@ -266,7 +266,7 @@ export class DeletedPool {
     for (const txHash of toHardDelete) {
       this.#slotDeletedTxs.delete(txHash);
       await this.#slotDeletedDB.delete(txHash);
-      await this.#txsDB.delete(txHash);
+      await this.#deleteTxData(txHash);
     }
 
     this.#log.debug(

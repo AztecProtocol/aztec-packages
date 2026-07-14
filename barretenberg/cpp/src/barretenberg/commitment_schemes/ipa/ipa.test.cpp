@@ -18,12 +18,6 @@ class IPATest : public CommitmentTest<Curve> {
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
 
-    using ShplonkProver = ShplonkProver_<Curve>;
-    using GeminiProver = GeminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
-
     static CK ck;
     static VK vk;
 
@@ -32,6 +26,17 @@ class IPATest : public CommitmentTest<Curve> {
     using PCS = IPA<curve::Grumpkin, log_n>;
 
     static constexpr size_t n = 1UL << log_n;
+
+    // IPA round challenges are 127-bit limbs in production (transcript split_challenge). The mock
+    // transcript bypasses that, so mask explicitly to honor batch_two_round_fold's precondition.
+    static uint256_t random_127_bit_challenge()
+    {
+        uint256_t c = Fr::random_element();
+        c.data[2] = 0;
+        c.data[3] = 0;
+        c.data[1] &= 0x7FFFFFFFFFFFFFFFULL;
+        return c;
+    }
 
     static void SetUpTestSuite()
     {
@@ -168,7 +173,7 @@ TEST_F(IPATest, ChallengesAreZero)
 
     // Generate a random element vector with challenges
     for (size_t i = 0; i < num_challenges; i++) {
-        random_vector[i] = Fr::random_element();
+        random_vector[i] = random_127_bit_challenge();
     }
 
     // Compute opening proofs several times, where each time a different challenge is equal to zero. Should cause
@@ -198,28 +203,29 @@ TEST_F(IPATest, ChallengesAreZero)
 // This test checks that if the vector \vec{a_new} becomes zero after one round, it doesn't break IPA.
 TEST_F(IPATest, AIsZeroAfterOneRound)
 {
-    // generate a random polynomial of degree < n / 2
+    // initialize a mock transcript with 127-bit challenges (production challenges are 127-bit limbs;
+    // the fused SRS fold asserts that). Index 0 is the generator challenge, index 1 the first
+    // folding challenge u.
+    auto transcript = std::make_shared<MockTranscript>();
+    const size_t num_challenges = log_n + 1;
+    std::vector<uint256_t> random_vector(num_challenges);
+    for (size_t i = 0; i < num_challenges; i++) {
+        random_vector[i] = random_127_bit_challenge();
+    }
+    const Fr u = Fr(random_vector[1]);
+
+    // Build the witness so a folds to zero after round 1: with a' = u^-1 a_lo + a_hi, set
+    // a_hi = -u^-1 a_lo, giving a' = 0.
+    const Fr neg_u_inv = -u.invert();
     auto poly = Polynomial(n);
     for (size_t i = 0; i < n / 2; i++) {
         poly.at(i) = Fr::random_element();
-        poly.at(i + (n / 2)) = poly[i];
+        poly.at(i + (n / 2)) = neg_u_inv * poly[i];
     }
     auto [x, eval] = this->random_eval(poly);
     auto commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
-
-    // initialize an empty mock transcript
-    auto transcript = std::make_shared<MockTranscript>();
-    const size_t num_challenges = log_n + 1;
-    std::vector<uint256_t> random_vector(num_challenges);
-
-    // Generate a random element vector with challenges
-    for (size_t i = 0; i < num_challenges; i++) {
-        random_vector[i] = Fr::random_element();
-    }
-    // Substitute the first folding challenge with -1
-    random_vector[1] = -Fr::one();
 
     // Put the challenges in the transcript
     transcript->initialize(random_vector);
@@ -237,128 +243,6 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 } // namespace bb
 
 // Tests of batched MLPCS, where IPA is the final univariate commitment scheme.
-
-// Shplemini + IPA. Two random polynomials, no shifts.
-TEST_F(IPATest, ShpleminiIPAWithoutShift)
-{
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
-    // point.
-    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-
-    MockClaimGenerator mock_claims(n,
-                                   /*num_polynomials*/ 2,
-                                   /*num_to_be_shifted*/ 0,
-                                   mle_opening_point,
-                                   ck);
-
-    auto prover_transcript = NativeTranscript::test_prover_init_empty();
-
-    // Run the full prover PCS protocol:
-    // Compute:
-    // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
-    // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
-
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
-    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
-
-    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
-
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(
-            mock_claims.claim_batcher, mle_opening_point, vk.get_g1_identity(), verifier_transcript)
-            .batch_opening_claim;
-
-    auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
-
-    EXPECT_EQ(result, true);
-}
-// Shplemini + IPA. Five polynomials, one of which is shifted.
-TEST_F(IPATest, ShpleminiIPAWithShift)
-{
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
-    // point.
-    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    MockClaimGenerator mock_claims(n,
-                                   /*num_polynomials*/ 4,
-                                   /*num_to_be_shifted*/ 1,
-                                   mle_opening_point,
-                                   ck);
-    auto prover_transcript = NativeTranscript::test_prover_init_empty();
-
-    // Run the full prover PCS protocol:
-
-    // Compute:
-    // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
-    // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
-    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
-
-    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
-
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(
-            mock_claims.claim_batcher, mle_opening_point, vk.get_g1_identity(), verifier_transcript)
-            .batch_opening_claim;
-
-    auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
-    // auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
-
-    EXPECT_EQ(result, true);
-}
-// Test `ShpleminiVerifier::remove_shifted_commitments`. Four polynomials, two of which are shifted.
-TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
-{
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
-    // point.
-    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    MockClaimGenerator mock_claims(n,
-                                   /*num_polynomials*/ 4,
-                                   /*num_to_be_shifted*/ 2,
-                                   mle_opening_point,
-                                   ck);
-
-    auto prover_transcript = NativeTranscript::test_prover_init_empty();
-
-    // Run the full prover PCS protocol:
-
-    // Compute:
-    // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
-    // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
-
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
-    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
-
-    // the index of the first commitment to a polynomial to be shifted in the union of unshifted_commitments and
-    // shifted_commitments. in our case, it is poly2
-    const size_t to_be_shifted_commitments_start = 2;
-    // the index of the first commitment to a shifted polynomial in the union of unshifted_commitments and
-    // shifted_commitments. in our case, it is the second occurence of poly2
-    const size_t shifted_commitments_start = 4;
-    // number of shifted polynomials
-    const size_t num_shifted_commitments = 2;
-    const RepeatedCommitmentsData repeated_commitments =
-        RepeatedCommitmentsData(to_be_shifted_commitments_start, shifted_commitments_start, num_shifted_commitments);
-    // since commitments to poly2, poly3 and their shifts are the same group elements, we simply combine the scalar
-    // multipliers of commitment2 and commitment3 in one place and remove the entries of the commitments and scalars
-    // vectors corresponding to the "shifted" commitment
-    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
-
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
-                                                                                    mle_opening_point,
-                                                                                    vk.get_g1_identity(),
-                                                                                    verifier_transcript,
-                                                                                    repeated_commitments)
-                                         .batch_opening_claim;
-
-    auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
-    EXPECT_EQ(result, true);
-}
 
 // Batch IPA verification tests
 

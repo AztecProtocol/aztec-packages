@@ -25,7 +25,9 @@ trap down EXIT
 # Start clean
 down
 
-docker compose -p "$name" up -d --force-recreate
+# Image pulls can fail on transient registry errors (e.g. Docker Hub 502s); retry only those.
+pull_flake='Bad Gateway|Service Unavailable|Gateway Time-?out|Internal Server Error|unexpected status from HEAD request|TLS handshake timeout|i/o timeout|connection reset|connection refused|Temporary failure in name resolution|unexpected EOF|toomanyrequests'
+retry -p "$pull_flake" "docker compose -p \"$name\" up -d --force-recreate"
 
 cid="$(docker ps -aq \
   --filter "label=com.docker.compose.project=$name" \
@@ -44,5 +46,9 @@ docker logs -f "$cid" &
 
 # Block until the target container exits; exit status is the container's exit code.
 rc=$(docker wait "$cid")
+
+# Give the backgrounded `docker logs -f` a moment to flush the container's final output
+# (e.g. the trailing local-network logs) before the EXIT trap tears the container down.
+sleep 1
 
 exit "$rc"

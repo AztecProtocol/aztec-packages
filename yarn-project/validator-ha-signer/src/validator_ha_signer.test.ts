@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { setupTestSchema } from './db/test_helper.js';
 import { DutyStatus, DutyType } from './db/types.js';
-import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
+import { DutyAlreadySignedError, SigningLockLostError, SlashingProtectionError } from './errors.js';
 import { HASignerMetrics } from './metrics.js';
 import { Pool } from './test/pglite_pool.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
@@ -52,7 +52,7 @@ describe('ValidatorHASigner', () => {
       rollupAddress: EthAddress.random(),
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
-      signingTimeoutMs: 1000,
+      peerSigningTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 60_000,
     };
   });
@@ -171,6 +171,97 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       expect(dutyResult.isNew).toBe(true);
+    });
+
+    it('should fail signing and not return a signature when the protection record is lost', async () => {
+      // Simulate the SIGNING row being deleted (e.g. by stuck-duty cleanup) while the remote signer
+      // was slow: recordSuccess can no longer find/own the row and returns false.
+      jest.spyOn(db, 'updateDutySigned').mockResolvedValue(false);
+
+      await expect(
+        signer.signWithProtection(
+          VALIDATOR_ADDRESS,
+          MESSAGE_HASH,
+          {
+            slot: SlotNumber(100),
+            blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
+            dutyType: DutyType.BLOCK_PROPOSAL,
+            blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          },
+          signFn,
+        ),
+      ).rejects.toThrow(SigningLockLostError);
+
+      expect(signFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should time out a hung signing, release the lock, and allow a later retry', async () => {
+      const shortTimeoutConfig = { ...config, signerCallTimeoutMs: 100 };
+      const metrics = new HASignerMetrics(telemetryClient, shortTimeoutConfig.nodeId);
+      const timeoutSigner = new ValidatorHASigner(db, shortTimeoutConfig, { metrics, dateProvider });
+      await timeoutSigner.start();
+
+      const context = {
+        slot: SlotNumber(100),
+        blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } as const;
+
+      try {
+        // Signer never returns - the operation must time out rather than hang forever.
+        const hangingSignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        hangingSignFn.mockReturnValue(new Promise<Signature>(() => {}));
+
+        await expect(
+          timeoutSigner.signWithProtection(VALIDATOR_ADDRESS, MESSAGE_HASH, context, hangingSignFn),
+        ).rejects.toThrow(/timed out/i);
+
+        // The lock was released on timeout: a fresh signing for the same duty with different data
+        // succeeds, proving nothing was broadcast and the SIGNING row was deleted.
+        const retrySignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        retrySignFn.mockResolvedValue(mockSignature);
+        const result = await timeoutSigner.signWithProtection(VALIDATOR_ADDRESS, MESSAGE_HASH_2, context, retrySignFn);
+
+        expect(result).toBe(mockSignature);
+        expect(retrySignFn).toHaveBeenCalledTimes(1);
+      } finally {
+        await timeoutSigner.stop();
+      }
+    });
+
+    it('should clamp the signing timeout to half of maxStuckDutiesAgeMs', async () => {
+      // Configured timeout (5s) exceeds maxStuckDutiesAgeMs / 2 (200ms), so the clamp must win:
+      // a hung signing times out at 200ms, not at the configured 5s.
+      const clampedConfig = { ...config, maxStuckDutiesAgeMs: 400, signerCallTimeoutMs: 5000 };
+      const metrics = new HASignerMetrics(telemetryClient, clampedConfig.nodeId);
+      const clampedSigner = new ValidatorHASigner(db, clampedConfig, { metrics, dateProvider });
+
+      try {
+        const hangingSignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        hangingSignFn.mockReturnValue(new Promise<Signature>(() => {}));
+
+        const startedAt = Date.now();
+        await expect(
+          clampedSigner.signWithProtection(
+            VALIDATOR_ADDRESS,
+            MESSAGE_HASH,
+            {
+              slot: SlotNumber(100),
+              blockNumber: BlockNumber(50),
+              checkpointNumber: CheckpointNumber(1),
+              dutyType: DutyType.BLOCK_PROPOSAL,
+              blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+            },
+            hangingSignFn,
+          ),
+        ).rejects.toThrow(/timed out after 200ms/);
+        expect(Date.now() - startedAt).toBeLessThan(5000);
+      } finally {
+        await clampedSigner.stop();
+      }
     });
 
     it('should throw DutyAlreadySignedError when duty already signed', async () => {

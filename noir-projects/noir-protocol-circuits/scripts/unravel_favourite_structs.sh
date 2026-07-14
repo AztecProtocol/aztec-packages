@@ -24,11 +24,11 @@ node scripts/unravel_struct.js target/private_kernel_inner.json --all >> "$FILE"
 append_line_break "PRIVATE KERNEL RESET"
 node scripts/unravel_struct.js target/private_kernel_reset_4_4_4_4_4_4_4_4_4.json --all >> "$FILE"
 
-append_line_break "PRIVATE KERNEL TAIL"
-node scripts/unravel_struct.js target/private_kernel_tail.json --all >> "$FILE"
+append_line_break "PRIVATE KERNEL RESET TAIL"
+node scripts/unravel_struct.js target/private_kernel_reset_tail.json --all >> "$FILE"
 
-append_line_break "PRIVATE KERNEL TAIL TO PUBLIC"
-node scripts/unravel_struct.js target/private_kernel_tail_to_public.json --all >> "$FILE"
+append_line_break "PRIVATE KERNEL RESET TAIL TO PUBLIC"
+node scripts/unravel_struct.js target/private_kernel_reset_tail_to_public.json --all >> "$FILE"
 
 append_line_break "PRIVATE KERNEL HIDING TO ROLLUP"
 node scripts/unravel_struct.js target/hiding_kernel_to_rollup.json --all >> "$FILE"

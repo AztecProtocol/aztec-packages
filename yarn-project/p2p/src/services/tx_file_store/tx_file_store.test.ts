@@ -1,13 +1,10 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type FileStore, createFileStore } from '@aztec/stdlib/file-store';
+import { InMemoryFileStore } from '@aztec/stdlib/file-store';
 import { Tx, type TxValidator } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import { mkdtemp, readdir, rm } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { tmpdir } from 'os';
-import { join } from 'path';
 
 import { InMemoryTxPool } from '../../test-helpers/testbench-utils.js';
 import { FileStoreTxSource } from '../tx_collection/file_store_tx_source.js';
@@ -15,14 +12,15 @@ import type { TxFileStoreConfig } from './config.js';
 import { TxFileStore } from './tx_file_store.js';
 
 describe('TxFileStore', () => {
-  let tmpDir: string;
-  let fileStore: FileStore;
+  let fileStore: InMemoryFileStore;
   let txPool: InMemoryTxPool;
   let config: TxFileStoreConfig;
   let txFileStore: TxFileStore | undefined;
   let mockValidator: MockProxy<TxValidator>;
   const log = createLogger('test:tx_file_store');
   const basePath = 'aztec-1-1-0x1234';
+  const storeNamespace = 'tx-file-store-test';
+  const storeUrl = `mem://${storeNamespace}`;
 
   const makeTx = async () => {
     const tx = Tx.random();
@@ -30,36 +28,23 @@ describe('TxFileStore', () => {
     return tx;
   };
 
-  /** Counts files in the txs subdirectory of the temp directory. */
-  async function countUploadedFiles(): Promise<number> {
-    try {
-      const files = await readdir(join(tmpDir, basePath, 'txs'));
-      return files.length;
-    } catch {
-      return 0;
-    }
+  /** Counts tx files uploaded to the store under basePath. */
+  function countUploadedFiles(): number {
+    return fileStore.listFiles(`${basePath}/txs`).length;
   }
 
-  beforeAll(async () => {
-    tmpDir = await mkdtemp(join(tmpdir(), 'tx-file-store-test-'));
-  });
-
-  beforeEach(async () => {
-    // Clean up any files from previous test
-    try {
-      await rm(join(tmpDir, basePath), { recursive: true, force: true });
-    } catch {
-      // Directory might not exist
-    }
-
-    fileStore = await createFileStore(`file://${tmpDir}`);
+  beforeEach(() => {
+    // Fresh in-memory store per test. Using an in-memory store (rather than a real on-disk file
+    // store) keeps these tests deterministic — they exercise TxFileStore, not file-store I/O.
+    InMemoryFileStore.clear(storeNamespace);
+    fileStore = new InMemoryFileStore(storeNamespace);
     txPool = new InMemoryTxPool();
     mockValidator = mock<TxValidator>();
     mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
 
     config = {
       txFileStoreEnabled: true,
-      txFileStoreUrl: `file://${tmpDir}`,
+      txFileStoreUrl: storeUrl,
       txFileStoreUploadConcurrency: 2,
       txFileStoreMaxQueueSize: 10,
     };
@@ -70,10 +55,6 @@ describe('TxFileStore', () => {
       await txFileStore.stop();
       txFileStore = undefined;
     }
-  });
-
-  afterAll(async () => {
-    await rm(tmpDir, { recursive: true, force: true });
   });
 
   describe('create', () => {
@@ -124,7 +105,7 @@ describe('TxFileStore', () => {
       await txPool.addPendingTxs([tx1]);
       await txFileStore!.flush();
 
-      const countBefore = await countUploadedFiles();
+      const countBefore = countUploadedFiles();
       expect(countBefore).toBe(1);
 
       await txFileStore!.stop();
@@ -278,7 +259,7 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       expect(spy).toHaveBeenCalledTimes(3);
-      expect(await countUploadedFiles()).toBe(1);
+      expect(countUploadedFiles()).toBe(1);
 
       spy.mockRestore();
     }, 10000);
@@ -307,7 +288,7 @@ describe('TxFileStore', () => {
 
       // tx1 failed after 4 attempts (initial + 3 retries), tx2 succeeded
       expect(spy).toHaveBeenCalledTimes(5);
-      expect(await countUploadedFiles()).toBe(1);
+      expect(countUploadedFiles()).toBe(1);
 
       spy.mockRestore();
     }, 10000);
@@ -319,7 +300,7 @@ describe('TxFileStore', () => {
       await fileStore.save(`${basePath}/txs/${tx.txHash.toString()}.bin`, tx.toBuffer(), { compress: false });
 
       mockValidator.validateTx.mockResolvedValueOnce({ result: 'invalid', reason: ['invalid'] });
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      const source = (await FileStoreTxSource.create(storeUrl, basePath, mockValidator, log))!;
       const result = await source.getTxsByHash([tx.txHash]);
 
       expect(result.validTxs).toHaveLength(0);
@@ -330,7 +311,7 @@ describe('TxFileStore', () => {
       const tx = await makeTx();
       await fileStore.save(`${basePath}/txs/${tx.txHash.toString()}.bin`, tx.toBuffer(), { compress: false });
 
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      const source = (await FileStoreTxSource.create(storeUrl, basePath, mockValidator, log))!;
       const result = await source.getTxsByHash([tx.txHash]);
 
       expect(result.validTxs).toHaveLength(1);
@@ -347,7 +328,7 @@ describe('TxFileStore', () => {
         .mockResolvedValueOnce({ result: 'valid' })
         .mockResolvedValueOnce({ result: 'invalid', reason: ['bad'] });
 
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      const source = (await FileStoreTxSource.create(storeUrl, basePath, mockValidator, log))!;
       const result = await source.getTxsByHash([tx1.txHash, tx2.txHash]);
 
       expect(result.validTxs).toHaveLength(1);
@@ -386,7 +367,7 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       // Read back via FileStoreTxSource using the same local file store
-      const txSource = await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log);
+      const txSource = await FileStoreTxSource.create(storeUrl, basePath, mockValidator, log);
       expect(txSource).toBeDefined();
 
       const results = await txSource!.getTxsByHash([tx.getTxHash()]);

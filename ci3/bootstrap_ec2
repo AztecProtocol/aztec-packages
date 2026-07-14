@@ -12,6 +12,7 @@ cmd=${1:?usage: $(basename "$0") '<command-to-run-inside-devbox>'}
 arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 use_ssh=${CI_USE_SSH:-0}
+status_job_id=${JOB_ID:-bootstrap}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
@@ -29,7 +30,7 @@ if [ -n "${CI_DASHBOARD:-}" ]; then
 fi
 
 # Post pending GitHub commit status so the CI log link is visible on the PR.
-post_github_status pending "ci/${JOB_ID}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+post_github_status pending "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
 
 if [ "$arch" == "arm64" ]; then
   cores=64
@@ -400,6 +401,9 @@ start_build() {
     -e BENCH_UPLOAD=${BENCH_UPLOAD:-} \
     -e AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-} \
     -e DRY_RUN=${DRY_RUN:-} \
+    -e PRIVATE_RELEASE=${PRIVATE_RELEASE:-} \
+    -e INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-} \
+    -e SKIP_COMPAT_E2E=${SKIP_COMPAT_E2E:-} \
     --pids-limit=65536 \
     --shm-size=2g \
     --ulimit nofile=1048576:1048576 \
@@ -473,9 +477,9 @@ else
   echo -e "CI Log: ${yellow}$log_url${reset}"
   # Post final GitHub commit status.
   if [ "$exit_code" -eq 0 ]; then
-    post_github_status success "ci/${JOB_ID}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+    post_github_status success "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
   else
-    post_github_status failure "ci/${JOB_ID}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+    post_github_status failure "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
   fi
   exit "$exit_code"
 fi

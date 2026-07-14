@@ -32,13 +32,10 @@ export const NOIR_ARTIFACTS_SRC_PATH = path.join(NOIR_CONTRACTS_ROOT, './target'
 export const STANDARD_ARTIFACTS_DEST_DIR = './artifacts';
 /** Path of the generated TS data file (addresses, class IDs, etc.). */
 export const STANDARD_CONTRACT_DATA_OUTPUT_PATH = './src/standard_contract_data.ts';
-// Both consumers (aztec-nr's `aztec` crate and noir-contracts' `aztec_sublib`) need an identical
-// twin of the generated addresses module. `aztec_sublib` cannot depend on `aztec`, so we stamp the
-// same file into both locations rather than introducing a shared crate.
-export const NOIR_STANDARD_ADDRESSES_PATHS = [
-  '../../noir-projects/aztec-nr/aztec/src/standard_addresses.nr',
-  '../../noir-projects/noir-contracts/contracts/protocol/aztec_sublib/src/standard_addresses.nr',
-];
+// The `aztec` crate in aztec-nr needs a twin of the generated addresses module stamped into its
+// source so circuits can reference standard-contract addresses at compile time (e.g. authwit and
+// public_checks) without re-hashing at runtime.
+export const NOIR_STANDARD_ADDRESSES_PATHS = ['../../noir-projects/aztec-nr/aztec/src/standard_addresses.nr'];
 
 /** The deployment salt baked into every standard contract instance. */
 export const STANDARD_CONTRACT_SALT = new Fr(1);

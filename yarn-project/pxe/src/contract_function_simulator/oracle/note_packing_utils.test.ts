@@ -7,8 +7,8 @@ import { packAsHintedNote } from './note_packing_utils.js';
 
 it('packs hinted note', () => {
   const noteInfo = {
-    contractAddress: AztecAddress.fromField(new Fr(1n)),
-    owner: AztecAddress.fromField(new Fr(5n)),
+    contractAddress: AztecAddress.fromFieldUnsafe(new Fr(1n)),
+    owner: AztecAddress.fromFieldUnsafe(new Fr(5n)),
     randomness: new Fr(42n),
     storageSlot: new Fr(100n),
     noteNonce: new Fr(2n),

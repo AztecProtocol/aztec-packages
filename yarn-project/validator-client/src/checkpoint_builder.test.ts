@@ -1,9 +1,11 @@
 import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
 import {
   BLOBS_PER_CHECKPOINT,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   DA_GAS_PER_FIELD,
   FIELDS_PER_BLOB,
   MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+  TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -58,7 +60,7 @@ describe('CheckpointBuilder', () => {
     slotNumber,
     timestamp: BigInt(Date.now()),
     coinbase: EthAddress.random(),
-    feeRecipient: AztecAddress.fromField(Fr.random()),
+    feeRecipient: AztecAddress.fromFieldUnsafe(Fr.random()),
     gasFees: GasFees.empty(),
   };
 
@@ -118,6 +120,7 @@ describe('CheckpointBuilder', () => {
       minValidTxs?: number;
       maxBlocksPerCheckpoint?: number;
       perBlockAllocationMultiplier?: number;
+      perBlockDAAllocationMultiplier?: number;
     },
   ): BlockBuilderOptions {
     return {
@@ -125,6 +128,7 @@ describe('CheckpointBuilder', () => {
       isBuildingProposal: true,
       maxBlocksPerCheckpoint: overrides?.maxBlocksPerCheckpoint ?? 5,
       perBlockAllocationMultiplier: overrides?.perBlockAllocationMultiplier ?? 1.2,
+      perBlockDAAllocationMultiplier: overrides?.perBlockDAAllocationMultiplier,
       minValidTxs: overrides?.minValidTxs ?? 0,
     };
   }
@@ -742,6 +746,44 @@ describe('CheckpointBuilder', () => {
       // remainingTxs = 90, remainingBlocks = 3, multiplier = 1
       // fairShareTxs = ceil(90 / 3 * 1) = 30
       expect(capped.maxTransactions).toBe(30);
+    });
+  });
+
+  describe('per-block DA allocation multiplier (largest deploy fit under v5 mainnet geometry)', () => {
+    // v5 mainnet: 72s slots / 6s blocks -> 10 blocks per checkpoint.
+    const mainnetBlocks = 10;
+    // Largest tx we want to support: a maximal contract class registration, dominated by its contract class
+    // log (content + contract-address field) plus the fixed tx overhead. Deploy-side nullifiers add a few
+    // more fields, so this is a lower bound on the true largest deploy.
+    const largestDeployBlobFields = CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1 + TX_DA_GAS_OVERHEAD / DA_GAS_PER_FIELD;
+    const largestDeployDaGas = largestDeployBlobFields * DA_GAS_PER_FIELD;
+
+    it('fits the largest contract class deploy in DA gas and blob fields with the 1.5 DA multiplier', () => {
+      setupBuilder();
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        proposerOpts({
+          maxBlocksPerCheckpoint: mainnetBlocks,
+          perBlockAllocationMultiplier: 1.2,
+          perBlockDAAllocationMultiplier: 1.5,
+        }),
+      );
+
+      expect(capped.maxBlockGas!.daGas).toBeGreaterThanOrEqual(largestDeployDaGas);
+      expect(capped.maxBlobFields).toBeGreaterThanOrEqual(largestDeployBlobFields);
+    });
+
+    it('does not fit the largest contract class deploy with only the general 1.2 multiplier', () => {
+      setupBuilder();
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        proposerOpts({ maxBlocksPerCheckpoint: mainnetBlocks, perBlockAllocationMultiplier: 1.2 }),
+      );
+
+      expect(capped.maxBlockGas!.daGas).toBeLessThan(largestDeployDaGas);
+      expect(capped.maxBlobFields!).toBeLessThan(largestDeployBlobFields);
     });
   });
 });

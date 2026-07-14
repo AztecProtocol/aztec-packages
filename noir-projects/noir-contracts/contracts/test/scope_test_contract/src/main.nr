@@ -8,7 +8,7 @@ pub contract ScopeTest {
     use aztec::{
         keys::getters::{get_nhk_app, get_public_keys},
         macros::{functions::{external, initializer, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateImmutable},
     };
@@ -29,7 +29,7 @@ pub contract ScopeTest {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         let note = FieldNote { value };
-        self.storage.note.at(owner).initialize(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.note.at(owner).initialize(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     /// Reads the note owned by the specified owner and returns its value.

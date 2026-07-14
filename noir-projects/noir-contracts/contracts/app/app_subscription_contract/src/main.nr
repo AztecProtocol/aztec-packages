@@ -46,7 +46,7 @@ pub contract AppSubscription {
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
         macros::{functions::{allow_phase_change, external, initializer}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,

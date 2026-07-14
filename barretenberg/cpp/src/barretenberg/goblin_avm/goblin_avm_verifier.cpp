@@ -10,15 +10,16 @@
 namespace bb {
 
 /**
- * @brief Reduce GoblinAvm proof to pairing check and IPA opening claim
+ * @brief Reduce GoblinAvm proof to a pairing check and TripleIPA claim
  * @details Processes ECCVM and Translator sub-proofs sequentially.
  */
-GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_to_pairing_check_and_ipa_opening()
+GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_to_pairing_check_and_triple_ipa_opening()
 {
     // Step 1: Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
-    auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
-    vinfo("Goblin: ECCVM reduced to IPA opening successfully: ", eccvm_result.reduction_succeeded ? "true" : "false");
+    auto eccvm_result = eccvm_verifier.reduce_to_triple_ipa_claim();
+    vinfo("Goblin: ECCVM reduced to TripleIPA claim successfully: ",
+          eccvm_result.reduction_succeeded ? "true" : "false");
 
     // Get translation data from ECCVM verifier
     auto translator_input = eccvm_verifier.get_translator_input_data();
@@ -39,8 +40,7 @@ GoblinAvmRecursiveVerifier::ReductionResult GoblinAvmRecursiveVerifier::reduce_t
 
     ReductionResult result{
         .translator_pairing_points = std::move(translator_result.pairing_points),
-        .ipa_claim = std::move(eccvm_result.ipa_claim),
-        .ipa_proof = proof.ipa_proof,
+        .triple_ipa_opening = { .claim = std::move(eccvm_result.triple_ipa_claim), .proof = proof.ipa_proof },
     };
 
     return result;

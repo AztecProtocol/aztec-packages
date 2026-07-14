@@ -169,28 +169,3 @@ TYPED_TEST(RamTableTests, RamTableReadWriteConsistency)
     bool verified = CircuitChecker::check(builder);
     EXPECT_EQ(verified, true);
 }
-
-/**
- * @brief OOB write soft-fails correctly without crashing.
- */
-TEST(RamTable, OobWriteDoesNotCrashRegression)
-{
-    using Builder = UltraCircuitBuilder;
-    using field_ct = stdlib::field_t<Builder>;
-    using ram_table_ct = stdlib::ram_table<Builder>;
-
-    Builder builder;
-
-    const size_t table_size = 3;
-    std::vector<field_ct> init_values(table_size, field_ct(0));
-    ram_table_ct table(&builder, init_values);
-
-    for (size_t i = 0; i < table_size; ++i) {
-        table.write(i, field_ct(bb::fr(i)));
-    }
-
-    // OOB write — should soft-fail, not crash
-    table.write(field_ct(100000000), field_ct(bb::fr(42)));
-
-    EXPECT_TRUE(builder.failed());
-}

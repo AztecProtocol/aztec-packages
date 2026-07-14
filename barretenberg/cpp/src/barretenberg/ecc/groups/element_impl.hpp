@@ -663,6 +663,30 @@ inline constexpr size_t BOOTH_ENDO_K2_LOW_WINDOW_BITS = 2;
 static_assert(BOOTH_ENDO_K2_LOW_WINDOW_BITS + 1 <= 32);
 inline constexpr size_t BOOTH_ENDO_K2_NUM_WINDOWS = BOOTH_ENDO_NUM_WINDOWS + 1; // 33
 
+// batch_two_round_fold evaluates the four scalar-multiplication terms below on one shared doubling
+// chain, interleaving their Booth digit windows on offset grids (term j on grid offset j) so each
+// position 1..127 carries exactly one window (position 0 shares all four bottom windows) and each
+// step is a single fused double-and-add.
+// See ipa/ELEMENT_IMPL_FOLD.md for the derivation and cost model.
+//
+// Term → (scalar, base, grid offset):
+//   0: K1 of u1·u2 on P0 (offset 0), 1: u1 on P1 (offset 1),
+//   2: K2 of u1·u2 on φ(P0) (offset 2), 3: u2 on P2 (offset 3).
+//
+// The interleaved scan is compiled into a schedule of these ops, one per accumulator step, replayed
+// over every point in the batch (see ELEMENT_IMPL_FOLD.md, "Phase 1 — schedule generation"):
+//   DBL      — Horner doubling for a position whose window is zero: accum ← 2·accum.
+//   SEED     — load a base into a still-empty accumulator: accum ← ±digit·base[term].
+//   COMBINED — fused double-and-add owning this position's doubling: accum ← 2·accum + ±digit·base[term].
+//   ADD      — plain add with no doubling (the extra position-0 windows): accum ← accum + ±digit·base[term].
+enum class FoldOpKind : uint8_t { DBL, SEED, COMBINED, ADD };
+struct FoldOp {
+    FoldOpKind kind;
+    uint8_t term;
+    uint32_t digit;
+    bool safe;
+};
+
 } // namespace detail
 
 template <class Fq, class Fr, class T>
@@ -1346,7 +1370,18 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // {2, 6, ..., 126}. The union of K1/K2 bit positions is {0, 2, 4, ..., 126},
     // so the main loop visits each position once with 2 doublings between
     // adjacent positions — every (2·dbl + add) pair fuses with combined_chunked.
-    const detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
+    //
+    // A scalar already below 2^127 (e.g. an unreduced 127-bit transcript challenge, as in the
+    // IPA SRS fold) takes (k1, k2) = (scalar, 0) directly. An all-zero K2 digit sequence makes the
+    // main loop run the single-sequence schedule (every K2 position is two plain doublings instead
+    // of a doubling plus a fused add — about half the add passes), and the IPA fold's cost model
+    // relies on that. The split would currently produce (scalar, 0) here anyway; bypassing it
+    // makes the guarantee explicit rather than a property of the split's rounding.
+    const bool is_short_scalar =
+        ((converted_scalar.data[2] | converted_scalar.data[3]) == 0) && ((converted_scalar.data[1] >> 63) == 0);
+    const detail::EndoScalars endo_scalars =
+        is_short_scalar ? detail::EndoScalars{ { converted_scalar.data[0], converted_scalar.data[1] }, { 0ULL, 0ULL } }
+                        : Fr::split_into_endomorphism_scalars(converted_scalar);
     const uint64_t* k1 = endo_scalars.first.data();
     const uint64_t* k2 = endo_scalars.second.data();
     BB_ASSERT((k2[1] >> 63) == 0, "GLV K2 split must fit below 2^127 for the offset Booth window schedule");
@@ -1364,7 +1399,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // Precompute, for every chunked-combined/add call below, whether
     // batch_affine_combined_double_add_impl's edge conditions could fire.
     // Both edges (x(2·accum) == x(to_add), and 2·accum + to_add == O) are a function
-    // only of the (k1, k2) Booth digit stream and the (P, φP) basis, so we simulate the
+    // only of the (k1, k2) Booth digit sequence and the (P, φP) basis, so we simulate the
     // accumulator's coefficients in that basis as int64s and set one mask bit per call site.
     //
     // Layout:
@@ -1723,6 +1758,339 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         }
     };
     parallel_for_range(num_points, execute_range);
+
+    return work_elements;
+}
+
+template <class Fq, class Fr, class T>
+std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_two_round_fold(
+    const std::span<const affine_element<Fq, Fr, T>>& points, const Fr& u1, const Fr& u2) noexcept
+{
+    BB_BENCH();
+    using affine_element = affine_element<Fq, Fr, T>;
+
+    // Four terms, one per SRS quarter: (u1·u2)·P0 + u1·P1 + u2·P2 + P3. Three are scalar-multiplied
+    // (P0, P1, P2; term 2 reuses P0's table via φ); P3 is the constant tail added at the end.
+    constexpr size_t NUM_TERMS = 4;
+    constexpr size_t NUM_MULTIPLIED_BASES = 3;
+
+    BB_ASSERT_EQ(points.size() % NUM_TERMS, 0U, "batch_two_round_fold input must split into four equal quarters");
+    const size_t t = points.size() / NUM_TERMS;
+    if (t == 0) {
+        return {};
+    }
+
+    constexpr size_t LOOKUP_SIZE = detail::BOOTH_ENDO_LOOKUP_SIZE;
+    constexpr size_t WINDOW_BITS = detail::BOOTH_ENDO_WINDOW_BITS;
+    constexpr size_t NUM_WINDOWS = detail::BOOTH_ENDO_NUM_WINDOWS;
+    constexpr size_t OFFSET_NUM_WINDOWS = detail::BOOTH_ENDO_K2_NUM_WINDOWS;
+    // Highest bit position of a < 2^127 challenge; the Booth windows tile positions 0..TOP_BIT.
+    constexpr size_t TOP_BIT = (WINDOW_BITS * NUM_WINDOWS) - 1; // 4*32 - 1 = 127
+
+    // Canonical ([0, p)) value of the scalar inputs. from_montgomery_form() alone is only
+    // coarse-reduced ([0, 2p)) and returns value+p on WASM's 29-bit-limb Montgomery backend, which
+    // would feed a non-canonical (full-width-looking) value into the assert and the Booth-digit
+    // extraction below — tripping the assert / building the wrong fold on WASM.
+    const Fr u1_conv = u1.from_montgomery_form_reduced();
+    const Fr u2_conv = u2.from_montgomery_form_reduced();
+    BB_ASSERT(((u1_conv.data[2] | u1_conv.data[3]) == 0) && ((u1_conv.data[1] >> 63) == 0),
+              "batch_two_round_fold challenges must be below 2^127");
+    BB_ASSERT(((u2_conv.data[2] | u2_conv.data[3]) == 0) && ((u2_conv.data[1] >> 63) == 0),
+              "batch_two_round_fold challenges must be below 2^127");
+    const Fr u12_conv = (u1 * u2).from_montgomery_form_reduced();
+    const detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(u12_conv);
+    BB_ASSERT_EQ((endo_scalars.first[1] >> 63), 0U, "GLV K1 split must fit below 2^127 for the Booth grid");
+    BB_ASSERT_EQ((endo_scalars.second[1] >> 63), 0U, "GLV K2 split must fit below 2^127 for the offset Booth grid");
+
+    // Per-term Booth digit arrays. Term 0 (K1 of u1·u2) uses the standard 4-bit grid;
+    // terms 1, 2, 3 use the offset grids with 1-, 2-, 3-bit bottom windows respectively. The
+    // interleaving below places term j at bit positions ≡ j (mod 4), which only tiles every
+    // position exactly once when term 2's bottom window is 2 bits wide.
+    static_assert(detail::BOOTH_ENDO_K2_LOW_WINDOW_BITS == 2,
+                  "the offset-grid interleaving (term j at pos ≡ j mod 4) requires a 2-bit bottom window for term 2");
+    constexpr auto grid0 =
+        detail::make_booth_slice_params<NUM_WINDOWS, WINDOW_BITS, detail::BOOTH_ENDO_NUM_LIMBS_U64>();
+    constexpr auto grid1 =
+        detail::make_offset_booth_slice_params<OFFSET_NUM_WINDOWS, WINDOW_BITS, 1, detail::BOOTH_ENDO_NUM_LIMBS_U64>();
+    constexpr auto grid2 = detail::make_offset_booth_slice_params<OFFSET_NUM_WINDOWS,
+                                                                  WINDOW_BITS,
+                                                                  detail::BOOTH_ENDO_K2_LOW_WINDOW_BITS,
+                                                                  detail::BOOTH_ENDO_NUM_LIMBS_U64>();
+    constexpr auto grid3 =
+        detail::make_offset_booth_slice_params<OFFSET_NUM_WINDOWS, WINDOW_BITS, 3, detail::BOOTH_ENDO_NUM_LIMBS_U64>();
+
+    std::array<uint32_t, NUM_WINDOWS> digits0{};
+    std::array<uint32_t, OFFSET_NUM_WINDOWS> digits1{};
+    std::array<uint32_t, OFFSET_NUM_WINDOWS> digits2{};
+    std::array<uint32_t, OFFSET_NUM_WINDOWS> digits3{};
+    for (size_t w = 0; w < NUM_WINDOWS; ++w) {
+        digits0[w] = detail::booth_packed_digit(endo_scalars.first.data(), grid0[w], WINDOW_BITS);
+    }
+    digits1[0] = detail::booth_packed_digit(u1_conv.data, grid1[0], 1);
+    digits2[0] =
+        detail::booth_packed_digit(endo_scalars.second.data(), grid2[0], detail::BOOTH_ENDO_K2_LOW_WINDOW_BITS);
+    digits3[0] = detail::booth_packed_digit(u2_conv.data, grid3[0], 3);
+    for (size_t w = 1; w < OFFSET_NUM_WINDOWS; ++w) {
+        digits1[w] = detail::booth_packed_digit(u1_conv.data, grid1[w], WINDOW_BITS);
+        digits2[w] = detail::booth_packed_digit(endo_scalars.second.data(), grid2[w], WINDOW_BITS);
+        digits3[w] = detail::booth_packed_digit(u2_conv.data, grid3[w], WINDOW_BITS);
+    }
+    // digit_at(j, m) = d^(j)_m, the packed Booth digit of term j's window m (see ELEMENT_IMPL_FOLD.md);
+    // signed_delta turns it into the signed δ added to base B_j.
+    const auto digit_at = [&](size_t term, size_t window) -> uint32_t {
+        switch (term) {
+        case 0:
+            return digits0[window];
+        case 1:
+            return digits1[window];
+        case 2:
+            return digits2[window];
+        default:
+            return digits3[window];
+        }
+    };
+
+    // Build the FoldOp schedule from the scalars (no points touched). The batch-affine formulas need
+    // generic position, so each op carries a `safe` flag, computed by simulating the accumulator's
+    // integer coordinates. See ipa/ELEMENT_IMPL_FOLD.md (Phase 1, The safe flags).
+    std::vector<detail::FoldOp> ops;
+    ops.reserve(TOP_BIT + NUM_TERMS + 1); // one op per bit position 1..TOP_BIT, plus position 0's windows
+    bool final_initialised = false;
+    {
+        // Horner double-and-add, MSB→LSB, simulated on integers only: the accumulator is the vector
+        // `coeff` (= c in the spec) over the per-term bases (P0, P1, φP0, P2), i.e. accum = Σ_i coeff[i]·base[i].
+        std::array<int64_t, NUM_TERMS> coeff{ 0, 0, 0, 0 };
+        bool initialised = false; // false until the first non-zero digit seeds the accumulator
+
+        // Clamp coeff to ±CAP. CAP is arbitrary — any value well above the ±8 digit window and well
+        // below int64 overflow works; see ipa/ELEMENT_IMPL_FOLD.md ("Clamping the simulation") for the
+        // bounds and the soundness argument.
+        constexpr int64_t CAP = int64_t{ 1 } << 40;
+        const auto clamp_coeff = [&]() {
+            for (auto& c : coeff) {
+                c = std::clamp(c, -CAP, CAP);
+            }
+        };
+        // Signed magnitude actually added to the accumulator. `digit` is a packed signed-Booth digit
+        // (Constantine convention, as produced by booth_packed_digit): bit 31 is the sign and the low
+        // 31 bits are the magnitude. Term 2 is the GLV K2 component on φ(P0); u1·u2 = K1 − K2·λ
+        // decomposes with a minus on K2, so term 2's sign is flipped.
+        const auto signed_delta = [](uint32_t digit, size_t term) -> int64_t {
+            const auto mag = static_cast<int64_t>(digit & 0x7FFFFFFFU);
+            const bool neg = ((digit >> 31) != 0) ^ (term == 2);
+            return neg ? -mag : mag;
+        };
+        // An edge needs accum = ±d·base[j]; the bases are independent, so all other coords must be 0.
+        const auto others_zero = [&](size_t j) {
+            for (size_t i = 0; i < NUM_TERMS; ++i) {
+                if (i != j && coeff[i] != 0) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        // accum == O (the running point is the identity) — batch ops can't operate on it, so re-seed.
+        const auto all_zero = [&]() { return coeff[0] == 0 && coeff[1] == 0 && coeff[2] == 0 && coeff[3] == 0; };
+
+        // Apply one term's digit to `coeff` and record its op. `transition` = this digit owns the
+        // position's doubling (→ COMBINED, 2·accum+base); false only for extra position-0 windows (→ ADD).
+        const auto accumulate_digit = [&](size_t term, uint32_t digit, bool transition) {
+            const int64_t delta = signed_delta(digit, term);
+            const int64_t mag = std::abs(delta);
+            if (!initialised) {
+                // Nothing to double or add onto yet: the first non-zero digit just loads its base.
+                ops.push_back({ detail::FoldOpKind::SEED, static_cast<uint8_t>(term), digit, false });
+                coeff[term] = delta;
+                initialised = true;
+                return;
+            }
+            if (transition) {
+                // COMBINED computes 2·accum + to_add. Batch-affine edge (shared x-coordinate) when
+                // to_add = ±accum, or when 2·accum + to_add = O. See ipa/ELEMENT_IMPL_FOLD.md.
+                const bool safe = others_zero(term) && (std::abs(coeff[term]) == mag || 2 * coeff[term] == -delta);
+                ops.push_back({ detail::FoldOpKind::COMBINED, static_cast<uint8_t>(term), digit, safe });
+                for (auto& c : coeff) {
+                    c *= 2;
+                }
+            } else {
+                // Plain ADD edge: to_add = ±accum.
+                const bool safe = others_zero(term) && std::abs(coeff[term]) == mag;
+                ops.push_back({ detail::FoldOpKind::ADD, static_cast<uint8_t>(term), digit, safe });
+            }
+            coeff[term] += delta;
+            clamp_coeff();
+            if (all_zero()) {
+                // Only a safe op can reach the identity; re-seed at the next non-zero digit.
+                initialised = false;
+            }
+        };
+
+        // Iterate over bit positions 127→1. The offset grids place exactly one term's window at each
+        // position: term = pos mod 4. Terms 1/2/3 keep their lowest window at position 0, so a window
+        // at pos>0 is window (pos-term)/4 + 1; term 0 (no offset) uses pos/4.
+        for (size_t pos = TOP_BIT; pos >= 1; --pos) {
+            const size_t term = pos % NUM_TERMS;
+            const size_t window = (term == 0) ? pos / WINDOW_BITS : (pos - term) / WINDOW_BITS + 1;
+            const uint32_t digit = digit_at(term, window);
+            if ((digit & 0x7FFFFFFFU) == 0) {
+                // Zero digit: just the Horner doubling for this position — skipped while unseeded,
+                // since there is no running point to double yet.
+                if (initialised) {
+                    ops.push_back({ detail::FoldOpKind::DBL, 0, 0, false });
+                    for (auto& c : coeff) {
+                        c *= 2;
+                    }
+                    clamp_coeff();
+                }
+                continue;
+            }
+            accumulate_digit(term, digit, /*transition=*/true);
+        }
+
+        // Position 0 holds all four lowest windows (term 0's window 0 plus the 1/2/3-bit bottoms of
+        // terms 1/2/3). The step-in doubling fuses into the first non-zero one (COMBINED); the rest are ADDs.
+        bool transition_pending = initialised;
+        for (size_t term = 0; term < NUM_TERMS; ++term) {
+            const uint32_t digit = digit_at(term, 0);
+            if ((digit & 0x7FFFFFFFU) == 0) {
+                continue;
+            }
+            accumulate_digit(term, digit, transition_pending);
+            transition_pending = false;
+        }
+        // The step into position 0 must still happen if every window here was zero
+        // (Horner: result = prev·2 + 0), so emit the trailing doubling when nothing consumed it.
+        if (transition_pending) {
+            ops.push_back({ detail::FoldOpKind::DBL, 0, 0, false });
+        }
+        final_initialised = initialised; // false ⟺ all terms cancelled, i.e. the chain's result is O
+    }
+
+    // Execute the schedule over the point batch.
+    std::vector<affine_element> work_elements(t);
+
+    if (!final_initialised) {
+        // All four scalars vanish iff u1 = u2 = 0 (never for real Fiat–Shamir challenges); the
+        // output is then the constant P3 quarter.
+        parallel_for_heuristic(
+            t, [&](size_t i) { work_elements[i] = points[3 * t + i]; }, thread_heuristics::FF_COPY_COST);
+        return work_elements;
+    }
+
+    std::vector<Fq> scratch_space(3 * t);
+    Fq* const scratch_a = &scratch_space[0];
+    Fq* const scratch_b = &scratch_space[t];
+    Fq* const scratch_c = &scratch_space[2 * t];
+
+    // Lookup tables [1·B, ..., 8·B] for the three multiplied bases (term 2 reuses base 0's
+    // table with the on-the-fly β twist, as in batch_mul_with_endomorphism).
+    std::array<std::array<std::vector<affine_element>, LOOKUP_SIZE>, NUM_MULTIPLIED_BASES> lookup_tables;
+    for (auto& base_table : lookup_tables) {
+        for (auto& table : base_table) {
+            table.resize(t);
+        }
+    }
+    std::vector<affine_element> temp_point_vector(t);
+
+    // Produce the folded outputs work_elements[i] = (u1·u2)·P0_i + u1·P1_i + u2·P2_i + P3_i for the
+    // index range [start, end): build the per-base lookup tables over this slice, replay the op
+    // schedule (one batched-affine group op per FoldOp), then add the constant P3 quarter. The same
+    // schedule runs on every range; the split is for parallelism and batched-inversion amortisation.
+    auto fold_point_range = [&](size_t start, size_t end) {
+        const auto add_chunked = [&](const affine_element* lhs, affine_element* rhs) {
+            batch_affine_add_impl<affine_element, Fq>(&lhs[start], &rhs[start], end - start, &scratch_a[start]);
+        };
+        const auto double_chunked = [&](affine_element* pts) {
+            batch_affine_double_impl<affine_element, Fq, T>(&pts[start], end - start, &scratch_a[start]);
+        };
+        const auto combined_chunked = [&](const affine_element* to_add, affine_element* accum) {
+            batch_affine_combined_double_add_impl<affine_element, Fq>(
+                &to_add[start], &accum[start], end - start, &scratch_a[start], &scratch_b[start], &scratch_c[start]);
+        };
+        const auto add_safe_chunked = [&](const affine_element* lhs, affine_element* rhs) {
+            for (size_t i = start; i < end; ++i) {
+                element acc(rhs[i]);
+                acc += lhs[i];
+                rhs[i] = affine_element(acc);
+            }
+        };
+        const auto combined_safe_chunked = [&](const affine_element* to_add, affine_element* accum) {
+            for (size_t i = start; i < end; ++i) {
+                element acc(accum[i]);
+                acc.self_dbl();
+                acc += to_add[i];
+                accum[i] = affine_element(acc);
+            }
+        };
+
+        // Build the lookup tables.
+        for (size_t base = 0; base < NUM_MULTIPLIED_BASES; ++base) {
+            const affine_element* base_points = &points[base * t];
+            auto& table = lookup_tables[base];
+            for (size_t i = start; i < end; ++i) {
+                table[0][i] = base_points[i];
+                table[1][i] = base_points[i];
+                temp_point_vector[i] = base_points[i];
+            }
+            double_chunked(&table[1][0]);
+            for (size_t j = 2; j < LOOKUP_SIZE; ++j) {
+                for (size_t i = start; i < end; ++i) {
+                    table[j][i] = table[j - 1][i];
+                }
+                add_chunked(&temp_point_vector[0], &table[j][0]);
+            }
+        }
+
+        constexpr Fq beta = Fq::cube_root_of_unity();
+        const auto fill_to_add = [&](size_t term, uint32_t digit, affine_element* dst) {
+            const uint32_t magnitude = digit & 0x7FFFFFFFU;
+            const bool flip_y = ((digit >> 31) != 0) ^ (term == 2);
+            // term → multiplied-base index. Term 2 (the GLV K2 component on φ(P0)) shares base 0's
+            // table via the β twist below, so it maps to 0 rather than a base of its own.
+            static constexpr std::array<size_t, NUM_TERMS> term_to_base{ 0, 1, 0, 2 };
+            const auto& table = lookup_tables[term_to_base[term]][magnitude - 1];
+            for (size_t i = start; i < end; ++i) {
+                affine_element pt = table[i];
+                pt.y.self_conditional_negate(flip_y);
+                if (term == 2) {
+                    pt.x *= beta;
+                }
+                dst[i] = pt;
+            }
+        };
+
+        for (const detail::FoldOp& op : ops) {
+            switch (op.kind) {
+            case detail::FoldOpKind::DBL:
+                double_chunked(&work_elements[0]);
+                break;
+            case detail::FoldOpKind::SEED:
+                fill_to_add(op.term, op.digit, &work_elements[0]);
+                break;
+            case detail::FoldOpKind::COMBINED:
+                fill_to_add(op.term, op.digit, &temp_point_vector[0]);
+                if (op.safe) {
+                    combined_safe_chunked(&temp_point_vector[0], &work_elements[0]);
+                } else {
+                    combined_chunked(&temp_point_vector[0], &work_elements[0]);
+                }
+                break;
+            case detail::FoldOpKind::ADD:
+                fill_to_add(op.term, op.digit, &temp_point_vector[0]);
+                if (op.safe) {
+                    add_safe_chunked(&temp_point_vector[0], &work_elements[0]);
+                } else {
+                    add_chunked(&temp_point_vector[0], &work_elements[0]);
+                }
+                break;
+            }
+        }
+
+        // Constant tail: + P3. The chain result carries no P3 component, so a collision would
+        // require a small-coefficient relation between independent SRS points.
+        add_chunked(&points[3 * t], &work_elements[0]);
+    };
+    parallel_for_range(t, fold_point_range);
 
     return work_elements;
 }

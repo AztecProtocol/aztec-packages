@@ -2,7 +2,9 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
@@ -55,7 +57,16 @@ template <typename Flavor> class RelationChecker {
             element = 0;
         }
 
-        for (uint32_t i = start_row; i < polynomials.get_polynomial_size(); i++) {
+        // `IS_OFFSET_ONLY` relations (e.g. `MegaEccOpBoundaryRelation`) are only meant to vanish on
+        // the disabled-rows prefix; Sumcheck multiplies them by a row-disabling polynomial. Bound
+        // the row scan accordingly so we don't report design-time failures past the prefix.
+        uint32_t end_row = static_cast<uint32_t>(polynomials.get_polynomial_size());
+        if constexpr (requires { Relation::IS_OFFSET_ONLY; }) {
+            if constexpr (Relation::IS_OFFSET_ONLY) {
+                end_row = NUM_DISABLED_ROWS_IN_SUMCHECK;
+            }
+        }
+        for (uint32_t i = start_row; i < end_row; i++) {
 
             Relation::accumulate(result, polynomials.get_row(i), params, 1);
             size_t subrelation_idx = 0;
@@ -128,10 +139,6 @@ template <> class RelationChecker<bb::UltraFlavor> : public RelationChecker<void
         if (!ultra_elliptic_subrelation_failures.empty()) {
             all_subrelation_failures["UltraElliptic"] = ultra_elliptic_subrelation_failures;
         }
-        auto ultra_memory_subrelation_failures = Base::check<MemoryRelation<FF>>(polynomials, params, "Memory");
-        if (!ultra_memory_subrelation_failures.empty()) {
-            all_subrelation_failures["UltraMemory"] = ultra_memory_subrelation_failures;
-        }
         auto ultra_non_native_field_subrelation_failures =
             Base::check<NonNativeFieldRelation<FF>>(polynomials, params, "NonNativeField");
         if (!ultra_non_native_field_subrelation_failures.empty()) {
@@ -154,11 +161,19 @@ template <> class RelationChecker<bb::UltraFlavor> : public RelationChecker<void
         if (!ultra_log_derivative_subrelation_failures.empty()) {
             all_subrelation_failures["UltraLogDerivative"] = ultra_log_derivative_subrelation_failures;
         }
+        // Memory's ROM-LogUp sum subrelation is linearly dependent; it must be summed over the trace
+        // rather than checked per-row.
+        auto ultra_memory_subrelation_failures = Base::check<MemoryRelation<FF>, true>(polynomials, params, "Memory");
+        if (!ultra_memory_subrelation_failures.empty()) {
+            all_subrelation_failures["UltraMemory"] = ultra_memory_subrelation_failures;
+        }
         return all_subrelation_failures;
     }
 };
 
-// Specialization for Mega
+// Specialization for Mega: iterate the flavor's own Relations_ tuple. Cannot share with
+// UltraFlavor's check_all because Mega uses the new (split) Poseidon2 relation set while Ultra
+// still uses the legacy Poseidon2External/Internal pair.
 template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
     using Base = RelationChecker<void>;
 
@@ -166,81 +181,53 @@ template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
     static AllSubrelationFailures check_all(const auto& polynomials, const auto& params)
     {
         using FF = MegaFlavor::FF;
-
         AllSubrelationFailures all_subrelation_failures;
+        using Relations = MegaFlavor::Relations_<FF>;
+        bb::constexpr_for<0, std::tuple_size_v<Relations>, 1>([&]<size_t i>() {
+            using Relation = std::tuple_element_t<i, Relations>;
+            const std::string label = "MegaRelation_" + std::to_string(i);
+            if constexpr (requires { Relation::SUBRELATION_LINEARLY_INDEPENDENT; }) {
+                auto failures = Base::check<Relation, /*has_linearly_dependent=*/true>(polynomials, params, label);
+                if (!failures.empty()) {
+                    all_subrelation_failures[label] = failures;
+                }
+            } else {
+                auto failures = Base::check<Relation>(polynomials, params, label);
+                if (!failures.empty()) {
+                    all_subrelation_failures[label] = failures;
+                }
+            }
+        });
+        return all_subrelation_failures;
+    }
+};
 
-        // Linearly independent relations shared with Ultra --- EXCEPT Poseidon2InternalRelation,
-        // which is not present in MegaFlavor (Mega covers all internal rounds via the compressed
-        // quad-internal block).
-        auto arith = Base::check<ArithmeticRelation<FF>>(polynomials, params, "UltraArithmetic");
-        if (!arith.empty()) {
-            all_subrelation_failures["UltraArithmetic"] = arith;
-        }
-        auto perm = Base::check<UltraPermutationRelation<FF>>(polynomials, params, "UltraPermutation");
-        if (!perm.empty()) {
-            all_subrelation_failures["UltraPermutation"] = perm;
-        }
-        auto delta_range = Base::check<DeltaRangeConstraintRelation<FF>>(polynomials, params, "DeltaRangeConstraint");
-        if (!delta_range.empty()) {
-            all_subrelation_failures["UltraDeltaRange"] = delta_range;
-        }
-        auto elliptic = Base::check<EllipticRelation<FF>>(polynomials, params, "Elliptic");
-        if (!elliptic.empty()) {
-            all_subrelation_failures["UltraElliptic"] = elliptic;
-        }
-        auto memory = Base::check<MemoryRelation<FF>>(polynomials, params, "Memory");
-        if (!memory.empty()) {
-            all_subrelation_failures["UltraMemory"] = memory;
-        }
-        auto nnf = Base::check<NonNativeFieldRelation<FF>>(polynomials, params, "NonNativeField");
-        if (!nnf.empty()) {
-            all_subrelation_failures["NonNativeField"] = nnf;
-        }
-        auto p2_ext = Base::check<Poseidon2ExternalRelation<FF>>(polynomials, params, "Poseidon2External");
-        if (!p2_ext.empty()) {
-            all_subrelation_failures["UltraPoseidon2External"] = p2_ext;
-        }
-        auto p2_initial_ext =
-            Base::check<Poseidon2InitialExternalRelation<FF>>(polynomials, params, "Poseidon2InitialExternal");
-        if (!p2_initial_ext.empty()) {
-            all_subrelation_failures["Poseidon2InitialExternal"] = p2_initial_ext;
-        }
+// Specialization for MegaZKFlavor: iterate the flavor's own Relations_ tuple, treating any
+// relation that exposes `SUBRELATION_LINEARLY_INDEPENDENT` as having linearly-dependent subrelations.
+template <> class RelationChecker<MegaZKFlavor> : public RelationChecker<void> {
+    using Base = RelationChecker<void>;
 
-        // Compressed quad-internal relations (Mega-only, replacing Poseidon2InternalRelation).
-        auto p2_quad = Base::check<Poseidon2QuadInternalRelation<FF>>(polynomials, params, "Poseidon2QuadInternal");
-        if (!p2_quad.empty()) {
-            all_subrelation_failures["Poseidon2QuadInternal"] = p2_quad;
-        }
-        auto p2_quad_term = Base::check<Poseidon2QuadInternalTerminalRelation<FF>>(
-            polynomials, params, "Poseidon2QuadInternalTerminal");
-        if (!p2_quad_term.empty()) {
-            all_subrelation_failures["Poseidon2QuadInternalTerminal"] = p2_quad_term;
-        }
-        auto p2_entry =
-            Base::check<Poseidon2TransitionEntryRelation<FF>>(polynomials, params, "Poseidon2TransitionEntry");
-        if (!p2_entry.empty()) {
-            all_subrelation_failures["Poseidon2TransitionEntry"] = p2_entry;
-        }
-
-        // Linearly-dependent log-derivative lookup (shared with Ultra).
-        auto logderiv = Base::check<LogDerivLookupRelation<FF>, true>(polynomials, params, "LogDerivLookup");
-        if (!logderiv.empty()) {
-            all_subrelation_failures["UltraLogDerivative"] = logderiv;
-        }
-
-        // Mega-specific relations.
-        auto mega_ecc_op_queue_subrelation_failures =
-            Base::check<EccOpQueueRelation<FF>>(polynomials, params, "EccOpQueue");
-        if (!mega_ecc_op_queue_subrelation_failures.empty()) {
-            all_subrelation_failures["MegaEccOpQueue"] = mega_ecc_op_queue_subrelation_failures;
-        }
-
-        auto mega_databus_lookup_subrelation_failures =
-            Base::check<DatabusLookupRelation<FF>, true>(polynomials, params, "DatabusLookup");
-        if (!mega_databus_lookup_subrelation_failures.empty()) {
-            all_subrelation_failures["MegaDatabusLookup"] = mega_databus_lookup_subrelation_failures;
-        }
-
+  public:
+    static AllSubrelationFailures check_all(const auto& polynomials, const auto& params)
+    {
+        using FF = MegaZKFlavor::FF;
+        AllSubrelationFailures all_subrelation_failures;
+        using Relations = MegaZKFlavor::Relations_<FF>;
+        bb::constexpr_for<0, std::tuple_size_v<Relations>, 1>([&]<size_t i>() {
+            using Relation = std::tuple_element_t<i, Relations>;
+            const std::string label = "MegaZKRelation_" + std::to_string(i);
+            if constexpr (requires { Relation::SUBRELATION_LINEARLY_INDEPENDENT; }) {
+                auto failures = Base::check<Relation, /*has_linearly_dependent=*/true>(polynomials, params, label);
+                if (!failures.empty()) {
+                    all_subrelation_failures[label] = failures;
+                }
+            } else {
+                auto failures = Base::check<Relation>(polynomials, params, label);
+                if (!failures.empty()) {
+                    all_subrelation_failures[label] = failures;
+                }
+            }
+        });
         return all_subrelation_failures;
     }
 };

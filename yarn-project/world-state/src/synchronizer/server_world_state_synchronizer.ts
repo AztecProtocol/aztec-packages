@@ -1,4 +1,3 @@
-import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -6,15 +5,13 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   type BlockHash,
-  GENESIS_CHECKPOINT_HEADER_HASH,
+  EventDrivenL2BlockStream,
   type L2Block,
-  type L2BlockId,
   type L2BlockSource,
-  L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
-  type L2Tips,
+  type LocalChainTips,
 } from '@aztec/stdlib/block';
 import {
   WorldStateRunningState,
@@ -51,7 +48,7 @@ export class ServerWorldStateSynchronizer
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
 
   private syncPromise = promiseWithResolvers<void>();
-  protected blockStream: L2BlockStream | undefined;
+  protected blockStream: EventDrivenL2BlockStream | undefined;
 
   // WorldState doesn't track the proven block number, it only tracks the latest tips of the pending chain and the finalized chain
   // store the proven block number here, in the synchronizer, so that we don't end up spamming the logs with 'chain-proved' events
@@ -79,6 +76,46 @@ export class ServerWorldStateSynchronizer
 
   public getSnapshot(blockNumber: BlockNumber): MerkleTreeReadOperations {
     return this.merkleTreeDb.getSnapshot(blockNumber);
+  }
+
+  public async getVerifiedSnapshot(blockNumber: BlockNumber, blockHash: BlockHash): Promise<MerkleTreeReadOperations> {
+    const snapshot = this.merkleTreeDb.getSnapshot(blockNumber);
+    // Block 0's snapshot is the pre-genesis archive view (size 0), so archive leaf 0 is not visible from it;
+    // verify against the initial header hash instead. For later blocks, read archive leaf `blockNumber` from the
+    // snapshot's own view so the exact handle we return is validated against the requested fork.
+    const actualHash =
+      blockNumber === BlockNumber.ZERO
+        ? (await this.merkleTreeCommitted.getInitialHeader().hash()).toString()
+        : (await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber)))?.toString();
+
+    if (actualHash === undefined) {
+      // A missing archive leaf means either the block's history has been pruned away (permanent: the block predates
+      // the oldest historical block kept by world state) or a reorg flipped the fork between the sync and this read
+      // (transient). Only the latter is worth retrying, so it alone surfaces as WorldStateSynchronizerError.
+      const { oldestHistoricalBlock } = await this.merkleTreeDb.getStatusSummary();
+      if (blockNumber < oldestHistoricalBlock) {
+        throw new Error(
+          `Unable to find leaf for block ${blockNumber} in the archive tree: world state history has been pruned to block ${oldestHistoricalBlock}`,
+        );
+      }
+      throw new WorldStateSynchronizerError(`Unable to read block hash at block ${blockNumber} to verify snapshot`, {
+        cause: { reason: 'block_not_available', targetBlockNumber: blockNumber },
+      });
+    }
+    if (actualHash !== blockHash.toString()) {
+      throw new WorldStateSynchronizerError(
+        `Block hash mismatch at block ${blockNumber} (expected ${blockHash} but got ${actualHash})`,
+        {
+          cause: {
+            reason: 'block_hash_mismatch',
+            targetBlockNumber: blockNumber,
+            expectedHash: blockHash.toString(),
+            actualHash,
+          },
+        },
+      );
+    }
+    return snapshot;
   }
 
   public fork(blockNumber?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations> {
@@ -123,9 +160,9 @@ export class ServerWorldStateSynchronizer
     return this.syncPromise.promise;
   }
 
-  protected createBlockStream(): L2BlockStream {
+  protected createBlockStream(): EventDrivenL2BlockStream {
     const logger = createLogger('world-state:block_stream');
-    return new L2BlockStream(this.l2BlockSource, this, this, logger, {
+    return new EventDrivenL2BlockStream(this.l2BlockSource, this, this, logger, {
       pollIntervalMS: this.config.worldStateBlockCheckIntervalMS,
       batchSize: this.config.worldStateBlockRequestBatchSize,
       ignoreCheckpoints: true,
@@ -266,8 +303,12 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeCommitted.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number)).then(leaf => leaf?.toString());
   }
 
-  /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
-  public async getL2Tips(): Promise<L2Tips> {
+  /**
+   * Returns the proposed, proven, and finalized block tips of the chain. World state drives its block stream with
+   * `ignoreCheckpoints`, so it does not track checkpointed blocks or checkpoints and omits `checkpointed` from the tips
+   * it reports.
+   */
+  public async getL2Tips(): Promise<LocalChainTips> {
     const status = await this.merkleTreeDb.getStatusSummary();
     const unfinalizedBlockHashPromise = this.getL2BlockHash(status.unfinalizedBlockNumber);
     const finalizedBlockHashPromise = this.getL2BlockHash(status.finalizedBlockNumber);
@@ -281,30 +322,13 @@ export class ServerWorldStateSynchronizer
       finalizedBlockHashPromise,
       provenBlockHashPromise,
     ]);
-    const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
-
-    // World state doesn't track checkpointed blocks or checkpoints themselves.
-    // but we use a block stream so we need to provide 'local' L2Tips.
-    // We configure the block stream to ignore checkpoints and set checkpoint values to genesis here.
-    const genesisCheckpointHeaderHash = GENESIS_CHECKPOINT_HEADER_HASH.toString();
-    const initialBlockHash = (await this.merkleTreeCommitted.getInitialHeader().hash()).toString();
     return {
-      proposed: latestBlockId,
-      checkpointed: {
-        block: { number: BlockNumber.ZERO, hash: initialBlockHash },
-        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
-      },
-      proposedCheckpoint: {
-        block: { number: BlockNumber.ZERO, hash: initialBlockHash },
-        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
-      },
+      proposed: { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash },
       finalized: {
-        block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
-        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
+        block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash },
       },
       proven: {
-        block: { number: provenBlockNumber, hash: provenBlockHash ?? '' },
-        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
+        block: { number: provenBlockNumber, hash: provenBlockHash },
       },
     };
   }
@@ -324,6 +348,15 @@ export class ServerWorldStateSynchronizer
       case 'chain-finalized':
         await this.handleChainFinalized(event.block.number);
         break;
+      // World state runs in block mode with ignoreCheckpoints: it tracks tips via blocks-added/pruned/proven/finalized
+      // and ignores the thin tip events (it never anchors on them).
+      case 'chain-proposed':
+      case 'chain-checkpointed':
+        break;
+      default: {
+        const _: never = event;
+        break;
+      }
     }
   }
 
