@@ -1,10 +1,10 @@
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { TestDateProvider } from '@aztec/foundation/timer';
-import { fileURLToPath } from '@aztec/foundation/url';
 
 import { type ChildProcess, spawn } from 'child_process';
-import { dirname, resolve } from 'path';
+
+import { resolveFoundryBinary } from '../foundry_binary.js';
 
 /** Minimal interface matching the @viem/anvil Anvil shape used by callers. */
 export interface Anvil {
@@ -13,6 +13,30 @@ export interface Anvil {
   readonly status: 'listening' | 'idle';
   stop(): Promise<void>;
 }
+
+// Watchdog wrapper: instead of spawning anvil directly, we spawn a small bash supervisor that runs
+// anvil as a background child and polls its own parent (this node process). If the parent dies for
+// ANY reason — including SIGKILL / crash / OOM, where node's own exit handlers never run — the poll
+// loop ends and the EXIT trap reaps anvil. The script is inlined (rather than shipped as a `.sh`) so
+// it works from the published npm tarball too, and the resolved anvil binary is passed via
+// `$ANVIL_BIN` so it works without `anvil` on PATH.
+//
+// `$@` is the anvil argv; `bash -c <script> bash <...args>` puts the args in `$@` and `$0` = 'bash'.
+//
+// The EXIT trap reaps anvil; INT/TERM just `exit` (which fires the EXIT trap) so a signal terminates
+// the supervisor promptly instead of being swallowed — a trapped TERM does NOT terminate the shell,
+// so trapping the kill directly on TERM would leave the poll loop running and the caller's teardown
+// hanging until its SIGKILL escalation. `sleep & wait` makes the poll interruptible, so INT/TERM are
+// handled immediately rather than after the current `sleep` returns.
+const ANVIL_WATCHDOG = `
+set -u
+parent=$PPID
+"$ANVIL_BIN" "$@" &
+anvil_pid=$!
+trap 'kill "$anvil_pid" 2>/dev/null' EXIT
+trap 'exit 0' INT TERM
+while kill -0 "$parent" 2>/dev/null; do sleep 1 & wait $!; done
+`;
 
 /**
  * Ensures there's a running Anvil instance and returns the RPC URL.
@@ -42,7 +66,7 @@ export async function startAnvil(
     dateProvider?: TestDateProvider;
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
-  const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
+  const anvilBinary = resolveFoundryBinary('anvil');
   const logger = opts.log ? createLogger('ethereum:anvil') : undefined;
   const methodCalls = opts.captureMethodCalls ? ([] as string[]) : undefined;
 
@@ -50,6 +74,9 @@ export async function startAnvil(
 
   const anvil = await retry(
     async () => {
+      // `--port 0` lets anvil bind an OS-assigned ephemeral port; the actual port is read back from
+      // its "Listening on host:port" stdout below, so independent suites can spawn their own anvil
+      // in parallel without fighting over a fixed port.
       const port = opts.port ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : 8545);
       const args: string[] = [
         '--host',
@@ -71,9 +98,11 @@ export async function startAnvil(
       }
       args.push('--slots-in-an-epoch', String(opts.slotsInAnEpoch ?? 1));
 
-      const child = spawn(anvilBinary, args, {
+      // Spawn the watchdog (see ANVIL_WATCHDOG). It launches anvil with these args and reaps it if we
+      // die; `$0` is 'bash' and `$@` is the anvil argv.
+      const child = spawn('bash', ['-c', ANVIL_WATCHDOG, 'bash', ...args], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, RAYON_NUM_THREADS: '1' },
+        env: { ...process.env, ANVIL_BIN: anvilBinary, RAYON_NUM_THREADS: '1' },
       });
 
       // Wait for "Listening on" or an early exit.
@@ -183,7 +212,10 @@ function syncDateProviderFromAnvilOutput(text: string, dateProvider: TestDatePro
   }
 }
 
-/** Send SIGTERM, wait up to 5 s, then SIGKILL. All timers are always cleared. */
+/**
+ * Send SIGTERM to the watchdog, wait up to 5 s, then SIGKILL. The watchdog's trap forwards the
+ * signal to anvil, so terminating it tears down anvil too. All timers are always cleared.
+ */
 function killChild(child: ChildProcess): Promise<void> {
   return new Promise<void>(resolve => {
     if (child.exitCode !== null || child.killed) {
