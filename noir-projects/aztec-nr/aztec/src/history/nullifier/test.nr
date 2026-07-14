@@ -1,5 +1,5 @@
 use crate::history::{
-    note::{assert_note_existed_by, assert_note_was_not_nullified_by, assert_note_was_nullified_by},
+    note::{assert_local_note_was_not_nullified_by, assert_local_note_was_nullified_by, assert_note_existed_by},
     nullifier::{assert_nullifier_did_not_exist_by, assert_nullifier_existed_by},
     test,
 };
@@ -14,7 +14,7 @@ unconstrained fn note_is_nullified_succeeds_on_blocks_after_note_nullification()
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT), |context| {
         let header = context.anchor_block_header;
         let confirmed_note = assert_note_existed_by(header, hinted_note);
-        assert_note_was_nullified_by(header, confirmed_note, context);
+        assert_local_note_was_nullified_by(header, confirmed_note, context);
     });
 }
 
@@ -27,7 +27,7 @@ unconstrained fn note_is_nullified_fails_on_blocks_before_note_nullification() {
         |context| {
             let header = context.anchor_block_header;
             let confirmed_note = assert_note_existed_by(header, hinted_note);
-            assert_note_was_nullified_by(header, confirmed_note, context);
+            assert_local_note_was_nullified_by(header, confirmed_note, context);
         },
     );
 }
@@ -74,7 +74,7 @@ unconstrained fn note_not_nullified_succeeds_in_blocks_before_note_nullification
         |context| {
             let header = context.anchor_block_header;
             let confirmed_note = assert_note_existed_by(header, hinted_note);
-            assert_note_was_not_nullified_by(header, confirmed_note, context);
+            assert_local_note_was_not_nullified_by(header, confirmed_note, context);
         },
     );
 }
@@ -86,7 +86,7 @@ unconstrained fn note_not_nullified_fails_in_blocks_after_note_nullification_fai
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT), |context| {
         let header = context.anchor_block_header;
         let confirmed_note = assert_note_existed_by(header, hinted_note);
-        assert_note_was_not_nullified_by(header, confirmed_note, context);
+        assert_local_note_was_not_nullified_by(header, confirmed_note, context);
     });
 }
 
