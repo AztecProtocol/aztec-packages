@@ -145,30 +145,18 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Elliptic relation at row idx = ", idx);
         }
+        result = result && check_relation<NonNativeField>(values, params);
+        if (!result) {
+            return report_fail("Failed NonNativeField relation at row idx = ", idx);
+        }
 #ifndef ULTRA_FUZZ
         result = result && check_relation<Memory>(values, params);
         if (!result) {
             return report_fail("Failed Memory relation at row idx = ", idx);
         }
-        result = result && check_relation<NonNativeField>(values, params);
-        if (!result) {
-            return report_fail("Failed NonNativeField relation at row idx = ", idx);
-        }
         result = result && check_relation<DeltaRangeConstraint>(values, params);
         if (!result) {
             return report_fail("Failed DeltaRangeConstraint relation at row idx = ", idx);
-        }
-#else
-        // Bigfield related nnf gates
-        if (values.q_nnf == 1) {
-            bool f0 = values.q_o == 1 && (values.q_4 == 1 || values.q_m == 1);
-            bool f1 = values.q_r == 1 && (values.q_o == 1 || values.q_4 == 1 || values.q_m == 1);
-            if (f0 && f1) {
-                result = result && check_relation<NonNativeField>(values, params);
-                if (!result) {
-                    return report_fail("Failed NonNativeField relation at row idx = ", idx);
-                }
-            }
         }
 #endif
         result = result && check_lookup(values, lookup_hash_table);
@@ -223,6 +211,14 @@ bool UltraCircuitChecker::check_block(Builder& builder,
 
 template <typename Relation> bool UltraCircuitChecker::check_relation(auto& values, auto& params)
 {
+#ifdef FUZZING
+    // Check if the relation is skippable and should be skipped (only in fuzzing builds)
+    if constexpr (isSkippable<Relation, decltype(values)>) {
+        if (Relation::skip(values)) {
+            return true;
+        }
+    }
+#endif
     // Define zero initialized array to store the evaluation of each sub-relation
     using SubrelationEvaluations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
     SubrelationEvaluations subrelation_evaluations;
