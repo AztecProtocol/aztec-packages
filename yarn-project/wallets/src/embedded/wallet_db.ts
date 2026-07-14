@@ -3,6 +3,7 @@ import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InteractiveHandshakeBackupEntry } from '@aztec/wallet-sdk/delivery';
 
 export const AccountTypes = ['schnorr', 'schnorr_initializerless', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
 export type AccountType = (typeof AccountTypes)[number];
@@ -17,6 +18,7 @@ export const WALLET_DATA_SCHEMA_VERSION = 1;
 export class WalletDB {
   private accounts: AztecAsyncMap<string, Buffer>;
   private aliases: AztecAsyncMap<string, Buffer>;
+  private handshakeBackups: AztecAsyncMap<string, Buffer>;
 
   constructor(
     private store: AztecAsyncKVStore,
@@ -24,6 +26,7 @@ export class WalletDB {
   ) {
     this.accounts = store.openMap<string, Buffer>('accounts');
     this.aliases = store.openMap<string, Buffer>('aliases');
+    this.handshakeBackups = store.openMap<string, Buffer>('handshakeBackups');
   }
 
   async storeAccount(
@@ -59,6 +62,31 @@ export class WalletDB {
   async storeSender(address: AztecAddress, alias: string, log: LogFn = this.userLog) {
     await this.aliases.set(`senders:${alias}`, Buffer.from(address.toString()));
     log(`Sender stored in database with alias ${alias}`);
+  }
+
+  /**
+   * Durably persists an interactive handshake's recoverable identity, the one piece of wallet state that cannot be
+   * rebuilt from the chain plus account keys. Idempotent for the same entry.
+   */
+  async storeHandshakeBackup({ recipient, ephPkX }: InteractiveHandshakeBackupEntry) {
+    // Self-contained fixed-width value (32-byte recipient + 32-byte ephPkX), so listing does not depend on the
+    // key format.
+    await this.handshakeBackups.set(
+      `${recipient.toString()}:${ephPkX.toString()}`,
+      Buffer.concat([recipient.toBuffer(), ephPkX.toBuffer()]),
+    );
+  }
+
+  /** Retrieves every persisted interactive-handshake backup entry. */
+  async listHandshakeBackups(): Promise<InteractiveHandshakeBackupEntry[]> {
+    const entries: InteractiveHandshakeBackupEntry[] = [];
+    for await (const value of this.handshakeBackups.valuesAsync()) {
+      entries.push({
+        recipient: AztecAddress.fromBuffer(value.subarray(0, 32)),
+        ephPkX: Fr.fromBuffer(value.subarray(32)),
+      });
+    }
+    return entries;
   }
 
   async retrieveAccount(address: AztecAddress | string) {
@@ -131,6 +159,11 @@ export class WalletDB {
     const alias = aliasesByAddress.get(address.toString());
     if (alias) {
       await this.aliases.delete(`accounts:${alias}`);
+    }
+    // A deleted account's handshake channels are unrecoverable by design; drop their backup rows.
+    const prefix = `${address.toString()}:`;
+    for await (const key of this.handshakeBackups.keysAsync({ start: prefix, end: `${prefix}\uffff` })) {
+      await this.handshakeBackups.delete(key);
     }
   }
 

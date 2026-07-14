@@ -1,12 +1,20 @@
 import { NO_FROM } from '@aztec/aztec.js/account';
 import type { Aliased } from '@aztec/aztec.js/wallet';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { PXE } from '@aztec/pxe/server';
+import {
+  INTERACTIVE_HANDSHAKE_REQUEST_KIND,
+  STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+  STANDARD_HANDSHAKE_REGISTRY_CLASS_ID,
+} from '@aztec/standard-contracts/handshake-registry/constants';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { deriveMasterMessageSigningSecretKey, derivePublicKeyFromSecretKey } from '@aztec/stdlib/keys';
 import {
   ExecutionPayload,
   PrivateCallExecutionResult,
@@ -18,7 +26,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
 import { EmbeddedWallet } from './embedded_wallet.js';
-import type { WalletDB } from './wallet_db.js';
+import { WalletDB } from './wallet_db.js';
 
 describe('EmbeddedWallet', () => {
   let pxe: PXE;
@@ -103,11 +111,106 @@ describe('EmbeddedWallet', () => {
       ).rejects.toThrow('Declared DA gas limit (5000) exceeds the maximum this network allows per tx (1000)');
     });
   });
+
+  describe('interactive handshakes', () => {
+    let walletDB: WalletDB;
+    let completeAddress: CompleteAddress;
+    let registerTaggingSecretSource: jest.MockedFunction<PXE['registerTaggingSecretSource']>;
+
+    let accountSecretKey: Fr;
+
+    beforeEach(async () => {
+      walletDB = new WalletDB(await openTmpStore('embedded-wallet-test'), () => {});
+      completeAddress = await CompleteAddress.random();
+      accountSecretKey = Fr.random();
+      await walletDB.storeAccount(completeAddress.address, {
+        type: 'schnorr',
+        secretKey: accountSecretKey,
+        salt: Fr.random(),
+        signingKey: Fq.random(),
+        alias: 'alice',
+      });
+
+      registerTaggingSecretSource = jest.fn<PXE['registerTaggingSecretSource']>().mockResolvedValue(undefined);
+      pxe = {
+        registerTaggingSecretSource,
+        getRegisteredAccounts: jest.fn<PXE['getRegisteredAccounts']>().mockResolvedValue([completeAddress]),
+      } as unknown as PXE;
+      wallet = new TestWallet(pxe, node, walletDB, {} as AccountContractsProvider);
+    });
+
+    it('registers the handshake with PXE, persists the backup, and signs for the requested account', async () => {
+      const ephPkX = Fr.random();
+      const recipientSignature = await wallet.respondToInteractiveHandshake({
+        contractAddress: STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+        contractClassId: STANDARD_HANDSHAKE_REGISTRY_CLASS_ID,
+        kind: INTERACTIVE_HANDSHAKE_REQUEST_KIND,
+        payload: [completeAddress.address.toField(), new Fr(1), new Fr(1), ephPkX],
+      });
+
+      expect(recipientSignature.publicKeys).toEqual(completeAddress.publicKeys);
+      expect(recipientSignature.partialAddress).toEqual(completeAddress.partialAddress);
+      expect(registerTaggingSecretSource).toHaveBeenCalledWith({
+        kind: 'handshake',
+        recipient: completeAddress.address,
+        ephPk: ephPkX,
+      });
+      expect(await walletDB.listHandshakeBackups()).toEqual([{ recipient: completeAddress.address, ephPkX }]);
+
+      // The signing key must be the master message-signing key derived from the persisted account secret.
+      const mspk = await derivePublicKeyFromSecretKey(deriveMasterMessageSigningSecretKey(accountSecretKey));
+      const [mspkX, mspkYIsPositive] = mspk.toXAndSign();
+      expect(recipientSignature.mspkX).toEqual(mspkX);
+      expect(recipientSignature.mspkYIsPositive).toEqual(mspkYIsPositive);
+    });
+
+    it('rejects a request for an account not registered on the PXE, with no side effects', async () => {
+      const stranger = await CompleteAddress.random();
+
+      await expect(
+        wallet.respondToInteractiveHandshake({
+          contractAddress: STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+          contractClassId: STANDARD_HANDSHAKE_REGISTRY_CLASS_ID,
+          kind: INTERACTIVE_HANDSHAKE_REQUEST_KIND,
+          payload: [stranger.address.toField(), new Fr(1), new Fr(1), Fr.random()],
+        }),
+      ).rejects.toThrow('account not held by this wallet');
+      expect(registerTaggingSecretSource).not.toHaveBeenCalled();
+      expect(await walletDB.listHandshakeBackups()).toEqual([]);
+    });
+
+    it("re-derives an account's handshakes from backup, mapping each stored ephPkX to the source ephPk", async () => {
+      // The recipient authorized two handshakes; a PXE reinstall keeps the durable wallet DB but loses the sources.
+      const firstEphPkX = Fr.random();
+      const secondEphPkX = Fr.random();
+      await walletDB.storeHandshakeBackup({ recipient: completeAddress.address, ephPkX: firstEphPkX });
+      await walletDB.storeHandshakeBackup({ recipient: completeAddress.address, ephPkX: secondEphPkX });
+      // A different account's handshake must not be dragged in: PXE could not derive its secret here anyway.
+      await walletDB.storeHandshakeBackup({ recipient: (await CompleteAddress.random()).address, ephPkX: Fr.random() });
+
+      await wallet.restoreInteractiveHandshakesForAccount(completeAddress.address);
+
+      // Both of this account's handshakes are re-registered (order is not significant) and the other account's is
+      // not, each stored ephPkX mapped back to the source ephPk.
+      expect(registerTaggingSecretSource).toHaveBeenCalledTimes(2);
+      expect(registerTaggingSecretSource.mock.calls).toContainEqual([
+        { kind: 'handshake', recipient: completeAddress.address, ephPk: firstEphPkX },
+      ]);
+      expect(registerTaggingSecretSource.mock.calls).toContainEqual([
+        { kind: 'handshake', recipient: completeAddress.address, ephPk: secondEphPkX },
+      ]);
+    });
+  });
 });
 
 class TestWallet extends EmbeddedWallet {
   override getAccounts(): Promise<Aliased<AztecAddress>[]> {
     return Promise.resolve([]);
+  }
+
+  // Exposes the protected per-account handshake restore, which production drives from account registration.
+  override restoreInteractiveHandshakesForAccount(recipient: AztecAddress): Promise<void> {
+    return super.restoreInteractiveHandshakesForAccount(recipient);
   }
 }
 

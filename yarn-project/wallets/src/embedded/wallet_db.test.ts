@@ -195,4 +195,49 @@ describe('WalletDB', () => {
       },
     );
   });
+
+  describe('storeHandshakeBackup / listHandshakeBackups', () => {
+    it('returns empty list initially', async () => {
+      expect(await db.listHandshakeBackups()).toEqual([]);
+    });
+
+    it('round-trips entries across recipients', async () => {
+      const recipient1 = await AztecAddress.random();
+      const recipient2 = await AztecAddress.random();
+      const entry1 = { recipient: recipient1, ephPkX: Fr.random() };
+      const entry2 = { recipient: recipient1, ephPkX: Fr.random() };
+      const entry3 = { recipient: recipient2, ephPkX: Fr.random() };
+      await db.storeHandshakeBackup(entry1);
+      await db.storeHandshakeBackup(entry2);
+      await db.storeHandshakeBackup(entry3);
+
+      const entries = await db.listHandshakeBackups();
+      expect(entries).toHaveLength(3);
+      expect(entries).toContainEqual(entry1);
+      expect(entries).toContainEqual(entry2);
+      expect(entries).toContainEqual(entry3);
+    });
+
+    it('re-storing the same entry is idempotent', async () => {
+      const entry = { recipient: await AztecAddress.random(), ephPkX: Fr.random() };
+      await db.storeHandshakeBackup(entry);
+      await db.storeHandshakeBackup(entry);
+
+      expect(await db.listHandshakeBackups()).toEqual([entry]);
+    });
+
+    it("deleteAccount removes only that account's backup entries", async () => {
+      const deleted = await AztecAddress.random();
+      const kept = await AztecAddress.random();
+      await db.storeAccount(deleted, makeAccountData('schnorr', 'alice'));
+      const keptEntry = { recipient: kept, ephPkX: Fr.random() };
+      await db.storeHandshakeBackup({ recipient: deleted, ephPkX: Fr.random() });
+      await db.storeHandshakeBackup({ recipient: deleted, ephPkX: Fr.random() });
+      await db.storeHandshakeBackup(keptEntry);
+
+      await db.deleteAccount(deleted);
+
+      expect(await db.listHandshakeBackups()).toEqual([keptEntry]);
+    });
+  });
 });

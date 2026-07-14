@@ -31,6 +31,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import {
   type ContractOverrides,
   ExecutionPayload,
@@ -43,11 +44,20 @@ import {
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions, getGasLimits } from '@aztec/wallet-sdk/base-wallet';
+import {
+  type InteractiveHandshakeCustomRequest,
+  type RecipientSignature,
+  createInteractiveHandshakeResponder,
+  restoreInteractiveHandshakes,
+} from '@aztec/wallet-sdk/delivery';
 
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
 import { type AccountType, WalletDB } from './wallet_db.js';
 
-/** Options for the PXE instance created by the EmbeddedWallet. */
+/**
+ * Options for the PXE instance created by the EmbeddedWallet. Sender-side delivery hooks (e.g. an interactive
+ * handshake resolver from `@aztec/wallet-sdk/delivery`) ride `hooks.resolveCustomRequest`.
+ */
 export type EmbeddedWalletPXEOptions = Partial<PXEConfig> & PXECreationOptions;
 
 /** Splits a unified EmbeddedWalletPXEOptions into PXEConfig overrides and PXECreationOptions. */
@@ -144,6 +154,35 @@ export class EmbeddedWallet extends BaseWallet {
       }
     }
     return storedSenders;
+  }
+
+  /**
+   * Authorizes an interactive handshake for one of this wallet's accounts, wiring PXE, key derivation, and the
+   * wallet DB backup into {@link createInteractiveHandshakeResponder}, which enforces the validate, register,
+   * back up, then sign order. Callers are expected to gate this on user consent; the returned signature travels
+   * back to the sender over whatever channel carried the request.
+   */
+  respondToInteractiveHandshake(request: InteractiveHandshakeCustomRequest): Promise<RecipientSignature> {
+    const responder = createInteractiveHandshakeResponder({
+      pxe: this.pxe,
+      // The master message-signing secret key deliberately never touches PXE or the key store; it is derived
+      // on demand from the account secret persisted in the wallet DB.
+      getSigningKey: async recipient =>
+        deriveMasterMessageSigningSecretKey((await this.walletDB.retrieveAccount(recipient)).secretKey),
+      backup: entry => this.walletDB.storeHandshakeBackup(entry),
+    });
+    return responder(request);
+  }
+
+  /**
+   * Re-registers an account's interactive handshakes from durable backup into PXE. Interactive handshakes are the one
+   * piece of account metadata PXE cannot rebuild from the chain, so they are restored as the account itself is
+   * registered into PXE (see {@link createAccountInternal}), when the account's keys are present for PXE to derive
+   * each handshake's scanning secret. Idempotent, and a no-op for an account with no backed-up handshakes.
+   */
+  protected async restoreInteractiveHandshakesForAccount(recipient: AztecAddress): Promise<void> {
+    const entries = (await this.walletDB.listHandshakeBackups()).filter(entry => entry.recipient.equals(recipient));
+    await restoreInteractiveHandshakes(this.pxe, entries);
   }
 
   /**
@@ -420,6 +459,9 @@ export class EmbeddedWallet extends BaseWallet {
         !existingArtifact ? await accountManager.getAccountContract().getContractArtifact() : undefined,
         accountManager.getSecretKey(),
       );
+      // The account's keys are now in PXE, so its interactive handshakes (account metadata PXE cannot rebuild from
+      // the chain) can be re-registered from backup for scanning to rediscover their messages.
+      await this.restoreInteractiveHandshakesForAccount(instance.address);
       if (type === 'schnorr_initializerless') {
         const constructor = artifact.functions.find(f => f.name === 'constructor');
         if (!constructor) {
