@@ -6,18 +6,14 @@ import { TEST_FEE_PADDING, setupLocalNetwork } from './local-network.js';
 
 describe('setupLocalNetwork', () => {
   it('serves a live node on a random L1 port and tears down cleanly', async () => {
-    const net = await setupLocalNetwork();
-    try {
-      const info = await net.node.getNodeInfo();
-      expect(info.l1ContractAddresses.rollupAddress).toBeDefined();
-      expect(await net.node.getBlockNumber()).toBeGreaterThanOrEqual(0);
-      expect(net.l1ChainId).toBe(31337);
-      // OS-assigned ephemeral port, never the fixed default 8545.
-      expect(net.l1RpcUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
-      expect(net.l1RpcUrl).not.toContain(':8545');
-    } finally {
-      await net.stop();
-    }
+    await using net = await setupLocalNetwork();
+    const info = await net.node.getNodeInfo();
+    expect(info.l1ContractAddresses.rollupAddress).toBeDefined();
+    expect(await net.node.getBlockNumber()).toBeGreaterThanOrEqual(0);
+    expect(net.l1ChainId).toBe(31337);
+    // OS-assigned ephemeral port, never the fixed default 8545.
+    expect(net.l1RpcUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+    expect(net.l1RpcUrl).not.toContain(':8545');
   }, 300_000);
 
   it('runs two networks in parallel on distinct ports', async () => {
@@ -46,6 +42,7 @@ describe('setupLocalNetwork', () => {
         from: alice.address,
       });
       expect(contract.address).toBeDefined();
+      expect(await net.node.getBlockNumber()).toBeGreaterThan(0);
 
       await wallet.stop();
     } finally {

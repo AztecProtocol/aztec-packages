@@ -1,7 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecNodeConfig } from '@aztec/aztec-node/config';
 import type { Fr } from '@aztec/aztec.js/fields';
-import { ensureAztecBinsInPath, startAnvil } from '@aztec/ethereum/test';
+import { startAnvil } from '@aztec/ethereum/test';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { foundry } from 'viem/chains';
@@ -9,14 +9,14 @@ import { foundry } from 'viem/chains';
 import { createLocalNetwork } from '../local-network/local-network.js';
 
 /** A running in-process local network: an inline Aztec node backed by its own anvil L1. */
-export interface LocalNetwork {
+export interface LocalNetwork extends AsyncDisposable {
   /** Fully-synced Aztec node, ready to serve client requests. */
   node: AztecNodeService;
   /** RPC URL of the spawned anvil instance. */
   l1RpcUrl: string;
   /** Chain id used on L1 (foundry's default 31337). */
   l1ChainId: number;
-  /** Stops every process started by the fixture: node and anvil. */
+  /** Stops every process started by the fixture: node and anvil. Also invoked by `await using`. */
   stop: () => Promise<void>;
 }
 
@@ -31,8 +31,6 @@ export interface LocalNetworkOptions {
   initialAccountFeeJuice?: Fr;
   /** Node config overrides, e.g. `realProofs`, `aztecEpochDuration`, `p2pEnabled`. */
   config?: Partial<AztecNodeConfig>;
-  /** anvil block time in seconds. Omit for automine (the default). */
-  l1BlockTime?: number;
 }
 
 /**
@@ -41,19 +39,16 @@ export interface LocalNetworkOptions {
  * Each call spawns its own anvil on an OS-assigned random port and runs the Aztec node inline via
  * the same {@link createLocalNetwork} codepath that backs `aztec start --local-network` (with the
  * sandbox account/FPC/token setup skipped). Distinct ports let independent suites run in parallel.
- * The caller must `await result.stop()` in its teardown.
+ * The caller must `await result.stop()` in its teardown (or hold the result with `await using`).
  *
- * Requires an `aztec-up`-installed Foundry toolchain (`anvil`/`forge`/`solc`) reachable on `PATH`;
- * {@link ensureAztecBinsInPath} splices the standard aztec-up bin directories in automatically.
+ * Requires a Foundry toolchain (`anvil`/`forge`), installed via `aztec-up` or `foundryup`. Binaries
+ * are located in the standard install directories or on `PATH`; set `$ANVIL_BIN` / `$FORGE_BIN` to
+ * pin specific ones.
  */
 export async function setupLocalNetwork(opts: LocalNetworkOptions = {}): Promise<LocalNetwork> {
-  // `deployAztecL1Contracts` shells out to bare `forge`/`solc`; make the aztec-up bins reachable
-  // before anything spawns them. Idempotent, and also called inside `startAnvil`.
-  ensureAztecBinsInPath();
-
   // `--port 0` → anvil binds an ephemeral port that `startAnvil` reads back, so parallel suites
   // never collide on a fixed port.
-  const { rpcUrl, stop: stopAnvil } = await startAnvil({ port: 0, l1BlockTime: opts.l1BlockTime });
+  const { rpcUrl, stop: stopAnvil } = await startAnvil({ port: 0 });
 
   try {
     const { node, stop: stopNode } = await createLocalNetwork(
@@ -67,14 +62,22 @@ export async function setupLocalNetwork(opts: LocalNetworkOptions = {}): Promise
       () => {},
     );
 
+    // Stop the node before anvil (its teardown still talks to L1); the finally guarantees anvil is
+    // reaped even if node shutdown throws.
+    const stop = async () => {
+      try {
+        await stopNode();
+      } finally {
+        await stopAnvil();
+      }
+    };
+
     return {
       node,
       l1RpcUrl: rpcUrl,
       l1ChainId: foundry.id,
-      stop: async () => {
-        await stopNode();
-        await stopAnvil();
-      },
+      stop,
+      [Symbol.asyncDispose]: stop,
     };
   } catch (err) {
     await stopAnvil();
@@ -83,10 +86,11 @@ export async function setupLocalNetwork(opts: LocalNetworkOptions = {}): Promise
 }
 
 /**
- * Min-fee padding multiplier for test wallets sending txs against {@link setupLocalNetwork}. The
- * automine sequencer builds one block per tx and advances L1 time in big jumps, so the network's
- * congestion base fee can swing sharply between the wallet's fee estimate and the block the tx
- * actually lands in. The default wallet padding isn't enough and trips
+ * Min-fee padding multiplier for test wallets whose txs may mine well after their fee estimate.
+ * The automine sequencer builds one block per tx and advances L1 time in big jumps, and proposer
+ * pipelining evolves the fee-asset price across the build/publish gap (~20x observed in CI), so the
+ * network's congestion base fee can swing sharply between the wallet's fee estimate and the block
+ * the tx actually lands in. The default wallet padding isn't enough and trips
  * `maxFeesPerGas.feePerL2Gas must be >= gasFees.feePerL2Gas`. Apply via
  * `wallet.setMinFeePadding(TEST_FEE_PADDING)` on every test wallet that sends txs.
  */

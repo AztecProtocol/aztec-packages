@@ -2,10 +2,9 @@ import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 
-import { type ChildProcess, spawn, spawnSync } from 'child_process';
-import { existsSync } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
+import { type ChildProcess, spawn } from 'child_process';
+
+import { resolveFoundryBinary } from '../foundry_binary.js';
 
 /** Minimal interface matching the @viem/anvil Anvil shape used by callers. */
 export interface Anvil {
@@ -40,73 +39,6 @@ while kill -0 "$parent" 2>/dev/null; do sleep 1 & wait $!; done
 `;
 
 /**
- * Splice the directories where `aztec-up` installs foundry/nargo binaries into `process.env.PATH`.
- * Idempotent.
- *
- * Necessary because `deployAztecL1Contracts` shells out to bare `forge`/`solc`, and those inherit
- * PATH from us. Since the aztec-up change that stopped polluting the user's interactive PATH,
- * `forge`/`cast`/`anvil`/`nargo` are only reachable via `~/.aztec/current/internal-bin/`.
- */
-export function ensureAztecBinsInPath(): void {
-  const dirs = [join(homedir(), '.aztec', 'current', 'internal-bin'), join(homedir(), '.foundry', 'bin')].filter(d =>
-    existsSync(d),
-  );
-
-  if (dirs.length === 0) {
-    return;
-  }
-
-  const sep = process.platform === 'win32' ? ';' : ':';
-  const current = process.env.PATH ?? '';
-  const parts = current.split(sep);
-  const missing = dirs.filter(d => !parts.includes(d));
-  if (missing.length === 0) {
-    return;
-  }
-
-  process.env.PATH = [...missing, ...parts].filter(Boolean).join(sep);
-}
-
-/**
- * Locate the `anvil` binary. Order:
- *   1. `$ANVIL_BIN` (explicit override, e.g. for CI with a pinned version).
- *   2. `~/.aztec/current/internal-bin/anvil` — where aztec-up installs it.
- *   3. `~/.aztec/current/bin/aztec-anvil` — the publicly-exposed symlink.
- *   4. `~/.foundry/bin/anvil` — standalone foundryup install.
- *   5. `which anvil` — anything else on PATH.
- *
- * Throws with a directive message if none work.
- */
-export function resolveAnvilBinary(): string {
-  const envBin = process.env.ANVIL_BIN;
-  if (envBin && existsSync(envBin)) {
-    return envBin;
-  }
-
-  const candidates = [
-    join(homedir(), '.aztec', 'current', 'internal-bin', 'anvil'),
-    join(homedir(), '.aztec', 'current', 'bin', 'aztec-anvil'),
-    join(homedir(), '.foundry', 'bin', 'anvil'),
-  ];
-  for (const path of candidates) {
-    if (existsSync(path)) {
-      return path;
-    }
-  }
-
-  const which = spawnSync('sh', ['-c', 'command -v anvil'], { encoding: 'utf8' });
-  if (which.status === 0 && which.stdout.trim()) {
-    return which.stdout.trim();
-  }
-
-  throw new Error(
-    'anvil binary not found. Tried $ANVIL_BIN, ~/.aztec/current/internal-bin/anvil, ' +
-      '~/.aztec/current/bin/aztec-anvil, ~/.foundry/bin/anvil, and $PATH. ' +
-      'Install via `aztec-up` or set ANVIL_BIN to a working binary.',
-  );
-}
-
-/**
  * Ensures there's a running Anvil instance and returns the RPC URL.
  */
 export async function startAnvil(
@@ -134,8 +66,7 @@ export async function startAnvil(
     dateProvider?: TestDateProvider;
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
-  ensureAztecBinsInPath();
-  const anvilBinary = resolveAnvilBinary();
+  const anvilBinary = resolveFoundryBinary('anvil');
   const logger = opts.log ? createLogger('ethereum:anvil') : undefined;
   const methodCalls = opts.captureMethodCalls ? ([] as string[]) : undefined;
 

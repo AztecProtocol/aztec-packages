@@ -89,7 +89,7 @@ export type LocalNetworkConfig = AztecNodeConfig & {
   /** Whether to deploy test accounts on local network start.*/
   testAccounts: boolean;
   /** Override the default per-address fee juice granted at genesis to funded addresses. */
-  initialAccountFeeJuice: Fr;
+  initialAccountFeeJuice?: Fr;
 };
 
 /**
