@@ -37,6 +37,9 @@ pub fn generate_positive_ephemeral_key_pair() -> (Scalar, EmbeddedCurvePoint) {
     let eph_sk = unsafe { generate_secret_key_for_positive_public_key() };
     let eph_pk = fixed_base_scalar_mul(eph_sk);
 
+    // The point at infinity has x = 0, which is not a valid x-coordinate on the curve, so the recipient could
+    // never reconstruct the key from it and the message would be undecryptable.
+    assert(!eph_pk.is_infinite(), "Ephemeral public key is the point at infinity");
     assert(get_sign_of_point(eph_pk), "Got an ephemeral public key with a negative y coordinate");
 
     (eph_sk, eph_pk)
@@ -63,6 +66,7 @@ unconstrained fn generate_secret_key_for_positive_public_key() -> EmbeddedCurveS
 mod test {
     use crate::utils::point::get_sign_of_point;
     use super::generate_positive_ephemeral_key_pair;
+    use std::test::OracleMock;
 
     #[test]
     fn generate_positive_ephemeral_key_pair_produces_positive_keys() {
@@ -72,5 +76,12 @@ mod test {
             let (_, pk) = generate_positive_ephemeral_key_pair();
             assert(get_sign_of_point(pk));
         }
+    }
+
+    #[test(should_fail_with = "point at infinity")]
+    unconstrained fn generate_positive_ephemeral_key_pair_rejects_zero_randomness() {
+        // Making the randomness oracle return 0 emulates a malicious sender substituting eph_sk = 0.
+        let _ = OracleMock::mock("aztec_misc_getRandomField").returns(0);
+        let _ = generate_positive_ephemeral_key_pair();
     }
 }
