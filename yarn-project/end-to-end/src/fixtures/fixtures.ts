@@ -1,4 +1,5 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { TEST_FEE_PADDING } from '@aztec/aztec/testing';
 import type { GasFees } from '@aztec/stdlib/gas';
 
 export const METRICS_PORT = 4318;
@@ -17,9 +18,10 @@ export const LARGE_MIN_FEE_PADDING = 15;
  * price modifier evolves faster across the build/publish gap, so client-set maxFeesPerGas (sized
  * for the default 5x padding) was getting bumped past by the time the tx mined a few slots later.
  * Observed worst case in CI: fee evolved ~20x between PXE snapshot and inclusion, exceeding even
- * LARGE_MIN_FEE_PADDING (15x).
+ * LARGE_MIN_FEE_PADDING (15x). Same multiplier and same class of problem as the published
+ * {@link TEST_FEE_PADDING}, re-exported under a name that captures the pipelining rationale.
  */
-export const PIPELINED_FEE_PADDING = 30;
+export const PIPELINED_FEE_PADDING = TEST_FEE_PADDING;
 
 /**
  * Setup option preset that opts a test into proposer pipelining. Use with `setup()`:
@@ -77,7 +79,7 @@ export const AUTOMINE_E2E_OPTS = {
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
-  walletMinFeePadding: PIPELINED_FEE_PADDING,
+  walletMinFeePadding: TEST_FEE_PADDING,
 } as const;
 
 /** Returns worst-case predicted min fees with padding applied, mirroring the BaseWallet pattern. */
