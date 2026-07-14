@@ -8,6 +8,8 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include <array>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -220,6 +222,18 @@ uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t&
     return value_witness_idx;
 }
 
+template <typename FF> void MegaCircuitBuilder_<FF>::create_databus_init_read_gate(BusId bus_idx, size_t slot_idx)
+{
+    auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
+    BB_ASSERT_LT(slot_idx, bus_vector.size());
+
+    const uint32_t value_witness_idx = bus_vector[slot_idx];
+    const uint32_t index_witness_idx = this->put_constant_variable(FF(static_cast<uint64_t>(slot_idx)));
+
+    create_databus_read_gate({ index_witness_idx, value_witness_idx }, bus_idx);
+    bus_vector.increment_read_count(slot_idx);
+}
+
 /**
  * @brief Create a databus lookup/read gate
  *
@@ -240,14 +254,18 @@ void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate
 template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    // Bus column k is selected by q_{k+1}; all other wire-linear selectors stay zero on this row.
     const size_t idx = static_cast<size_t>(bus_idx);
-    block.q_1().emplace_back(idx == 0 ? 1 : 0);
-    block.q_2().emplace_back(idx == 1 ? 1 : 0);
-    block.q_3().emplace_back(idx == 2 ? 1 : 0);
-    block.q_4().emplace_back(idx == 3 ? 1 : 0);
+    // Bus column k (0 <= k < NUM_BUS_COLUMNS) is selected by one of these selectors.
+    // The order here must match BusData<bus_idx>::selector in databus_lookup_relation.hpp.
+    auto databus_selectors = std::array{ &block.q_1(), &block.q_2(), &block.q_3(), &block.q_4(), &block.q_m() };
+    static_assert(std::tuple_size_v<decltype(databus_selectors)> == NUM_BUS_COLUMNS,
+                  "apply_databus_selectors mapping must match NUM_BUS_COLUMNS and "
+                  "BusData<bus_idx>::selector in databus_lookup_relation.hpp");
+    BB_ASSERT_LT(idx, databus_selectors.size());
+    for (size_t selector_idx = 0; selector_idx < NUM_BUS_COLUMNS; ++selector_idx) {
+        databus_selectors[selector_idx]->emplace_back(selector_idx == idx ? 1 : 0);
+    }
     block.q_5().emplace_back(0);
-    block.q_m().emplace_back(idx == 4 ? 1 : 0);
     block.q_c().emplace_back(0);
     block.set_gate_selector(1);
 }

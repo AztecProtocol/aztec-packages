@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -43,6 +42,7 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_INTERNAL_RET_ERROR:
             return "INTERNAL_RET_ERROR";
@@ -53,6 +53,7 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
         case SR_INCR_NEXT_INT_CALL_ID:
             return "INCR_NEXT_INT_CALL_ID";
         }
+#endif
         return std::to_string(index);
     }
 };

@@ -16,7 +16,6 @@ fn main(
     private_call_1: PrivateCallDataWithoutPublicInputs,
     private_call_2: PrivateCallDataWithoutPublicInputs,
     is_private_only: bool,
-    first_nullifier_hint: Field,
     revertible_counter_hint: u32,
     app_public_inputs_0: call_data(1) PrivateCircuitPublicInputs,
     app_public_inputs_1: call_data(2) PrivateCircuitPublicInputs,
@@ -32,7 +31,6 @@ fn main(
             private_call_2.to_private_call_data(app_public_inputs_2),
         ],
         is_private_only,
-        first_nullifier_hint,
         revertible_counter_hint,
     };
     private_kernel_init_n::execute::<3>(private_inputs)

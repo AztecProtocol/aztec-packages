@@ -13,15 +13,19 @@ export {
   convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
   convertPrivateKernelResetInputsToWitnessMapWithAbi,
   convertPrivateKernelResetOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelResetTailInputsToWitnessMapWithAbi,
+  convertPrivateKernelResetTailToPublicInputsToWitnessMapWithAbi,
   convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
-  convertPrivateKernelTailInputsToWitnessMapWithAbi,
   convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
-  convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
   convertHidingKernelToRollupInputsToWitnessMapWithAbi,
   convertHidingKernelPublicInputsToWitnessMapWithAbi,
 } from '../../execution/client.js';
 
-export { getPrivateKernelResetArtifactName, updateResetCircuitSampleInputs } from '../../utils/private_kernel_reset.js';
+export {
+  getPrivateKernelResetArtifactName,
+  getPrivateKernelResetTailArtifactName,
+  updateResetCircuitSampleInputs,
+} from '../../utils/private_kernel_reset.js';
 export {
   maxPrivateKernelResetDimensions,
   privateKernelResetDimensionsConfig,

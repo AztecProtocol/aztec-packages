@@ -3,24 +3,36 @@ use types::{
     constants::MAX_NULLIFIERS_PER_TX, side_effect::Ordered, utils::arrays::find_first_index,
 };
 
-/// This is mainly for ensuring that for any nullifier that links to a note hash,
-/// it is created _after_ the note hash.
-/// This is enforced for transient data when they are squashed in the reset circuit.
-/// But if a pair is not transient, their counters will be checked here.
-/// Why would we have a (nullifier, pending note) pair that is non-transient?
-/// When a pending note hash is non-revertible and its nullifier is revertible, we can't
-/// squash them, but we still need to perform this check on their counters.
+/// This function serves two key purposes: enforcing ordering and ensuring transient data is fully squashed.
 ///
-/// A nice side effect of this check is that it also makes sure all the transient data is squashed:
-/// In aztec-nr, if a contract is emitting a nullifier for a non-revertible note
-/// hash, or if it doesn't want to squash the note hash at all (to keep a full record
-/// of what had happened, for example), it could set the nullifier.note_hash to be
-/// the _siloed_ note hash (or not set it at all).
-/// When we run this function (in the tail), because the non-squashed note hashes
-/// are already siloed in the reset circuit, the nullifiers that map to non-transient
-/// note hashes will match up with those _siloed_ note hashes. But for nullifiers
-/// that should already have been squashed against a transient (not siloed) note
-/// hash, they won't be able to find a match.
+/// 1. Ordering
+/// For any nullifier that links to a note hash, this function ensures the nullifier is created
+/// *after* the corresponding note hash.
+///
+/// Transient (note hash, nullifier) pairs are squashed in the Reset circuit, so their ordering is
+/// implicitly enforced there. However, non-transient pairs are not squashed, so their counters must
+/// be checked here to ensure correct ordering.
+///
+/// A pair may be non-transient if, for example, the note hash is non-revertible while its nullifier
+/// is revertible, preventing them from being squashed together.
+///
+/// 2. Squashing
+/// This function ensures that all transient (note hash, nullifier) pairs are properly squashed.
+/// Leaving such a pair un-squashed (i.e. emitting it) would enable a double spend: the nullifier
+/// derived from a transient note hash differs from the nullifier that would later be derived from
+/// the same note once it is settled. Therefore, any un-squashed transient pair must be rejected.
+///
+/// Mechanism
+/// In `aztec-nr`, a contract that emits a nullifier for a non-revertible note hash, or chooses not
+/// to squash a note hash (e.g. to preserve a full execution record), sets `nullifier.note_hash` to
+/// the *siloed* note hash (or leaves it unset).
+///
+/// By the time this function runs in the Tail circuit, all non-squashed note hashes have already
+/// been siloed in the Reset circuit. As a result, nullifiers that correctly reference non-transient
+/// note hashes will match these siloed values.
+///
+/// In contrast, a nullifier that should have been squashed with a transient (non-siloed) note hash
+/// will fail to find a match here.
 pub fn validate_unsquashable_note_hash_nullifier_ordering(
     previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
 ) {
@@ -40,21 +52,25 @@ pub fn validate_unsquashable_note_hash_nullifier_ordering(
                 nullified_note_hash,
                 "Hinted siloed note hash does not match nullified note hash",
             );
+            // In most cases, the value check above is sufficient. At this point, note hashes are already siloed,
+            // so an app that uses `DOM_SEP__NOTE_HASH` to compute its (inner) note hash is unlikely to collide
+            // with another contract's siloed note hash.
+            //
+            // The contract address check below is mainly a safeguard for apps that do not follow this convention.
+            // Without it, a transient nullifier could incorrectly match a siloed note hash from another contract.
+            // Such a pair could be emitted and later used to spend the note again by deriving a nullifier from
+            // the settled note hash value.
+            //
+            // Note: This check does not prevent collisions within the same contract.
+            assert_eq(
+                note_hash.contract_address,
+                nullifier.contract_address,
+                "Contract address of hinted note hash does not match nullifier",
+            );
             assert(
                 note_hash.counter() < nullifier.counter(),
                 "Cannot link a note hash emitted after a nullifier",
             );
-            // Note: we don't need to assert that the contract_addresses of the note_hash and
-            // nullifier match, because by this point (after the final reset circuit) they are all
-            // siloed, and hence their contract_addresses will be 0.
-
-            // Note: A nullifier's note_hash field could reference a siloed note_hash from a
-            // different contract. This is harmless: the note_hash field is discarded in
-            // expose_to_public() and never reaches the rollup. Cross-contract squashing is
-            // prevented by the reset circuit's contract_address check in
-            // validate_squashable_note_hash_nullifier_pair. The only effect of the link here
-            // is a counter-ordering check, which has no security implication.
-
             // Note: No need to verify logs linked to a note hash are squashed.
             // When a note hash is squashed, all associated logs are guaranteed to be removed.
             // See reset/transient_data/transient_data_validator.nr for details.

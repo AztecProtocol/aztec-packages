@@ -90,8 +90,8 @@ export type ClientCircuitName =
   | 'private-kernel-inner-2'
   | 'private-kernel-inner-3'
   | 'private-kernel-reset'
-  | 'private-kernel-tail'
-  | 'private-kernel-tail-to-public'
+  | 'private-kernel-reset-tail'
+  | 'private-kernel-reset-tail-to-public'
   | 'hiding-kernel-to-rollup'
   | 'hiding-kernel-to-public'
   | 'app-circuit';

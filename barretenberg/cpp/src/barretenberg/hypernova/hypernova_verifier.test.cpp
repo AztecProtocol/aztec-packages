@@ -1,6 +1,7 @@
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
+#include "barretenberg/hypernova/test_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "gtest/gtest.h"
@@ -20,6 +21,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
     using Builder = RecursiveFlavor::CircuitBuilder;
     using RecursiveTranscript = RecursiveHypernovaVerifier::Transcript;
     using RecursiveProof = RecursiveHypernovaVerifier::Proof;
+    using RecursiveVerifierAccumulator = RecursiveHypernovaVerifier::Accumulator;
 
     // Native verifier
     using NativeHypernovaVerifier = HypernovaFoldingVerifier<bb::MegaFlavor>;
@@ -148,10 +150,10 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             break;
         case TamperingMode::Instance: {
             // Tamper with w_l at the first row where q_arith is non-zero (an active arithmetic gate).
-            auto& q_arith = instance->polynomials.q_arith;
+            auto& q_arith = instance->polynomials.q_arith();
             for (size_t i = ProverInstance::TRACE_OFFSET; i < q_arith.end_index(); i++) {
                 if (!q_arith[i].is_zero()) {
-                    instance->polynomials.w_l.at(i) = NativeFF::random_element();
+                    instance->polynomials.w_l().at(i) = NativeFF::random_element();
                     break;
                 }
             }
@@ -161,19 +163,18 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for HyperNova folding
-     * @details The manifest has 48 rounds total:
+     * @details The manifest has 53 rounds total:
      * - Oink (rounds 0-2): vk_hash, public inputs, wires, ECC ops, databus, lookup, inverses
-     * - Main sumcheck (rounds 3-23): gate_challenge, univariates
-     * - Main sumcheck batching (round 24): unshifted/shifted batching challenges + evaluations
-     * - MLB data (round 25): accumulator commitments/challenges/evaluations
-     * - MLB sumcheck (rounds 26-46): univariates
-     * - MLB final (round 47): final evaluations + claim_batching_challenge
+     * - Main sumcheck (rounds 3-26): gate_challenge, univariates
+     * - Main sumcheck batching (round 27): unshifted/shifted batching challenges + evaluations + MLB alpha
+     * - MLB sumcheck (rounds 28-51): univariates
+     * - MLB final (round 52): final evaluations + claim_batching_challenge
      */
     static TranscriptManifest build_expected_folding_manifest()
     {
         TranscriptManifest manifest;
         constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
-        constexpr size_t NUM_SUMCHECK_UNIVARIATES = NativeFlavor::VIRTUAL_LOG_N; // 21
+        constexpr size_t NUM_SUMCHECK_UNIVARIATES = NativeFlavor::VIRTUAL_LOG_N;
 
         size_t round = 0;
 
@@ -207,11 +208,10 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         manifest.add_challenge(round, "alpha");
         manifest.add_challenge(round, "HypernovaFoldingProver:gate_challenge");
         manifest.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
-        manifest.add_entry(round, "KERNEL_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "FIRST_APP_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "SECOND_APP_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "THIRD_APP_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
+        for (const auto& bus :
+             { "KERNEL_CALLDATA", "FIRST_APP_CALLDATA", "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA", "RETURN_DATA" }) {
+            manifest.add_entry(round, std::string(bus) + "_INVERSES", frs_per_G);
+        }
         manifest.add_entry(round, "Z_PERM", frs_per_G);
         round++;
 
@@ -222,35 +222,26 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             round++;
         }
 
-        // Round 24: unshifted batching challenges + shifted batching challenges + evaluations
+        // Next round: unshifted batching challenges + shifted batching challenges + evaluations + MLB alpha.
+        // `Sumcheck:alpha` is consecutive with the batching challenges since no new prover data is added in between.
         for (size_t i = 0; i < MegaFlavor::NUM_UNSHIFTED_ENTITIES - 1; ++i) {
             manifest.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
         }
         for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
             manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
+        manifest.add_challenge(round, "Sumcheck:alpha");
         manifest.add_entry(round, "Sumcheck:evaluations", MegaFlavor::NUM_ALL_ENTITIES);
         round++;
 
-        // Round 25: Sumcheck:alpha + MLB accumulator data (Sumcheck:alpha is consecutive challenge)
-        manifest.add_challenge(round, "Sumcheck:alpha");
-        manifest.add_entry(round, "non_shifted_accumulator_commitment", frs_per_G);
-        manifest.add_entry(round, "shifted_accumulator_commitment", frs_per_G);
-        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
-            manifest.add_entry(round, "accumulator_challenge_" + std::to_string(i), 1);
-        }
-        manifest.add_entry(round, "accumulator_evaluation_0", 1);
-        manifest.add_entry(round, "accumulator_evaluation_1", 1);
-        round++;
-
-        // Rounds 26-46: MLB sumcheck univariates (21 rounds)
+        // MLB sumcheck univariates
         for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
             manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
             manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 4);
             round++;
         }
 
-        // Round 47: final evaluations + claim_batching_challenge
+        // Final evaluations + claim_batching_challenge
         manifest.add_challenge(round, "claim_batching_challenge");
         manifest.add_entry(round, "Sumcheck:evaluations", 6);
 
@@ -265,6 +256,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
         bb::HypernovaFoldingProver prover(transcript);
         auto accumulator = prover.instance_to_accumulator(instance);
+        auto verifier_accumulator = accumulator.to_verifier_claim_for_testing();
 
         // Folding
         auto incoming_instance = generate_new_instance(5);
@@ -282,17 +274,18 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         native_verifier_transcript->enable_manifest();
         NativeHypernovaVerifier native_verifier(native_verifier_transcript);
         auto [first_sumcheck_native, second_sumcheck_native, folded_verifier_accumulator_native] =
-            native_verifier.verify_folding_proof(incoming_verifier_instance, folding_proof);
+            native_verifier.verify_folding_proof(incoming_verifier_instance, verifier_accumulator, folding_proof);
 
         // Recursively verify the folding
         Builder builder;
 
         auto stdlib_incoming_instance = create_recursive_verifier_instance(&builder, incoming_verifier_instance);
+        auto stdlib_accumulator = create_recursive_verifier_accumulator(&builder, verifier_accumulator);
         auto recursive_verifier_transcript = std::make_shared<RecursiveTranscript>();
         RecursiveHypernovaVerifier recursive_verifier(recursive_verifier_transcript);
         RecursiveProof proof(builder, folding_proof);
         auto [first_sumcheck_recursive, second_sumcheck_recursive, folded_verifier_accumulator] =
-            recursive_verifier.verify_folding_proof(stdlib_incoming_instance, proof);
+            recursive_verifier.verify_folding_proof(stdlib_incoming_instance, stdlib_accumulator, proof);
 
         // If the instance has been tampered with, then the first sumcheck should fail (hence the circuit is not
         // satisfied), but the second should pass

@@ -1,183 +1,134 @@
 # Pippenger Multi-Scalar Multiplication (MSM)
 
-## Overview
+Computes $\text{MSM}(\vec{s}, \vec{P}) = \sum_{i=0}^{n-1} s_i \cdot P_i$ over BN254 / Grumpkin.
 
-The Pippenger algorithm computes multi-scalar multiplications:
+Two implementations live behind one facade:
 
-$$\text{MSM}(\vec{s}, \vec{P}) = \sum_{i=0}^{n-1} s_i \cdot P_i$$
+- **Round-parallel rewrite** (`scalar_multiplication_fast.{hpp,cpp}` + `pippenger_*.hpp`) — the default.
+- **Legacy** (`legacy::MSM` in `scalar_multiplication.{hpp,cpp}`, byte-identical to the pre-rewrite code) — selected by
+  setting the `BB_MSM_LEGACY` env var. Scheduled for removal once the rewrite has soaked.
 
-**Complexity**: Let $q = \lceil \log_2(\text{field modulus}) \rceil$ be the scalar bit-length, $|A|$ the cost of a group addition, and $|D|$ the cost of a doubling.
+## Entry points
 
-- **Pippenger**: $O\left(\frac{q}{c} \cdot \left((n + 2^c) \cdot |A| + c \cdot |D|\right)\right)$
-- **Naive**: $O(n \cdot q \cdot |D| + n \cdot q \cdot |A| / 2)$
+| Facade call | Routes to | Safety |
+|---|---|---|
+| `pippenger(scalars, points, handle_edge_cases=true)` | `pippenger_fast` | ✓ safe |
+| `pippenger_unsafe(scalars, points)` | `pippenger_round_parallel` | ⚠ requires linearly independent points |
+| `MSM<Curve>::msm(...)` | `MSM_fast<Curve>::msm` | per `handle_edge_cases` flag |
+| `MSM<Curve>::batch_multi_scalar_mul(...)` | `MSM_fast<Curve>::batch_multi_scalar_mul` | per `handle_edge_cases` flag |
 
-With $c \approx \frac{1}{2} \log_2 n$, Pippenger achieves roughly $O(n \cdot q / \log n)$ vs $O(n \cdot q)$ for naive scalar multiplication.
+"Unsafe" means the batched-affine path assumes no two points added pairwise are equal, inverse, or infinity.
+Bucket collisions of equal/inverse points make the shared Montgomery inversion hit zero. Use the safe path
+(Jacobian arithmetic throughout, `pippenger_round_parallel_jacobian_fast`) for caller-controlled points;
+SRS points are linearly independent so commitments use the unsafe path. The `dedup_hint` flag opts an MSM
+into the duplicate-scalar pre-pass (Phase A below); hints are set by provers on duplicate-heavy polynomials
+(Honk wires, `z_perm`).
 
-## Algorithm
+Inputs smaller than `MIN_PTS_PER_THREAD_FOR_PIPPENGER (24)` points per worker bypass everything and run
+multi-threaded Straus (`pippenger_fallbacks.hpp`).
 
-### Step 1: Scalar Decomposition
+## Round-parallel algorithm
 
-**Implementation**: `get_scalar_slice(scalar, round_index, bits_per_slice)`
+One window = one signed-digit position of width `c` bits. Windows are processed in batches sized so the
+working set stays inside `BATCH_MEM_BUDGET` (32 MiB); every stage inside a batch is fully parallel across
+`T = min(num_cpus, n / MIN_BATCH_CAPACITY)` tasks.
 
-Each scalar $s_i$ is decomposed into $r$ slices of $c$ bits each, processed **MSB-first**:
+**Phase 1 — scalar profile.** Convert scalars out of Montgomery form (in place for non-GLV, restored at the
+end; into a scratch buffer for GLV) and record each scalar's MSB. The MSB histogram gives
+`effective_num_bits` (window count tracks the largest *actual* scalar, not the field width) and the
+zero count (small active counts bail to the Straus fallback).
 
-$$s_i = \sum_{j=0}^{r-1} s_i^{(j)} \cdot 2^{c(r-1-j)}$$
+**GLV split.** For `n ≤ GLV_SMALL_N_THRESHOLD` (2^13 native / 2^16 WASM) or when the batch driver supplies a
+pre-doubled table, each scalar splits as `k = k1 − λ·k2` giving `2n` half-width (128-bit) working scalars
+against `[P, φP]` pairs — half the windows for double the points.
 
-- $c$ = bits per slice (from `get_optimal_log_num_buckets`, which brute-force searches for minimum cost)
-- $r = \lceil $ `NUM_BITS_IN_FIELD` $/ c \rceil$ = number of rounds
-- Round 0 extracts the most significant bits
+**Per batch of windows:**
 
-### Step 2: Bucket Accumulation
+1. **Digit extraction** — Constantine-style carry-less signed-Booth recoding (`pippenger_constantine.hpp`,
+   SIMD ×4). Each (scalar, window) yields a signed digit in `[-2^(c-1), 2^(c-1)]`; per-(task, window)
+   histograms count digit magnitudes.
+2. **Bucket histogram** — in-place exclusive prefix sums turn per-task counts into scatter cursors.
+3. **Bucket offsets** — per-window prefix sum over bucket counts → `bucket_start` ranges.
+4. **Digit scatter** — re-decode digits and write `sign | scalar_idx` entries into the per-window schedule,
+   bucket-contiguous (a counting sort; bucket magnitude is implicit in the `bucket_start` range an entry
+   lands in).
+5. **Chunk partition** — split each window's schedule into `T` equal chunks by schedule index (not bucket
+   boundary; a bucket straddling two chunks contributes two partials that Stage 7's algebra absorbs).
+6. **6a: bucket partials** — each task walks its chunk in sub-chunks of `SUBCHUNK_ENTRIES_CAP (2048)`
+   entries: gather points by schedule index (software-prefetched 16 ahead — the gather is a random 64-byte
+   load over the SRS span), then `tree_reduce_in_place` pairs same-bucket neighbours level by level, batching
+   independent affine additions through one Montgomery inversion per `BATCH_CAPACITY (256)` pairs. Surviving
+   per-bucket partials land in a dense per-(task, window) array.
+   **6b: cross-task reduce** — re-partition by bucket range, merge the ≤ T partials per bucket, then
+   `recursive_affine_bucket_reduce_strided` (Mitschabaude-style, ZPrize 2022) computes each window's
+   `Σ_d d·B_d` with batched affine adds/doubles shared across all windows in the batch.
+7. **Window combine** — Horner walk high → low window: double `c` times, add the window sum.
 
-For each round $j$, points are added into **buckets** based on their scalar slice. Bucket $k$ accumulates all points whose slice value equals $k$:
+This stage split is why bucket counts are cheap here: Stage 6b (the only per-bucket-cost stage) measures
+1-3% of MSM wall clock, while every extra *window* costs a full pass of Stages 1+4+6a over all n points.
+The window-size model in `choose_window_bits` encodes exactly that trade
+(`cost = rounds · (4·n + 12·buckets)` — coefficients scaled by 4 so the bucket:point ratio 12/4 = 3 stays integer).
 
-$$B_k^{(j)} = \sum_{\{i : s_i^{(j)} = k\}} P_i$$
+### Dedup pre-pass (Phase A, hint-gated)
 
-**Two implementation paths:**
+After the first batch's Stage 4, each task hash-scans its bucket range of window 0's schedule for groups of
+entries with byte-identical scalars (only scalars with `msb ≥ c` — shorter ones have nothing to save).
+Each cluster's points are tree-reduced into one combined point (`extra_points`), the cluster representative's
+schedule entries get redirected to it, and the other members are skipped — later batches skip them during
+Stage 1/4 directly via `redirect_lookup`. Caps (`DEDUP_MAX_CLUSTERS` 16384, `DEDUP_MAX_MEMBERS` 32768)
+bound memory; capped-out clusters silently fall through to the normal path. See `pippenger_dedup.hpp`.
 
-- **Affine**: Sorts points by bucket and uses batched affine additions
-- **Jacobian**: Direct bucket accumulation in Jacobian coordinates
+### Arena
 
-### Step 3: Bucket Reduction
+All scratch lives in one per-MSM arena (`MsmArena`), sized up front by `compute_arena_bytes_for_msm`,
+which takes the maximum over every reachable `effective_num_bits` layout — the live pipeline picks its
+window size *after* seeing the data, so the sizer must dominate every choice the pipeline can make.
+Zones: **P** (whole-MSM state: scalar profile, GLV buffers, window sums, dedup tables),
+**W** (per-worker slabs; Stage 6 scratch and Phase A scratch overlay the same bytes because those parallel
+phases never coexist), **S** (per-batch swing: schedules, histogram/cursor slab, dense partials).
+`PerWorkerArenaLayout` is the single source of truth shared by the sizer, the live allocator, and the
+arena regression tests. The batch driver (`pippenger_batched.hpp`) allocates one max-sized arena and one
+shared GLV-doubled SRS prefix for a whole `batch_commit`.
 
-**Implementation**: `accumulate_buckets(bucket_accumulators)`
+## Tuning constants
 
-Computes weighted sum using a suffix sum (high to low):
+| Constant | Value | Where | Why |
+|---|---|---|---|
+| `BAC_A` / `BAC_B` | 4 / 12 | `choose_window_bits` | cost = rounds·(BAC_A·n + BAC_B·buckets); bucket ≈ 3 point-visits (12/4), empirically calibrated |
+| `GLV_SMALL_N_THRESHOLD` | 2^13 native / 2^16 WASM | dispatch | above this, the 2× point gather outweighs halved windows |
+| `MIN_PTS_PER_THREAD_FOR_PIPPENGER` | 24 | dispatch | below this Straus wins |
+| `BATCH_CAPACITY` | 256 | batched affine adds | one inversion per 256 pairs; 16 KB pair buffer stays in L1 |
+| `SUBCHUNK_ENTRIES_CAP` | 2048 | Stage 6a | bounds per-task scratch independent of n |
+| `BATCH_MEM_BUDGET` | 32 MiB | windows-per-batch solve | WASM-friendly resident-scratch ceiling |
+| `GATHER_PREFETCH_DIST` | 16 | Stage 6a gather | hides DRAM latency the branchy gather loop can't overlap on its own |
 
-$$R^{(j)} = \sum_{k=1}^{2^c - 1} k \cdot B_k^{(j)} = \sum_{k=1}^{2^c - 1} \left( \sum_{m=k}^{2^c - 1} B_m^{(j)} \right)$$
-
-An offset generator is added and subtracted to avoid rare accumulator edge cases—a probabilistic mitigation that simplifies accumulation logic.
-
-### Step 4: Round Combination
-
-Combines all rounds using Horner's method (MSB-first):
-
-```cpp
-msm_accumulator = point_at_infinity
-for j = 0 to r-1:
-    repeat c doublings (or fewer for final round)
-    msm_accumulator += bucket_result[j]
-```
-
-## Algorithm Variants
-
-### Entry Points and Safety
-
-| Entry Point | Default | Safety |
-|-------------|---------|--------|
-| `msm()` | `handle_edge_cases=false` | ⚠️ **Unsafe** |
-| `pippenger()` | `handle_edge_cases=true` | ✓ Safe |
-| `pippenger_unsafe()` | `handle_edge_cases=false` | ⚠️ Unsafe |
-| `batch_multi_scalar_mul()` | `handle_edge_cases=true` | ✓ Safe |
-
-### Edge Cases
-
-Affine addition fails for **P = Q** (doubling), **P = −Q** (inverse), and **P = O** (identity). Jacobian coordinates handle these correctly at higher cost (~2-3× slower).
-
-⚠️ **Use `msm()` or `pippenger_unsafe()` only when points are guaranteed linearly independent** (e.g., SRS points). For user-controlled or potentially duplicate points, use `pippenger()`.
-
-### Affine Pippenger (`handle_edge_cases=false`)
-
-Uses affine coordinates with Montgomery's batch inversion trick: replaces $m$ inversions with **1 inversion + O(m) multiplications**, yielding ~2-3× speedup over Jacobian.
-
-### Jacobian Pippenger (`handle_edge_cases=true`)
-
-Uses Jacobian coordinates for bucket accumulators. Handles all edge cases correctly.
-
-## Tuning Constants
-
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `PIPPENGER_THRESHOLD` | 16 | Below this, use naive scalar multiplication |
-| `AFFINE_TRICK_THRESHOLD` | 128 | Below this, batch inversion overhead exceeds savings |
-| `MAX_SLICE_BITS` | 20 | Upper bound on bucket count exponent |
-| `BATCH_SIZE` | 2048 | Points per batch inversion (fits L2 cache) |
-| `RADIX_BITS` | 8 | Bits per radix sort pass |
-
-<details>
-<summary>Cost model constants and derivations</summary>
-
-| Constant | Value | Derivation |
-|----------|-------|------------|
-| `BUCKET_ACCUMULATION_COST` | 5 | 2 Jacobian adds/bucket × 2.5× cost ratio |
-| `AFFINE_TRICK_SAVINGS_PER_OP` | 5 | ~10 muls saved − ~3 muls for product tree |
-| `JACOBIAN_Z_NOT_ONE_PENALTY` | 5 | Extra field ops when Z ≠ 1 |
-| `INVERSION_TABLE_COST` | 14 | 4-bit lookup table for modular exp |
-
-**BATCH_SIZE=2048**: Each `AffineElement` is 64 bytes. 2048 points = 128 KB, fitting in L2 cache.
-
-**RADIX_BITS=8**: 256 radix buckets × 4 bytes = 1 KB counting array, fits in L1 cache.
-
-</details>
-
-## Implementation Notes
-
-### Zero Scalar Filtering
-
-`transform_scalar_and_get_nonzero_scalar_indices` filters out zero scalars before processing (since $0 \cdot P_i = \mathcal{O}$). Scalars are converted from Montgomery form in-place to avoid doubling memory usage.
-
-### Bucket Existence Tracking
-
-A `BitVector` bitmap tracks which buckets are populated, avoiding expensive full-array clears between rounds. Clearing the bitmap costs $O(2^c / 64)$ words vs $O(2^c)$ for the full bucket array.
-
-### Point Scheduling (Affine Variant Only)
-
-Entries are packed as `(point_index << 32) | bucket_index` into 64-bit values. Since bucket indices fit in $c$ bits (typically 8-16), they occupy only the lowest bits of the packed entry. An **in-place MSD radix sort** on the low $c$ bits groups points by bucket for efficient batch processing. The sort also detects entries with `bucket_index == 0` during the final radix pass, allowing zero-bucket entries to be skipped without a separate scan.
-
-### Batched Affine Addition
-
-`batch_accumulate_points_into_buckets` processes sorted points iteratively:
-- Same-bucket pairs → queue for batch addition
-- Different buckets → cache in bucket or queue with existing accumulator
-- Uses branchless conditional moves to minimize pipeline stalls
-- Prefetches future points to hide memory latency
-- Recirculates results to maximize batch efficiency before writing to buckets
-
-<details>
-<summary>Batch accumulation case analysis</summary>
-
-| Condition | Action | Iterator Update |
-|-----------|--------|-----------------|
-| `bucket[i] == bucket[i+1]` | Queue both points for batch add | `point_it += 2` |
-| Different buckets, accumulator exists | Queue point + accumulator | `point_it += 1` |
-| Different buckets, no accumulator | Cache point into bucket | `point_it += 1` |
-
-After batch addition, results targeting the same bucket are paired again before writing to bucket accumulators, reducing random memory access by ~50%.
-
-</details>
-
-## Parallelization
-
-Uses **per-thread buffers** (bucket accumulators, scratch space) to eliminate contention.
-
-For `batch_multi_scalar_mul()`, work is distributed via `MSMWorkUnit` structures that can split a single MSM across multiple threads. Each thread computes partial results on point subsets, combined in a final reduction.
-
-<details>
-<summary>Per-call buffer sizes</summary>
-
-| Buffer | Size | Purpose |
-|--------|------|---------|
-| `BucketAccumulators` (affine) | $2^c × 64$ bytes | Affine bucket array + bitmap |
-| `JacobianBucketAccumulators` | $2^c × 96$ bytes | Jacobian bucket array + bitmap |
-| `AffineAdditionData` | ~400 KB | Scratch for batch inversion |
-| `point_schedule` | $n × 8$ bytes | Per-MSM point schedule |
-
-Buffers are allocated per-call for WASM compatibility. Memory scales with thread count during parallel execution.
-
-</details>
-
-## File Structure
+## File structure
 
 ```
 scalar_multiplication/
-├── scalar_multiplication.hpp    # MSM class, data structures
-├── scalar_multiplication.cpp    # Core algorithm
-├── process_buckets.hpp/cpp      # Radix sort
-├── bitvector.hpp                # Bit vector for bucket tracking
-└── README.md                    # This file
+├── scalar_multiplication.hpp/.cpp   # facade (BB_MSM_LEGACY dispatch) + legacy::MSM implementation
+├── scalar_multiplication_fast.hpp   # round-parallel public API (MSM_fast, pippenger_fast, ...)
+├── scalar_multiplication_fast.cpp   # phases/stages 1-7, arena zones, jacobian-safe path
+├── pippenger_arena_layout.hpp       # window-size model, schedule builder, arena layout/sizing helpers
+├── pippenger_constantine.hpp        # signed-Booth window recoder (scalar + SIMD x4)
+├── pippenger_dedup.hpp              # schedule encoding bits + Phase A duplicate-scalar machinery
+├── pippenger_batched.hpp            # multi-MSM batch driver (shared arena + GLV table)
+├── pippenger_fallbacks.hpp          # trivial/Straus small-N drivers
+├── process_buckets.hpp/.cpp         # legacy radix sort (legacy::MSM only)
+├── bitvector.hpp                    # legacy bucket-exists bitmap (legacy::MSM only)
+└── README.md
 ```
+
+## Benchmarks
+
+`pippenger_bench` covers single MSMs (2^10..2^20, including the GLV small-N region), sparsity/duplicate
+profiles, batch commits, and Chonk-shaped batch scenarios. Run on the remote bencher
+(`scripts/benchmark_remote.sh pippenger_bench`); per-stage timing is visible through the `BB_BENCH`
+stage markers (`MSM::Stage*`).
 
 ## References
 
 1. Pippenger, N. (1976). "On the evaluation of powers and related problems"
 2. Bernstein, D.J. et al. "Faster batch forgery identification" (batch inversion)
+3. Botrel, Ratsimbazafy — Constantine's `signedWindowEncoding` (carry-less Booth recoding)
+4. Mitschabaude — ZPrize 2022 batch-affine bucket reduction

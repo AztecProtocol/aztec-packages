@@ -2,7 +2,11 @@ import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
-import type { PrivateResetArtifact } from '../private_kernel_reset_types.js';
+import type {
+  PrivateResetArtifact,
+  PrivateResetTailArtifact,
+  PrivateResetTailToPublicArtifact,
+} from '../private_kernel_reset_types.js';
 
 export type ClientProtocolArtifact =
   | 'PrivateKernelInitArtifact'
@@ -11,11 +15,11 @@ export type ClientProtocolArtifact =
   | 'PrivateKernelInnerArtifact'
   | 'PrivateKernelInner2Artifact'
   | 'PrivateKernelInner3Artifact'
-  | 'PrivateKernelTailArtifact'
-  | 'PrivateKernelTailToPublicArtifact'
   | 'HidingKernelToRollup'
   | 'HidingKernelToPublic'
-  | PrivateResetArtifact;
+  | PrivateResetArtifact
+  | PrivateResetTailArtifact
+  | PrivateResetTailToPublicArtifact;
 
 // These are all circuits that should generate proofs with the `recursive` flag.
 export type ServerProtocolArtifact =
@@ -97,16 +101,18 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'private-kernel-inner-2';
     case 'PrivateKernelInner3Artifact':
       return 'private-kernel-inner-3';
-    case 'PrivateKernelTailArtifact':
-      return 'private-kernel-tail';
-    case 'PrivateKernelTailToPublicArtifact':
-      return 'private-kernel-tail-to-public';
     case 'HidingKernelToRollup':
       return 'hiding-kernel-to-rollup';
     case 'HidingKernelToPublic':
       return 'hiding-kernel-to-public';
     default: {
-      if (artifact.startsWith('PrivateKernelReset')) {
+      if (artifact.startsWith('PrivateKernelResetTailToPublicArtifact')) {
+        return 'private-kernel-reset-tail-to-public';
+      }
+      if (artifact.startsWith('PrivateKernelResetTailArtifact')) {
+        return 'private-kernel-reset-tail';
+      }
+      if (artifact.startsWith('PrivateKernelResetArtifact')) {
         return 'private-kernel-reset';
       }
       throw new Error(`Unknown circuit type: ${artifact}`);

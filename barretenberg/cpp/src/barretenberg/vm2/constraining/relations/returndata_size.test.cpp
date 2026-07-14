@@ -40,7 +40,7 @@ TEST(ReturndataSizeConstrainingTest, NegativeInvalidMemTag)
           { C::execution_last_child_returndata_size, 12345 } },
     });
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_RETURNDATA_SIZE_U32_TAG),
-                              "RETURNDATA_SIZE_U32_TAG");
+                              execution::get_subrelation_label(execution::SR_RETURNDATA_SIZE_U32_TAG));
 }
 
 TEST(ReturndataSizeConstrainingTest, NegativeInvalidLastChildSuccess)
@@ -53,7 +53,7 @@ TEST(ReturndataSizeConstrainingTest, NegativeInvalidLastChildSuccess)
           { C::execution_last_child_returndata_size, 10 } },
     });
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_RETURNDATA_SIZE_WRITE_REG),
-                              "RETURNDATA_SIZE_WRITE_REG");
+                              execution::get_subrelation_label(execution::SR_RETURNDATA_SIZE_WRITE_REG));
 }
 
 } // namespace

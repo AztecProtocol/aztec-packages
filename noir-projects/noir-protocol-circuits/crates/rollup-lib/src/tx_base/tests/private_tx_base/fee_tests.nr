@@ -1,7 +1,7 @@
 use super::TestBuilder;
 
 #[test(should_fail_with = "Wrong leaf slot for fee payer balance")]
-unconstrained fn hint_to_incorrect_public_data_leaf() {
+fn hint_to_incorrect_public_data_leaf() {
     let mut builder = TestBuilder::new();
 
     // Point to another public data preimage.
@@ -12,7 +12,7 @@ unconstrained fn hint_to_incorrect_public_data_leaf() {
 }
 
 #[test(should_fail_with = "Not enough balance for fee payer to pay for transaction")]
-unconstrained fn insufficient_balance_to_pay_fee() {
+fn insufficient_balance_to_pay_fee() {
     let mut builder = TestBuilder::new();
 
     let tx_fee = builder.get_transaction_fee();
@@ -25,7 +25,7 @@ unconstrained fn insufficient_balance_to_pay_fee() {
 }
 
 #[test]
-unconstrained fn balance_equal_transaction_fee() {
+fn balance_equal_transaction_fee() {
     let mut builder = TestBuilder::new();
 
     let tx_fee = builder.get_transaction_fee();
@@ -41,7 +41,7 @@ unconstrained fn balance_equal_transaction_fee() {
 }
 
 #[test(should_fail_with = "Membership check failed: public data leaf preimage does not exist in tree")]
-unconstrained fn incorrect_fee_payer_balance_leaf_preimage() {
+fn incorrect_fee_payer_balance_leaf_preimage() {
     let mut builder = TestBuilder::new();
 
     // Tweak the value of the preimage without updating it to the tree.
@@ -51,7 +51,7 @@ unconstrained fn incorrect_fee_payer_balance_leaf_preimage() {
 }
 
 #[test(should_fail_with = "Membership check failed: public data leaf preimage does not exist in tree")]
-unconstrained fn incorrect_fee_payer_pre_existing_leaf_index() {
+fn incorrect_fee_payer_pre_existing_leaf_index() {
     let mut builder = TestBuilder::new();
 
     // Tweak the value of the leaf index.

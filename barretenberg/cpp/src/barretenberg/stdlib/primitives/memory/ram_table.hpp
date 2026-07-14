@@ -56,7 +56,7 @@ template <typename Builder> class ram_table {
     std::vector<field_pt> raw_entries;
     // Origin Tags for detection of dangerous interactions within stdlib primitives
     mutable std::vector<OriginTag> _tags;
-    mutable std::vector<bool> index_initialized; // Keeps track if the indicies of the RAM table have been initialized
+    mutable std::vector<bool> index_initialized; // Keeps track if the indices of the RAM table have been initialized
     size_t length = 0;
     mutable size_t ram_id = 0; // Identifier of this ROM table for the builder
     mutable bool ram_table_generated_in_builder = false;

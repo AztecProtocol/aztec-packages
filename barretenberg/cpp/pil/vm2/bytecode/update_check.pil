@@ -172,11 +172,13 @@ namespace update_check;
     // Read the update hash from the public data tree.
     #[UPDATE_HASH_PUBLIC_DATA_READ]
     sel {
+        precomputed.zero, // write = 0 (read)
         update_hash,
         contract_instance_registry_address,
         delayed_public_mutable_hash_slot,
         public_data_tree_root
     } in public_data_check.sel {
+        public_data_check.write,
         public_data_check.value,
         public_data_check.address,
         public_data_check.slot,

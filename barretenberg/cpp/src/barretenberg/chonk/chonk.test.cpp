@@ -336,21 +336,13 @@ TEST_F(ChonkTests, BadProofFailure)
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
         Chonk ivc{ NUM_CIRCUITS };
 
-        size_t num_public_inputs = 0;
-
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] =
-                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
-            ivc.accumulate(circuit, vk);
-
-            if (idx == 1) {
-                num_public_inputs = circuit.num_public_inputs();
-            }
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
 
             if (idx == 2) {
                 tamper_with_proof(ivc.verification_queue[0].proof,
-                                  num_public_inputs); // tamper with first proof
+                                  ivc.verification_queue[0].honk_vk->num_public_inputs); // tamper with first proof
             }
         }
         auto proof = ivc.prove();
@@ -365,13 +357,11 @@ TEST_F(ChonkTests, BadProofFailure)
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] =
-                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
-            ivc.accumulate(circuit, vk);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
 
             if (idx == 1) {
                 tamper_with_proof(ivc.verification_queue[1].proof,
-                                  circuit.num_public_inputs()); // tamper with second proof
+                                  ivc.verification_queue[1].honk_vk->num_public_inputs); // tamper with second proof
             }
         }
         auto proof = ivc.prove();
@@ -521,6 +511,62 @@ INSTANTIATE_TEST_SUITE_P(All,
 TEST_F(ChonkTests, KernelReturnDataPropagationConsistency)
 {
     ChonkTests::test_kernel_return_data_propagation();
+}
+
+/**
+ * @brief Demonstrates that the HN accumulator chain cannot be broken
+ *
+ * @details We construct a Chonk instance using a first app with 1 << SMALL_LOG_2_NUM_GATES gates, accumulate it to get
+ * a valid accumulator, then construct another Chonk instance where we accumulate a first app with 1 <<
+ * (SMALL_LOG_2_NUM_GATES + 1) gates but substitute the accumulator after the first accumulation. We then check
+ * that the final proof fails verification, demonstrating that the accumulator is bound to the circuits that were
+ * accumulated and cannot be substituted with an accumulator from a different execution trace.
+ */
+TEST_F(ChonkTests, AccumulatorBinding)
+{
+    BB_DISABLE_ASSERTS();
+
+    TestSettings settings_one{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+
+    // ── Step 1: Run a parallel VALID IVC to capture a valid accumulator ──────
+    // We need a valid accumulator after the first app (circuit_index=0).
+
+    const size_t num_app_circuits = 5;
+    CircuitProducer producer_one(num_app_circuits);
+    const size_t num_circuits = producer_one.total_num_circuits;
+    Chonk chonk_one{ num_circuits };
+
+    // Accumulate only the first circuit (app_0) to capture the valid accumulator
+    producer_one.construct_and_accumulate_next_circuit(chonk_one, settings_one);
+    auto valid_accumulator_after_app0 = chonk_one.prover_accumulator;
+
+    // ── Step 2: Run the IVC with an INVALID first app + accumulator substitution ─
+
+    MockDatabusProducer mock_databus;
+    Chonk invalid_chonk{ num_circuits };
+    CircuitProducer producer_two(num_app_circuits);
+    TestSettings settings_two{ .log2_num_gates = SMALL_LOG_2_NUM_GATES + 1 };
+
+    for (size_t circuit_idx = 0; circuit_idx < num_circuits; ++circuit_idx) {
+        producer_two.construct_and_accumulate_next_circuit(invalid_chonk, settings_two);
+
+        // *** ACCUMULATOR SUBSTITUTION ***
+        // After the first app is accumulated, replace prover_accumulator with another one.
+        if (circuit_idx == 0) {
+            BB_ASSERT_NEQ(valid_accumulator_after_app0.non_shifted_commitment,
+                          invalid_chonk.prover_accumulator.non_shifted_commitment,
+                          "Accumulators should be different.");
+            invalid_chonk.prover_accumulator = valid_accumulator_after_app0;
+        }
+    }
+
+    // ── Step 3: prove and verify ─────────────────────────────────────────────
+    auto proof = invalid_chonk.prove();
+    auto vk_and_hash = invalid_chonk.get_hiding_kernel_vk_and_hash();
+    ChonkVerifier verifier(vk_and_hash);
+    auto result = verifier.verify(proof);
+
+    EXPECT_FALSE(result) << "Substituting the accumulator should cause verification to fail, but it passed";
 }
 
 /**

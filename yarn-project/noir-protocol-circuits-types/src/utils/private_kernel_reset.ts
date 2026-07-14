@@ -11,7 +11,14 @@ import {
   mapPrivateKernelDataToNoir,
   mapPrivateKernelResetHintsToNoir,
 } from '../conversion/client.js';
-import { PrivateKernelResetArtifactFileNames, type PrivateResetArtifact } from '../private_kernel_reset_types.js';
+import {
+  PrivateKernelResetArtifactFileNames,
+  PrivateKernelResetTailArtifactFileNames,
+  PrivateKernelResetTailToPublicArtifactFileNames,
+  type PrivateResetArtifact,
+  type PrivateResetTailArtifact,
+  type PrivateResetTailToPublicArtifact,
+} from '../private_kernel_reset_types.js';
 
 export function createPrivateKernelResetTag(dimensions: PrivateKernelResetDimensions) {
   return privateKernelResetDimensionNames.map(name => dimensions[name]).join('_');
@@ -22,6 +29,30 @@ export function getPrivateKernelResetArtifactName(dimensions: PrivateKernelReset
   const name = `PrivateKernelResetArtifact_${tag}` as PrivateResetArtifact;
   if (!PrivateKernelResetArtifactFileNames[name]) {
     throw new Error(`Unknown private reset artifact: ${name}`);
+  }
+  return name;
+}
+
+/**
+ * Picks the artifact name for the terminal reset families: `isForPublic` selects the
+ * rollup-bound (`reset_tail`) or public-bound (`reset_tail_to_public`) family; `dimensions`
+ * selects the variant within it.
+ */
+export function getPrivateKernelResetTailArtifactName(
+  dimensions: PrivateKernelResetDimensions,
+  isForPublic: boolean,
+): PrivateResetTailArtifact | PrivateResetTailToPublicArtifact {
+  const tag = createPrivateKernelResetTag(dimensions);
+  if (isForPublic) {
+    const name = `PrivateKernelResetTailToPublicArtifact_${tag}` as PrivateResetTailToPublicArtifact;
+    if (!PrivateKernelResetTailToPublicArtifactFileNames[name]) {
+      throw new Error(`Unknown private reset_tail_to_public artifact: ${name}`);
+    }
+    return name;
+  }
+  const name = `PrivateKernelResetTailArtifact_${tag}` as PrivateResetTailArtifact;
+  if (!PrivateKernelResetTailArtifactFileNames[name]) {
+    throw new Error(`Unknown private reset_tail artifact: ${name}`);
   }
   return name;
 }
