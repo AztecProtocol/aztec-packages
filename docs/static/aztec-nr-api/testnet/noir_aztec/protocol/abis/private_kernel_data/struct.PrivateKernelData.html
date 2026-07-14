@@ -39,21 +39,22 @@
 <h1>Struct <span id="struct" class="struct">PrivateKernelData</span></h1>
 <pre><code>pub struct PrivateKernelData {
     pub public_inputs: <a href="../../../../protocol_types/abis/kernel_circuit_public_inputs/private_kernel_circuit_public_inputs/struct.PrivateKernelCircuitPublicInputs.html" class="struct">PrivateKernelCircuitPublicInputs</a>,
-    pub vk_data: <a href="../../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;143&gt;,
+    pub vk_data: <a href="../../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;163&gt;,
 }
 </code></pre>
 <h2>Fields</h2>
 <div id="structfield.public_inputs" class="struct-field"><code class="code-header">public_inputs: <a href="../../../../protocol_types/abis/kernel_circuit_public_inputs/private_kernel_circuit_public_inputs/struct.PrivateKernelCircuitPublicInputs.html" class="struct">PrivateKernelCircuitPublicInputs</a></code></div>
-<div class="padded-description"></div><div id="structfield.vk_data" class="struct-field"><code class="code-header">vk_data: <a href="../../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;143&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.vk_data" class="struct-field"><code class="code-header">vk_data: <a href="../../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;163&gt;</code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../protocol_types/abis/private_kernel_data/struct.PrivateKernelData.html" class="struct">PrivateKernelData</a></code></h3>
 
 <div class="padded-methods"><code id="validate_vk_in_vk_tree" class="code-header">pub fn <a href="#validate_vk_in_vk_tree"><span class="fn">validate_vk_in_vk_tree</span></a>&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, allowed_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; N])</code>
 
 <div class="padded-description"><div class="comments">
-<p>Validates that the vk hash exists in the vk tree at the expected index.
-Note: There's a similar function in vk_data.nr. This function is slightly different but necessary, because it
-lets us set only <code>PRIVATE_KERNEL_RESET_VK_INDEX</code> in the <code>allowed_indices</code> to allow all the reset circuits.</p>
+<p>Validates the vk hash is in the vk tree at an allowed index. Differs from the helper in
+<code>vk_data.nr</code>: an entry in <code>allowed_indices</code> that is a reset-family base permits every variant
+of that family.</p>
+<p>Reset families occupy contiguous blocks within <code>[PRIVATE_KERNEL_RESET_VK_INDEX, PRIVATE_KERNEL_RESET_BLOCK_END)</code>; a variant's leaf index is normalised to its family base.</p>
 </div>
 </div><code id="verify" class="code-header">pub fn <a href="#verify"><span class="fn">verify</span></a>(self, is_last_kernel: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>)</code>
 

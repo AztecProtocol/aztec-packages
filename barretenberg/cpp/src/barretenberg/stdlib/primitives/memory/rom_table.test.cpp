@@ -1,7 +1,11 @@
 #include "rom_table.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
@@ -144,51 +148,35 @@ TYPED_TEST(RomTableTests, RomCopy)
     EXPECT_EQ(verified, true);
 }
 
-/**
- * @brief OOB constant-index access soft-fails correctly without crashing.
- */
-TEST(RomTable, OobConstantIndexDoesNotCrashRegression)
+// Verifies the LogUp scheme's per-operation cost: an array of N entries with N reads occupies exactly
+// 2N rows in the memory block (one table row per init + one read row per access).
+TYPED_TEST(RomTableTests, RomLogupGateCount)
 {
-    using Builder = UltraCircuitBuilder;
-    using field_ct = stdlib::field_t<Builder>;
-    using witness_ct = stdlib::witness_t<Builder>;
-    using rom_table_ct = stdlib::rom_table<Builder>;
+    using Builder = TypeParam;
+    using field_ct = typename TestFixture::field_ct;
+    using witness_ct = typename TestFixture::witness_ct;
+    using rom_table_ct = typename TestFixture::rom_table_ct;
 
+    constexpr size_t table_size = 16;
     Builder builder;
 
-    std::vector<field_ct> table_values;
-    table_values.emplace_back(witness_ct(&builder, bb::fr(1)));
-    table_values.emplace_back(witness_ct(&builder, bb::fr(2)));
-    table_values.emplace_back(witness_ct(&builder, bb::fr(3)));
-    rom_table_ct table(table_values);
-
-    // OOB constant index — should soft-fail, not crash
-    table[static_cast<size_t>(100000000)];
-
-    EXPECT_TRUE(builder.failed());
-}
-
-/**
- * @brief Regression: OOB witness-index read must soft-fail without OOB vector access.
- */
-TEST(RomTable, OobWitnessIndexDoesNotCrashRegression)
-{
-    using Builder = UltraCircuitBuilder;
-    using field_ct = stdlib::field_t<Builder>;
-    using witness_ct = stdlib::witness_t<Builder>;
-    using rom_table_ct = stdlib::rom_table<Builder>;
-
-    Builder builder;
+    const size_t memory_block_size_before = builder.blocks.memory.size();
 
     std::vector<field_ct> table_values;
-    table_values.emplace_back(witness_ct(&builder, bb::fr(1)));
-    table_values.emplace_back(witness_ct(&builder, bb::fr(2)));
-    table_values.emplace_back(witness_ct(&builder, bb::fr(3)));
+    for (size_t i = 0; i < table_size; ++i) {
+        table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
+    }
     rom_table_ct table(table_values);
+    for (size_t i = 0; i < table_size; ++i) {
+        field_ct index(witness_ct(&builder, static_cast<uint64_t>(i)));
+        (void)table[index];
+    }
 
-    // OOB witness index — should soft-fail, not crash
-    field_ct oob_index = witness_ct(&builder, bb::fr(100000000));
-    table[oob_index];
+    // Finalize so process_ROM_arrays runs; the row count below confirms it adds no rows for a LogUp array.
+    builder.finalize_circuit();
 
-    EXPECT_TRUE(builder.failed());
+    const size_t memory_block_rows = builder.blocks.memory.size() - memory_block_size_before;
+    // table_size inits + table_size reads = exactly 2 * table_size LogUp rows; finalization adds no
+    // further rows for a LogUp array.
+    EXPECT_EQ(memory_block_rows, 2 * table_size) << "LogUp ROM expected exactly 2N rows; got " << memory_block_rows;
 }

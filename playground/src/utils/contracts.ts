@@ -8,7 +8,7 @@ export async function filterDeployedAliasedContracts(
   const deployed = (
     await Promise.all(
       aliasedContracts.map(async contract => {
-        const { isContractPublished } = await wallet.getContractMetadata(AztecAddress.fromString(contract.item));
+        const { isContractPublished } = await wallet.getContractMetadata(AztecAddress.fromStringUnsafe(contract.item));
         return { ...contract, deployed: isContractPublished };
       }),
     )

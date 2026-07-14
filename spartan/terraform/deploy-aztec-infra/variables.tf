@@ -163,15 +163,15 @@ variable "REGISTRY_CONTRACT_ADDRESS" {
   type        = string
 }
 
+variable "ROLLUP_VERSION" {
+  description = "The rollup version to target. Leave empty to follow the canonical rollup"
+  type        = string
+  default     = ""
+}
+
 variable "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" {
   description = "The fee asset handler contract address"
   type        = string
-}
-
-variable "ROLLUP_VERSION" {
-  description = "Rollup version selected from the registry. Leave empty to use the canonical rollup."
-  type        = string
-  default     = ""
 }
 
 variable "VALIDATOR_MNEMONIC" {
@@ -396,13 +396,6 @@ variable "P2P_MAX_PENDING_TX_COUNT" {
   default     = null
 }
 
-variable "SEQ_ENFORCE_TIME_TABLE" {
-  description = "Whether to enforce the time table when building blocks"
-  type        = string
-  nullable    = true
-  default     = null
-}
-
 variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
   description = "Percentage probability of skipping checkpoint publishing"
   type        = string
@@ -445,6 +438,12 @@ variable "AZTEC_EPOCHS_LAG" {
 
 variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
+  type        = string
+  default     = true
+}
+
+variable "OFFENSE_COLLECTION_ENABLED" {
+  description = "Whether to enable offense collection (watchers + read-only slasher) on non-validator nodes"
   type        = string
   default     = true
 }
@@ -558,6 +557,24 @@ variable "EXTERNAL_BOOTNODES" {
 
 variable "NETWORK" {
   description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
+}
+
+variable "ALLOW_OVERRIDING_NETWORK_CONFIG" {
+  description = "Allow consensus-critical env vars to diverge from the generated network defaults for NETWORK"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_SLOT_DURATION" {
+  description = "Aztec slot duration; passed to nodes so they match a rollup deployed with a non-default value"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_EPOCH_DURATION" {
+  description = "Aztec epoch duration; passed to nodes so they match a rollup deployed with a non-default value"
   type        = string
   nullable    = true
 }

@@ -205,7 +205,7 @@ This ensures P3 max penalty (-34) exceeds P1 + P2 max (+33), causing mesh prunin
 | Topic | Expected/Slot | Decay Window | Notes |
 |-------|--------------|--------------|-------|
 | `tx` | Unpredictable | N/A | P3/P3b disabled |
-| `block_proposal` | N-1 | 3 slots | N = blocks per slot (MBPS mode) |
+| `block_proposal` | N-1 | 3 slots | N = blocks per slot |
 | `checkpoint_proposal` | 1 | 5 slots | One per slot |
 | `checkpoint_attestation` | C (~48) | 2 slots | C = committee size |
 
@@ -223,15 +223,15 @@ Block proposal scoring is controlled by the `expectedBlockProposalsPerSlot` conf
 |-------------|----------|
 | `0` (current default) | Block proposal P3 scoring is **disabled** |
 | Positive number | Uses the provided value as expected proposals per slot |
-| `undefined` | Falls back to `blocksPerSlot - 1` (MBPS mode: N-1, single block: 0) |
+| `undefined` | Falls back to `blocksPerSlot - 1` (N-1 when the slot fits multiple blocks, 0 when it fits one) |
 
 **Current behavior note:** In the current implementation, if `SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT` is not set, config mapping applies `0` by default (scoring disabled). The `undefined` fallback above is currently reachable only if the value is explicitly provided as `undefined` in code.
 
 **Future intent:** Once throughput is stable, we may change env parsing/defaults so an unset env var resolves to `undefined` again (re-enabling automatic fallback to `blocksPerSlot - 1`).
 
-**Why disabled by default?** In MBPS mode, gossipsub expects N-1 block proposals per slot. When transaction throughput is low (as expected at launch), fewer blocks are actually built, causing peers to be incorrectly penalized for under-delivering block proposals. The default of 0 disables this scoring. Set to a positive value when throughput increases and block production is consistent.
+**Why disabled by default?** Gossipsub expects N-1 block proposals per slot. When transaction throughput is low (as expected at launch), fewer blocks are actually built, causing peers to be incorrectly penalized for under-delivering block proposals. The default of 0 disables this scoring. Set to a positive value when throughput increases and block production is consistent.
 
-In MBPS mode (when enabled), N-1 block proposals are gossiped per slot (the last block is bundled with the checkpoint). In single-block mode, this is 0.
+When a slot fits multiple blocks, N-1 block proposals are gossiped per slot (the last block is bundled with the checkpoint). When the slot fits exactly one block, this is 0.
 
 ### Checkpoint Proposals (checkpoint_proposal)
 
@@ -254,7 +254,7 @@ The scoring parameters depend on:
 | `slotDuration` | L1RollupConstants | 72s |
 | `targetCommitteeSize` | L1RollupConstants | 48 |
 | `heartbeatInterval` | P2PConfig.gossipsubInterval | 700ms |
-| `blockDurationMs` | P2PConfig.blockDurationMs | undefined (single block) |
+| `blockDurationMs` | P2PConfig.blockDurationMs | 3000ms |
 | `expectedBlockProposalsPerSlot` | P2PConfig.expectedBlockProposalsPerSlot | 0 (disabled; current unset-env behavior) |
 
 ## Invalid Message Handling (P4)
@@ -470,7 +470,22 @@ Application scores decay by 10% per minute (`decayFactor = 0.9`):
 - Score -100 → -35 after 10 minutes
 - Score -100 → -12 after 20 minutes
 
-This allows honest peers to recover from temporary issues.
+This allows honest peers to recover from temporary issues — but only up to the ban threshold. Once a peer
+crosses into the **Banned** state, decay no longer applies until the ban expires (see Ban Duration below).
+
+### Ban Duration
+
+Once a peer's score drops below the ban threshold (`MIN_SCORE_BEFORE_BAN = -100`) the ban is held for a configurable
+duration:
+
+- The score the peer held when banned is recorded in memory alongside an expiry timestamp.
+- While the ban is active, `getScore` returns the **ban score** regardless of decay, so the peer stays in the
+  `Banned` state for the full window and cannot decay its way out early.
+- When the ban expires it is removed and the live (decayed) score takes over again, letting the peer recover.
+
+The ban duration is controlled by `P2P_PEER_BAN_DURATION_SECONDS` (config field `peerBanDurationSeconds`), defaulting
+to 24 hours. Bans are held in memory only (cleared on restart). This is independent of the gossipsub topic-score
+decay (P4, P3b), which continues to decay as described above; only the application-level ban score is pinned.
 
 ## Score Calculation Examples
 
@@ -544,14 +559,21 @@ Initial state: Total score -3003
 
 After 4 slots (~5 min):
   P4 decays to 1%: -2000 → -20
-  App score unchanged: -1000
+  App score pinned at ban floor: -1000
   Total: -1023 → Still banned, but no longer graylisted
 
-After 10 min:
-  App score decays: -100 → -35 → -350 contribution
-  P4 further decayed: ~-5
-  Total: -358 → Above gossipThreshold, starting to recover
+For the rest of the ban window (default 24h):
+  Topic scores (P4, P3b) keep decaying toward 0
+  App score stays pinned at the ban floor: -1000 contribution
+  Total: ~-1000 → Remains banned (cannot publish)
+
+After the ban expires:
+  The ban is lifted; the live app score (now decayed toward 0) takes over
+  Total: recovers, peer can participate again
 ```
+
+Unlike topic scores, the application ban score does **not** decay-recover during the ban window — that is the
+point of the ban duration (see above). A banned peer is held for the full `P2P_PEER_BAN_DURATION_SECONDS`.
 
 ## Network Outage Analysis
 

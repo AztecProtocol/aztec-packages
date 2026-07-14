@@ -58,27 +58,32 @@ size_t window_bits_tuning_oversub_factor(size_t n_input);
 // `external_arena`: optional caller-supplied scratch buffer ≥ this MSM_fast's required
 //   bytes. When empty, allocated per-MSM_fast and freed at return. The batched driver
 //   supplies a single arena sized to the largest member.
+// `dedup_info`: MSM dedup pre-pass hint — 0 = off, 1 = hinted (no estimate), >=2 = a caller-measured
+//   duplicate count used to discount the window-selection point count.
 template <typename Curve>
 typename Curve::Element pippenger_round_parallel(
     PolynomialSpan<const typename Curve::ScalarField> scalars,
     std::span<const typename Curve::AffineElement> points,
-    bool dedup_hint = false,
+    size_t dedup_info = 0,
     std::span<const typename Curve::AffineElement> external_glv_doubled = {},
-    std::span<std::byte> external_arena = {}) noexcept;
+    std::span<std::byte> external_arena = {},
+    size_t max_threads = 0) noexcept;
 
 extern template curve::BN254::Element pippenger_round_parallel<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
-    bool dedup_hint,
+    size_t dedup_info,
     std::span<const curve::BN254::AffineElement> external_glv_doubled,
-    std::span<std::byte> external_arena) noexcept;
+    std::span<std::byte> external_arena,
+    size_t max_threads) noexcept;
 
 extern template curve::Grumpkin::Element pippenger_round_parallel<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    bool dedup_hint,
+    size_t dedup_info,
     std::span<const curve::Grumpkin::AffineElement> external_glv_doubled,
-    std::span<std::byte> external_arena) noexcept;
+    std::span<std::byte> external_arena,
+    size_t max_threads) noexcept;
 
 // ===================================================================================
 // Public API (interface-compatible with the legacy `scalar_multiplication::MSM_fast` class).
@@ -96,34 +101,34 @@ template <typename Curve>
 typename Curve::Element pippenger_fast(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                        std::span<const typename Curve::AffineElement> points,
                                        bool handle_edge_cases = true,
-                                       bool dedup_hint = false) noexcept;
+                                       size_t dedup_info = 0) noexcept;
 
 template <typename Curve>
 typename Curve::Element pippenger_unsafe_fast(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                               std::span<const typename Curve::AffineElement> points,
-                                              bool dedup_hint = false) noexcept;
+                                              size_t dedup_info = 0) noexcept;
 
 extern template curve::BN254::Element pippenger_fast<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
     bool handle_edge_cases,
-    bool dedup_hint) noexcept;
+    size_t dedup_info) noexcept;
 
 extern template curve::Grumpkin::Element pippenger_fast<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
     bool handle_edge_cases,
-    bool dedup_hint) noexcept;
+    size_t dedup_info) noexcept;
 
 extern template curve::BN254::Element pippenger_unsafe_fast<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
-    bool dedup_hint) noexcept;
+    size_t dedup_info) noexcept;
 
 extern template curve::Grumpkin::Element pippenger_unsafe_fast<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    bool dedup_hint) noexcept;
+    size_t dedup_info) noexcept;
 
 template <typename Curve> class MSM_fast {
   public:
@@ -140,7 +145,7 @@ template <typename Curve> class MSM_fast {
     static AffineElement msm(std::span<const AffineElement> points,
                              PolynomialSpan<const ScalarField> scalars,
                              bool handle_edge_cases = false,
-                             bool dedup_hint = false) noexcept;
+                             size_t dedup_info = 0) noexcept;
 
     /**
      * @brief Batch driver for multiple MSMs. Returns one AffineElement per input MSM_fast.
@@ -165,7 +170,7 @@ template <typename Curve> class MSM_fast {
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<const AffineElement> points,
                                                              std::span<PolynomialSpan<ScalarField>> scalars,
                                                              bool handle_edge_cases = true,
-                                                             std::span<const uint8_t> dedup_hints = {}) noexcept;
+                                                             std::span<const uint32_t> dedup_infos = {}) noexcept;
 };
 
 extern template class MSM_fast<curve::Grumpkin>;
@@ -176,11 +181,31 @@ extern template class MSM_fast<curve::BN254>;
 // and bench targets can pin behaviour at the boundary.
 inline constexpr size_t MIN_PTS_PER_THREAD_FOR_PIPPENGER = 24;
 
+// Points-per-worker floor below which intra-MSM multithreading loses to its parallel_for barrier
+// overhead. Drives both the worker-count pick in pippenger_round_parallel and the batch driver's
+// concurrent/sequential split. SIZE_MAX forces single-threaded on wasm.
+#ifdef __wasm__
+inline constexpr size_t MSM_MIN_PTS_PER_THREAD = SIZE_MAX;
+#else
+inline constexpr size_t MSM_MIN_PTS_PER_THREAD = 256;
+#endif
+
+// Point-count bound for the batch driver's concurrent/sequential split on wasm. Intra-MSM work is
+// always single-threaded on wasm (MSM_MIN_PTS_PER_THREAD == SIZE_MAX), so the native split rule
+// `n < MSM_MIN_PTS_PER_THREAD * pool_width` would classify every member as small and route them all
+// through the concurrent pool, whose per-worker arena is sized to the largest member and caps the
+// worker count by memory budget. This finite bound keeps large members on the sequential shared-arena
+// path so the concurrent pool retains full worker width. Members at or below it dispatch one-per-worker.
+inline constexpr size_t SMALL_MSM_BATCH_THRESHOLD = size_t{ 1 } << 13;
+
 // Per-MSM_fast arena sizer. Returns 0 for shapes that fall back to the Jacobian-fast path
 // (no affine arena). Mirrors the inline budget calc inside `pippenger_round_parallel`;
 // declared here so the test suite can exercise the same sizer.
 template <typename Curve>
-size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, bool dedup_active = false) noexcept;
+size_t compute_arena_bytes_for_msm(size_t n_input,
+                                   bool external_glv_provided,
+                                   bool dedup_active = false,
+                                   size_t max_threads = 0) noexcept;
 
 namespace round_parallel_detail {
 
@@ -202,17 +227,20 @@ inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 13;
 template <typename Curve>
 typename Curve::Element pippenger_round_parallel_jacobian_fast(std::span<const typename Curve::ScalarField> scalars,
                                                                std::span<const typename Curve::AffineElement> points,
-                                                               size_t min_pts_per_thread_override = 0) noexcept;
+                                                               size_t min_pts_per_thread_override = 0,
+                                                               size_t max_threads = 0) noexcept;
 
 extern template curve::BN254::Element pippenger_round_parallel_jacobian_fast<curve::BN254>(
     std::span<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
-    size_t min_pts_per_thread_override) noexcept;
+    size_t min_pts_per_thread_override,
+    size_t max_threads) noexcept;
 
 extern template curve::Grumpkin::Element pippenger_round_parallel_jacobian_fast<curve::Grumpkin>(
     std::span<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    size_t min_pts_per_thread_override) noexcept;
+    size_t min_pts_per_thread_override,
+    size_t max_threads) noexcept;
 
 } // namespace round_parallel_detail
 
@@ -237,14 +265,17 @@ extern template curve::Grumpkin::Element trivial_msm<curve::Grumpkin>(
  */
 template <typename Curve>
 typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve::ScalarField> scalars_span,
-                                             std::span<const typename Curve::AffineElement> all_points) noexcept;
+                                             std::span<const typename Curve::AffineElement> all_points,
+                                             size_t max_threads = 0) noexcept;
 
 extern template curve::BN254::Element trivial_msm_threaded<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars_span,
-    std::span<const curve::BN254::AffineElement> all_points) noexcept;
+    std::span<const curve::BN254::AffineElement> all_points,
+    size_t max_threads) noexcept;
 
 extern template curve::Grumpkin::Element trivial_msm_threaded<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars_span,
-    std::span<const curve::Grumpkin::AffineElement> all_points) noexcept;
+    std::span<const curve::Grumpkin::AffineElement> all_points,
+    size_t max_threads) noexcept;
 
 } // namespace bb::scalar_multiplication

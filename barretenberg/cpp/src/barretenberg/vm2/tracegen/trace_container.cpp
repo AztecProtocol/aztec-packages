@@ -1,14 +1,12 @@
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 #include <algorithm>
-#include <ranges>
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_vector.hpp"
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
 namespace bb::avm2::tracegen {
 namespace {
@@ -100,7 +98,7 @@ void TraceContainer::set(Column col, uint32_t row, const FF& value, bool use_ato
             if (BB_UNLIKELY(use_atomic_limbs)) {
                 store_per_limb(shard->rows[offset], zero);
             } else {
-                shard->rows[offset] = FF::zero();
+                shard->rows[offset] = zero;
             }
         }
     }
@@ -115,11 +113,13 @@ void TraceContainer::set(uint32_t row, std::span<const std::pair<Column, FF>> va
 
 void TraceContainer::reserve_column(Column col, size_t size)
 {
+    BB_ASSERT_LTE(size, MAX_AVM_TRACE_SIZE, "size exceeds the maximum trace size");
+
     if (size == 0) {
         return;
     }
     auto& column_data = (*trace)[static_cast<size_t>(col)];
-    const size_t num_shards = std::min((size + INTERVAL_SIZE - 1) / INTERVAL_SIZE, NUM_SHARDS);
+    const size_t num_shards = (size + INTERVAL_SIZE - 1) / INTERVAL_SIZE;
     // Each shard's dense row array is full size on creation, so reserving just materializes the shards up
     // front (e.g. for precomputed columns). Lock-free: get_or_create_shard installs each via CAS.
     for (size_t k = 0; k < num_shards; ++k) {

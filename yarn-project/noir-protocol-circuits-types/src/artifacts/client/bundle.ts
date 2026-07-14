@@ -6,16 +6,23 @@ import HidingKernelToRollupJson from '../../../artifacts/hiding_kernel_to_rollup
 import PrivateKernelInitJson from '../../../artifacts/private_kernel_init.json' with { type: 'json' };
 import PrivateKernelInit2Json from '../../../artifacts/private_kernel_init_2.json' with { type: 'json' };
 import PrivateKernelInit3Json from '../../../artifacts/private_kernel_init_3.json' with { type: 'json' };
+import PrivateKernelInit4Json from '../../../artifacts/private_kernel_init_4.json' with { type: 'json' };
+import PrivateKernelInit5Json from '../../../artifacts/private_kernel_init_5.json' with { type: 'json' };
 import PrivateKernelInitSimulatedJson from '../../../artifacts/private_kernel_init_simulated.json' with { type: 'json' };
 import PrivateKernelInnerJson from '../../../artifacts/private_kernel_inner.json' with { type: 'json' };
 import PrivateKernelInner2Json from '../../../artifacts/private_kernel_inner_2.json' with { type: 'json' };
 import PrivateKernelInner3Json from '../../../artifacts/private_kernel_inner_3.json' with { type: 'json' };
+import PrivateKernelInner4Json from '../../../artifacts/private_kernel_inner_4.json' with { type: 'json' };
+import PrivateKernelInner5Json from '../../../artifacts/private_kernel_inner_5.json' with { type: 'json' };
 import PrivateKernelInnerSimulatedJson from '../../../artifacts/private_kernel_inner_simulated.json' with { type: 'json' };
-import PrivateKernelTailJson from '../../../artifacts/private_kernel_tail.json' with { type: 'json' };
-import PrivateKernelTailSimulatedJson from '../../../artifacts/private_kernel_tail_simulated.json' with { type: 'json' };
-import PrivateKernelTailToPublicJson from '../../../artifacts/private_kernel_tail_to_public.json' with { type: 'json' };
-import PrivateKernelTailToPublicSimulatedJson from '../../../artifacts/private_kernel_tail_to_public_simulated.json' with { type: 'json' };
-import { PrivateKernelResetArtifacts, PrivateKernelResetSimulatedArtifacts } from '../../private_kernel_reset_data.js';
+import {
+  PrivateKernelResetArtifacts,
+  PrivateKernelResetSimulatedArtifacts,
+  PrivateKernelResetTailArtifacts,
+  PrivateKernelResetTailSimulatedArtifacts,
+  PrivateKernelResetTailToPublicArtifacts,
+  PrivateKernelResetTailToPublicSimulatedArtifacts,
+} from '../../private_kernel_reset_data.js';
 import type { ArtifactProvider, ClientProtocolArtifact } from '../types.js';
 import { ClientCircuitVks } from '../vks/client.js';
 
@@ -23,14 +30,18 @@ export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiled
   PrivateKernelInitArtifact: PrivateKernelInitJson as NoirCompiledCircuit,
   PrivateKernelInit2Artifact: PrivateKernelInit2Json as NoirCompiledCircuit,
   PrivateKernelInit3Artifact: PrivateKernelInit3Json as NoirCompiledCircuit,
+  PrivateKernelInit4Artifact: PrivateKernelInit4Json as NoirCompiledCircuit,
+  PrivateKernelInit5Artifact: PrivateKernelInit5Json as NoirCompiledCircuit,
   PrivateKernelInnerArtifact: PrivateKernelInnerJson as NoirCompiledCircuit,
   PrivateKernelInner2Artifact: PrivateKernelInner2Json as NoirCompiledCircuit,
   PrivateKernelInner3Artifact: PrivateKernelInner3Json as NoirCompiledCircuit,
-  PrivateKernelTailArtifact: PrivateKernelTailJson as NoirCompiledCircuit,
-  PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicJson as NoirCompiledCircuit,
+  PrivateKernelInner4Artifact: PrivateKernelInner4Json as NoirCompiledCircuit,
+  PrivateKernelInner5Artifact: PrivateKernelInner5Json as NoirCompiledCircuit,
   HidingKernelToRollup: HidingKernelToRollupJson as NoirCompiledCircuit,
   HidingKernelToPublic: HidingKernelToPublicJson as NoirCompiledCircuit,
   ...PrivateKernelResetArtifacts,
+  ...PrivateKernelResetTailArtifacts,
+  ...PrivateKernelResetTailToPublicArtifacts,
 };
 
 export const SimulatedClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
@@ -39,16 +50,24 @@ export const SimulatedClientCircuitArtifacts: Record<ClientProtocolArtifact, Noi
   PrivateKernelInit2Artifact: PrivateKernelInit2Json as NoirCompiledCircuit,
   // No private_kernel_init_3_simulated crate exists; reuse the constrained artifact for simulation.
   PrivateKernelInit3Artifact: PrivateKernelInit3Json as NoirCompiledCircuit,
+  // No private_kernel_init_4_simulated crate exists; reuse the constrained artifact for simulation.
+  PrivateKernelInit4Artifact: PrivateKernelInit4Json as NoirCompiledCircuit,
+  // No private_kernel_init_5_simulated crate exists; reuse the constrained artifact for simulation.
+  PrivateKernelInit5Artifact: PrivateKernelInit5Json as NoirCompiledCircuit,
   PrivateKernelInnerArtifact: PrivateKernelInnerSimulatedJson as NoirCompiledCircuit,
   // No private_kernel_inner_2_simulated crate exists; reuse the constrained artifact for simulation.
   PrivateKernelInner2Artifact: PrivateKernelInner2Json as NoirCompiledCircuit,
   // No private_kernel_inner_3_simulated crate exists; reuse the constrained artifact for simulation.
   PrivateKernelInner3Artifact: PrivateKernelInner3Json as NoirCompiledCircuit,
-  PrivateKernelTailArtifact: PrivateKernelTailSimulatedJson as NoirCompiledCircuit,
-  PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicSimulatedJson as NoirCompiledCircuit,
+  // No private_kernel_inner_4_simulated crate exists; reuse the constrained artifact for simulation.
+  PrivateKernelInner4Artifact: PrivateKernelInner4Json as NoirCompiledCircuit,
+  // No private_kernel_inner_5_simulated crate exists; reuse the constrained artifact for simulation.
+  PrivateKernelInner5Artifact: PrivateKernelInner5Json as NoirCompiledCircuit,
   HidingKernelToRollup: HidingKernelToRollupJson as NoirCompiledCircuit,
   HidingKernelToPublic: HidingKernelToPublicJson as NoirCompiledCircuit,
   ...PrivateKernelResetSimulatedArtifacts,
+  ...PrivateKernelResetTailSimulatedArtifacts,
+  ...PrivateKernelResetTailToPublicSimulatedArtifacts,
 };
 
 export class BundleArtifactProvider implements ArtifactProvider {

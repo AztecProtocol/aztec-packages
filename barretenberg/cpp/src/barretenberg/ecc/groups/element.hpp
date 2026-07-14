@@ -137,6 +137,23 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
         const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
 
     /**
+     * @brief Fused two-round IPA SRS fold: out[i] = (u1·u2)·P[i] + u1·P[i+t] + u2·P[i+2t] + P[i+3t].
+     *
+     * @details Equivalent to two sequential `u·LHS + RHS` folds (H = u1·P_lo + P_hi, then
+     * u2·H_lo + H_hi) evaluated on one shared doubling chain without materialising H. See ipa/ELEMENT_IMPL_FOLD.md for
+     * the derivation and cost model.
+     *
+     * @param points 4t source points; the four length-t quarters are the fold operands.
+     * @param u1 First-round challenge; must be < 2^127 (IPA transcript challenges are 127 bits).
+     * @param u2 Second-round challenge; must be < 2^127.
+     * @return The t folded points.
+     *
+     * @warning Assumes no input point is at infinity (IPA SRS points are never at infinity).
+     */
+    static std::vector<affine_element<Fq, Fr, Params>> batch_two_round_fold(
+        const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& u1, const Fr& u2) noexcept;
+
+    /**
      * @brief Multi-scalar multiplication: compute sum_i(scalars[i] * points[i])
      * @details Delegates to affine_element::batch_mul. Provided for interface compatibility with stdlib.
      */

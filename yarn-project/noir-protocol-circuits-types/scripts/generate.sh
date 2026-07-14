@@ -10,9 +10,13 @@ rm -rf ./artifacts
 mkdir -p ./artifacts
 
 cp -r ../../noir-projects/noir-protocol-circuits/target/* ./artifacts
+# generate_vk_hashes rewrites ./artifacts/*.json in place; generate_ts_from_abi reads those same
+# files. They must not run concurrently or the reader can observe a partially-written artifact
+# ("Unterminated string in JSON"). Writers run first, readers second.
 parallel --tag -v node src/scripts/{} ::: \
   generate_declaration_files.ts \
-  generate_vk_hashes.ts \
+  generate_vk_hashes.ts
+parallel --tag -v node src/scripts/{} ::: \
   generate_ts_from_abi.ts \
   generate_private_kernel_reset_data.ts
 

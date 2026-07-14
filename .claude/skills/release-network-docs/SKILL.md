@@ -45,7 +45,7 @@ Fetch node info from the provided RPC URL:
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"method":"node_getNodeInfo"}' <RPC_URL> | jq .result
+  -d '{"method":"aztec_getNodeInfo"}' <RPC_URL> | jq .result
 ```
 
 Parse the response to extract:
@@ -87,7 +87,7 @@ git tag -l "v<nodeVersion>"
 ### Step 3: Identify and Resolve Missing Contract Addresses
 
 The `networks.md` L1 table includes contracts that are **not** returned by
-`node_getNodeInfo`. Resolve these addresses in three tiers:
+`aztec_getNodeInfo`. Resolve these addresses in three tiers:
 
 #### Tier 1: Query on-chain from known contracts
 

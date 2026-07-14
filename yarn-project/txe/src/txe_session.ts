@@ -7,16 +7,21 @@ import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
   AnchorBlockStore,
+  AnchoredContractData,
   CapsuleService,
   CapsuleStore,
   ContractStore,
+  FactService,
+  FactStore,
   JobCoordinator,
   NoteService,
   NoteStore,
   PrivateEventStore,
   RecipientTaggingStore,
-  SenderAddressBookStore,
   SenderTaggingStore,
+  TaggingSecretSourcesStore,
+  type TaggingSecretStrategy,
+  composeHooks,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -25,9 +30,11 @@ import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  LEGACY_ORACLE_REGISTRY,
   Option,
-  Oracle,
+  TransientArrayService,
   UtilityExecutionOracle,
+  buildACIRCallback,
 } from '@aztec/pxe/simulator';
 import {
   ExecutionError,
@@ -38,7 +45,7 @@ import {
   toACVMWitness,
 } from '@aztec/simulator/client';
 import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-registry/constants';
-import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -52,10 +59,11 @@ import { z } from 'zod';
 import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
+import { callTxeLegacyHandler } from './oracle/txe_oracle_registry.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './oracle/txe_oracle_version.js';
 import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
-import { RPCTranslator } from './rpc_translator.js';
+import { RPCTranslator, UnavailableOracleError } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
@@ -127,14 +135,45 @@ export interface TXESessionStateHandler {
   ): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress: Option<AztecAddress>): Promise<void>;
 
-  // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
-  cycleJob(): Promise<string>;
-  getCurrentJob(): string;
+  /**
+   * Executes a top-level private call: runs the private function, drains its offchain effects into the session buffer,
+   * commits the job, and (for non-static calls) tags the result with the mined tx hash.
+   */
+  executePrivateCall(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    argsHash: Fr,
+    isStaticCall: boolean,
+    additionalScopes: AztecAddress[],
+    authorizedUtilityCallTargets: AztecAddress[],
+    gasSettings: GasSettings,
+  ): Promise<Fr[]>;
+
+  /** Executes a top-level utility function and commits the job. */
+  executeUtilityFunction(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    authorizedUtilityCallTargets: AztecAddress[],
+  ): Promise<Fr[]>;
 
   /**
-   * Runs an executor-style top-level call (private/public call, utility execution) with last-call tracking.
+   * Executes a top-level public call, commits the job, and (for non-static calls) tags the result with the mined tx
+   * hash.
    */
-  withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T>;
+  executePublicCall(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    calldata: Fr[],
+    isStaticCall: boolean,
+    gasSettings: GasSettings,
+  ): Promise<Fr[]>;
+
+  /** Syncs the target contract and returns the private events it emitted matching the given selector and scope. */
+  getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
 
   /**
    * Captures a raw offchain effect payload for consumption from test environment. Called by the `emit_offchain_effect`
@@ -198,6 +237,7 @@ function emptyLastCallState(): LastCallState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
+  private taggingSecretStrategy: TaggingSecretStrategy | undefined = undefined;
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -220,8 +260,9 @@ export class TXESession implements TXESessionStateHandler {
     private accountStore: TXEAccountStore,
     private senderTaggingStore: SenderTaggingStore,
     private recipientTaggingStore: RecipientTaggingStore,
-    private senderAddressBookStore: SenderAddressBookStore,
+    private taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private capsuleStore: CapsuleStore,
+    private factStore: FactStore,
     private privateEventStore: PrivateEventStore,
     private jobCoordinator: JobCoordinator,
     private currentJobId: string,
@@ -271,14 +312,16 @@ export class TXESession implements TXESessionStateHandler {
     const noteStore = new NoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
-    const senderAddressBookStore = new SenderAddressBookStore(store);
+    const taggingSecretSourcesStore = new TaggingSecretSourcesStore(store);
     const capsuleStore = new CapsuleStore(store);
+    const factStore = new FactStore(store);
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
       capsuleStore,
+      factStore,
       senderTaggingStore,
       recipientTaggingStore,
       privateEventStore,
@@ -306,13 +349,15 @@ export class TXESession implements TXESessionStateHandler {
       accountStore,
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
+      factStore,
       privateEventStore,
       nextBlockTimestamp,
       version,
       chainId,
       new Map(),
+      undefined,
       artifactResolver,
       rootPath,
       packageName,
@@ -332,8 +377,9 @@ export class TXESession implements TXESessionStateHandler {
       accountStore,
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
+      factStore,
       privateEventStore,
       jobCoordinator,
       initialJobId,
@@ -354,6 +400,18 @@ export class TXESession implements TXESessionStateHandler {
    */
   processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
     try {
+      // Oracles retired into the PXE legacy registry have no translator method; dispatch them through the same
+      // buildACIRCallback legacy path that contract execution uses, keeping TXE's two oracle paths in sync.
+      // Use an own-property check: `in` would match inherited `Object.prototype` keys (e.g. `constructor`), routing
+      // them into the legacy path instead of letting them fall through to the unknown-oracle error.
+      if (Object.hasOwn(LEGACY_ORACLE_REGISTRY, functionName)) {
+        return callTxeLegacyHandler(
+          functionName,
+          inputs,
+          this.oracleHandler as Parameters<typeof buildACIRCallback>[0],
+        );
+      }
+
       const translator = new RPCTranslator(this, this.oracleHandler) as any;
       // We perform a runtime validation to check that the function name corresponds to a real oracle handler.
       const validatedFunctionName = z
@@ -398,12 +456,8 @@ export class TXESession implements TXESessionStateHandler {
     }
   }
 
-  getCurrentJob(): string {
-    return this.currentJobId;
-  }
-
   /** Commits the current job and begins a new one. Returns the new job ID. */
-  async cycleJob(): Promise<string> {
+  private async cycleJob(): Promise<string> {
     await this.jobCoordinator.commitJob(this.currentJobId);
     this.currentJobId = this.jobCoordinator.beginJob();
     return this.currentJobId;
@@ -433,7 +487,7 @@ export class TXESession implements TXESessionStateHandler {
     this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
   }
 
-  async withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
+  private async withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
     this.resetLastCall();
     // Capture the anchor *before* `work` runs: private/public executor calls mine a new block as a
     // side effect, and that block's timestamp should not be attributed to this call's anchor.
@@ -461,6 +515,119 @@ export class TXESession implements TXESessionStateHandler {
   getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
     const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
     return { txHash, anchorBlockTimestamp };
+  }
+
+  async executePrivateCall(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    argsHash: Fr,
+    isStaticCall: boolean,
+    additionalScopes: AztecAddress[],
+    authorizedUtilityCallTargets: AztecAddress[],
+    gasSettings: GasSettings,
+  ): Promise<Fr[]> {
+    const handler = this.handlerAsTxe();
+    return await this.withTopLevelCallTracking(async () => {
+      const { returnValues, offchainEffects } = await handler.privateCallNewFlow(
+        from?.value,
+        targetContractAddress,
+        functionSelector,
+        args,
+        argsHash,
+        isStaticCall,
+        additionalScopes,
+        this.currentJobId,
+        authorizedUtilityCallTargets,
+        gasSettings,
+      );
+
+      // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than round-tripping
+      // them through `aztec_utl_emitOffchainEffect`, so the session buffer is empty at this point. Drain the effects
+      // from the execution tree into the session buffer so the next `env.offchain_messages()` call in the test sees
+      // them.
+      for (const data of offchainEffects) {
+        this.recordOffchainEffect(data);
+      }
+
+      await this.cycleJob();
+
+      if (isStaticCall) {
+        // Static calls revert their checkpoint and mine no block, so there is no tx hash to tag offchain effects
+        // with. Querying `getLastTxEffects()` here would return an unrelated predecessor tx.
+        return { result: returnValues };
+      }
+      const { txHash } = await handler.getLastTxEffects();
+      return { result: returnValues, txHash: txHash.hash };
+    });
+  }
+
+  async executeUtilityFunction(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    authorizedUtilityCallTargets: AztecAddress[],
+  ): Promise<Fr[]> {
+    const handler = this.handlerAsTxe();
+    return await this.withTopLevelCallTracking(async () => {
+      const returnValues = await handler.executeUtilityFunction(
+        from?.value,
+        targetContractAddress,
+        functionSelector,
+        args,
+        this.currentJobId,
+        authorizedUtilityCallTargets,
+      );
+
+      await this.cycleJob();
+
+      return { result: returnValues };
+    });
+  }
+
+  async executePublicCall(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    calldata: Fr[],
+    isStaticCall: boolean,
+    gasSettings: GasSettings,
+  ): Promise<Fr[]> {
+    const handler = this.handlerAsTxe();
+    return await this.withTopLevelCallTracking(async () => {
+      const returnValues = await handler.publicCallNewFlow(
+        from?.value,
+        targetContractAddress,
+        calldata,
+        isStaticCall,
+        gasSettings,
+      );
+
+      await this.cycleJob();
+
+      if (isStaticCall) {
+        // See the equivalent branch in `executePrivateCall`.
+        return { result: returnValues };
+      }
+      const { txHash } = await handler.getLastTxEffects();
+      return { result: returnValues, txHash: txHash.hash };
+    });
+  }
+
+  async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]> {
+    const handler = this.handlerAsTxe();
+    await handler.syncContractNonOracleMethod(contractAddress, scope, this.currentJobId);
+    // Cycle the job to commit the stores after the contract sync.
+    await this.cycleJob();
+    return handler.getPrivateEvents(selector, contractAddress, scope);
+  }
+
+  private handlerAsTxe(): ITxeExecutionOracle {
+    if (!('isTxe' in this.oracleHandler)) {
+      throw new UnavailableOracleError('Txe');
+    }
+    return this.oracleHandler;
   }
 
   setTxeOracleVersion(major: number, minor: number): void {
@@ -512,13 +679,15 @@ export class TXESession implements TXESessionStateHandler {
       this.accountStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
-      this.senderAddressBookStore,
+      this.taggingSecretSourcesStore,
       this.capsuleStore,
+      this.factStore,
       this.privateEventStore,
       this.nextBlockTimestamp,
       this.version,
       this.chainId,
       this.authwits,
+      this.taggingSecretStrategy,
       this.artifactResolver,
       this.rootPath,
       this.packageName,
@@ -562,9 +731,17 @@ export class TXESession implements TXESessionStateHandler {
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
+    const transientArrayService = new TransientArrayService();
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.stateMachine.contractClassService,
+      anchorBlock!,
+    );
+    const taggingSecretStrategy = this.taggingSecretStrategy;
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
+      txRequestSalt: Fr.ZERO,
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlockHeader: anchorBlock!,
       utilityExecutor,
@@ -573,22 +750,27 @@ export class TXESession implements TXESessionStateHandler {
       executionCache: new HashedValuesCache(),
       noteCache,
       taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: this.stateMachine.node,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
+      factService: new FactService(this.factStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
+      hooks: composeHooks({
+        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
+      }),
+      transientArrayService,
     });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -656,26 +838,39 @@ export class TXESession implements TXESessionStateHandler {
     ).syncNoteNullifiers(contractAddress, await this.keyStore.getAccounts());
 
     this.oracleHandler = new UtilityExecutionOracle({
-      contractAddress,
+      callContext: CallContext.from({
+        msgSender: AztecAddress.NULL_MSG_SENDER,
+        contractAddress,
+        // No specific function is being executed in this inlined utility context, hence the empty selector.
+        functionSelector: FunctionSelector.empty(),
+        isStaticCall: true,
+      }),
       authWitnesses: [],
       capsules: [],
       anchorBlockHeader,
-      contractStore: this.contractStore,
+      anchoredContractData: new AnchoredContractData(
+        this.contractStore,
+        this.stateMachine.contractClassService,
+        anchorBlockHeader,
+      ),
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: this.stateMachine.node,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
+      factService: new FactService(this.factStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       contractSyncService: this.stateMachine.contractSyncService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
       utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
+      // Execution-tree root (top-level utility run): own store; nested frames inherit it.
+      transientArrayService: new TransientArrayService(),
     });
 
     this.state = { name: 'UTILITY' };
@@ -691,15 +886,20 @@ export class TXESession implements TXESessionStateHandler {
     }
 
     // Note that while all public and private contexts do is build a single block that we then process when exiting
-    // those, the top level context performs a large number of actions not captured in the following 'close' call. Among
-    // others, it will create empty blocks (via `advanceBlocksBy` and `deploy`), create blocks with transactions via
-    // `privateCallNewFlow` and `publicCallNewFlow`, add accounts to PXE via `addAccount`, etc. This is a
-    // slight inconsistency in the working model of this class, but is not too bad.
-    // TODO: it's quite unfortunate that we need to capture the authwits created to later pass them again when the top
-    // level context is re-created. This is because authwits create a temporary utility context that'd otherwise reset
-    // the authwits if not persisted, so we'd not be able to pass more than one per execution.
-    // Ideally authwits would be passed alongside a contract call instead of pre-seeded.
-    [this.nextBlockTimestamp, this.authwits] = (this.oracleHandler as TXEOracleTopLevelContext).close();
+    // them, the top level context does most of its work as it goes: it creates empty blocks (via `advanceBlocksBy`
+    // and `deploy`), creates blocks with transactions (via `privateCallNewFlow` and `publicCallNewFlow`), adds
+    // accounts to PXE (via `addAccount`), etc. This is a slight inconsistency in the working model of this class, but
+    // is not too bad. The `close` call below therefore only hands back the session-scoped values that a test
+    // sets directly at the top level, outside any contract execution (e.g. via `advanceTimestampBy`,
+    // `addAuthWitness`, `setTaggingSecretStrategy`). The oracle handler is discarded on every state transition,
+    // so the session must seed these values into the contexts it creates later.
+
+    // TODO: persisting authwits this way is quite unfortunate: they create a temporary utility context that would
+    // otherwise reset them, so we'd not be able to pass more than one per execution. Ideally authwits would be passed
+    // alongside a contract call instead of pre-seeded.
+    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy] = (
+      this.oracleHandler as TXEOracleTopLevelContext
+    ).close();
   }
 
   private async exitPrivateState() {
@@ -748,7 +948,18 @@ export class TXESession implements TXESessionStateHandler {
 
   private utilityExecutorForContractSync(anchorBlock: any) {
     return async (call: FunctionCall, scopes: AztecAddress[]) => {
-      const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+      const anchoredContractData = new AnchoredContractData(
+        this.contractStore,
+        this.stateMachine.contractClassService,
+        anchorBlock!,
+      );
+      const entryPointArtifact = await anchoredContractData.getFunctionArtifactWithDebugMetadata(
+        call.to,
+        call.selector,
+      );
+      if (!entryPointArtifact) {
+        throw new Error(`Cannot run function ${call.selector} on ${call.to}: the contract is not registered.`);
+      }
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
       }
@@ -756,29 +967,37 @@ export class TXESession implements TXESessionStateHandler {
       try {
         const simulator = new WASMSimulator();
         const oracle = new UtilityExecutionOracle({
-          contractAddress: call.to,
+          callContext: CallContext.from({
+            msgSender: AztecAddress.NULL_MSG_SENDER,
+            contractAddress: call.to,
+            functionSelector: call.selector,
+            isStaticCall: true,
+          }),
           authWitnesses: [],
           capsules: [],
           anchorBlockHeader: anchorBlock!,
-          contractStore: this.contractStore,
+          anchoredContractData,
           noteStore: this.noteStore,
           keyStore: this.keyStore,
           addressStore: this.addressStore,
           aztecNode: this.stateMachine.node,
           recipientTaggingStore: this.recipientTaggingStore,
-          senderAddressBookStore: this.senderAddressBookStore,
+          taggingSecretSourcesStore: this.taggingSecretSourcesStore,
           capsuleService: new CapsuleService(this.capsuleStore, scopes),
+          factService: new FactService(this.factStore, scopes),
           privateEventStore: this.privateEventStore,
-          messageContextService: this.stateMachine.messageContextService,
+          txResolver: this.stateMachine.txResolver,
           contractSyncService: this.stateMachine.contractSyncService,
           l2TipsStore: this.stateMachine.l2TipsProvider,
           jobId: this.currentJobId,
           scopes,
           simulator,
           utilityExecutor: this.utilityExecutorForContractSync(anchorBlock),
+          // Top-level utility entrypoint: gets a fresh store. Nested frames inherit it via UtilityExecutionOracle.
+          transientArrayService: new TransientArrayService(),
         });
         await simulator
-          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, buildACIRCallback(oracle))
           .catch((err: Error) => {
             err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
             throw new ExecutionError(

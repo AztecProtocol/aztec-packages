@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,8 +13,8 @@ template <typename FF_> class range_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 2, 4, 2, 3, 2, 2, 2, 2, 2, 2, 2 };
+    static constexpr std::array<size_t, 26> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 2, 4, 2, 3, 2, 2, 2, 2, 2, 2, 2 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,17 +35,19 @@ template <typename FF> class range_check : public Relation<range_checkImpl<FF>> 
     static constexpr const std::string_view NAME = "range_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_IS_LTE_MUTUALLY_EXCLUSIVE = 14;
-    static constexpr size_t SR_CHECK_RECOMPOSITION = 15;
+    static constexpr size_t SR_IS_LTE_MUTUALLY_EXCLUSIVE = 15;
+    static constexpr size_t SR_CHECK_RECOMPOSITION = 16;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_IS_LTE_MUTUALLY_EXCLUSIVE:
             return "IS_LTE_MUTUALLY_EXCLUSIVE";
         case SR_CHECK_RECOMPOSITION:
             return "CHECK_RECOMPOSITION";
         }
+#endif
         return std::to_string(index);
     }
 };

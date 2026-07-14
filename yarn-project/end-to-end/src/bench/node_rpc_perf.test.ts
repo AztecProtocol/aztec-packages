@@ -15,6 +15,7 @@ import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Timer } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { BlockHash } from '@aztec/stdlib/block';
+import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -94,11 +95,14 @@ async function benchmark<T>(
   };
 }
 
+// Node RPC performance benchmark. Uses setup() with PIPELINING_SETUP_OPTS, builds BLOCKS_TO_BUILD blocks,
+// then iterates all RPC endpoints measuring avg/min/max latency; emits BENCH_OUTPUT JSON for the bench
+// pipeline. Not in test_cmds; runs via bench_cmds.
 describe('e2e_node_rpc_perf', () => {
   jest.setTimeout(10 * 60 * 1000); // 10 minutes
 
   let logger: Logger;
-  let aztecNode: AztecNode;
+  let aztecNode: AztecNode & AztecNodeDebug;
   let wallet: TestWallet;
   let ownerAddress: AztecAddress;
   let rollupCheatCodes: RollupCheatCodes;

@@ -316,13 +316,17 @@ const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
         .add<InteractionType::Permutation, perm_public_data_check_squashing_settings>()
         .add<InteractionType::LookupIntoIndexedByRow,
              lookup_public_data_check_write_writes_length_to_public_inputs_settings>()
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_check_clk_diff_range_lo_settings>()
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_check_clk_diff_range_hi_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_check_clk_diff_range_lo_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_check_clk_diff_range_hi_settings>(
+            Column::precomputed_sel_range_16)
         .add<InteractionType::LookupIntoIndexedByRow,
              lookup_public_data_check_write_public_data_to_public_inputs_settings>()
         // Public data squash
         .add<InteractionType::LookupGeneric, lookup_public_data_squash_leaf_slot_increase_ff_gt_settings>()
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_squash_clk_diff_range_lo_settings>()
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_squash_clk_diff_range_hi_settings>();
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_squash_clk_diff_range_lo_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_squash_clk_diff_range_hi_settings>(
+            Column::precomputed_sel_range_16);
 
 } // namespace bb::avm2::tracegen

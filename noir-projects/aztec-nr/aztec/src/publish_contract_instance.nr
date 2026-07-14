@@ -31,7 +31,7 @@ pub fn publish_contract_instance_for_public_execution(context: &mut PrivateConte
     // immutables_hash) + 7 (public_keys) + 1 (universal_deploy) = 12.
     let mut serialized_args = [0; 12];
     serialized_args[0] = instance.salt;
-    serialized_args[1] = instance.contract_class_id.to_field();
+    serialized_args[1] = instance.original_contract_class_id.to_field();
     serialized_args[2] = instance.initialization_hash;
     serialized_args[3] = instance.immutables_hash;
 

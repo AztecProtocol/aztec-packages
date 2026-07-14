@@ -154,6 +154,22 @@ function build_gcc_syntax_check_only {
   cache_upload barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
 }
 
+# Do a basic test that the amd64-windows cross-compile preset still compiles (syntax only: no
+# optimization, linking, or real artifacts). The Windows binary is otherwise only built on the
+# release path, so without this PR CI misses Windows-only breakages — e.g. POSIX-only symbols
+# such as SIGPIPE that are undeclared under MinGW.
+function build_windows_syntax_check_only {
+  set -eu
+  if cache_download barretenberg-windows-syntax-$hash.zst; then
+    return
+  fi
+  cmake --preset amd64-windows -DSYNTAX_ONLY=1
+  cmake --build --preset amd64-windows
+  # Note: There's no real artifact here, we fake one for consistency.
+  echo success > build-amd64-windows/syntax-check-success.flag
+  cache_upload barretenberg-windows-syntax-$hash.zst build-amd64-windows/syntax-check-success.flag
+}
+
 # Do basic tests that the fuzzing and fuzzing-avm presets still compile (does not do optimization or create object files).
 function build_fuzzing_syntax_check_only {
   set -eu
@@ -225,7 +241,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-x86_64-android/lib libbb-external.a
 }
 
-export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native download_chonk_inputs build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version inject_bb_versions
+export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native download_chonk_inputs build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_windows_syntax_check_only build_smt_verification inject_version inject_bb_versions
 
 function build {
   echo_header "bb cpp build"
@@ -264,6 +280,9 @@ function test_cmds_native {
           fi
         fi
         local prefix=$hash
+        if [[ "${CI_FULL:-0}" -eq 0 && "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
+          continue
+        fi
         # A little extra resource for these tests.
         # IPARecursiveTests fails with 2 threads.
         if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then

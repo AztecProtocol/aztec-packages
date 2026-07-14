@@ -63,13 +63,11 @@ export type ArchiverSpecificConfig = {
   /** Skip promoting proposed checkpoints during L1 sync (for testing purposes only) */
   skipPromoteProposedCheckpointDuringL1Sync?: boolean;
 
-  /**
-   * Grace period in seconds, measured from the end of a proposed block's build slot, after which a
-   * proposed block whose enclosing checkpoint was never proposed is pruned as an orphan. Defaults
-   * from `blockDurationMs / 1000` at the node wiring layer, falling back to the timetable minimum
-   * execution time.
-   */
-  orphanProposedBlockPruneGraceSeconds?: number;
+  /** Local tolerance in seconds before pruning an orphan block when no checkpoint proposal was received. */
+  orphanPruneNoProposalTolerance?: number;
+
+  /** Skip pruning orphan proposed blocks that have no matching proposed checkpoint. */
+  skipOrphanProposedBlockPruning?: boolean;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -82,7 +80,8 @@ export const ArchiverSpecificConfigSchema = z.object({
   archiverSkipHistoricalLogsCheck: z.boolean().optional(),
   skipValidateCheckpointAttestations: z.boolean().optional(),
   skipPromoteProposedCheckpointDuringL1Sync: z.boolean().optional(),
-  orphanProposedBlockPruneGraceSeconds: schemas.Integer.optional(),
+  orphanPruneNoProposalTolerance: schemas.Integer.optional(),
+  skipOrphanProposedBlockPruning: z.boolean().optional(),
 });
 
 export type ArchiverApi = Omit<
@@ -123,7 +122,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
   getBytecodeCommitment: z.function({ input: z.tuple([schemas.Fr]), output: schemas.Fr }),
   getContract: z.function({
-    input: z.tuple([schemas.AztecAddress, optional(schemas.BigInt)]),
+    input: z.tuple([schemas.AztecAddress, schemas.BigInt]),
     output: ContractInstanceWithAddressSchema.optional(),
   }),
   getContractClassIds: z.function({ input: z.tuple([]), output: z.array(schemas.Fr) }),

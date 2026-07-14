@@ -3,13 +3,14 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { ungzip } from 'pako';
 
-import { AztecClientBackend, BackendType, Barretenberg } from '../index.js';
+import { AztecClientBackend, BackendType, Barretenberg, CircuitKind } from '../index.js';
 
 interface RawStep {
   bytecode: Buffer;
   witness: Buffer;
   vk: Buffer;
   functionName: string;
+  kind: CircuitKind;
 }
 
 const TEST_TIMEOUT_MS = 30 * 60 * 1000;
@@ -56,6 +57,7 @@ function loadPinnedFlow(flowDir: string) {
     witnesses: steps.map(step => ungzip(step.witness)),
     vks: steps.map(step => new Uint8Array(step.vk)),
     names: steps.map(step => step.functionName),
+    kinds: steps.map(step => step.kind),
   };
 }
 
@@ -129,10 +131,10 @@ describe('Chonk pinned IVC inputs through bb.js', () => {
 
       try {
         for (const flowDir of backendCase.selectFlows(flows)) {
-          const { bytecodes, witnesses, vks, names } = backendCase.preloadInputs
+          const { bytecodes, witnesses, vks, names, kinds } = backendCase.preloadInputs
             ? preloadedFlows.get(flowDir)!
             : loadPinnedFlow(flowDir);
-          const backend = new AztecClientBackend(bytecodes, barretenberg, names);
+          const backend = new AztecClientBackend(bytecodes, barretenberg, names, kinds);
           const { proof, vk } = await backend.prove(witnesses, vks);
           const verified = await backend.verify(proof, vk);
           expect(verified).toBe(true);

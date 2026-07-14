@@ -54,6 +54,7 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
                                                   size_t table_bits,
                                                   std::optional<std::span<AffineElement>> hints)
     : _context(context)
+    , _table_bits(table_bits)
     , tag(OriginTag(base_point.get_origin_tag(), offset_generator.get_origin_tag()))
 {
     const size_t table_size = 1UL << table_bits;
@@ -147,12 +148,16 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
  * @details Performs a ROM read which costs one gate. If `_index` is constant, we convert it to a witness constrained to
  * equal the constant value.
  *
+ * @note The caller must enforce that _index < 2^table_bits, _index is not constrained in this function
+ *
  * @tparam Builder
  * @param _index
  * @return cycle_group<Builder>
  */
 template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::read(const field_t& _index)
 {
+    BB_ASSERT_LT(uint256_t(_index.get_value()).get_msb(), _table_bits, "straus_lookup_table read index out of bounds");
+
     field_t index(_index);
     // A ROM array index must be a witness; we convert constants to a witness constrained to equal the constant value
     if (index.is_constant()) {

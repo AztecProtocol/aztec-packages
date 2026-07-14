@@ -194,8 +194,6 @@ Column get_dyn_gas_selector(uint32_t dyn_gas_id)
         return C::execution_sel_gas_returndata_copy;
     case AVM_DYN_GAS_ID_TORADIX:
         return C::execution_sel_gas_to_radix;
-    case AVM_DYN_GAS_ID_BITWISE:
-        return C::execution_sel_gas_bitwise;
     case AVM_DYN_GAS_ID_EMITPUBLICLOG:
         return C::execution_sel_gas_emit_public_log;
     case AVM_DYN_GAS_ID_SSTORE:

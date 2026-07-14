@@ -6,6 +6,7 @@
 
 #include "private_execution_steps.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
@@ -144,49 +145,45 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     folding_stack.resize(steps.size());
     precomputed_vks.resize(steps.size());
     function_names.resize(steps.size());
+    kinds.resize(steps.size());
 
     // Parse each step's bytecode/witness in parallel (thread-safe with msgpack format)
     parallel_for(steps.size(), [&](size_t i) {
         PrivateExecutionStepRaw step = std::move(steps[i]);
 
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
+        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(step.bytecode));
         acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_vector(std::move(step.witness));
 
         folding_stack[i] = { std::move(constraints), std::move(witness) };
         if (step.vk.empty()) {
             // For backwards compatibility, but it affects performance and correctness.
-            precomputed_vks[i] = nullptr;
+            precomputed_vks[i] = {};
         } else {
-            precomputed_vks[i] = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(step.vk);
+            precomputed_vks[i] = std::move(step.vk);
         }
         function_names[i] = std::move(step.function_name);
+        kinds[i] = step.kind;
     });
 }
 
 std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
 {
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/folding_stack.size());
-
-    const acir_format::ProgramMetadata metadata{ ivc };
+    auto step_processor = ChonkStepProcessor(kinds);
 
     for (auto& vk : precomputed_vks) {
-        if (vk == nullptr) {
+        if (vk.empty()) {
             info("DEPRECATED: Precomputed VKs expected for the given circuits.");
             break;
         }
     }
-    // Accumulate the entire program stack into the IVC
-    for (auto [program, precomputed_vk, function_name] : zip_view(folding_stack, precomputed_vks, function_names)) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        info("Chonk: accumulating " + function_name);
-        // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
-        // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        ivc->accumulate(circuit, precomputed_vk);
+    for (size_t i = 0; i < folding_stack.size(); ++i) {
+        step_processor.process_step({ .name = std::move(function_names[i]),
+                                      .program = std::move(folding_stack[i]),
+                                      .precomputed_vk = std::move(precomputed_vks[i]),
+                                      .kind = kinds[i] });
     }
 
-    return ivc;
+    return step_processor.get_ivc();
 }
 
 void PrivateExecutionStepRaw::compress_and_save(std::vector<PrivateExecutionStepRaw>&& steps,

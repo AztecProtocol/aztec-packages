@@ -15,7 +15,7 @@ Not sure which network or version to pin against? Jump to the [Network selection
 
 | Parameter           | Alpha (Mainnet)                                                                                          | Testnet                                                                                                  |
 | ------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Version**         | `4.3.1`                                                                                                  | `5.0.0`                                                                                                  |
+| **Version**         | `4.3.1`                                                                                                  | `5.0.0`                                                                                             |
 | **L1 Chain ID**     | `1` (Mainnet)                                                                                            | `11155111` (Sepolia)                                                                                     |
 | **Rollup Version**  | `2934756905`                                                                                             | `1821665230`                                                                                             |
 | **RPC Endpoint**    | `https://aztec-mainnet.drpc.org`                                                                         | `https://v5.testnet.rpc.aztec-labs.com`                                                                  |
@@ -70,7 +70,7 @@ Stable releases target roughly one per month, typically mid-month. Dates are not
 | **Governance**                          | [`0x1102471eb3378fee427121c9efcea452e4b6b75e`](https://etherscan.io/address/0x1102471eb3378fee427121c9efcea452e4b6b75e) | [`0xcaf7447721447b22cd0076ac7c63877c3afd329f`](https://sepolia.etherscan.io/address/0xcaf7447721447b22cd0076ac7c63877c3afd329f) |
 | **Governance Staking Escrow**           | [`0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f`](https://etherscan.io/address/0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f) | [`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`](https://sepolia.etherscan.io/address/0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac) |
 | **Staking Registry**                    | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2`](https://sepolia.etherscan.io/address/0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2) |
-| **Slash Factory**                       | N/A                                                                                                                     | [`0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17`](https://sepolia.etherscan.io/address/0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17) |
+| **Slash Factory**                       | N/A                                                                                                                     | N/A |
 | **Slasher**                             | [`0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb`](https://etherscan.io/address/0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb) | [`0xBFa3625CfC7cdDAbF29961e12C4399c5bd8D8763`](https://sepolia.etherscan.io/address/0xBFa3625CfC7cdDAbF29961e12C4399c5bd8D8763) |
 | **Tally Slashing Proposer**             | [`0xa4a38fD0108C00983E75616b638Ff3321FD26958`](https://etherscan.io/address/0xa4a38fD0108C00983E75616b638Ff3321FD26958) | [`0x504331248Eb1359C247a0e6895fFfeA70ecdb9a8`](https://sepolia.etherscan.io/address/0x504331248Eb1359C247a0e6895fFfeA70ecdb9a8) |
 | **Honk Verifier**                       | [`0x70aedda427f26480d240bc0f4308cedec8d31348`](https://etherscan.io/address/0x70aedda427f26480d240bc0f4308cedec8d31348) | [`0x31F98dfC544E52e4170c0Dc64098049651db48C1`](https://sepolia.etherscan.io/address/0x31F98dfC544E52e4170c0Dc64098049651db48C1) |
@@ -83,9 +83,9 @@ Stable releases target roughly one per month, typically mid-month. Dates are not
 | ------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | **Instance Registry**    | `0x0000000000000000000000000000000000000000000000000000000000000002` | `0x0000000000000000000000000000000000000000000000000000000000000002` |
 | **Class Registry**       | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000001` |
-| **MultiCall Entrypoint** | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x2d1803ae8e30d5fa993a7624231b5ddcf4133ff7475b80a0fba782404b5a09c1` |
+| **MultiCall Entrypoint** | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x05dc8c4896e9171487c4d2566f6c7b1cab035334fbce5d745911806fe9f92cc8` |
 | **Fee Juice**            | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
-| **SponsoredFPC**         | Not deployed                                                         | `0x1969946536f0c09269e2c75e414eef4e21a76e763c5514125208db33d7d944d7` |
+| **SponsoredFPC**         | Not deployed                                                         | `0x0628377e98bca5913dc86765ad0758f7b7aa83eac49079c6fba125807b393fe1` |
 
 ## Governance parameters
 

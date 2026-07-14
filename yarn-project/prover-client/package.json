@@ -9,7 +9,8 @@
     "./orchestrator": "./dest/orchestrator/index.js",
     "./helpers": "./dest/orchestrator/block-building-helpers.js",
     "./light": "./dest/light/index.js",
-    "./config": "./dest/config.js"
+    "./config": "./dest/config.js",
+    "./test": "./dest/test/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

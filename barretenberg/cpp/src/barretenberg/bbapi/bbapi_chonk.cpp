@@ -1,4 +1,5 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
@@ -16,10 +17,11 @@
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <climits>
 #include <csignal>
 #include <cstring>
 #include <fcntl.h>
@@ -30,6 +32,24 @@
 #endif
 
 namespace bb::bbapi {
+namespace {
+
+ChonkPrecomputedVkPolicy to_chonk_vk_policy(VkPolicy policy)
+{
+    switch (policy) {
+    case VkPolicy::DEFAULT:
+        return ChonkPrecomputedVkPolicy::DEFAULT;
+    case VkPolicy::CHECK:
+        return ChonkPrecomputedVkPolicy::CHECK;
+    case VkPolicy::RECOMPUTE:
+        return ChonkPrecomputedVkPolicy::RECOMPUTE;
+    case VkPolicy::REWRITE:
+        break;
+    }
+    throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
+}
+
+} // namespace
 
 // BB_NO_EXCEPTIONS rewrites catch blocks away; handlers must not depend on catch bindings.
 #ifndef BB_NO_EXCEPTIONS
@@ -53,14 +73,14 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-    request.ivc_in_progress = std::make_shared<Chonk>(num_circuits);
-    request.ivc_stack_depth = 0;
+    request.ivc_in_progress = std::make_shared<ChonkStepProcessor>(std::move(kinds));
 
     // Clear any stale loaded-circuit state from a previous session so that
     // ChonkAccumulate cannot silently reuse a circuit loaded before this ChonkStart.
     request.loaded_circuit_name.clear();
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
+    request.loaded_circuit_kind = CircuitKind::App;
 
     return Response{};
 }
@@ -73,8 +93,9 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
     }
 
     request.loaded_circuit_name = circuit.name;
-    request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    request.loaded_circuit_constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
     request.loaded_circuit_vk = circuit.verification_key;
+    request.loaded_circuit_kind = kind;
 
     info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
 
@@ -100,51 +121,17 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     // would be in a moved-from state, which is technically has_value()==true but poisoned).
     auto loaded_vk = std::move(request.loaded_circuit_vk);
     auto circuit_name = std::move(request.loaded_circuit_name);
+    const CircuitKind loaded_kind = request.loaded_circuit_kind;
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
     request.loaded_circuit_name.clear();
+    request.loaded_circuit_kind = CircuitKind::App;
 
-    // The hiding kernel (MegaZK) is definitionally the last circuit in the IVC stack; derive flag accordingly.
-    auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
-    const bool is_hiding_kernel = (request.ivc_stack_depth + 1 == chonk->get_num_circuits());
-
-    const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
-    auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
-
-    std::shared_ptr<Chonk::MegaVerificationKey> precomputed_vk;
-
-    if (request.vk_policy == VkPolicy::RECOMPUTE) {
-        precomputed_vk = nullptr;
-    } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
-        if (!loaded_vk.empty()) {
-            validate_vk_size<Chonk::MegaVerificationKey>(loaded_vk);
-            precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(loaded_vk);
-
-            if (request.vk_policy == VkPolicy::CHECK) {
-                // Note that MegaZKVerificationKey = MegaVerificationKey as C++ classes but their content differs
-                // between ZK and non-ZK flavors.
-                auto computed_vk = is_hiding_kernel ? std::make_shared<Chonk::MegaVerificationKey>(
-                                                          Chonk::HidingKernelProverInstance(circuit).get_precomputed())
-                                                    : std::make_shared<Chonk::MegaVerificationKey>(
-                                                          Chonk::ProverInstance(circuit).get_precomputed());
-
-                // Dereference to compare VK contents
-                if (*precomputed_vk != *computed_vk) {
-                    throw_or_abort("VK check failed for circuit '" + circuit_name +
-                                   "': provided VK does not match computed VK");
-                }
-            }
-        }
-    } else {
-        throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
-    }
-
-    info("ChonkAccumulate - accumulating circuit '", circuit_name, "'");
-    if (detail::use_memory_profile) {
-        detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(circuit_name);
-    }
-    request.ivc_in_progress->accumulate(circuit, precomputed_vk);
-    request.ivc_stack_depth++;
+    request.ivc_in_progress->process_step({ .name = std::move(circuit_name),
+                                            .program = std::move(program),
+                                            .precomputed_vk = std::move(loaded_vk),
+                                            .kind = loaded_kind },
+                                          to_chonk_vk_policy(request.vk_policy));
 
     return Response{};
 }
@@ -156,37 +143,27 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
-    if (request.ivc_stack_depth == 0) {
+    const size_t num_circuits_accumulated = request.ivc_in_progress->get_num_circuits_accumulated();
+    if (num_circuits_accumulated == 0) {
         throw_or_abort("No circuits accumulated. Call ChonkAccumulate first.");
     }
 
-    info("ChonkProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
+    info("ChonkProve - generating proof for ", num_circuits_accumulated, " accumulated circuits");
 
-    // Call prove and verify using the appropriate IVC type
-    Response response;
-    bool verification_passed = false;
+    auto proof = request.ivc_in_progress->prove();
+    auto vk_and_hash = request.ivc_in_progress->get_hiding_kernel_vk_and_hash();
 
-    info("ChonkProve - using Chonk");
-    auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
-    auto proof = chonk->prove();
-    auto vk_and_hash = chonk->get_hiding_kernel_vk_and_hash();
-
-    // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
-    // and it is mysterious if this transaction fails later in the lifecycle.
+    // Sanity-check the freshly produced proof in-process. A separate `bb verify` call would
+    // re-load VK/proof/SRS and surface failures far from the proving site.
     info("ChonkProve - verifying the generated proof as a sanity check");
     ChonkNativeVerifier verifier(vk_and_hash);
-    verification_passed = verifier.verify(proof);
-
-    if (!verification_passed) {
+    if (!verifier.verify(proof)) {
         throw_or_abort("Failed to verify the generated proof!");
     }
 
-    response.proof = std::move(proof);
-
     request.ivc_in_progress.reset();
-    request.ivc_stack_depth = 0;
 
-    return response;
+    return Response{ .proof = std::move(proof) };
 }
 
 ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
@@ -194,13 +171,13 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
     try {
-        using VerificationKey = Chonk::MegaVerificationKey;
+        using VerificationKey = Chonk::MegaZKVerificationKey;
         if (!has_expected_vk_size<VerificationKey>(vk, "ChonkVerify")) {
             return { .valid = false };
         }
 
         // Deserialize the hiding kernel verification key directly from buffer
-        auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
+        auto hiding_kernel_vk = deserialize_chonk_vk(vk);
 
         // Validate total proof size: must match num_public_inputs + fixed overhead
         const size_t expected_proof_size =
@@ -230,12 +207,13 @@ ChonkVerifyFromFields::Response ChonkVerifyFromFields::execute(const BBApiReques
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
     try {
-        using VerificationKey = Chonk::MegaVerificationKey;
+        using VerificationKey = Chonk::MegaZKVerificationKey;
         if (!has_expected_vk_size<VerificationKey>(vk, "ChonkVerifyFromFields")) {
             return { .valid = false };
         }
 
-        auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
+        // The hiding kernel uses MegaZKFlavor's VK shape (distinct C++ type from MegaFlavor's VK).
+        auto hiding_kernel_vk = deserialize_chonk_vk(vk);
 
         // Validate total field count: must match num_public_inputs + fixed overhead.
         const size_t expected_field_count =
@@ -279,19 +257,17 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
             return { .valid = false };
         }
 
-        using VerificationKey = Chonk::MegaVerificationKey;
+        using VerificationKey = Chonk::MegaZKVerificationKey;
 
-        // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
-        std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
-        std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts;
-        ipa_claims.reserve(proofs.size());
-        ipa_transcripts.reserve(proofs.size());
+        // Phase 1: Run all non-IPA verification for each proof, collecting deferred TripleIPA claims and proofs.
+        std::vector<bb::ChonkNativeVerifier::TripleIpaReductionResult> reduced_results;
+        reduced_results.reserve(proofs.size());
 
         for (size_t i = 0; i < proofs.size(); ++i) {
             if (!has_expected_vk_size<VerificationKey>(vks[i], "ChonkBatchVerify")) {
                 return { .valid = false };
             }
-            auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vks[i]));
+            auto hiding_kernel_vk = deserialize_chonk_vk(vks[i]);
 
             const size_t expected_proof_size =
                 static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
@@ -307,17 +283,20 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 
             auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
             ChonkNativeVerifier verifier(vk_and_hash);
-            auto result = verifier.reduce_to_ipa_claim(std::move(proofs[i]));
+            auto result = verifier.reduce_to_triple_ipa_opening(std::move(proofs[i]));
             if (!result.all_checks_passed) {
                 return { .valid = false };
             }
-            ipa_claims.push_back(std::move(result.ipa_claim));
-            ipa_transcripts.push_back(std::make_shared<NativeTranscript>(std::move(result.ipa_proof)));
+            reduced_results.push_back(std::move(result));
         }
 
-        // Phase 2: Batch IPA verification
-        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-        const bool verified = IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, ipa_claims, ipa_transcripts);
+        // Phase 2: Reduce all deferred TripleIPA claims to accumulators and discharge them with one combined SRS-MSM.
+        std::vector<bb::ECCVMVerifier::DeferredTripleIpaOpening::Accumulator> ipa_accumulators;
+        ipa_accumulators.reserve(reduced_results.size());
+        for (const auto& result : reduced_results) {
+            ipa_accumulators.push_back(result.triple_ipa_opening.reduce_to_accumulator());
+        }
+        const bool verified = bb::ECCVMVerifier::batch_verify_accumulators(ipa_accumulators);
 
         return { .valid = verified };
     } catch (const std::exception& e) {
@@ -329,59 +308,38 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
     }
 }
 
-static std::shared_ptr<Chonk::MegaVerificationKey> compute_chonk_vk_from_program(acir_format::AcirProgram& program,
-                                                                                 bool use_zk_flavor)
-{
-    Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
-    if (use_zk_flavor) {
-        return std::make_shared<Chonk::MegaVerificationKey>(
-            Chonk::HidingKernelProverInstance(builder).get_precomputed());
-    }
-    return std::make_shared<Chonk::MegaVerificationKey>(Chonk::ProverInstance(builder).get_precomputed());
-}
-
 ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ChonkComputeVk - deriving MegaVerificationKey for circuit '",
+    info("ChonkComputeVk - deriving Chonk verification key for circuit '",
          circuit.name,
-         "'",
-         use_zk_flavor ? " (MegaZK)" : "");
+         "' (kind=",
+         static_cast<int>(kind),
+         ")");
 
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    auto constraint_system = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    auto verification_key = compute_chonk_vk_from_program(program, use_zk_flavor);
-
-    info("ChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
-
-    return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
+    auto verification_key = compute_chonk_vk(program, kind);
+    info("ChonkComputeVk - VK derived, size: ", verification_key.bytes.size(), " bytes");
+    return { .bytes = std::move(verification_key.bytes), .fields = std::move(verification_key.fields) };
 }
 
 ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
-
-    auto computed_vk = compute_chonk_vk_from_program(program, use_zk_flavor);
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", circuit.name);
         throw_or_abort("Missing precomputed VK");
     }
 
-    validate_vk_size<Chonk::MegaVerificationKey>(circuit.verification_key);
-
-    // Deserialize directly from buffer
-    auto precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(circuit.verification_key);
-
     Response response;
-    response.valid = true;
-    if (*computed_vk != *precomputed_vk) {
-        response.valid = false;
-        response.actual_vk = to_buffer(computed_vk);
-    }
+    auto check = check_precomputed_chonk_vk(program, circuit.verification_key, kind);
+    response.valid = check.valid;
+    response.actual_vk = std::move(check.actual_vk);
     return response;
 }
 
@@ -390,7 +348,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     Response response;
 
-    const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    const auto constraint_system = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
     acir_format::AcirProgram program{ constraint_system, {} };
 
     // Get IVC constraints if any
@@ -445,16 +403,17 @@ ChonkDecompressProof::Response ChonkDecompressProof::execute(const BBApiRequest&
 
 // ── Batch Verifier Service ──────────────────────────────────────────────────
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 
 namespace {
 
 bool write_all(int fd, const uint8_t* ptr, size_t len)
 {
     while (len > 0) {
-        const auto chunk_len =
-            static_cast<unsigned int>(std::min<size_t>(len, std::numeric_limits<unsigned int>::max()));
-        const ssize_t written = ::write(fd, ptr, chunk_len);
+        // ::write takes a size_t count on POSIX but an unsigned int on Windows (MinGW _write), so cap each
+        // call to INT_MAX and cast explicitly to keep the count in range and the return value representable.
+        const auto chunk = static_cast<unsigned int>(std::min(len, static_cast<size_t>(INT_MAX)));
+        const ssize_t written = ::write(fd, ptr, chunk);
         if (written > 0) {
             ptr += written;
             len -= static_cast<size_t>(written);
@@ -660,15 +619,11 @@ ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest&
         throw_or_abort("ChonkBatchVerifierStart: service already running. Call ChonkBatchVerifierStop first.");
     }
 
-    using VerificationKey = Chonk::MegaVerificationKey;
-
     std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> parsed_vks;
     parsed_vks.reserve(vks.size());
 
     for (size_t i = 0; i < vks.size(); ++i) {
-        validate_vk_size<VerificationKey>(vks[i]);
-        auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vks[i]));
-        parsed_vks.push_back(std::make_shared<MegaZKFlavor::VKAndHash>(vk));
+        parsed_vks.push_back(deserialize_chonk_vk_and_hash(vks[i]));
     }
 
     request.batch_verifier_service = std::make_shared<ChonkBatchVerifierService>();
@@ -720,24 +675,24 @@ ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& r
     return {};
 }
 
-#else // __wasm__
+#else // BB_HAS_BATCH_VERIFIER_SERVICE
 
 ChonkBatchVerifierStart::Response ChonkBatchVerifierStart::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierStart is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierStart is not supported on this platform (wasm/Windows)");
 }
 
 ChonkBatchVerifierQueue::Response ChonkBatchVerifierQueue::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierQueue is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierQueue is not supported on this platform (wasm/Windows)");
 }
 
 ChonkBatchVerifierStop::Response ChonkBatchVerifierStop::execute(BBApiRequest& /*request*/) &&
 {
-    throw_or_abort("ChonkBatchVerifierStop is not supported in WASM builds");
+    throw_or_abort("ChonkBatchVerifierStop is not supported on this platform (wasm/Windows)");
 }
 
-#endif // __wasm__
+#endif // BB_HAS_BATCH_VERIFIER_SERVICE
 
 #undef BBAPI_CHONK_EXCEPTION_WHAT
 

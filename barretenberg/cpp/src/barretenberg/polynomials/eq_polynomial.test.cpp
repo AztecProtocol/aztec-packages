@@ -207,7 +207,7 @@ TEST_F(EqPolyTest, ProverTableMatchesVerifierOnBooleanPoints)
     for (uint64_t ell = 0; ell < (1ULL << d); ++ell) {
         const auto u = bool_vec_from_mask(d, ell);
         const FF got_ver = v.evaluate(u);
-        const FF got_prov = peq.at(ell);
+        const FF got_prov = peq.at(static_cast<size_t>(ell));
         EXPECT_EQ(got_prov, got_ver) << "ell=" << ell;
     }
 }

@@ -6,6 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { jest } from '@jest/globals';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT, MAX_CAPACITY_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import { GasFees } from '../gas/index.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
@@ -17,7 +18,7 @@ describe('validateCheckpointStructure', () => {
 
   const fixedSlot = SlotNumber(42);
   const fixedCoinbase = EthAddress.random();
-  const fixedFeeRecipient = AztecAddress.fromField(Fr.random());
+  const fixedFeeRecipient = AztecAddress.fromFieldUnsafe(Fr.random());
   const fixedGasFees = GasFees.random();
   const fixedTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
@@ -70,18 +71,40 @@ describe('validateCheckpointStructure', () => {
     expect(() => validateCheckpointStructure(checkpoint)).toThrow('Checkpoint has no blocks');
   });
 
-  it('throws when block count exceeds MAX_BLOCKS_PER_CHECKPOINT', async () => {
-    // Build 73 blocks (MAX_BLOCKS_PER_CHECKPOINT = 72)
+  it('throws when block count exceeds the attestable limit (the default)', async () => {
+    // Build MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT + 1 (= 73) blocks; the default limit is the attestable one.
     const checkpoint = await makeValidCheckpoint(1);
-    // Reuse the single block to fill up 73 slots (structure checks happen before archive chaining in loop)
+    // Reuse the single block to fill up the slots (the count check happens before archive chaining in loop)
     const block = checkpoint.blocks[0];
-    checkpoint.blocks = Array.from({ length: 73 }, (_, i) => {
+    checkpoint.blocks = Array.from({ length: MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT + 1 }, (_, i) => {
       const cloned = Object.create(Object.getPrototypeOf(block), Object.getOwnPropertyDescriptors(block));
       cloned.indexWithinCheckpoint = IndexWithinCheckpoint(i);
       return cloned;
     });
     expect(() => validateCheckpointStructure(checkpoint)).toThrow(CheckpointValidationError);
-    expect(() => validateCheckpointStructure(checkpoint)).toThrow(/exceeding limit of 72/);
+    expect(() => validateCheckpointStructure(checkpoint)).toThrow(
+      new RegExp(`exceeding limit of ${MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT}`),
+    );
+  });
+
+  it('accepts more than the attestable limit when given the capacity ceiling (L1-ingest path)', async () => {
+    const checkpoint = await makeValidCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT + 1);
+    // The default (attestable) limit rejects it...
+    expect(() => validateCheckpointStructure(checkpoint)).toThrow(
+      new RegExp(`exceeding limit of ${MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT}`),
+    );
+    // ...but the capacity ceiling used when ingesting L1 checkpoints accepts it.
+    expect(() =>
+      validateCheckpointStructure(checkpoint, { maxBlocksPerCheckpoint: MAX_CAPACITY_BLOCKS_PER_CHECKPOINT }),
+    ).not.toThrow();
+  });
+
+  it('respects an explicit maxBlocksPerCheckpoint', async () => {
+    const checkpoint = await makeValidCheckpoint(3);
+    expect(() => validateCheckpointStructure(checkpoint, { maxBlocksPerCheckpoint: 2 })).toThrow(
+      /exceeding limit of 2/,
+    );
+    expect(() => validateCheckpointStructure(checkpoint, { maxBlocksPerCheckpoint: 5 })).not.toThrow();
   });
 
   it('throws when indexWithinCheckpoint is wrong', async () => {
@@ -135,7 +158,7 @@ describe('validateCheckpoint — limits', () => {
   const checkpointNumber = CheckpointNumber(1);
   const fixedSlot = SlotNumber(42);
   const fixedCoinbase = EthAddress.random();
-  const fixedFeeRecipient = AztecAddress.fromField(Fr.random());
+  const fixedFeeRecipient = AztecAddress.fromFieldUnsafe(Fr.random());
   const fixedGasFees = GasFees.random();
   const fixedTimestamp = BigInt(Math.floor(Date.now() / 1000));
 

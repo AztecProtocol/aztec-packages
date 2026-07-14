@@ -35,8 +35,8 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
   });
 
   describe('unique contract class limit and exceptional halts', () => {
-    const deployer = AztecAddress.fromNumber(42);
-    const sender = AztecAddress.fromNumber(4200);
+    const deployer = AztecAddress.fromNumberUnsafe(42);
+    const sender = AztecAddress.fromNumberUnsafe(4200);
     let instances: ContractInstanceWithAddress[];
     let testContractAddress: AztecAddress;
 

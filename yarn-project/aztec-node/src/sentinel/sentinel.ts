@@ -1,16 +1,9 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import {
-  BlockNumber,
-  CheckpointNumber,
-  CheckpointProposalHash,
-  EpochNumber,
-  SlotNumber,
-} from '@aztec/foundation/branded-types';
+import { CheckpointNumber, CheckpointProposalHash, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
 import {
   OffenseType,
@@ -21,13 +14,7 @@ import {
   getOffenseTypeName,
 } from '@aztec/slasher';
 import type { SlasherConfig } from '@aztec/slasher/config';
-import {
-  type L2BlockSource,
-  L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-  getAttestationInfoFromPublishedCheckpoint,
-} from '@aztec/stdlib/block';
+import { type L2BlockSource, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
@@ -97,7 +84,7 @@ function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
  * first:
  *
  *  - `checkpoint-mined`        — a checkpoint covering this slot has landed on L1
- *                                (`slotNumberToCheckpoint` populated from `chain-checkpointed`).
+ *                                (fetched on demand via `archiver.getCheckpoint({ slot })`).
  *  - `checkpoint-valid`        — the local node re-executed a checkpoint proposal for this slot
  *                                successfully (consulted via `CheckpointReexecutionTracker`).
  *  - `checkpoint-invalid`      — the local node re-executed a checkpoint proposal for this slot
@@ -135,25 +122,13 @@ function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
  * (no history entries for that slot) and per-epoch evaluation writes an empty performance map
  * (no slashing).
  */
-export class Sentinel extends (EventEmitter as new () => WatcherEmitter) implements L2BlockStreamEventHandler, Watcher {
+export class Sentinel extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   protected runningPromise: RunningPromise;
-  protected blockStream!: L2BlockStream;
-  protected l2TipsStore: L2TipsStore;
 
   protected initialSlot: SlotNumber | undefined;
   protected lastProcessedSlot: SlotNumber | undefined;
   /** Largest epoch number for which the end-of-epoch aggregator has run. */
   protected lastEvaluatedEpoch: EpochNumber | undefined;
-  protected slotNumberToCheckpoint: Map<
-    SlotNumber,
-    {
-      checkpointNumber: CheckpointNumber;
-      archive: string;
-      /** Hex keccak256 of the consensus payload bytes; used to fetch matching p2p attestations. */
-      proposalPayloadHash: CheckpointProposalHash;
-      attestors: EthAddress[];
-    }
-  > = new Map();
 
   constructor(
     protected epochCache: EpochCache,
@@ -165,7 +140,6 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
-    this.l2TipsStore = new L2TipsMemoryStore(archiver.getGenesisBlockHash());
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
   }
@@ -187,17 +161,14 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   }
 
   /**
-   * Loads initial slot and initializes blockstream. We will not process anything at or before
-   * the initial slot. Floors at the archiver's synced L2 slot so the sentinel keeps making
-   * forward progress when L1 is advancing but L2 has no activity (the synced slot is driven by
-   * L1 sync, not by L2 blocks). Falls back to the wallclock if the archiver isn't ready yet
-   * (cold start).
+   * Loads the initial slot. We will not process anything at or before the initial slot. Floors at the
+   * archiver's synced L2 slot so the sentinel keeps making forward progress when L1 is advancing but L2 has no
+   * activity (the synced slot is driven by L1 sync, not by L2 blocks). Falls back to the wallclock if the
+   * archiver isn't ready yet (cold start).
    */
   protected async init() {
     this.initialSlot = await this.getCurrentSlot();
-    const startingBlock = BlockNumber(await this.archiver.getBlockNumber());
-    this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
-    this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
+    this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot}`);
   }
 
   /**
@@ -215,44 +186,38 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     return this.runningPromise.stop();
   }
 
-  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    await this.l2TipsStore.handleBlockStreamEvent(event);
-    if (event.type === 'chain-checkpointed') {
-      this.handleCheckpoint(event);
+  /**
+   * Fetches the L1-confirmed checkpoint covering a slot (if any) and derives the slot-level data the
+   * activity classifier needs: the checkpoint number, archive root, consensus payload hash (used to fetch
+   * matching p2p attestations regardless of feeAssetPriceModifier variants), and the recovered attestor set.
+   * Reads on demand so the result is always against the canonical chain — a reorged-out checkpoint simply
+   * stops being returned, with no stale mapping to clean up.
+   */
+  protected async getCheckpointForSlot(slot: SlotNumber): Promise<
+    | {
+        checkpointNumber: CheckpointNumber;
+        archive: string;
+        proposalPayloadHash: CheckpointProposalHash;
+        attestors: EthAddress[];
+      }
+    | undefined
+  > {
+    const checkpoint = await this.archiver.getCheckpoint({ slot });
+    if (!checkpoint) {
+      return undefined;
     }
-  }
-
-  protected handleCheckpoint(event: L2BlockStreamEvent) {
-    if (event.type !== 'chain-checkpointed') {
-      return;
-    }
-    const checkpoint = event.checkpoint;
-
-    // Store mapping from slot to archive, checkpoint number, attestors, and the consensus payload
-    // hash (used to query matching p2p attestations regardless of feeAssetPriceModifier variants).
     const signatureContext = this.getSignatureContext();
     const proposalPayloadHash = CheckpointProposalHash.fromBuffer(
       ConsensusPayload.fromCheckpoint(checkpoint.checkpoint, signatureContext).getPayloadHash(),
     );
-    this.slotNumberToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, {
+    return {
       checkpointNumber: checkpoint.checkpoint.number,
       archive: checkpoint.checkpoint.archive.root.toString(),
       proposalPayloadHash,
       attestors: getAttestationInfoFromPublishedCheckpoint(checkpoint, signatureContext)
         .filter(a => a.status === 'recovered-from-signature')
         .map(a => a.address!),
-    });
-
-    // Prune the archive map to only keep at most N entries
-    const historyLength = this.store.getHistoryLength();
-    if (this.slotNumberToCheckpoint.size > historyLength) {
-      const toDelete = Array.from(this.slotNumberToCheckpoint.keys())
-        .sort((a, b) => Number(a - b))
-        .slice(0, this.slotNumberToCheckpoint.size - historyLength);
-      for (const key of toDelete) {
-        this.slotNumberToCheckpoint.delete(key);
-      }
-    }
+    };
   }
 
   /**
@@ -387,10 +352,6 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   public async work() {
     const currentSlot = await this.getCurrentSlot();
     try {
-      // Manually sync the block stream to ensure we have the latest data.
-      // Note we never `start` the blockstream, so it loops at the same pace as we do.
-      await this.blockStream.sync();
-
       // Per-slot activity recording (lag = 2 slots for P2P attestation settlement).
       const targetSlot = await this.isReadyToProcess(currentSlot);
       if (targetSlot !== false) {
@@ -478,7 +439,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return false;
     }
 
-    const archiverLastBlockHash = await this.l2TipsStore.getL2Tips().then(tip => tip.proposed.hash);
+    const archiverLastBlockHash = await this.archiver.getL2Tips().then(tip => tip.proposed.hash);
     const p2pLastBlockHash = await this.p2p.getL2Tips().then(tips => tips.proposed.hash);
     const isP2pSynced = archiverLastBlockHash === p2pLastBlockHash;
     if (!isP2pSynced) {
@@ -534,8 +495,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.logger.debug(`Computing stats for slot ${slot} at epoch ${epoch}`, { slot, epoch, proposer, committee });
 
     // Gather attestors from both p2p (live attestations) and the archiver (signers on the
-    // checkpoint if one has landed on L1). Used regardless of which case applies.
-    const checkpoint = this.slotNumberToCheckpoint.get(slot);
+    // checkpoint if one has landed on L1). Fetched on demand so it always reflects the canonical chain.
+    // Used regardless of which case applies.
+    const checkpoint = await this.getCheckpointForSlot(slot);
     const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, checkpoint?.proposalPayloadHash);
     const p2pAttestors = p2pAttested.map(a => a.getSender()).filter((s): s is EthAddress => s !== undefined);
     const attestors = new Set(

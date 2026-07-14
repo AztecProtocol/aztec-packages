@@ -56,13 +56,27 @@ include "public_data_squash.pil";
  * - public_data_squash: Squashing permutation (non_discarded_write).
  * - public_inputs: Write public data (sel_write_to_public_inputs), write length (end).
  *
+ * Read callers pass the `write` column in the tuple (with value precomputed.zero) so the
+ * lookup against `public_data_check.sel` can only match read rows (write=0). This is required
+ * for soundness: without it, a malicious prover could satisfy a read lookup by matching
+ * against a write row.
+ *
+ * Write callers do not need to pass `write`. Completeness is preserved by two safeguards:
+ * (1) the multi-permutation in tracegen uses `public_data_check.write` as its main destination
+ *     table selector, so only rows with write=1 are indexed as candidates for the write
+ *     permutations; and
+ * (2) the `clk` column in the tuple is unique per write (preconditions), so each write source
+ *     row matches exactly one destination row.
+ *
  * Read usage:
  * sel {
+ *    precomputed.zero,            // write = 0 (read)
  *    value,
  *    address,
  *    slot,
  *    public_data_tree_root
  * } in public_data_check.sel {
+ *    public_data_check.write,     // Input
  *    public_data_check.value,     // Output
  *    public_data_check.address,   // Input
  *    public_data_check.slot,      // Input
@@ -162,11 +176,11 @@ namespace public_data_check;
 
     #[CLK_DIFF_RANGE_LO]
     not_end { clk_diff_lo }
-    in precomputed.sel_range_16 { precomputed.idx };
+    in precomputed.sel_range_16_active { precomputed.idx };
 
     #[CLK_DIFF_RANGE_HI]
     not_end { clk_diff_hi }
-    in precomputed.sel_range_16 { precomputed.idx };
+    in precomputed.sel_range_16_active { precomputed.idx };
 
     // We enforce reads, which have non looked up clk, to have clk = 0
     // So tracegen must put them at the start of the trace
@@ -404,6 +418,9 @@ namespace public_data_check;
     #[WRITE_IDX_INCREMENT]
     not_end * (write_idx + sel_write_to_public_inputs - write_idx') = 0;
 
+    // ONE-WAY write: only the active rows [0, length) are constrained. Rows [length, MAX) are left
+    // free by the AVM and are defensively zero-checked by the public base rollup
+    // (validate_avm_accumulated_data_padding). See public_inputs.pil's NOTE ON NON-MALLEABILITY.
     #[WRITE_PUBLIC_DATA_TO_PUBLIC_INPUTS]
     sel_write_to_public_inputs {
         write_idx,

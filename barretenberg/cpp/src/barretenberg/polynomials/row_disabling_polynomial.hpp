@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -153,6 +154,8 @@ template <typename FF> struct RowDisablingPolynomial {
      */
     static FF evaluate_at_challenge(std::span<const FF> multivariate_challenge, const size_t log_circuit_size)
     {
+        BB_ASSERT(multivariate_challenge.size() >= log_circuit_size,
+                  "RowDisablingPolynomial: challenge shorter than log_circuit_size");
         FF evaluation_at_multivariate_challenge{ 1 };
 
         for (size_t idx = 2; idx < log_circuit_size; idx++) {

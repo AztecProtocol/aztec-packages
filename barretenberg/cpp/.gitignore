@@ -24,3 +24,7 @@ src/barretenberg/avm_fuzzer/coverage/**
 out
 ios-sdk/
 android-sysroot/
+# flavor-codegen TS build output and deps; ignored at this level so a checkout of a branch
+# without scripts/flavor-codegen/.gitignore still hides the on-disk artifacts.
+scripts/flavor-codegen/dist/
+scripts/flavor-codegen/node_modules/

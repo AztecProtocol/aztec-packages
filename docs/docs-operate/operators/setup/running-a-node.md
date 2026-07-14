@@ -113,7 +113,7 @@ If you need to access admin endpoints, use `docker exec`:
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
 ```
 :::
 
@@ -135,7 +135,7 @@ Check the current sync status:
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
--d '{"jsonrpc":"2.0","method":"node_getChainTips","params":[],"id":67}' \
+-d '{"jsonrpc":"2.0","method":"aztec_getChainTips","params":[],"id":67}' \
 http://localhost:8080 | jq -r ".result.proven.number"
 ```
 

@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -92,9 +93,23 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     FF const& operator[](size_t idx) const
     {
-        // At round i, we only iterate over beta_products of indices that are multiples of 2^i,
-        // Hence for the idx-th element we need to get the (idx * 2^i)-th element in #beta_products.
+        // At round i (periodicity == 2^{i+1}), the idx-th surviving evaluation lives at beta_products index
+        // (idx >> 1) * periodicity, i.e. the (idx * 2^i)-th element. Sumcheck consumes edges pairwise, so only
+        // even indices are meaningful; an odd idx would silently alias to the idx - 1 slot.
+        BB_ASSERT_DEBUG(idx % 2 == 0, "GateSeparatorPolynomial: edge index must be even");
         return beta_products.at((idx >> 1) * periodicity);
+    }
+
+    /**
+     * @brief Read `Element::SIZE` consecutive edge-pair `pow_beta` factors starting at `edge_idx`,
+     * packed as a single `Element` value. Lane j reads `(*this)[edge_idx + 2j]`.
+     * @details Uniform stride-2 gather for the scalar (`Element = FF`) and SIMD
+     * (`Element = VectorField<...>`) sumcheck paths: `FF::from_lanes` is a width-1 identity so
+     * this reduces to `(*this)[edge_idx]` for scalar; for `VectorField` it fills all lanes.
+     */
+    template <typename Element> Element gather(size_t edge_idx) const
+    {
+        return Element::from_lanes([&](size_t j) { return (*this)[edge_idx + (2 * j)]; });
     }
     /**
      * @brief Computes the component  at index #current_element_idx in #betas.
@@ -110,9 +125,16 @@ template <typename FF> struct GateSeparatorPolynomial {
     }
 
     /**
+     * @brief The pow_β per-variable factor \f$ (1 - X) + X\cdot \beta \f$ at \f$ X = \mathrm{challenge} \f$.
+     * @details The building block of every pow_β / eq / shifted-eq fold; shared with `ShiftedEqPolynomial` so the
+     * factor has a single definition.
+     */
+    static FF univariate_factor(const FF& challenge, const FF& beta) { return FF(1) + (challenge * (beta - FF(1))); }
+
+    /**
      * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
      */
-    FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
+    FF univariate_eval(FF challenge) const { return univariate_factor(challenge, betas[current_element_idx]); };
 
     /**
      * @brief Partially evaluate the \f$pow_{\beta} \f$-polynomial at the new challenge and update \f$ c_i \f$
@@ -208,78 +230,4 @@ template <typename FF> struct GateSeparatorPolynomial {
         return beta_products;
     }
 };
-/**
- * @struct GateSeparatorPolynomial
- * @brief Implementation of the methods for the \f$pow_{\beta}\f$-polynomials used in  in Sumcheck.
- *
- * @details
- *
- * For \f$0\leq \ell \leq 2^d-1 \f$, the \f$pow_{\ell} \f$-polynomials are multilinear polynomials
- * defined by
- * \f{align} pow_{\ell}(X_0,\ldots, X_{d-1})
- *         =    \prod_{k=0}^{d-1} ( ( 1-\ell_k ) + \ell_k \cdot X_k )
- *         =      \prod_{k=0}^{d-1} X_{k}^{ \ell_k }
- *    \f}
- * where \f$(\ell_0,\ldots, \ell_{d-1})\f$ is the binary representation of \f$\ell \f$.
- *
- * ## Special Case: Empty Betas (No Gate Separation)
- *
- * When `betas` is empty, the GateSeparatorPolynomial represents the constant polynomial equal to 1, meaning no gate
- * separation is applied. This is useful for flavors where all subrelations are linearly **dependent** (not linearly
- * independent), meaning they do not need to be scaled by the \f$ pow_{\beta} \f$-polynomial.
- *
- * **Behavior when `betas` is empty:**
- * - #beta_products is a size-1 polynomial containing only \f$ [0] \f$
- * - #periodicity is unused
- * - #current_element() returns \f$ 1 \f$
- * - #partially_evaluate() becomes a no-op (no updates to #partial_evaluation_result)
- * - #partial_evaluation_result remains \f$ 1 \f$ throughout
- *
- * This optimization avoids unnecessary multiplications by 1 in MultilinearBatchingFlavor, where
- * gate separation is not needed.
- *
- * ## Pow-contributions to Round Univariates in Sumcheck {#PowContributions}
- * For a fixed \f$ \vec \beta \in \mathbb{F}^d\f$, the map \f$ \ell \mapsto pow_{\ell} (\vec \beta)\f$ defines a
- * polynomial \f{align}{ pow_{\beta} (X_0,\ldots, X_{d-1}) = \prod_{k=0}^{d-1} (1- X_k + X_k \cdot \beta_k) \f} such
- *that
- *\f$ pow_{\beta} (\vec \ell) = pow_{\ell} (\vec \beta) \f$ for any \f$0\leq \ell \leq 2^d-1 \f$ and any vector
- *\f$(\beta_0,\ldots, \beta_{d-1})  \in \mathbb{F} ^d\f$.
- *
- * Let \f$ i \f$ be the current Sumcheck round, \f$ i \in \{0, …, d-1\}\f$ and \f$ u_{0}, ..., u_{i-1} \f$ be the
- * challenges generated in Rounds \f$ 0 \f$ to \f$ i-1\f$.
- *
- * In Round \f$ i \f$, we iterate over the points \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$. Define a
- * univariate polynomial \f$pow_{\beta}^i(X_i, \vec \ell) \f$  as follows
- *   \f{align}{  pow_{\beta}^i(X_i, \vec \ell) =   pow_{\beta} ( u_{0}, ..., u_{i-1}, X_i, \ell_{i+1}, \ldots,
- * \ell_{d-1})            = c_i \cdot ( (1−X_i) + X_i \cdot \beta_i ) \cdot \beta_{i+1}^{\ell_{i+1}}\cdot \cdots \cdot
- * \beta_{d-1}^{\ell_{d-1}}, \f} where \f$ c_i = \prod_{k=0}^{i-1} (1- u_k + u_k \cdot \beta_k) \f$. It will be used
- * below to simplify the computation of Sumcheck round univariates.
- *
- * ### Computing Sumcheck Round Univariates
- * We identify \f$ \vec \ell = (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1 - i}\f$ with the binary representation
- * of the integer \f$ \ell \in \{0,\ldots, 2^{d-1-i}-1 \}\f$.
- *
- * Set \f{align}{S^i_{\ell}( X_i ) = F( u_{0}, ..., u_{i-1}, X_{i},  \vec \ell ), \f}
- * i.e. \f$ S^{i}_{\ell}( X_i ) \f$  is the univariate of the full relation \f$ F \f$ defined by its partial evaluation
- * at \f$(u_0,\ldots,u_{i-1},  \ell_{i+1},\ldots, \ell_{d-1}) \f$
- * which  is an alpha-linear-combination of the subrelations evaluated at this point.
- *
- * In Round \f$i\f$, the prover
- * \ref bb::SumcheckProverRound< Flavor >::compute_univariate "computes the univariate polynomial" for the relation
- * defined by \f$ \tilde{F} (X_0,\ldots, X_{d-1}) = pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot F\f$, namely
- * \f{align}{
- *    \tilde{S}^{i}(X_i) = \sum_{ \ell = 0} ^{2^{d-i-1}-1}  pow^i_\beta ( X_i, \ell_{i+1}, \ldots, \ell_{d-1} )
- * S^i_{\ell}( X_i )
- *        =  c_i \cdot ( (1−X_i) + X_i\cdot \beta_i )  \cdot \sum_{ \ell = 0} ^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}}
- * \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}} \cdot S^i_{\ell}( X_i ) \f}
- *
- * Define \f{align} T^{i}( X_i ) =  \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
- * \beta_{d-1}^{\ell_{d-1}} \cdot S^{i}_{\ell}( X_i ) \f} then \f$ \deg_{X_i} (T^i) \leq \deg_{X_i} S^i \f$.
- * ### Features of GateSeparatorPolynomial used by Sumcheck Prover
- * - The factor \f$ c_i \f$ is the #partial_evaluation_result, it is updated by \ref partially_evaluate.
- * - The challenges \f$(\beta_0,\ldots, \beta_{d-1}) \f$ are recorded in #betas.
- * - The coefficients \f$ pow_{\ell}(\vec \beta) = pow_{\beta}(\vec \ell) \f$ for \f$\vec \ell\f$ identified
- * with the integers \f$\ell = 0,\ldots, 2^d-1\f$ are pre-computed by \ref compute_betas.
- *
- */
 } // namespace bb

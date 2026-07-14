@@ -54,11 +54,17 @@ template <typename FF_> class UltraPermutationRelationImpl {
     {
         // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
         // non-trivial copy constraints.
-        return (in.z_perm - in.z_perm_shift).is_zero();
+        return (in[AllEntities::EntityId::z_perm] - in[AllEntities::EntityId::z_perm_shift]).is_zero();
     }
 
-    inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
-    inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
+    template <typename AllEntities> inline static auto& get_grand_product_polynomial(AllEntities& in)
+    {
+        return in[AllEntities::EntityId::z_perm];
+    }
+    template <typename AllEntities> inline static auto& get_shifted_grand_product_polynomial(AllEntities& in)
+    {
+        return in[AllEntities::EntityId::z_perm_shift];
+    }
 
     template <typename Accumulator, typename AllEntities, typename Parameters>
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
@@ -66,14 +72,14 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = Parameters::DataType;
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto id_1 = View(in.id_1);
-        auto id_2 = View(in.id_2);
-        auto id_3 = View(in.id_3);
-        auto id_4 = View(in.id_4);
+        auto w_1 = View(in[AllEntities::EntityId::w_l]);
+        auto w_2 = View(in[AllEntities::EntityId::w_r]);
+        auto w_3 = View(in[AllEntities::EntityId::w_o]);
+        auto w_4 = View(in[AllEntities::EntityId::w_4]);
+        auto id_1 = View(in[AllEntities::EntityId::id_1]);
+        auto id_2 = View(in[AllEntities::EntityId::id_2]);
+        auto id_3 = View(in[AllEntities::EntityId::id_3]);
+        auto id_4 = View(in[AllEntities::EntityId::id_4]);
 
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
@@ -89,15 +95,15 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = Parameters::DataType;
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
+        auto w_1 = View(in[AllEntities::EntityId::w_l]);
+        auto w_2 = View(in[AllEntities::EntityId::w_r]);
+        auto w_3 = View(in[AllEntities::EntityId::w_o]);
+        auto w_4 = View(in[AllEntities::EntityId::w_4]);
 
-        auto sigma_1 = View(in.sigma_1);
-        auto sigma_2 = View(in.sigma_2);
-        auto sigma_3 = View(in.sigma_3);
-        auto sigma_4 = View(in.sigma_4);
+        auto sigma_1 = View(in[AllEntities::EntityId::sigma_1]);
+        auto sigma_2 = View(in[AllEntities::EntityId::sigma_2]);
+        auto sigma_3 = View(in[AllEntities::EntityId::sigma_3]);
+        auto sigma_4 = View(in[AllEntities::EntityId::sigma_4]);
 
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
@@ -105,6 +111,24 @@ template <typename FF_> class UltraPermutationRelationImpl {
         // witness degree 4
         return (w_1 + sigma_1 * beta + gamma) * (w_2 + sigma_2 * beta + gamma) * (w_3 + sigma_3 * beta + gamma) *
                (w_4 + sigma_4 * beta + gamma);
+    }
+
+    /**
+     * @brief Whether a one-hot-gated subrelation can contribute on this edge.
+     * @details Subrelations scaled by a one-hot selector (lagrange_first/last) are zero wherever that selector
+     * vanishes -- almost every edge under folding. On the prover (Accumulator is a Univariate, so it has ::LENGTH)
+     * we test the gate's edge and skip the accumulation when it is zero. The verifiers accumulate into scalars (no
+     * ::LENGTH) and always treat the subrelation as active: they must not branch on witness values, and keep the
+     * straight-line audited computation.
+     */
+    template <typename Accumulator, typename GateCoefficientAccumulator>
+    static bool subrelation_is_active(const GateCoefficientAccumulator& gate)
+    {
+        if constexpr (IsProverAccumulator<Accumulator>) {
+            return !gate.is_zero();
+        } else {
+            return true;
+        }
     }
 
     /**
@@ -135,18 +159,18 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using ParameterView = Parameters::DataType;
         using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
 
-        const CoefficientAccumulator w_1_m(in.w_l);
-        const CoefficientAccumulator w_2_m(in.w_r);
-        const CoefficientAccumulator w_3_m(in.w_o);
-        const CoefficientAccumulator w_4_m(in.w_4);
-        const CoefficientAccumulator id_1_m(in.id_1);
-        const CoefficientAccumulator id_2_m(in.id_2);
-        const CoefficientAccumulator id_3_m(in.id_3);
-        const CoefficientAccumulator id_4_m(in.id_4);
-        const CoefficientAccumulator sigma_1_m(in.sigma_1);
-        const CoefficientAccumulator sigma_2_m(in.sigma_2);
-        const CoefficientAccumulator sigma_3_m(in.sigma_3);
-        const CoefficientAccumulator sigma_4_m(in.sigma_4);
+        const CoefficientAccumulator w_1_m(in[AllEntities::EntityId::w_l]);
+        const CoefficientAccumulator w_2_m(in[AllEntities::EntityId::w_r]);
+        const CoefficientAccumulator w_3_m(in[AllEntities::EntityId::w_o]);
+        const CoefficientAccumulator w_4_m(in[AllEntities::EntityId::w_4]);
+        const CoefficientAccumulator id_1_m(in[AllEntities::EntityId::id_1]);
+        const CoefficientAccumulator id_2_m(in[AllEntities::EntityId::id_2]);
+        const CoefficientAccumulator id_3_m(in[AllEntities::EntityId::id_3]);
+        const CoefficientAccumulator id_4_m(in[AllEntities::EntityId::id_4]);
+        const CoefficientAccumulator sigma_1_m(in[AllEntities::EntityId::sigma_1]);
+        const CoefficientAccumulator sigma_2_m(in[AllEntities::EntityId::sigma_2]);
+        const CoefficientAccumulator sigma_3_m(in[AllEntities::EntityId::sigma_3]);
+        const CoefficientAccumulator sigma_4_m(in[AllEntities::EntityId::sigma_4]);
 
         const ParameterCoefficientAccumulator gamma_m(params.gamma);
         const ParameterCoefficientAccumulator beta_m(params.beta);
@@ -176,21 +200,44 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto t8 = sigma_4_m * beta_m;
         t8 += w_4_plus_gamma;
 
-        Accumulator numerator(t1);
-        numerator *= Accumulator(t2);
-        numerator *= Accumulator(t3);
-        numerator *= Accumulator(t4);
+        // t1..t8 are degree-1 coefficient-basis monomials. The prover pairs them as (t1*t2)(t3*t4): Karatsuba
+        // on the degree-1 pairs reduces the naive 36 muls (chaining 6 pointwise length-6 products) to 24.
+        Accumulator numerator;
+        Accumulator denominator;
+        if constexpr (IsProverAccumulator<Accumulator>) {
+            numerator = Accumulator(t1 * t2);
+            numerator *= Accumulator(t3 * t4);
+            denominator = Accumulator(t5 * t6);
+            denominator *= Accumulator(t7 * t8);
+        } else {
+            numerator = Accumulator(t1);
+            numerator *= Accumulator(t2);
+            numerator *= Accumulator(t3);
+            numerator *= Accumulator(t4);
 
-        Accumulator denominator(t5);
-        denominator *= Accumulator(t6);
-        denominator *= Accumulator(t7);
-        denominator *= Accumulator(t8);
+            denominator = Accumulator(t5);
+            denominator *= Accumulator(t6);
+            denominator *= Accumulator(t7);
+            denominator *= Accumulator(t8);
+        }
 
         const ParameterCoefficientAccumulator public_input_delta_m(params.public_input_delta);
-        const auto z_perm_m = CoefficientAccumulator(in.z_perm);
-        const auto z_perm_shift_m = CoefficientAccumulator(in.z_perm_shift);
-        const auto lagrange_first_m = CoefficientAccumulator(in.lagrange_first);
-        const auto lagrange_last_m = CoefficientAccumulator(in.lagrange_last);
+        const auto z_perm_m = CoefficientAccumulator(in[AllEntities::EntityId::z_perm]);
+        const auto z_perm_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::z_perm_shift]);
+        const auto lagrange_first_m = CoefficientAccumulator(in[AllEntities::EntityId::lagrange_first]);
+        const auto lagrange_last_m = CoefficientAccumulator(in[AllEntities::EntityId::lagrange_last]);
+
+        // Prover fast path (guarded on ::LENGTH so it never enters the verifiers, which must not branch on witness
+        // values). lagrange_first/last are one-hot and vanish on almost every edge pair under folding; when both are
+        // zero the public-input term collapses to z_perm_shift and the (z_perm + L_first) factor to z_perm, and
+        // subrelations (2),(3) vanish -- the same accumulator value as the general path below, skipping ~12 muls.
+        if constexpr (IsProverAccumulator<Accumulator>) {
+            if (lagrange_first_m.is_zero() && lagrange_last_m.is_zero()) {
+                const Accumulator public_input_term(z_perm_shift_m);
+                std::get<0>(accumulators) += ((Accumulator(z_perm_m) * numerator) - (public_input_term * denominator));
+                return;
+            }
+        }
 
         auto public_input_term_m = lagrange_last_m * public_input_delta_m;
         public_input_term_m += z_perm_shift_m;
@@ -199,16 +246,20 @@ template <typename FF_> class UltraPermutationRelationImpl {
         std::get<0>(accumulators) +=
             ((Accumulator(z_perm_m + lagrange_first_m) * numerator) - (public_input_term * denominator));
 
-        // Contribution (2)
+        // Contribution (2): gated by lagrange_last (zero on all but the last row).
         using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-
-        std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+        if (subrelation_is_active<Accumulator>(lagrange_last_m)) {
+            std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+        }
 
         // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
         // z_perm[0] = 0 so that (z_perm + L_first) evaluates to 1 at the first row.
         // Without this constraint, a cheating prover could set z_perm[0] to a non-zero value.
+        // Gated by lagrange_first (zero on all but the first row).
         using InitAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
-        std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
+        if (subrelation_is_active<Accumulator>(lagrange_first_m)) {
+            std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
+        }
     };
 };
 

@@ -1,6 +1,8 @@
 #include "ultra_circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <unordered_set>
 
@@ -99,6 +101,13 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
         info("Failed tag check.");
         return false;
     }
+    // ROM-LogUp sum identity: the signed multiplicities and inverses summed across the trace must vanish.
+    // Subrelation 7 of MemoryRelation produces a per-row contribution that has been accumulated into
+    // memory_data.rom_logup_sum throughout the block iteration.
+    if (memory_data.rom_logup_sum != 0) {
+        info("Failed ROM-LogUp sum identity.");
+        return false;
+    }
 #endif
 
     return result;
@@ -117,6 +126,7 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     params.eta = memory_data.eta; // used in Memory relation for RAM/ROM consistency
     params.eta_two = memory_data.eta_two;
     params.eta_three = memory_data.eta_three;
+    params.rom_logup_gamma = memory_data.rom_logup_gamma;
 
     auto report_fail = [&](const char* message, size_t row_idx) {
 #ifndef FUZZING_DISABLE_WARNINGS
@@ -141,12 +151,18 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Arithmetic relation at row idx = ", idx);
         }
+        if constexpr (IsMegaBuilder<Builder>) {
+            result = result && check_relation<BilinearBatchedEq>(values, params);
+            if (!result) {
+                return report_fail("Failed BilinearBatchedEq relation at row idx = ", idx);
+            }
+        }
         result = result && check_relation<Elliptic>(values, params);
         if (!result) {
             return report_fail("Failed Elliptic relation at row idx = ", idx);
         }
 #ifndef ULTRA_FUZZ
-        result = result && check_relation<Memory>(values, params);
+        result = result && check_memory_relation_with_logup<Memory>(values, params, memory_data);
         if (!result) {
             return report_fail("Failed Memory relation at row idx = ", idx);
         }
@@ -160,9 +176,9 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         }
 #else
         // Bigfield related nnf gates
-        if (values.q_nnf == 1) {
-            bool f0 = values.q_o == 1 && (values.q_4 == 1 || values.q_m == 1);
-            bool f1 = values.q_r == 1 && (values.q_o == 1 || values.q_4 == 1 || values.q_m == 1);
+        if (values.q_nnf() == 1) {
+            bool f0 = values.q_o() == 1 && (values.q_4() == 1 || values.q_m() == 1);
+            bool f1 = values.q_r() == 1 && (values.q_o() == 1 || values.q_4() == 1 || values.q_m() == 1);
             if (f0 && f1) {
                 result = result && check_relation<NonNativeField>(values, params);
                 if (!result) {
@@ -175,19 +191,17 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
-        if constexpr (!IsMegaBuilder<Builder>) {
-            // Mega covers all internal rounds via the compressed block; there is no
-            // q_poseidon2_internal selector in MegaFlavor.
-            result = result && check_relation<PoseidonInternal>(values, params);
-            if (!result) {
-                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
-            }
-        }
         result = result && check_relation<PoseidonExternal>(values, params);
         if (!result) {
             return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
         }
 
+        if constexpr (!IsMegaBuilder<Builder>) {
+            result = result && check_relation<PoseidonInternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
+            }
+        }
         if constexpr (IsMegaBuilder<Builder>) {
             result = result && check_relation<PoseidonInitialExternal>(values, params);
             if (!result) {
@@ -221,6 +235,21 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     return result;
 };
 
+template <typename Relation, typename Builder, typename Block>
+bool UltraCircuitChecker::check_relation_at_row(Builder& builder, Block& block, size_t row_idx)
+{
+    auto values = init_empty_values<Builder>();
+    TagCheckData tag_data;
+    MemoryCheckData memory_data(builder);
+    populate_values(builder, block, values, tag_data, memory_data, row_idx);
+
+    Params params;
+    params.eta = memory_data.eta;
+    params.eta_two = memory_data.eta_two;
+    params.eta_three = memory_data.eta_three;
+    return check_relation<Relation>(values, params);
+}
+
 template <typename Relation> bool UltraCircuitChecker::check_relation(auto& values, auto& params)
 {
     // Define zero initialized array to store the evaluation of each sub-relation
@@ -233,45 +262,75 @@ template <typename Relation> bool UltraCircuitChecker::check_relation(auto& valu
     // Evaluate each subrelation in the relation
     Relation::accumulate(subrelation_evaluations, values, params, /*scaling_factor=*/1);
 
-    // Ensure each subrelation evaluates to zero
-    for (auto& eval : subrelation_evaluations) {
-        if (eval != 0) {
-            return false;
+    // Ensure each linearly-independent subrelation evaluates to zero per-row. Linearly-dependent subrelations
+    // are summed across the trace by the caller (see check_memory_relation_with_logup) and must not be
+    // checked per-row, since individual row contributions need not vanish.
+    bool result = true;
+    constexpr_for<0, std::tuple_size_v<SubrelationEvaluations>, 1>([&]<size_t I>() {
+        if constexpr (subrelation_is_linearly_independent<Relation, I>()) {
+            if (std::get<I>(subrelation_evaluations) != 0) {
+                result = false;
+            }
         }
+    });
+    return result;
+}
+
+// Memory relation has a linearly-dependent subrelation (#7, ROM-LogUp sum identity) whose contributions must
+// be summed across rows. This variant of `check_relation` runs Memory, checks the per-row linearly-independent
+// subrelations, and adds subrelation 7's per-row value to the supplied accumulator. The accumulator is checked
+// against zero at the end of `check_circuit`.
+template <typename Memory>
+bool UltraCircuitChecker::check_memory_relation_with_logup(auto& values, auto& params, MemoryCheckData& memory_data)
+{
+    using SubrelationEvaluations = typename Memory::SumcheckArrayOfValuesOverSubrelations;
+    SubrelationEvaluations subrelation_evaluations;
+    for (auto& eval : subrelation_evaluations) {
+        eval = 0;
     }
-    return true;
+    Memory::accumulate(subrelation_evaluations, values, params, /*scaling_factor=*/1);
+
+    bool result = true;
+    constexpr_for<0, std::tuple_size_v<SubrelationEvaluations>, 1>([&]<size_t I>() {
+        if constexpr (subrelation_is_linearly_independent<Memory, I>()) {
+            if (std::get<I>(subrelation_evaluations) != 0) {
+                result = false;
+            }
+        } else {
+            // Linearly-dependent: contribute to the cross-row accumulator. Currently only subrelation 7
+            // (ROM-LogUp sum identity) is linearly-dependent in MemoryRelation.
+            memory_data.rom_logup_sum += std::get<I>(subrelation_evaluations);
+        }
+    });
+    return result;
 }
 
 bool UltraCircuitChecker::check_lookup(auto& values, auto& lookup_hash_table)
 {
     // If this is a lookup gate, check the inputs are in the hash table containing all table entries
-    if (!values.q_lookup.is_zero()) {
-        return lookup_hash_table.contains({ values.w_l + values.q_r * values.w_l_shift,
-                                            values.w_r + values.q_m * values.w_r_shift,
-                                            values.w_o + values.q_c * values.w_o_shift,
-                                            values.q_o });
+    if (!values.q_lookup().is_zero()) {
+        return lookup_hash_table.contains({ values.w_l() + values.q_r() * values.w_l_shift(),
+                                            values.w_r() + values.q_m() * values.w_r_shift(),
+                                            values.w_o() + values.q_c() * values.w_o_shift(),
+                                            values.q_o() });
     }
     return true;
 };
 
 template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& values, Builder& builder)
 {
-    if (!values.q_busread.is_zero()) {
+    if (!values.q_busread().is_zero()) {
         // Extract the {index, value} pair from the read gate inputs
-        auto raw_read_idx = static_cast<size_t>(uint256_t(values.w_r));
-        auto value = values.w_l;
-
-        // Map bus_idx → wire-linear selector on the values struct (mirrors BusData<i>::selector in the relation).
-        const std::array<const FF*, NUM_BUS_COLUMNS> bus_selectors{
-            &values.q_l, &values.q_r, &values.q_o, &values.q_4, &values.q_m
-        };
+        auto raw_read_idx = static_cast<size_t>(uint256_t(values.w_r()));
+        auto value = values.w_l();
 
         // Locate the bus column being read (exactly one selector should be active on a busread row) and look up the
         // expected value from the builder's bus vector.
+        auto bus_selectors = values.get_databus_selectors();
         FF bus_value{};
         bool read_matched = false;
-        for (size_t bus_idx = 0; bus_idx < NUM_BUS_COLUMNS; ++bus_idx) {
-            if (*bus_selectors[bus_idx] == 1) {
+        for (size_t bus_idx = 0; bus_idx < bus_selectors.size(); ++bus_idx) {
+            if (bus_selectors[bus_idx] == 1) {
                 const auto& bus_vec = builder.get_bus_vector(bus_idx);
                 bus_value = builder.get_variable(bus_vec[raw_read_idx]);
                 read_matched = true;
@@ -314,84 +373,111 @@ void UltraCircuitChecker::populate_values(
             return (w_3 * eta_three + w_2 * eta_two + w_1 * eta);
         };
 
+    // The ROM-LogUp inverse helper at a row with index `w_1`, value `w_2`, and array id `q_c`.
+    // Mirrors `add_rom_logup_inverses_to_wire_4` in oink_prover.cpp; kept consistent so check_circuit can
+    // validate the memory relation without invoking the prover.
+    auto compute_rom_logup_inverse =
+        [](const FF& w_1, const FF& w_2, const FF& q_c, const FF& eta, const FF& eta_two, const FF& rom_logup_gamma)
+        -> FF {
+        const FF denom = rom_logup_gamma + w_1 + eta * w_2 + eta_two * q_c;
+        return denom.invert();
+    };
+
     // Set wire values. Wire 4 is treated specially since it may contain memory records
-    values.w_l = builder.get_variable(block.w_l()[idx]);
-    values.w_r = builder.get_variable(block.w_r()[idx]);
-    values.w_o = builder.get_variable(block.w_o()[idx]);
+    values.w_l() = builder.get_variable(block.w_l()[idx]);
+    values.w_r() = builder.get_variable(block.w_r()[idx]);
+    values.w_o() = builder.get_variable(block.w_o()[idx]);
     // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that
     // we are indexing into the correct block before updating the w_4 value.
     const bool is_ram_rom_block = (&block == &builder.blocks.memory);
     if (is_ram_rom_block && memory_data.read_record_gates.contains(idx)) {
-        values.w_4 = compute_memory_record_term(
-            values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three);
+        values.w_4() = compute_memory_record_term(
+            values.w_l(), values.w_r(), values.w_o(), memory_data.eta, memory_data.eta_two, memory_data.eta_three);
     } else if (is_ram_rom_block && memory_data.write_record_gates.contains(idx)) {
-        values.w_4 =
+        values.w_4() =
             compute_memory_record_term(
-                values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three) +
+                values.w_l(), values.w_r(), values.w_o(), memory_data.eta, memory_data.eta_two, memory_data.eta_three) +
             FF::one();
+    } else if (is_ram_rom_block && memory_data.rom_logup_gates.contains(idx)) {
+        values.w_4() =
+            compute_rom_logup_inverse(values.w_l(),
+                                      values.w_r(),
+                                      block.q_c()[idx], // q_c is a selector value (the array id), not a witness
+                                      memory_data.eta,
+                                      memory_data.eta_two,
+                                      memory_data.rom_logup_gamma);
     } else {
-        values.w_4 = builder.get_variable(block.w_4()[idx]);
+        values.w_4() = builder.get_variable(block.w_4()[idx]);
     }
 
     // Set shifted wire values. Again, wire 4 is treated specially. On final row, set shift values to zero
     if (idx < block.size() - 1) {
-        values.w_l_shift = builder.get_variable(block.w_l()[idx + 1]);
-        values.w_r_shift = builder.get_variable(block.w_r()[idx + 1]);
-        values.w_o_shift = builder.get_variable(block.w_o()[idx + 1]);
+        values.w_l_shift() = builder.get_variable(block.w_l()[idx + 1]);
+        values.w_r_shift() = builder.get_variable(block.w_r()[idx + 1]);
+        values.w_o_shift() = builder.get_variable(block.w_o()[idx + 1]);
         if (is_ram_rom_block && memory_data.read_record_gates.contains(idx + 1)) {
-            values.w_4_shift = compute_memory_record_term(values.w_l_shift,
-                                                          values.w_r_shift,
-                                                          values.w_o_shift,
-                                                          memory_data.eta,
-                                                          memory_data.eta_two,
-                                                          memory_data.eta_three);
+            values.w_4_shift() = compute_memory_record_term(values.w_l_shift(),
+                                                            values.w_r_shift(),
+                                                            values.w_o_shift(),
+                                                            memory_data.eta,
+                                                            memory_data.eta_two,
+                                                            memory_data.eta_three);
         } else if (is_ram_rom_block && memory_data.write_record_gates.contains(idx + 1)) {
-            values.w_4_shift = compute_memory_record_term(values.w_l_shift,
-                                                          values.w_r_shift,
-                                                          values.w_o_shift,
-                                                          memory_data.eta,
-                                                          memory_data.eta_two,
-                                                          memory_data.eta_three) +
-                               FF::one();
+            values.w_4_shift() = compute_memory_record_term(values.w_l_shift(),
+                                                            values.w_r_shift(),
+                                                            values.w_o_shift(),
+                                                            memory_data.eta,
+                                                            memory_data.eta_two,
+                                                            memory_data.eta_three) +
+                                 FF::one();
+        } else if (is_ram_rom_block && memory_data.rom_logup_gates.contains(idx + 1)) {
+            values.w_4_shift() = compute_rom_logup_inverse(values.w_l_shift(),
+                                                           values.w_r_shift(),
+                                                           block.q_c()[idx + 1],
+                                                           memory_data.eta,
+                                                           memory_data.eta_two,
+                                                           memory_data.rom_logup_gamma);
         } else {
-            values.w_4_shift = builder.get_variable(block.w_4()[idx + 1]);
+            values.w_4_shift() = builder.get_variable(block.w_4()[idx + 1]);
         }
     } else {
-        values.w_l_shift = 0;
-        values.w_r_shift = 0;
-        values.w_o_shift = 0;
-        values.w_4_shift = 0;
+        values.w_l_shift() = 0;
+        values.w_r_shift() = 0;
+        values.w_o_shift() = 0;
+        values.w_4_shift() = 0;
     }
 
     // Update tag check data
-    update_tag_check_data(block.w_l()[idx], values.w_l);
-    update_tag_check_data(block.w_r()[idx], values.w_r);
-    update_tag_check_data(block.w_o()[idx], values.w_o);
-    update_tag_check_data(block.w_4()[idx], values.w_4);
+    update_tag_check_data(block.w_l()[idx], values.w_l());
+    update_tag_check_data(block.w_r()[idx], values.w_r());
+    update_tag_check_data(block.w_o()[idx], values.w_o());
+    update_tag_check_data(block.w_4()[idx], values.w_4());
 
     // Set selector values
-    values.q_m = block.q_m()[idx];
-    values.q_c = block.q_c()[idx];
-    values.q_l = block.q_1()[idx];
-    values.q_r = block.q_2()[idx];
-    values.q_o = block.q_3()[idx];
-    values.q_4 = block.q_4()[idx];
-    values.q_arith = read_gate_selector(block, GateKind::Arith, idx);
-    values.q_delta_range = read_gate_selector(block, GateKind::DeltaRange, idx);
-    values.q_elliptic = read_gate_selector(block, GateKind::Elliptic, idx);
-    values.q_memory = read_gate_selector(block, GateKind::Memory, idx);
-    values.q_nnf = read_gate_selector(block, GateKind::Nnf, idx);
-    values.q_lookup = read_gate_selector(block, GateKind::Lookup, idx);
-    values.q_poseidon2_external = read_gate_selector(block, GateKind::Poseidon2Ext, idx);
+    values.q_m() = block.q_m()[idx];
+    values.q_c() = block.q_c()[idx];
+    values.q_l() = block.q_1()[idx];
+    values.q_r() = block.q_2()[idx];
+    values.q_o() = block.q_3()[idx];
+    values.q_4() = block.q_4()[idx];
+    values.q_arith() = read_gate_selector(block, GateKind::Arith, idx);
+    values.q_delta_range() = read_gate_selector(block, GateKind::DeltaRange, idx);
+    values.q_elliptic() = read_gate_selector(block, GateKind::Elliptic, idx);
+    values.q_memory() = read_gate_selector(block, GateKind::Memory, idx);
+    values.q_nnf() = read_gate_selector(block, GateKind::Nnf, idx);
+    values.q_lookup() = read_gate_selector(block, GateKind::Lookup, idx);
+    values.q_poseidon2_external() = read_gate_selector(block, GateKind::Poseidon2Ext, idx);
     if constexpr (IsMegaBuilder<Builder>) {
-        values.q_5 = block.q_5()[idx];
-        values.q_poseidon2_external_initial = read_gate_selector(block, GateKind::Poseidon2ExtInitial, idx);
-        values.q_poseidon2_quad_internal = read_gate_selector(block, GateKind::Poseidon2QuadInt, idx);
-        values.q_poseidon2_quad_internal_terminal = read_gate_selector(block, GateKind::Poseidon2QuadIntTerminal, idx);
-        values.q_poseidon2_transition_entry = read_gate_selector(block, GateKind::Poseidon2TransitionEntry, idx);
-        values.q_busread = read_gate_selector(block, GateKind::BusRead, idx);
+        values.q_5() = block.q_5()[idx];
+        values.q_bilinear_batched_eq() = read_gate_selector(block, GateKind::BilinearBatchedEq, idx);
+        values.q_busread() = read_gate_selector(block, GateKind::BusRead, idx);
+        values.q_poseidon2_external_initial() = read_gate_selector(block, GateKind::Poseidon2ExtInitial, idx);
+        values.q_poseidon2_quad_internal() = read_gate_selector(block, GateKind::Poseidon2QuadInt, idx);
+        values.q_poseidon2_quad_internal_terminal() =
+            read_gate_selector(block, GateKind::Poseidon2QuadIntTerminal, idx);
+        values.q_poseidon2_transition_entry() = read_gate_selector(block, GateKind::Poseidon2TransitionEntry, idx);
     } else {
-        values.q_poseidon2_internal = read_gate_selector(block, GateKind::Poseidon2Int, idx);
+        values.q_poseidon2_internal() = read_gate_selector(block, GateKind::Poseidon2Int, idx);
     }
 }
 
@@ -562,4 +648,15 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_memory_relat
 template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>(
     const UltraCircuitBuilder_<UltraExecutionTraceBlocks>& builder_in);
 template bool UltraCircuitChecker::check<MegaCircuitBuilder_<bb::fr>>(const MegaCircuitBuilder_<bb::fr>& builder_in);
+
+// Instantiations of check_relation_at_row for the Mega Poseidon2 boundary relations exercised by the compressed
+// internal-round soundness tests.
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2ExternalRelation<bb::fr>>(
+    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2TransitionEntryRelation<bb::fr>>(
+    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2QuadInternalRelation<bb::fr>>(
+    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2QuadInternalTerminalRelation<bb::fr>>(
+    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
 } // namespace bb

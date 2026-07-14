@@ -5,4 +5,5 @@ export * from './checkpoint_reexecution_tracker.js';
 export * from './digest.js';
 export * from './previous_checkpoint_out_hashes.js';
 export * from './published_checkpoint.js';
+export * from './simulation_overrides.js';
 export * from './validate.js';

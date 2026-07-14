@@ -117,34 +117,6 @@ fn mismatch_linked_note_hash_counter_in_output() {
     builder.validate_siloing();
 }
 
-#[test(should_fail_with = "The contract_address of a siloed private log should be set to 0")]
-fn non_zero_contract_address_in_output() {
-    let mut builder = TestBuilder::new();
-
-    builder.previous_kernel.append_private_logs(2);
-    builder.output.append_siloed_private_logs(2);
-
-    // Copy the contract address of the private log to the output.
-    let mut private_log = builder.output.private_logs.get(1);
-    private_log.contract_address = builder.previous_kernel.private_logs.get(1).contract_address;
-    builder.output.private_logs.set(1, private_log);
-
-    builder.validate_siloing();
-}
-
-#[test(should_fail_with = "Private logs have been siloed in a previous reset")]
-fn first_private_log_is_siloed() {
-    let mut builder = TestBuilder::new();
-
-    // Add a siloed private log to the previous kernel.
-    builder.previous_kernel.append_siloed_private_logs(1);
-    builder.previous_kernel.append_private_logs(2);
-
-    builder.output.append_siloed_private_logs(3);
-
-    builder.validate_siloing();
-}
-
 #[test]
 fn with_padded_private_logs() {
     let mut builder = TestBuilder::new();
@@ -167,7 +139,7 @@ fn with_padded_private_logs() {
     builder.validate_siloing();
 }
 
-#[test(should_fail_with = "CappedSize not large enough to cover all valid items in original_array")]
+#[test(should_fail_with = "CappedSize not large enough to cover all items in result_array")]
 fn previous_private_logs_more_than_capped_size() {
     let mut builder = TestBuilder::new();
 

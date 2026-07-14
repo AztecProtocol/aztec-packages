@@ -8,7 +8,13 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
@@ -82,18 +88,20 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public
 template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
 {
     // Get commitments to first three wire polynomials
-    verifier_instance->witness_commitments.w_l = transcript->template receive_from_prover<Commitment>(comm_labels.w_l);
-    verifier_instance->witness_commitments.w_r = transcript->template receive_from_prover<Commitment>(comm_labels.w_r);
-    verifier_instance->witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(comm_labels.w_o);
+    verifier_instance->witness_commitments.w_l() =
+        transcript->template receive_from_prover<Commitment>(comm_labels.w_l());
+    verifier_instance->witness_commitments.w_r() =
+        transcript->template receive_from_prover<Commitment>(comm_labels.w_r());
+    verifier_instance->witness_commitments.w_o() =
+        transcript->template receive_from_prover<Commitment>(comm_labels.w_o());
 
-    if constexpr (IsMegaFlavor<Flavor>) {
-        // Receive ECC op wire commitments
+    if constexpr (Flavor::HasEccOpQueue) {
         for (auto [commitment, label] :
              zip_view(verifier_instance->witness_commitments.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
             commitment = transcript->template receive_from_prover<Commitment>(label);
         }
-
-        // Receive DataBus related polynomial commitments
+    }
+    if constexpr (Flavor::HasDataBus) {
         for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_databus_entities(),
                                                  comm_labels.get_databus_entities())) {
             commitment = transcript->template receive_from_prover<Commitment>(label);
@@ -107,15 +115,29 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_w4_commitments()
 {
-    // Get eta challenge and compute powers (eta, eta², eta³)
-    verifier_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
+    // The memory relation is the sole consumer of the eta powers and the ROM-LogUp offset
+    // `rom_logup_gamma`, so `Flavor::HasMemory` gates their FS samples and the power computation.
+    // When false, skip them — prover and verifier stay in lockstep on the FS state, and the
+    // in-circuit recursive verifier avoids dangling witnesses (eta_two/eta_three/rom_logup_gamma)
+    // that the static analyzer would flag.
+    if constexpr (Flavor::HasMemory) {
+        auto [eta, rom_logup_gamma] =
+            transcript->template get_challenges<FF>(std::array<std::string, 2>{ "eta", "rom_logup_gamma" });
+        verifier_instance->relation_parameters.eta = eta;
+        verifier_instance->relation_parameters.eta_two = eta * eta;
+        verifier_instance->relation_parameters.eta_three = verifier_instance->relation_parameters.eta_two * eta;
+        verifier_instance->relation_parameters.rom_logup_gamma = rom_logup_gamma;
+    }
 
     // Get commitments to lookup argument polynomials and fourth wire
-    verifier_instance->witness_commitments.lookup_read_counts =
-        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_counts);
-    verifier_instance->witness_commitments.lookup_read_tags =
-        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags);
-    verifier_instance->witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(comm_labels.w_4);
+    if constexpr (Flavor::HasLogDerivLookup) {
+        verifier_instance->witness_commitments.lookup_read_counts() =
+            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_counts());
+        verifier_instance->witness_commitments.lookup_read_tags() =
+            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_read_tags());
+    }
+    verifier_instance->witness_commitments.w_4() =
+        transcript->template receive_from_prover<Commitment>(comm_labels.w_4());
 }
 
 /**
@@ -124,13 +146,22 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_
 template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitments()
 {
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
-    verifier_instance->relation_parameters.compute_beta_powers(beta);
+    verifier_instance->relation_parameters.beta = beta;
     verifier_instance->relation_parameters.gamma = gamma;
+    // The log-derivative lookup relation is the sole consumer of the squared/cubed beta powers, so
+    // `Flavor::HasLogDerivLookup` gates their computation. When false, skip the extra multiplications
+    // to avoid leaving the squared/cubed witnesses dangling in the in-circuit recursive verifier.
+    if constexpr (Flavor::HasLogDerivLookup) {
+        verifier_instance->relation_parameters.beta_sqr = beta * beta;
+        verifier_instance->relation_parameters.beta_cube = verifier_instance->relation_parameters.beta_sqr * beta;
+    }
 
-    verifier_instance->witness_commitments.lookup_inverses =
-        transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses);
+    if constexpr (Flavor::HasLogDerivLookup) {
+        verifier_instance->witness_commitments.lookup_inverses() =
+            transcript->template receive_from_prover<Commitment>(comm_labels.lookup_inverses());
+    }
 
-    if constexpr (IsMegaFlavor<Flavor>) {
+    if constexpr (Flavor::HasDataBus) {
         for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_databus_inverses(),
                                                  comm_labels.get_databus_inverses())) {
             commitment = transcript->template receive_from_prover<Commitment>(label);
@@ -151,8 +182,8 @@ template <typename Flavor> void OinkVerifier<Flavor>::complete_grand_product_rou
                                            verifier_instance->relation_parameters.gamma,
                                            vk->pub_inputs_offset);
 
-    verifier_instance->witness_commitments.z_perm =
-        transcript->template receive_from_prover<Commitment>(comm_labels.z_perm);
+    verifier_instance->witness_commitments.z_perm() =
+        transcript->template receive_from_prover<Commitment>(comm_labels.z_perm());
 }
 
 // Native flavor instantiations
@@ -177,5 +208,9 @@ template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaAppFlavor>;
+template class OinkVerifier<MegaKernelFlavor>;
+template class OinkVerifier<MegaAppRecursiveFlavor>;
+template class OinkVerifier<MegaKernelRecursiveFlavor>;
 
 } // namespace bb

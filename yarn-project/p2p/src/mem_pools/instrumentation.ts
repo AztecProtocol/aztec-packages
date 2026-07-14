@@ -1,5 +1,4 @@
 import type { Gossipable } from '@aztec/stdlib/p2p';
-import type { Tx } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type BatchObservableResult,
@@ -117,16 +116,6 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
     this.addObjectCounter.add(count);
   }
 
-  public transactionsAdded(transactions: Tx[]) {
-    transactions.forEach(tx => this.trackMempoolItemAdded(tx.txHash.toBigInt()));
-  }
-
-  public transactionsRemoved(hashes: Iterable<bigint> | Iterable<string>) {
-    for (const hash of hashes) {
-      this.trackMempoolItemRemoved(BigInt(hash));
-    }
-  }
-
   public trackMempoolItemAdded(key: bigint | string): void {
     this.mempoolItemAddedTimestamp.set(key, Date.now());
   }
@@ -139,6 +128,19 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
       if (addedAt < timestamp) {
         this.minedDelay.record(timestamp - addedAt);
       }
+    }
+  }
+
+  /**
+   * Records a pre-computed pending-to-mined delay directly, bypassing the
+   * `mempoolItemAddedTimestamp` map. Used by the tx pool, which derives the
+   * delay from the persisted `receivedAt` on tx metadata at the mined
+   * transition — more accurate than the add/remove map (which also fires on
+   * eviction) and resilient to the caller not having tracked the add.
+   */
+  public recordMinedDelay(delayMs: number): void {
+    if (delayMs > 0) {
+      this.minedDelay.record(delayMs);
     }
   }
 

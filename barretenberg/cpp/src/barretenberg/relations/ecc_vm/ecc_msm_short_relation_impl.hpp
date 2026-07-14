@@ -195,6 +195,7 @@ void ECCVMMSMShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumu
     using Accumulator = typename std::tuple_element_t<COLLISION_CHECK_1, ContainerOverSubrelations>;
     using ShortView = ECCVMShortMonomialView<Accumulator>;
     using Acc5 = typename std::tuple_element_t<ROUND_TRANSITION_SKEW_IMPLIES_ROUND_31, ContainerOverSubrelations>;
+    using Acc6 = typename std::tuple_element_t<MSM_TRANSITION_AT_ACTIVE_START, ContainerOverSubrelations>;
     using Acc4 = typename std::tuple_element_t<ROUND_TRANSITION_FORCES_DELTA_ONE, ContainerOverSubrelations>;
     using Acc3 = typename std::tuple_element_t<INACTIVE_SLICE_1, ContainerOverSubrelations>;
     using Acc2 = typename std::tuple_element_t<ADD1_DECOMPOSITION, ContainerOverSubrelations>;
@@ -215,6 +216,7 @@ void ECCVMMSMShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumu
     const auto lagrange_first_s = ShortView(in.lagrange_first);
     const auto round_s = ShortView(in.msm_round);
     const auto round_shift_s = ShortView(in.msm_round_shift);
+    const auto round_minus_31_inv_s = ShortView(in.msm_round_minus_31_inv);
     const auto count_s = ShortView(in.msm_count);
     const auto count_shift_s = ShortView(in.msm_count_shift);
     const auto pc_s = ShortView(in.msm_pc);
@@ -372,6 +374,31 @@ void ECCVMMSMShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumu
         const auto inner_short = (msm_size_s + pc_shift_s) - pc_s;                // length 2
         std::get<MSM_TRANSITION_PC>(accumulator) += Acc4(outer_short * scaling_factor) * Acc4(inner_short);
     }
+    {
+        const auto round_minus_31_short = round_s - FF(LAST_ADDITION_ROUND);                     // length 2
+        const auto inverse_check_short = -(round_minus_31_short * round_minus_31_inv_s) + FF(1); // length 3
+        std::get<DOUBLE_SHIFT_FORBIDS_ROUND_31>(accumulator) +=
+            Acc4(q_double_shift_s * scaling_factor) * Acc4(inverse_check_short);
+    }
+    {
+        const auto not_add_short = -q_add_s + FF(1);                                     // length 2
+        const auto not_double_short = -q_double_s + FF(1);                               // length 2
+        const auto not_skew_short = -q_skew_s + FF(1);                                   // length 2
+        const auto next_phase_short = q_add_shift_s + q_double_shift_s + q_skew_shift_s; // length 2
+        const auto transition_shift_minus_one_short = msm_transition_shift_s - FF(1);    // length 2
+        std::get<MSM_TRANSITION_AT_ACTIVE_START>(accumulator) +=
+            Acc6(not_add_short * scaling_factor) * Acc6(not_double_short) * Acc6(not_skew_short) *
+            Acc6(next_phase_short) * Acc6(transition_shift_minus_one_short);
+    }
+    {
+        const auto is_not_first_row_short = -lagrange_first_s + FF(1); // length 2
+        const auto active_phase_short = q_add_s + q_double_s;          // length 2
+        std::get<MSM_PC_CONTINUITY>(accumulator) +=
+            Acc5(is_not_first_row_short * scaling_factor) * Acc5(active_phase_short) *
+            Acc5(neg_msm_transition_shift_plus_one_short) * Acc5(pc_shift_s - pc_s);
+    }
+    std::get<MSM_PC_SKEW_CONTINUITY>(accumulator) +=
+        Acc4((q_skew_s * q_skew_shift_s) * scaling_factor) * Acc4(pc_shift_s - pc_s);
 
     std::get<ADD_CONTINUITY_2>(accumulator) += Acc3((add2_s * (-add1_s + FF(1))) * scaling_factor);
     std::get<ADD_CONTINUITY_3>(accumulator) += Acc3((add3_s * (-add2_s + FF(1))) * scaling_factor);

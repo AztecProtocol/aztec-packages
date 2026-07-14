@@ -6,13 +6,13 @@
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
@@ -23,11 +23,128 @@
 
 namespace bb {
 
-// Constructor
-Chonk::Chonk(size_t num_circuits)
-    : num_circuits(num_circuits)
+#ifndef NDEBUG
+template <typename NativeFlavor>
+void Chonk::run_native_instance_sumcheck(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
+                                         const VerifierInputs& queue_entry)
 {
-    BB_ASSERT_GTE(num_circuits, 4UL, "Number of circuits must be at least 4 (get_queue_type uses num_circuits - 3).");
+    auto verifier_inst =
+        std::make_shared<VerifierInstance_<NativeFlavor>>(std::make_shared<typename NativeFlavor::VKAndHash>(honk_vk));
+
+    // Cross-check the prover's instance claim against the native verifier's, claim by claim, as the group is built.
+    // The group's claims are folded together before the next kernel (see update_native_verifier_accumulator).
+    bool sumcheck_verified =
+        native_folding_verifier->template accumulate_instance<NativeFlavor>(verifier_inst, queue_entry.proof);
+    info("Sumcheck: instance to accumulator verified: ", sumcheck_verified ? "true" : "false");
+
+    info("Chonk accumulate: prover and verifier sumcheck claims match: ",
+         folding_prover->get_cached_claims().back().compare_with_verifier_claim(
+             native_folding_verifier->get_cached_claims().back())
+             ? "true"
+             : "false");
+}
+
+template <typename InstanceFlavor>
+void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
+                                   const std::shared_ptr<ProverInstance_<InstanceFlavor>>& prover_instance,
+                                   const std::shared_ptr<typename InstanceFlavor::VerificationKey>& precomputed_vk)
+{
+    info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
+
+    info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
+    info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
+    info("Did we find a failure? ", circuit.failed() ? "true" : "false");
+    if (circuit.failed()) {
+        info("\t\t\tError message? ", circuit.err());
+    }
+
+    // Compare precomputed VK with the one generated during accumulation.
+    auto vk = std::make_shared<typename InstanceFlavor::VerificationKey>(prover_instance->get_precomputed());
+    info("Does the precomputed vk match with the one generated during accumulation? ",
+         vk->compare(*precomputed_vk, typename InstanceFlavor::CommitmentLabels().get_precomputed()) ? "true"
+                                                                                                     : "false");
+
+    info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
+}
+
+void Chonk::verify_native_instance_sumcheck(const VerifierInputs& queue_entry)
+{
+    info("======= DEBUGGING INFO FOR NATIVE SUMCHECK STEP =======");
+
+    if (queue_entry.is_kernel()) {
+        run_native_instance_sumcheck<KernelFlavor>(queue_entry.kernel_honk_vk, queue_entry);
+    } else {
+        run_native_instance_sumcheck<AppFlavor>(queue_entry.app_honk_vk, queue_entry);
+    }
+
+    info("======= END OF DEBUGGING INFO FOR NATIVE SUMCHECK STEP =======");
+}
+
+void Chonk::update_native_verifier_accumulator(bool is_init_group)
+{
+    info("======= DEBUGGING INFO FOR NATIVE MULTILINEAR BATCHING STEP =======");
+
+    // Finalise the native cross-check verifier over the same claims the prover folded (the previous accumulator, absent
+    // for the init group, followed by the group's claims). For a single-claim group the batching proof is empty.
+    std::optional<VerifierAccumulator> previous_accumulator =
+        is_init_group ? std::nullopt : std::optional<VerifierAccumulator>(std::move(native_verifier_accum));
+    auto [batching_verified, new_accumulator] =
+        native_folding_verifier->finalize(multilinear_batch_proof, std::move(previous_accumulator));
+    native_verifier_accum = std::move(new_accumulator);
+    native_folding_verifier.reset();
+    info("Multilinear batching: claims to accumulator verified: ", batching_verified ? "true" : "false");
+
+    info("Chonk accumulate: prover and verifier accumulators match: ",
+         prover_accumulator.compare_with_verifier_claim(native_verifier_accum) ? "true" : "false");
+
+    Transcript hash_transcript;
+    info("Chonk accumulate: hash of verifier accumulator computed natively: ",
+         native_verifier_accum.hash_with_origin_tagging(hash_transcript));
+
+    info("======= END OF DEBUGGING INFO FOR NATIVE MULTILINEAR BATCHING STEP =======");
+}
+
+void Chonk::verify_decider_natively()
+{
+    info("======= DEBUGGING INFO FOR NATIVE DECIDER STEP =======");
+
+    HypernovaDeciderVerifier<KernelFlavor> decider_verifier(native_verifier_accumulation_transcript);
+    bb::PairingPoints<curve::BN254> pairing_points =
+        decider_verifier.verify_proof(native_verifier_accum, decider_proof);
+    info("Decider: pairing points verified? ", pairing_points.check() ? "true" : "false");
+
+    info("======= END OF DEBUGGING INFO FOR NATIVE DECIDER STEP =======");
+}
+#endif
+
+// Constructor
+Chonk::Chonk(std::vector<CircuitKind> circuit_kinds)
+    : circuit_kinds(std::move(circuit_kinds))
+    , num_circuits(this->circuit_kinds.size())
+{
+    // Not BB_ASSERTs: the kinds arrive from msgpack (ChonkStart::kinds / folding stack). A stack with fewer
+    // than 4 circuits cannot hold the app + init/tail/hiding kernel structure the IVC requires, so reject
+    // malformed stacks clearly in release/WASM too.
+    if (num_circuits < 4U) {
+        throw_or_abort("Chonk: number of circuits must be at least 4, got " + std::to_string(num_circuits));
+    }
+
+    for (size_t idx = 0; idx < num_circuits; ++idx) {
+        const CircuitKind kind = this->circuit_kinds[idx];
+        const bool is_valid_kind =
+            kind == CircuitKind::App || kind == CircuitKind::Kernel || kind == CircuitKind::HidingKernel;
+        if (!is_valid_kind) {
+            throw_or_abort("Chonk: invalid CircuitKind at position " + std::to_string(idx));
+        }
+        const bool is_valid_hiding_kernel_position = (kind == CircuitKind::HidingKernel) == (idx == num_circuits - 1);
+        if (!is_valid_hiding_kernel_position) {
+            throw_or_abort("Chonk: HidingKernel must be the final circuit in the IVC stack and nowhere else");
+        }
+        const bool is_first_circuit_app = this->circuit_kinds.front() == CircuitKind::App;
+        if (!is_first_circuit_app) {
+            throw_or_abort("Chonk: the first circuit in the IVC stack must be an app");
+        }
+    }
 }
 
 /**
@@ -41,9 +158,9 @@ Chonk::Chonk(size_t num_circuits)
  * @param circuit
  */
 void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
-                                                  const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
+                                                  const std::vector<StdlibCircuitVKAndHash>& input_keys)
 {
-    bool vkeys_provided = !input_keys.empty();
+    const bool vkeys_provided = !input_keys.empty();
     if (vkeys_provided) {
         BB_ASSERT_EQ(verification_queue.size(),
                      input_keys.size(),
@@ -51,91 +168,34 @@ void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                      "stdlib verification queue instantiation.");
     }
 
-    size_t key_idx = 0;
+    size_t input_idx = 0;
     while (!verification_queue.empty()) {
         const VerifierInputs& entry = verification_queue.front();
 
-        // Construct stdlib proof directly from the internal native queue data
         StdlibProof stdlib_proof(circuit, entry.proof);
 
-        // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
-        std::shared_ptr<RecursiveVKAndHash> stdlib_vk_and_hash;
-        if (vkeys_provided) {
-            stdlib_vk_and_hash = input_keys[key_idx++];
+        if (entry.is_kernel()) {
+            auto stdlib_vk_and_hash = vkeys_provided
+                                          ? std::get<std::shared_ptr<KernelRecursiveVKAndHash>>(input_keys[input_idx])
+                                          : std::make_shared<KernelRecursiveVKAndHash>(circuit, entry.kernel_honk_vk);
+            stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash);
         } else {
-            stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(circuit, entry.honk_vk);
+            auto stdlib_vk_and_hash = vkeys_provided
+                                          ? std::get<std::shared_ptr<AppRecursiveVKAndHash>>(input_keys[input_idx])
+                                          : std::make_shared<AppRecursiveVKAndHash>(circuit, entry.app_honk_vk);
+            stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash);
         }
-
-        stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash, entry.type, entry.is_kernel);
-
+        ++input_idx;
         verification_queue.pop_front(); // the native data is not needed beyond this point
     }
 }
 
 /**
- * @brief Perform recursive folding verification for a single circuit in the IVC
- * @details Runs the appropriate folding verifier (Oink for first app, HyperNova for subsequent circuits) and returns
- * the resulting accumulator. For HN_FINAL (tail kernel), also runs the decider verifier and returns its pairing points.
- *
- * @param circuit
- * @param verifier_inputs {proof, vkey, type (Oink/HN)} A set of inputs for recursive verification
- * @param verifier_instance The instance to be folded into the running accumulator
- * @param accumulation_recursive_transcript Transcript shared across recursive verification of the folding of
- * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
- *
- */
-Chonk::FoldingResult Chonk::verify_folding(
-    ClientCircuit& circuit,
-    const StdlibVerifierInputs& verifier_inputs,
-    const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
-    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript) const
-{
-    std::vector<PairingPoints> pairing_points;
-    std::optional<RecursiveVerifierAccumulator> output_accumulator;
-
-    RecursiveFoldingVerifier folding_verifier(accumulation_recursive_transcript);
-    switch (verifier_inputs.type) {
-    case QUEUE_TYPE::OINK: {
-        vinfo("Recursively verifying accumulation of the first app circuit.");
-        auto [_, new_verifier_accumulator] =
-            folding_verifier.instance_to_accumulator(verifier_instance, verifier_inputs.proof);
-        output_accumulator = std::move(new_verifier_accumulator);
-        break;
-    }
-    case QUEUE_TYPE::HN:
-    case QUEUE_TYPE::HN_TAIL: {
-        vinfo("Recursively verifying inner accumulation.");
-        auto [_first_verified, _second_verified, new_verifier_accumulator] =
-            folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
-        output_accumulator = std::move(new_verifier_accumulator);
-        break;
-    }
-    case QUEUE_TYPE::HN_FINAL: {
-        vinfo("Recursively verifying accumulation of the tail kernel.");
-        BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
-
-        auto [_first_verified, _second_verified, final_verifier_accumulator] =
-            folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
-
-        RecursiveDeciderVerifier decider_verifier(accumulation_recursive_transcript);
-        StdlibProof stdlib_decider_proof(circuit, decider_proof);
-        pairing_points.emplace_back(decider_verifier.verify_proof(final_verifier_accumulator, stdlib_decider_proof));
-        break;
-    }
-    default: {
-        throw_or_abort("Invalid queue type! Only OINK, HN, HN_TAIL and HN_FINAL are supported");
-    }
-    }
-
-    return { std::move(output_accumulator), std::move(pairing_points) };
-}
-
-/**
  * @brief Process public inputs from a verified circuit and perform databus consistency checks
- * @details For kernel circuits: reconstructs KernelIO from public inputs, verifies that databus return data commitments
- * match witness commitments, checks accumulator hash consistency, and returns the kernel's ECC op running hash.
- * For app circuits: reconstructs AppIO from public inputs and extracts pairing points.
- * In both cases, updates the bus depot with the appropriate return data commitment.
+ * @details For kernel circuits: reconstructs KernelIO from public inputs, verifies that databus return data
+ * commitments match witness commitments, checks accumulator hash consistency, and returns the kernel's ECC op
+ * running hash. For app circuits: reconstructs AppIO from public inputs and extracts pairing points. In both cases,
+ * updates the bus depot with the appropriate return data commitment.
  *
  * @param verifier_inputs {proof, vkey, type (Oink/HN)} A set of inputs for recursive verification
  * @param public_inputs The public inputs extracted from the verifier instance that was folded into the running
@@ -144,141 +204,139 @@ Chonk::FoldingResult Chonk::verify_folding(
  * running accumulator
  * @param prev_accum_hash The accumulator hash from the previous kernel
  */
-Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
-    const StdlibVerifierInputs& verifier_inputs,
-    std::vector<StdlibFF>& public_inputs,
-    WitnessCommitments& witness_commitments,
-    const std::optional<StdlibFF>& prev_accum_hash)
+Chonk::PublicInputsResult Chonk::process_kernel_public_inputs(std::vector<StdlibFF>& public_inputs,
+                                                              KernelWitnessCommitments& witness_commitments,
+                                                              const std::optional<StdlibFF>& prev_accum_hash)
 {
-    if (verifier_inputs.is_kernel) {
-        BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
-                         verifier_inputs.type == QUEUE_TYPE::HN_FINAL,
-                     true,
-                     "Kernel circuits should be folded.");
+    KernelIO kernel_input; // pairing points, ecc op tables, databus commitments
+    kernel_input.reconstruct_from_public(public_inputs);
 
-        // ============= Reconstruct the public inputs of the previous kernel =============
+    // ============= Perform databus consistency checks ===============================
 
-        KernelIO kernel_input; // pairing points, ecc op tables, databus commitments
-        kernel_input.reconstruct_from_public(public_inputs);
+#ifndef NDEBUG
+    bool kernel_return_data_match =
+        kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata().get_value();
+    if (!kernel_return_data_match) {
+        info("kernel_return_data mismatch: proof contains ",
+             kernel_input.kernel_return_data.get_value(),
+             " but kernel_calldata commitment is ",
+             witness_commitments.kernel_calldata().get_value());
+    }
+#endif
+    kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata());
 
-        // ============= Perform databus consistency checks ===============================
-
-        // Kernel return data
-        bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata.get_value();
-        BB_ASSERT_DEBUG(kernel_return_data_match,
-                        "kernel_return_data mismatch: proof contains "
-                            << kernel_input.kernel_return_data.get_value() << " but kernel_calldata commitment is "
-                            << witness_commitments.kernel_calldata.get_value());
-        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata);
-
-        const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata,
-                                                   &witness_commitments.second_app_calldata,
-                                                   &witness_commitments.third_app_calldata };
-        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
-            bool app_return_data_match =
-                kernel_input.app_return_data[idx].get_value() == app_calldata_commitments[idx]->get_value();
-            BB_ASSERT_DEBUG(app_return_data_match,
-                            "app_return_data mismatch: proof contains "
-                                << kernel_input.app_return_data[idx].get_value() << " but app calldata commitment "
-                                << idx << " is " << app_calldata_commitments[idx]->get_value());
-            kernel_input.app_return_data[idx].incomplete_assert_equal(*app_calldata_commitments[idx]);
+    const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata(),
+                                               &witness_commitments.second_app_calldata(),
+                                               &witness_commitments.third_app_calldata(),
+                                               &witness_commitments.fourth_app_calldata(),
+                                               &witness_commitments.fifth_app_calldata() };
+    static_assert(std::tuple_size_v<decltype(app_calldata_commitments)> == MAX_APPS_PER_KERNEL,
+                  "app_calldata_commitments must list one commitment per app bus column");
+    for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+#ifndef NDEBUG
+        bool app_return_data_match =
+            kernel_input.app_return_data[idx].get_value() == app_calldata_commitments[idx]->get_value();
+        if (!app_return_data_match) {
+            info("app_return_data mismatch: proof contains ",
+                 kernel_input.app_return_data[idx].get_value(),
+                 " but app calldata commitment ",
+                 idx,
+                 " is ",
+                 app_calldata_commitments[idx]->get_value());
         }
-
-        // ============= Perform accumulator hash consistency check =========================
-
-        info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
-        BB_ASSERT(prev_accum_hash.has_value());
-        bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
-        BB_ASSERT_DEBUG(accum_hash_match,
-                        "output_hn_accum_hash mismatch: proof contains "
-                            << kernel_input.output_hn_accum_hash.get_value() << " but expected "
-                            << prev_accum_hash->get_value());
-        kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
-
-        // ============= Set the kernel return data commitment ==============================
-
-        bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
-
-        return { std::move(kernel_input.pairing_inputs), std::move(kernel_input.ecc_op_hash) };
+#endif
+        kernel_input.app_return_data[idx].incomplete_assert_equal(*app_calldata_commitments[idx]);
     }
 
-    // App circuit path
+    // ============= Perform accumulator hash consistency check =========================
+
+    info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
+    BB_ASSERT(prev_accum_hash.has_value());
+#ifndef NDEBUG
+    bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
+    if (!accum_hash_match) {
+        info("output_hn_accum_hash mismatch: proof contains ",
+             kernel_input.output_hn_accum_hash.get_value(),
+             " but expected ",
+             prev_accum_hash->get_value());
+    }
+#endif
+    kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
+
+    bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data());
+
+    return { std::move(kernel_input.pairing_inputs), std::move(kernel_input.ecc_op_hash) };
+}
+
+Chonk::PublicInputsResult Chonk::process_app_public_inputs(std::vector<StdlibFF>& public_inputs,
+                                                           AppWitnessCommitments& witness_commitments)
+{
     AppIO app_input; // pairing points
     app_input.reconstruct_from_public(public_inputs);
-
-    // Set the app return data commitment to be propagated via the public inputs. The depot owns slot allocation.
-    bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
-
+    bus_depot.set_app_return_data_commitment(witness_commitments.return_data());
     return { std::move(app_input.pairing_inputs), std::nullopt };
 }
 
 /**
- * @brief Orchestrate recursive verification, databus consistency checks, and merge verification for a single circuit.
- * @details Delegates to three steps: (1) recursive folding verification via verify_folding, (2) public inputs
- * processing and databus consistency checks via process_public_inputs_and_consistency_checks, and (3) merge recursive
- * verification. Returns the output accumulator, aggregated pairing points, and merged table commitments.
+ * @brief Run sumcheck on a single proof in the group and perform its databus/accumulator-hash consistency checks.
+ * @details Delegates to two steps: (1) sumcheck on the incoming instance to obtain its claim (no multilinear batching),
+ * and (2) public inputs processing and databus consistency checks. Returns the resulting sumcheck claim, its pairing
+ * points, and the updated ECC-op running hash. The claim is collected by complete_kernel_circuit_logic and batched
+ * together with the rest of the group at the end of the kernel.
  *
- * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/HN)} A set of inputs for recursive verification
- * @param input_verifier_accumulator The accumulator from the previous step of recursive verification
- * @param running_hash Running hash of ECC-op column commitments from prior steps in this kernel.
- * @param accumulation_recursive_transcript Transcript shared across recursive verification of the folding of
+ * @param prev_stdlib_acc_hash The hash of the accumulator from the previous step of recursive verification
+ * @param running_ecc_op_hash Running hash of ECC-op column commitments from prior steps in this kernel.
+ * @param accumulation_recursive_transcript Transcript shared across recursive verification of the sumchecks of
  * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
  */
-std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>, std::vector<Chonk::PairingPoints>, Chonk::StdlibFF>
-Chonk::recursive_verification_and_consistency_checks(
-    ClientCircuit& circuit,
+std::pair<Chonk::PairingPoints, Chonk::EccOpRunningHash> Chonk::recursive_verification_and_consistency_checks(
     const StdlibVerifierInputs& verifier_inputs,
-    const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-    const std::optional<StdlibFF>& running_hash,
-    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
+    HypernovaFoldingRecursiveVerifier& folding_verifier,
+    const std::optional<StdlibFF>& prev_stdlib_acc_hash,
+    const std::optional<EccOpRunningHash>& running_ecc_op_hash)
 {
     BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
 
-    auto verifier_instance = std::make_shared<RecursiveVerifierInstance>(verifier_inputs.honk_vk_and_hash);
+    // Step 1: Run sumcheck on the incoming instance and cache its claim in the folding verifier.
+    PublicInputsResult public_inputs_result;
+    std::vector<RecursiveCommitment> ecc_op_col_commitments_vec;
 
-    // Compute prev_accum_hash before folding (transcript state changes during verification)
-    std::optional<StdlibFF> prev_accum_hash;
-    if (verifier_inputs.is_kernel) {
-        BB_ASSERT(input_verifier_accumulator.has_value(), "Previous accumulator expected for kernel circuit folding");
-        prev_accum_hash = input_verifier_accumulator->hash_with_origin_tagging(*accumulation_recursive_transcript);
+    if (verifier_inputs.is_kernel()) {
+        auto verifier_instance =
+            std::make_shared<KernelRecursiveVerifierInstance>(verifier_inputs.kernel_honk_vk_and_hash);
+        folding_verifier.accumulate_instance<KernelRecursiveFlavor>(verifier_instance, verifier_inputs.proof);
+
+        KernelWitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
+        std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
+        public_inputs_result = process_kernel_public_inputs(public_inputs, witness_commitments, prev_stdlib_acc_hash);
+
+        auto ecc_op_col_commitments = witness_commitments.get_ecc_op_wires().get_copy();
+        ecc_op_col_commitments_vec.assign(ecc_op_col_commitments.begin(), ecc_op_col_commitments.end());
+    } else {
+        auto verifier_instance = std::make_shared<AppRecursiveVerifierInstance>(verifier_inputs.app_honk_vk_and_hash);
+        folding_verifier.accumulate_instance<AppRecursiveFlavor>(verifier_instance, verifier_inputs.proof);
+
+        AppWitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
+        std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
+        public_inputs_result = process_app_public_inputs(public_inputs, witness_commitments);
+
+        auto ecc_op_col_commitments = witness_commitments.get_ecc_op_wires().get_copy();
+        ecc_op_col_commitments_vec.assign(ecc_op_col_commitments.begin(), ecc_op_col_commitments.end());
     }
 
-    // Step 1: Recursive folding verification
-    if (verifier_inputs.type == QUEUE_TYPE::OINK) {
-        BB_ASSERT_EQ(input_verifier_accumulator.has_value(), false);
-    }
-    auto [output_accumulator, folding_points] =
-        verify_folding(circuit, verifier_inputs, verifier_instance, accumulation_recursive_transcript);
-
-    // Extract the witness commitments and public inputs from the verified instance
-    WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
-    std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
-
-    // Step 2: Process public inputs and perform databus consistency checks
-    auto [io_pairing_points, previous_ecc_op_hash] = process_public_inputs_and_consistency_checks(
-        verifier_inputs, public_inputs, witness_commitments, prev_accum_hash);
-
-    std::optional<StdlibFF> updated_hash = running_hash;
-    if (previous_ecc_op_hash.has_value()) {
-        BB_ASSERT_EQ(verifier_inputs.is_kernel, true, "previous_ecc_op_hash should only be set for kernels");
-        BB_ASSERT(!running_hash.has_value(), "Running hash should not be set when recursively verifying a kernel");
-        updated_hash = previous_ecc_op_hash.value();
+    // Step 2: Update the running ECC op hash with this circuit's ECC op column commitments.
+    std::optional<StdlibFF> updated_hash = running_ecc_op_hash;
+    if (public_inputs_result.ecc_op_hash.has_value()) {
+        BB_ASSERT_EQ(verifier_inputs.is_kernel(), true, "previous_ecc_op_hash should only be set for kernels");
+        BB_ASSERT(!running_ecc_op_hash.has_value(),
+                  "Running ECC op hash should not be set when recursively verifying a kernel");
+        updated_hash = public_inputs_result.ecc_op_hash.value();
     }
 
-    // Step 3: Update the running ECC op hash with this circuit's ECC op column commitments.
-    auto ecc_op_col_commitments = witness_commitments.get_ecc_op_wires().get_copy();
-    const std::vector<RecursiveCommitment> ecc_op_col_commitments_vec(ecc_op_col_commitments.begin(),
-                                                                      ecc_op_col_commitments.end());
     updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
 
-    // Combine all pairing points
-    std::vector<PairingPoints> all_points;
-    all_points.insert(all_points.end(), folding_points.begin(), folding_points.end());
-    all_points.emplace_back(std::move(io_pairing_points));
-
-    return { std::move(output_accumulator), std::move(all_points), updated_hash.value() };
+    return { public_inputs_result.pairing_points, updated_hash.value() };
 }
 
 /**
@@ -289,7 +347,7 @@ Chonk::recursive_verification_and_consistency_checks(
  *
  * The method performs the following steps:
  *   1. SETUP: Initialize transcript and determine kernel type
- *   2. VERIFICATION LOOP: Process each entry in stdlib_verification_queue (folding + merge + databus)
+ *   2. VERIFICATION LOOP: Process each entry in stdlib_verification_queue
  *   3. OUTPUT: Set public inputs (KernelIO or HidingKernelIO) for propagation to next kernel
  *
  * @param circuit The kernel circuit to append verification logic to
@@ -299,66 +357,87 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     BB_BENCH_NAME("Chonk::complete_kernel_circuit_logic");
     // Step 1: SETUP - Initialize state and determine kernel type
 
-    // Transcript is shared across recursive verification of the folding of K_{i-1} (kernel) and A_{i} (app)
+    // Transcript is shared across recursive verification of the sumchecks of K_{i-1} (kernel) and A_{i}, \dots,
+    // A_{i + N} (apps) where N is the number of apps in the group being accumulated in this kernel
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Running Poseidon2 hash over ECC op column commitments, propagated through kernel public inputs.
-    std::optional<StdlibFF> running_hash = std::nullopt;
+    std::optional<EccOpRunningHash> running_ecc_op_hash = std::nullopt;
 
     // Convert native verification queue to circuit witnesses
     if (stdlib_verification_queue.empty()) {
         instantiate_stdlib_verification_queue(circuit);
     }
 
-    // Determine kernel type from queue contents
-    bool is_init_kernel = stdlib_verification_queue.front().type == QUEUE_TYPE::OINK;
-
-    bool is_hiding_kernel =
-        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
+    // Determine kernel type from circuit kinds and the queued group. The init kernel's group begins with the
+    // first app's proof; every later kernel's group begins with the previous kernel's proof. Whether
+    // this is the hiding kernel is read directly from the circuit kinds supplied at construction.
+    const bool is_init = is_init_kernel();
+    const bool is_hiding = is_hiding_kernel();
 
     // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceding circuit's subtable
     // cannot affect the ECC-op accumulator for the kernel.
     circuit.queue_ecc_eq();
 
-    // Step 2: VERIFICATION LOOP - Recursively verify each proof in the queue
-
     BB_ASSERT(bus_depot.app_return_data_slots_are_empty(),
               "DataBusDepot has stale app return-data slots at kernel-completion boundary");
 
+    // The number of claims this kernel batches: the previous accumulator (absent for the
+    // init kernel) plus one sumcheck claim per proof in the group. A single-claim init kernel needs no batching -
+    // its lone sumcheck claim is already the accumulator.
+    const size_t group_size = stdlib_verification_queue.size();
+    const size_t num_claims = group_claim_count(/*has_previous_accumulator=*/!is_init, group_size);
+    BB_ASSERT_LTE(num_claims, CHONK_MAX_CLAIMS_PER_KERNEL, "Per-kernel batch width exceeds the supported maximum");
+
+    // Step 2: RECURSIVE VERIFIER - Fold each proof in the group into the folding verifier.
+
     std::vector<PairingPoints> points_accumulator;
-    std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
-    if (!is_init_kernel) {
-        current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
-            &circuit, recursive_verifier_native_accum);
+
+    // The previous accumulator is claim 0 of this kernel's batch. It is absent for the init
+    // kernel, which only verifies app circuits.
+    std::optional<RecursiveVerifierAccumulator> prev_stdlib_verifier_accumulator;
+    std::optional<StdlibFF> prev_stdlib_accum_hash;
+    if (!is_init) {
+        prev_stdlib_verifier_accumulator =
+            RecursiveVerifierAccumulator::stdlib_from_native<RecursiveCurve>(&circuit, recursive_verifier_native_accum);
+        prev_stdlib_accum_hash =
+            prev_stdlib_verifier_accumulator->hash_with_origin_tagging(*accumulation_recursive_transcript);
     }
+
+    HypernovaFoldingRecursiveVerifier folding_verifier(accumulation_recursive_transcript);
+
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        auto [output_stdlib_verifier_accumulator, pairing_points, updated_hash] =
-            recursive_verification_and_consistency_checks(circuit,
-                                                          verifier_input,
-                                                          current_stdlib_verifier_accumulator,
-                                                          running_hash,
-                                                          accumulation_recursive_transcript);
-        points_accumulator.insert(points_accumulator.end(), pairing_points.begin(), pairing_points.end());
-        running_hash = updated_hash;
-
-        // Update the output verifier accumulator
-        current_stdlib_verifier_accumulator = output_stdlib_verifier_accumulator;
+        auto [pairing_points, updated_ecc_hash] = recursive_verification_and_consistency_checks(
+            verifier_input, folding_verifier, prev_stdlib_accum_hash, running_ecc_op_hash);
+        points_accumulator.push_back(pairing_points);
+        running_ecc_op_hash = updated_ecc_hash;
 
         stdlib_verification_queue.pop_front();
     }
 
-    // Step 3: OUTPUT - Set public inputs for propagation to next kernel
-    BB_ASSERT_EQ(running_hash.has_value(), true, "Running hash should be set for public input propagation");
+    BB_ASSERT_EQ(
+        running_ecc_op_hash.has_value(), true, "Running ECC op hash should be set for public input propagation");
+
+    // Step 3: Reduce the group's claims to a single accumulator. For a single-claim init kernel the batching proof is
+    // empty and finalize returns the lone sumcheck claim directly.
+    StdlibProof stdlib_multilinear_batch_proof(circuit, multilinear_batch_proof);
+    auto [batch_verified, output_accumulator] =
+        folding_verifier.finalize(stdlib_multilinear_batch_proof, std::move(prev_stdlib_verifier_accumulator));
+    vinfo("Per-kernel folding verified: ", batch_verified ? "true" : "false");
 
     // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
-    if (is_hiding_kernel) {
-        BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
+    if (is_hiding) {
+        // Perform decider verification
+        BB_ASSERT_EQ(num_claims, 2U, "In the hiding kernel the number of claims should always be equal to 2");
+        RecursiveDeciderVerifier decider_verifier(accumulation_recursive_transcript);
+        StdlibProof stdlib_decider_proof(circuit, decider_proof);
+        points_accumulator.emplace_back(decider_verifier.verify_proof(output_accumulator, stdlib_decider_proof));
 
         // Perform batch merge verification
         auto [batch_pairing_points, batch_merged_table_commitments] =
-            goblin.recursively_verify_batch_merge(circuit, running_hash.value());
+            goblin.recursively_verify_batch_merge(circuit, running_ecc_op_hash.value());
 
         // Append batch merge pairing points to the list of pairing points
         points_accumulator.emplace_back(batch_pairing_points);
@@ -375,13 +454,11 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
                                       std::move(batch_merged_table_commitments) };
         hiding_output.set_public();
     } else {
-        BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
-
         // Compute aggregated pairing points for output
         PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
-        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
+        recursive_verifier_native_accum = output_accumulator.get_value<VerifierAccumulator>();
 
         auto kernel_return_data_commitment = bus_depot.get_kernel_return_data_commitment(circuit);
         KernelIO::AppReturnDataCommitments app_return_data_commitments;
@@ -391,212 +468,241 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         // Compute hash of output accumulator
         RecursiveTranscript hash_transcript;
-        StdlibFF current_verifier_accum_hash =
-            current_stdlib_verifier_accumulator->hash_with_origin_tagging(hash_transcript);
+        StdlibFF current_verifier_accum_hash = output_accumulator.hash_with_origin_tagging(hash_transcript);
         info("Kernel output accumulator hash: ", current_verifier_accum_hash);
-#ifndef NDEBUG
-        info("Chonk recursive verification: accumulator hash set in the public inputs matches the one "
-             "computed natively: ",
-             current_verifier_accum_hash.get_value() == native_verifier_accum_hash ? "true" : "false");
-#endif
 
         // Propagate public inputs
         KernelIO kernel_output{ pairing_points_aggregator,
                                 kernel_return_data_commitment,
                                 app_return_data_commitments,
-                                running_hash.value(),
+                                running_ecc_op_hash.value(),
                                 current_verifier_accum_hash };
         kernel_output.set_public();
     }
 }
 
 /**
- * @brief Get queue type for the proof of a circuit about to be accumulated based on num circuits accumulated so far.
- */
-Chonk::QUEUE_TYPE Chonk::get_queue_type() const
-{
-    // first app
-    if (num_circuits_accumulated == 0) {
-        return QUEUE_TYPE::OINK;
-    }
-    // app (excluding first) or kernel (inner or reset)
-    if (num_circuits_accumulated < num_circuits - 3) {
-        return QUEUE_TYPE::HN;
-    }
-    // last kernel prior to tail kernel
-    if (num_circuits_accumulated == num_circuits - 3) {
-        return QUEUE_TYPE::HN_TAIL;
-    }
-    // tail kernel
-    if (num_circuits_accumulated == num_circuits - 2) {
-        return QUEUE_TYPE::HN_FINAL;
-    }
-    // hiding kernel
-    if (num_circuits_accumulated == num_circuits - 1) {
-        return QUEUE_TYPE::MEGA;
-    }
-    throw_or_abort("Chonk::get_queue_type: num_circuits_accumulated out of range");
-}
-
-/**
  * @brief Build the hiding kernel's ZK proving key and verification key (proving is deferred to prove()).
  */
-void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
+                                     const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk)
 {
     BB_BENCH_NAME("Chonk::accumulate_hiding_kernel");
+    BB_ASSERT_LT(
+        num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
+    // throw, not BB_ASSERT: reachable from external step ordering, and a wrong position would feed
+    // the wrong variant alternative into std::get below (std::bad_variant_access / mis-folding).
+    if (!is_hiding_kernel()) {
+        throw_or_abort("Chonk::accumulate_hiding_kernel must be the final circuit in the IVC stack");
+    }
+
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
     hiding_prover_inst = std::make_shared<HidingKernelProverInstance>(circuit);
+
     // Free circuit block memory now that trace data has been copied to prover polynomials
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
     }
-    // MegaZKFlavor inherits VerificationKey from MegaFlavor unchanged, so MegaZKVerificationKey
-    // and MegaVerificationKey are the same type. Reuse the caller-supplied precomputed VK when
-    // present to skip the 31 sequential commitments in the NativeVerificationKey_ ctor.
-    static_assert(
-        std::is_same_v<MegaVerificationKey, MegaZKVerificationKey>,
-        "hiding-kernel precomputed VK reuse relies on MegaZKFlavor inheriting VerificationKey from MegaFlavor");
+
     if (precomputed_vk) {
+#ifndef NDEBUG
+        auto computed_vk = std::make_shared<MegaZKVerificationKey>(hiding_prover_inst->get_precomputed());
+        BB_ASSERT(*precomputed_vk == *computed_vk,
+                  "Chonk::accumulate_hiding_kernel - precomputed MegaZK VK does not match computed VK");
+#endif
         hiding_vk = precomputed_vk;
     } else {
         hiding_vk = std::make_shared<MegaZKVerificationKey>(hiding_prover_inst->get_precomputed());
     }
-
-    // Push VK to queue so get_hiding_kernel_vk_and_hash() can find it.
-    VerifierInputs queue_entry{ {}, hiding_vk, QUEUE_TYPE::MEGA, /*is_kernel=*/true };
-    verification_queue.push_back(queue_entry);
     num_circuits_accumulated++;
 }
 
-/**
- * @brief Perform HyperNova folding for a circuit and produce the corresponding merge proof.
- *
- * @details Handles OINK (first app), HN (inner folding), HN_TAIL (last pre-tail), and HN_FINAL (tail + decider).
- *
- * @param circuit The circuit to fold
- * @param precomputed_vk Precomputed verification key for the circuit
- * @param queue_type The folding type for this circuit
- * @param prover_instance Pre-built prover instance (from debug path) or nullptr
- */
-void Chonk::accumulate_and_fold(ClientCircuit& circuit,
-                                const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
-                                QUEUE_TYPE queue_type,
-                                std::shared_ptr<ProverInstance> prover_instance)
+// Templated body of accumulate_and_fold. Dispatched on InstanceFlavor (MegaAppFlavor for apps,
+// MegaKernelFlavor for kernels). The Hypernova accumulator is flavor-agnostic so apps and kernels
+// fold into the same `prover_accumulator`.
+template <typename InstanceFlavor>
+HonkProof Chonk::instance_to_accumulator(ClientCircuit& circuit,
+                                         const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk)
 {
-    BB_BENCH_NAME("Chonk::accumulate_and_fold");
-    // Construct the prover instance for circuit (may already exist from debug path)
-    if (!prover_instance) {
-        prover_instance = std::make_shared<ProverInstance>(circuit);
-    }
+    using PI = ProverInstance_<InstanceFlavor>;
+    BB_ASSERT(vk != nullptr, "Chonk::accumulate_and_fold - VK expected for the provided circuit");
 
-    // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials
+    auto prover_instance = std::make_shared<PI>(circuit);
+#ifndef NDEBUG
+    debug_incoming_circuit<InstanceFlavor>(circuit, prover_instance, vk);
+#endif
+    // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials.
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
     }
 
-    // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
-    // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
-    // call (which will always be for an app circuit).
-    bool is_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
+    // Run sumcheck on the incoming instance; the folding prover caches the resulting claim. The claims of the whole
+    // group are batched together once, when the group's last circuit is accumulated (see prove_multilinear_batching).
+    vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
+    return folding_prover->template accumulate_instance<InstanceFlavor>(prover_instance, vk);
+}
 
-    // Transcript to be shared across folding of K_{i} (kernel) (the current kernel), A_{i+1,1} (app), .., A_{i+1,
-    // n} (app)
-    if (is_kernel) {
+void Chonk::accumulate_and_fold(ClientCircuit& circuit, const CircuitVerificationKey& vk)
+{
+    BB_BENCH_NAME("Chonk::accumulate_and_fold");
+
+    const CircuitKind kind = current_kind();
+    const CircuitKind following_kind = next_kind();
+
+    const bool state_says_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
+    BB_ASSERT_EQ(state_says_kernel,
+                 kind == CircuitKind::Kernel,
+                 "Chonk::accumulate_and_fold: CircuitKind disagrees with the IVC state machine");
+
+    const bool is_init_group = num_circuits_accumulated == 0;
+    if (kind == CircuitKind::Kernel || is_init_group) {
+        BB_ASSERT_EQ(folding_prover, nullptr, "Folding prover must be null at the beginning of a group");
+
+        // A kernel/init group begins a new folding group with a fresh transcript and folding prover. The previous
+        // accumulator (from the previous group) is supplied at finalize time (see prove_multilinear_batching).
         prover_accumulation_transcript = std::make_shared<Transcript>();
-    }
-
+        folding_prover = std::make_shared<FoldingProver>(prover_accumulation_transcript);
 #ifndef NDEBUG
-    // Make a copy of the prover_accumulation_transcript for the native verifier to use, only happens in debugging
-    // builds
-    auto verifier_transcript =
-        Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+        BB_ASSERT_EQ(native_folding_verifier, nullptr, "Folding verifier must be null at the beginning of a group");
+        native_verifier_accumulation_transcript = std::make_shared<Transcript>();
+        native_folding_verifier =
+            std::make_shared<HypernovaFoldingNativeVerifier>(native_verifier_accumulation_transcript);
 #endif
+    }
 
-    FoldingProver prover(prover_accumulation_transcript);
     HonkProof proof;
-    switch (queue_type) {
-    case QUEUE_TYPE::OINK:
-        vinfo("Accumulating first app circuit");
-        BB_ASSERT_EQ(is_kernel, false, "First circuit accumulated must always be an app");
-
-        prover_accumulator = prover.instance_to_accumulator(prover_instance, precomputed_vk);
-        proof = prover.export_proof();
-        break;
-    case QUEUE_TYPE::HN:
-    case QUEUE_TYPE::HN_TAIL:
-        vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
-        // Move old accumulator into fold, receive new accumulator back
-        std::tie(proof, prover_accumulator) =
-            prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
-        break;
-    case QUEUE_TYPE::HN_FINAL: {
-        vinfo("Accumulating tail kernel");
-        // Move old accumulator into fold, receive new accumulator back
-        std::tie(proof, prover_accumulator) =
-            prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
-        // Decider uses the NEW prover_accumulator (result of fold)
-        DeciderProver decider(prover_accumulation_transcript);
-        decider_proof = decider.construct_proof(prover_accumulator);
-        break;
+    VerifierInputs queue_entry;
+    queue_entry.kind = kind;
+    if (kind == CircuitKind::Kernel) {
+        auto kernel_vk = std::get<std::shared_ptr<KernelVerificationKey>>(vk);
+        proof = instance_to_accumulator<KernelFlavor>(circuit, kernel_vk);
+        queue_entry.kernel_honk_vk = std::move(kernel_vk);
+    } else {
+        auto app_vk = std::get<std::shared_ptr<AppVerificationKey>>(vk);
+        proof = instance_to_accumulator<AppFlavor>(circuit, app_vk);
+        queue_entry.app_honk_vk = std::move(app_vk);
     }
-    default:
-        BB_ASSERT(false, "Unexpected queue type");
-        break;
-    }
+    queue_entry.proof = std::move(proof);
 
     if (detail::use_memory_profile) {
         detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_accumulate");
         detail::GLOBAL_MEMORY_PROFILE.next_circuit();
     }
 
-    VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };
     verification_queue.push_back(queue_entry);
 
 #ifndef NDEBUG
-    update_native_verifier_accumulator(queue_entry, verifier_transcript);
+    verify_native_instance_sumcheck(queue_entry);
 #endif
-    // Keep one subtable per folded circuit and prove the batched merge after the tail kernel.
+
+    // If a kernel follows, the circuit just folded was the last of that kernel's group: produce the batching
+    // proof the kernel will recursively verify.
+    if (following_kind == CircuitKind::Kernel || following_kind == CircuitKind::HidingKernel) {
+        prove_multilinear_batching();
+    }
+
+    // Merge the ecc ops from this round of accumulation
     goblin.op_queue->merge();
 
     num_circuits_accumulated++;
 }
 
+Chonk::CircuitKind Chonk::current_kind() const
+{
+    BB_ASSERT_LT(num_circuits_accumulated, num_circuits, "Chonk: every circuit has already been accumulated.");
+    return circuit_kinds[num_circuits_accumulated];
+}
+
+Chonk::CircuitKind Chonk::next_kind() const
+{
+    const size_t next_idx = num_circuits_accumulated + 1;
+    return next_idx < num_circuits ? circuit_kinds[next_idx] : CircuitKind::None;
+}
+
+bool Chonk::is_init_kernel() const
+{
+    BB_ASSERT(!stdlib_verification_queue.empty(),
+              "is_init_kernel: stdlib verification queue must hold the current kernel's group");
+    return stdlib_verification_queue.front().kind == CircuitKind::App;
+}
+
 /**
- * @brief Execute prover work for accumulation (e.g. HN folding, merge proving)
- *
- * @details Dispatches to accumulate_hiding_kernel (for MEGA/hiding kernel) or accumulate_and_fold (for all
- * folding-based queue types). See chonk.hpp QUEUE_TYPE for the full state machine.
- *
- * @param circuit The circuit to accumulate
- * @param precomputed_vk Precomputed verification key for the circuit
+ * @brief Unified accumulation entry point. Dispatches on `current_kind()` to either folding (App / Kernel)
+ * or the hiding-kernel path (HidingKernel — proving deferred to `prove()`). When the next circuit is a
+ * kernel, the circuit being accumulated completes that kernel's group, so its multilinear batching proof
+ * (and, before the hiding kernel, the decider proof) is produced here.
  */
-void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+void Chonk::accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk)
 {
     BB_BENCH_NAME("Chonk::accumulate");
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
-    BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
+    const CircuitKind kind = current_kind();
 
-    QUEUE_TYPE queue_type = get_queue_type();
+    switch (kind) {
+    case CircuitKind::HidingKernel: {
+        // The constructor guarantees the HidingKernel kind only at the final position; std::get below throws
+        // bad_variant_access if the caller supplies a non-MegaZK VK.
+        accumulate_hiding_kernel(circuit, std::get<std::shared_ptr<MegaZKVerificationKey>>(vk));
+        break;
+    }
+    case CircuitKind::App:
+    case CircuitKind::Kernel: {
+        // Capture before folding: accumulate_and_fold advances num_circuits_accumulated.
+        const CircuitKind following_kind = next_kind();
 
-    std::shared_ptr<ProverInstance> prover_instance;
+        accumulate_and_fold(circuit, vk);
+
+        // If the hiding kernel follows, the IVC is complete: prove the batch merge and run the decider on the
+        // final accumulator (the output of the hiding kernel's batching). Both proofs are recursively verified
+        // in the hiding kernel.
+        if (following_kind == CircuitKind::HidingKernel) {
+            DeciderProver decider(prover_accumulation_transcript);
+            decider_proof = decider.construct_proof(prover_accumulator);
 #ifndef NDEBUG
-    prover_instance = std::make_shared<ProverInstance>(circuit);
-    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
+            verify_decider_natively();
+#endif
+            goblin.prove_batch_merge();
+        }
+        break;
+    }
+    case CircuitKind::None:
+        throw_or_abort("Chonk::accumulate: CircuitKind is None (unset)");
+    }
+}
+
+/**
+ * @brief Batch the group's sumcheck claims (collected during the group's accumulate() calls) together with the
+ * previous accumulator, using the batching circuit of exactly matching width.
+ * @details Called at the end of accumulating the last circuit of a group, i.e. when the next circuit is a kernel.
+ * The resulting proof is recursively verified in that kernel's complete_kernel_circuit_logic.
+ */
+void Chonk::prove_multilinear_batching()
+{
+    BB_ASSERT(!verification_queue.empty(), "Chonk: cannot batch an empty group");
+
+    // The init kernel's group begins with the first app's proof and carries no accumulator; every later
+    // group begins with the previous kernel's proof. So the group is the init group iff its first
+    // entry is an app.
+    const bool is_init_group = verification_queue.front().kind == CircuitKind::App;
+    const size_t num_claims = group_claim_count(/*has_previous_accumulator=*/!is_init_group, verification_queue.size());
+    BB_ASSERT_LTE(num_claims, CHONK_MAX_CLAIMS_PER_KERNEL, "Per-kernel batch width exceeds the supported maximum");
+
+    // Fold the group: the previous accumulator (absent for the init group, otherwise from the previous group) followed
+    // by the cached per-instance claims, all batched on the group's accumulation transcript so the batching challenge
+    // is bound by the instance sumchecks already absorbed there. A single-claim group needs no batching (empty proof).
+    std::optional<ProverAccumulator> previous_accumulator =
+        is_init_group ? std::nullopt : std::optional<ProverAccumulator>(std::move(prover_accumulator));
+    auto [proof, accumulator] = folding_prover->finalize(std::move(previous_accumulator));
+    BB_ASSERT_EQ(proof.empty(), num_claims == 1, "A single-claim group must produce no batching proof");
+    multilinear_batch_proof = std::move(proof);
+    prover_accumulator = std::move(accumulator);
+
+#ifndef NDEBUG
+    update_native_verifier_accumulator(is_init_group);
 #endif
 
-    if (queue_type == QUEUE_TYPE::MEGA) {
-        accumulate_hiding_kernel(circuit, precomputed_vk);
-    } else {
-        accumulate_and_fold(circuit, precomputed_vk, queue_type, std::move(prover_instance));
-    }
-
-    prover_instance.reset();
-    if (queue_type == QUEUE_TYPE::HN_FINAL) {
-        prover_accumulator = ProverAccumulator(); // Free the prover accumulator now that it's no longer needed in the
-                                                  // remaining fold of the hiding kernel
-        goblin.prove_batch_merge();
-    }
+    folding_prover.reset();
 }
 
 /**
@@ -665,81 +771,8 @@ ChonkProof Chonk::prove()
 
 std::shared_ptr<MegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const
 {
-    BB_ASSERT_EQ(verification_queue.size(), 1UL, "Expected single hiding kernel VK in queue");
-    BB_ASSERT(verification_queue.front().type == QUEUE_TYPE::MEGA, "Expected MEGA proof type");
-    return std::make_shared<MegaZKFlavor::VKAndHash>(verification_queue.front().honk_vk);
+    BB_ASSERT(hiding_vk != nullptr, "Hiding kernel VK has not been computed yet");
+    return std::make_shared<MegaZKFlavor::VKAndHash>(hiding_vk);
 }
-
-#ifndef NDEBUG
-void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-                                               const std::shared_ptr<Transcript>& verifier_transcript)
-{
-    info("======= DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
-
-    auto verifier_inst =
-        std::make_shared<VerifierInstance>(std::make_shared<MegaFlavor::VKAndHash>(queue_entry.honk_vk));
-
-    FoldingVerifier native_verifier(verifier_transcript);
-    if (queue_entry.type == QUEUE_TYPE::OINK) {
-        auto [_first_verified, new_accumulator] =
-            native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
-        native_verifier_accum = std::move(new_accumulator);
-
-        info("Sumcheck: instance to accumulator verified: ", _first_verified ? "true" : "false");
-    } else {
-        auto [_first_verified, _second_verified, new_accumulator] =
-            native_verifier.verify_folding_proof(verifier_inst, queue_entry.proof);
-        native_verifier_accum = std::move(new_accumulator);
-
-        info("Sumcheck: instance to accumulator verified: ", _first_verified ? "true" : "false");
-        info("Sumcheck: batch two accumulators verified: ", _second_verified ? "true" : "false");
-
-        if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
-            HypernovaDeciderVerifier<MegaFlavor> decider_verifier(verifier_transcript);
-            bb::PairingPoints<curve::BN254> pairing_points =
-                decider_verifier.verify_proof(native_verifier_accum, decider_proof);
-
-            info("Decider: pairing points verified? ", pairing_points.check() ? "true" : "false");
-        }
-    }
-
-    info("Chonk accumulate: prover and verifier accumulators match: ",
-         prover_accumulator.compare_with_verifier_claim(native_verifier_accum) ? "true" : "false");
-
-    // Update the native verifier accumulator hash if we are accumulating an app (i.e. the previous circuit was a
-    // kernel) or if the last app has been accumulated (i.e. the current circuit is the tail kernel)
-    bool update_verifier_accum_hash = is_previous_circuit_a_kernel || has_last_app_been_accumulated;
-    if (update_verifier_accum_hash) {
-        native_verifier_accum_hash = native_verifier_accum.hash_with_origin_tagging(*verifier_transcript);
-        info("Chonk accumulate: hash of verifier accumulator computed natively set in previous kernel IO: ",
-             native_verifier_accum_hash);
-    }
-    has_last_app_been_accumulated = num_circuits_accumulated + 1 == num_circuits - 3;
-    is_previous_circuit_a_kernel = queue_entry.is_kernel;
-
-    info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
-}
-
-void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
-                                   const std::shared_ptr<ProverInstance>& prover_instance,
-                                   const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
-{
-    info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
-
-    info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
-    info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
-    info("Did we find a failure? ", circuit.failed() ? "true" : "false");
-    if (circuit.failed()) {
-        info("\t\t\tError message? ", circuit.err());
-    }
-
-    // Compare precomputed VK with the one generated during accumulation
-    auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
-    info("Does the precomputed vk match with the one generated during accumulation? ",
-         vk->compare(*precomputed_vk, MegaFlavor::CommitmentLabels().get_precomputed()) ? "true" : "false");
-
-    info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
-}
-#endif
 
 } // namespace bb

@@ -8,6 +8,7 @@
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_optimized_contract.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -22,7 +23,9 @@ template <typename Flavor, typename IO, typename Circuit = typename Flavor::Circ
 Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&& witness)
 {
     const acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)), {} };
+    acir_format::AcirProgram program{
+        acir_format::circuit_buf_to_acir_format(std::move(bytecode), IsMegaBuilder<Circuit>), {}
+    };
 
     if (!witness.empty()) {
         program.witness = acir_format::witness_buf_to_witness_vector(std::move(witness));
@@ -56,49 +59,6 @@ std::shared_ptr<ProverInstance_<Flavor>> _compute_prover_instance(std::vector<ui
     }
 
     return prover_instance;
-}
-template <typename Flavor, typename IO>
-CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
-                              std::vector<uint8_t>&& witness,
-                              std::vector<uint8_t>&& vk_bytes)
-{
-    using Proof = typename Flavor::Transcript::Proof;
-    using VerificationKey = typename Flavor::VerificationKey;
-
-    auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(bytecode), std::move(witness));
-
-    // Create or deserialize VK
-    std::shared_ptr<VerificationKey> vk;
-    if (vk_bytes.empty()) {
-        info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
-        vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-    } else {
-        validate_vk_size<VerificationKey>(vk_bytes);
-        vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
-    }
-
-    // Construct proof
-    UltraProver_<Flavor> prover{ prover_instance, vk };
-    Proof full_proof = prover.construct_proof();
-
-    // Compute where to split (inner public inputs vs everything else)
-    size_t num_public_inputs = prover.num_public_inputs();
-    BB_ASSERT_GTE(num_public_inputs, IO::PUBLIC_INPUTS_SIZE, "Public inputs should contain the expected IO structure.");
-    size_t num_inner_public_inputs = num_public_inputs - IO::PUBLIC_INPUTS_SIZE;
-
-    // Optimization: if vk not provided, include it in response
-    CircuitComputeVk::Response vk_response;
-    if (vk_bytes.empty()) {
-        vk_response = { .bytes = to_buffer(*vk), .fields = vk_to_uint256_fields(*vk), .hash = to_buffer(vk->hash()) };
-    }
-
-    // Split proof: inner public inputs at front, rest is the "proof"
-    return { .public_inputs =
-                 std::vector<uint256_t>{ full_proof.begin(),
-                                         full_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs) },
-             .proof = std::vector<uint256_t>{ full_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
-                                              full_proof.end() },
-             .vk = std::move(vk_response) };
 }
 
 template <typename Flavor, typename IO>
@@ -142,6 +102,59 @@ bool _verify(const std::vector<uint8_t>& vk_bytes,
     return verified;
 }
 
+template <typename Flavor, typename IO>
+CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
+                              std::vector<uint8_t>&& witness,
+                              std::vector<uint8_t>&& vk_bytes)
+{
+    using Proof = typename Flavor::Transcript::Proof;
+    using VerificationKey = typename Flavor::VerificationKey;
+
+    auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(bytecode), std::move(witness));
+
+    // Create or deserialize VK
+    std::shared_ptr<VerificationKey> vk;
+    if (vk_bytes.empty()) {
+        info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
+        vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    } else {
+        validate_vk_size<VerificationKey>(vk_bytes);
+        vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
+    }
+
+    // Construct proof
+    UltraProver_<Flavor> prover{ prover_instance, vk };
+    Proof full_proof = prover.construct_proof();
+
+    // Compute where to split (inner public inputs vs everything else)
+    size_t num_public_inputs = prover.num_public_inputs();
+    BB_ASSERT_GTE(num_public_inputs, IO::PUBLIC_INPUTS_SIZE, "Public inputs should contain the expected IO structure.");
+    size_t num_inner_public_inputs = num_public_inputs - IO::PUBLIC_INPUTS_SIZE;
+
+    // Optimization: if vk not provided, include it in response
+    CircuitComputeVk::Response vk_response;
+    if (vk_bytes.empty()) {
+        vk_response = { .bytes = to_buffer(*vk), .fields = vk_to_uint256_fields(*vk), .hash = to_buffer(vk->hash()) };
+    }
+
+    // Split proof: inner public inputs at front, rest is the "proof"
+    CircuitProve::Response response{
+        .public_inputs =
+            std::vector<uint256_t>{ full_proof.begin(),
+                                    full_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs) },
+        .proof = std::vector<uint256_t>{ full_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
+                                         full_proof.end() },
+        .vk = std::move(vk_response)
+    };
+
+    // Sanity-check the generated proof
+    if (!_verify<Flavor, IO>(to_buffer(*vk), response.public_inputs, response.proof)) {
+        throw_or_abort("Failed to verify the generated proof!");
+    }
+
+    return response;
+}
+
 CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
@@ -167,7 +180,7 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
 {
     using Circuit = typename Flavor::CircuitBuilder;
     // Parse the circuit to get gate count information
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode), IsMegaBuilder<Circuit>);
 
     acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
     metadata.collect_gates_per_opcode = include_gates_per_opcode;
@@ -232,6 +245,39 @@ MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& r
     fields = vk.to_field_elements();
 
     return { std::move(fields) };
+}
+
+MegaAppVkAsFields::Response MegaAppVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VK = MegaAppFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
+
+    auto vk = from_buffer<VK>(verification_key);
+    return { vk.to_field_elements() };
+}
+
+MegaKernelVkAsFields::Response MegaKernelVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VK = MegaKernelFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
+
+    auto vk = from_buffer<VK>(verification_key);
+    return { vk.to_field_elements() };
+}
+
+MegaZKVkAsFields::Response MegaZKVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VK = MegaZKFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
+
+    auto vk = from_buffer<VK>(verification_key);
+    return { vk.to_field_elements() };
 }
 
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&

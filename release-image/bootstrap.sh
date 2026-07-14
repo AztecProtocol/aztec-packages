@@ -10,7 +10,7 @@ function prepare_crs {
   echo_header "prepare crs for prover-agent image"
   local crs_src=${CRS_PATH:-$HOME/.bb-crs}
 
-  if [ ! -f "$crs_src/bn254_g1_compressed.dat" ]; then
+  if [ ! -f "$crs_src/bn254_g1_compressed.dat" ] || [ ! -f "$crs_src/grumpkin_g1_v2.flat.dat" ]; then
     # this assumes we pull the required number of points for proving the biggest circuit
     echo "CRS not found at $crs_src, downloading..."
     $root/barretenberg/scripts/download_bb_crs.sh
@@ -20,7 +20,7 @@ function prepare_crs {
   mkdir -p crs
   cp "$crs_src/bn254_g1_compressed.dat" crs/
   cp "$crs_src/bn254_g2.dat" crs/
-  cp "$crs_src/grumpkin_g1.flat.dat" crs/
+  cp "$crs_src/grumpkin_g1_v2.flat.dat" crs/
   # Normalize timestamps so COPY --link produces an identical layer across builds
   for f in crs/*; do touch -t 197001010000 "$f"; done
   echo "CRS files staged in crs/ ($(du -sh crs | cut -f1))"
@@ -107,46 +107,58 @@ function test_cmds {
 function release {
   echo_header "release-image release"
 
-  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
-    echo "Missing DOCKERHUB_PASSWORD."
-    exit 1
+  # In a private release we push to our internal GCP Artifact Registry (the INTERNAL_DOCKER_REGISTRY
+  # that GKE/staging pulls from) rather than Docker Hub. Auth via the CI service-account key
+  # (gcp_artifact_login). INTERNAL_DOCKER_REGISTRY is the AR repo path, e.g.
+  # us-west1-docker.pkg.dev/<project>/<repo>.
+  local repo
+  if [ "${PRIVATE_RELEASE:-0}" = 1 ]; then
+    : "${INTERNAL_DOCKER_REGISTRY:?INTERNAL_DOCKER_REGISTRY required for a private release}"
+    gcp_artifact_login
+    repo="${INTERNAL_DOCKER_REGISTRY%/}"
+  else
+    if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+      echo "Missing DOCKERHUB_PASSWORD."
+      exit 1
+    fi
+    echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
+    repo="aztecprotocol"
   fi
-  echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
 
   # We strip leading 'v' so that this is a valid semver.
   tag=${REF_NAME#v}
-  docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$tag-$(arch)
-  do_or_dryrun docker push aztecprotocol/aztec:$tag-$(arch)
+  docker tag aztecprotocol/aztec:$COMMIT_HASH $repo/aztec:$tag-$(arch)
+  do_or_dryrun docker push $repo/aztec:$tag-$(arch)
 
-  docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent:$tag-$(arch)
-  do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$tag-$(arch)
+  docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH $repo/aztec-prover-agent:$tag-$(arch)
+  do_or_dryrun docker push $repo/aztec-prover-agent:$tag-$(arch)
 
   # If doing a release in CI, update the remote manifest if we're the arm build.
   if [ "${DRY_RUN:-0}" == 0 ] && [ "$(arch)" == "arm64" ] && [ "${CI:-0}" -eq 1 ]; then
     # Wait for amd64 image to be available.
-    while ! docker manifest inspect aztecprotocol/aztec:$tag-amd64 &>/dev/null; do
+    while ! docker manifest inspect $repo/aztec:$tag-amd64 &>/dev/null; do
       echo "Waiting for amd64 image to be pushed..."
       sleep 10
     done
 
     # We release with our tag, e.g. 1.0.0
-    docker buildx imagetools create -t aztecprotocol/aztec:$tag \
-      aztecprotocol/aztec:$tag-amd64 \
-      aztecprotocol/aztec:$tag-arm64
+    docker buildx imagetools create -t $repo/aztec:$tag \
+      $repo/aztec:$tag-amd64 \
+      $repo/aztec:$tag-arm64
 
-    while ! docker manifest inspect aztecprotocol/aztec-prover-agent:$tag-amd64 &>/dev/null; do
+    while ! docker manifest inspect $repo/aztec-prover-agent:$tag-amd64 &>/dev/null; do
       echo "Waiting for amd64 prover-agent image to be pushed..."
       sleep 10
     done
 
-    docker buildx imagetools create -t aztecprotocol/aztec-prover-agent:$tag \
-      aztecprotocol/aztec-prover-agent:$tag-amd64 \
-      aztecprotocol/aztec-prover-agent:$tag-arm64
+    docker buildx imagetools create -t $repo/aztec-prover-agent:$tag \
+      $repo/aztec-prover-agent:$tag-amd64 \
+      $repo/aztec-prover-agent:$tag-arm64
 
     # We also release with our dist_tag, e.g. 'latest', 'staging' or 'nightly'.
-    # docker buildx imagetools create -t aztecprotocol/aztec:$(dist_tag) \
-    #   aztecprotocol/aztec:$tag-amd64 \
-    #   aztecprotocol/aztec:$tag-arm64
+    # docker buildx imagetools create -t $repo/aztec:$(dist_tag) \
+    #   $repo/aztec:$tag-amd64 \
+    #   $repo/aztec:$tag-arm64
   fi
 }
 

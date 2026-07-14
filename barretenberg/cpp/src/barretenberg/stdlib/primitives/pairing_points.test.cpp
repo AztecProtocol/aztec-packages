@@ -115,7 +115,7 @@ TYPED_TEST(PairingPointsTests, Aggregate)
     transcript.add_to_hash_buffer("Accumulator_P1", orig_P1);
     transcript.add_to_hash_buffer("Aggregated_P0", pps[1].P0());
     transcript.add_to_hash_buffer("Aggregated_P1", pps[1].P1());
-    auto r = transcript.template get_challenge<Fr>("recursion_separator");
+    auto r = transcript.template get_short_challenge<Fr>("recursion_separator");
 
     // Expected: orig + r * other
     Group expected_P0 = orig_P0 + pps[1].P0() * r;
@@ -169,7 +169,7 @@ TYPED_TEST(PairingPointsTests, AggregateMultiple)
         transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), pps[idx].P1());
     }
     std::vector<std::string> labels = { "pp_aggregation_challenge_1", "pp_aggregation_challenge_2" };
-    auto challenges = transcript.template get_challenges<Fr>(labels);
+    auto challenges = transcript.template get_short_challenges<Fr>(labels);
 
     // Expected: P₀ + r₁·P₁ + r₂·P₂
     Group expected_P0 = pps[0].P0() + pps[1].P0() * challenges[0] + pps[2].P0() * challenges[1];

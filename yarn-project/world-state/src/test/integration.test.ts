@@ -280,6 +280,7 @@ describe('world-state integration', () => {
         synchronizer.handleBlockStreamEvent({
           type: 'chain-finalized',
           block: { number: backwardsFinalized, hash: '' },
+          checkpoint: { number: CheckpointNumber(1), hash: new Fr(1).toString() },
         }),
       ).resolves.not.toThrow();
 

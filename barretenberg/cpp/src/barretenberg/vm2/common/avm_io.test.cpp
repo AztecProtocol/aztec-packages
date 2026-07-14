@@ -39,7 +39,7 @@ TEST(AvmInputsTest, FormatTransformations)
 
     EXPECT_THAT(as_cols, SizeIs(AVM_NUM_PUBLIC_INPUT_COLUMNS));
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
-        EXPECT_THAT(as_cols[i], SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH));
+        EXPECT_THAT(as_cols[i], SizeIs(AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]));
     }
     EXPECT_THAT(flattened, SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH));
 
@@ -183,11 +183,11 @@ TEST(AvmInputsTest, ValuesInColumns)
     auto flat = PublicInputs::columns_to_flat(columns);
     EXPECT_THAT(flat, SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH));
 
-    // Define column offsets based on the total number of rows per column
+    // Define column offsets (cumulative per-column lengths, not a uniform stride)
     const size_t col0_offset = 0;
-    const size_t col1_offset = static_cast<size_t>(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-    const size_t col2_offset = static_cast<size_t>(2 * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-    const size_t col3_offset = static_cast<size_t>(3 * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    const size_t col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[0];
+    const size_t col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[1];
+    const size_t col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[2];
 
     // Verify that some specific values are at the expected positions
 
@@ -363,6 +363,25 @@ TEST(AvmInputsTest, ValuesInColumns)
 
     // Reverted status
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX], static_cast<uint8_t>(pi.reverted));
+}
+
+// Checks each per-column length is tight: every column's final row is populated and asserted non-zero,
+// so an over-long length (zero final cell) or a field written past Lᵢ (out-of-bounds write) is caught.
+TEST(AvmInputsTest, ToColumnsPerColumnLengthsAreTight)
+{
+    PublicInputs pi;
+    pi.reverted = true;                                                 // col0 last row: reverted
+    pi.accumulated_data.public_data_writes.back().value = 0xdead;       // col1 last row: public_data_writes value
+    pi.accumulated_data.l2_to_l1_msgs.back().contract_address = 0xbeef; // col2 last row: l2_to_l1 contract_address
+    pi.public_teardown_call_request.calldata_hash = 0xcafe;             // col3 last row: teardown calldata_hash
+
+    auto cols = pi.to_columns();
+
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
+        EXPECT_THAT(cols[i], SizeIs(AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]));
+        // A populated final cell means the length matches the last written row exactly.
+        EXPECT_NE(cols[i].back(), FF(0)) << "column " << i << " last row is unexpectedly zero";
+    }
 }
 
 } // namespace

@@ -53,16 +53,32 @@ template <typename Curve_> class PairingPoints {
 
     /**
      * @brief Aggregate the current pairing points with another set of pairing points using a random scalar.
-     * @details If this is at infinity (default-constructed), simply copies other. The incoming points must not be at
-     * infinity since they should always represent the output of actual PCS verification.
+     * @details A pairing accumulator is valid only when it is either fully default (both points at infinity,
+     * i.e. uninitialized) or fully populated (neither point at infinity). A mixed-infinity state (exactly one
+     * point at infinity) is corrupt and must never be silently treated as uninitialized, otherwise a real
+     * accumulator point would be discarded. The incoming points must always be the output of an actual PCS
+     * verification, so they must be fully populated.
      */
     void aggregate(const PairingPoints<Curve>& other)
     {
-        if (other.P0() == Point::infinity() || other.P1() == Point::infinity()) {
-            throw_or_abort("Cannot aggregate: incoming pairing points are at infinity (probably uninitialized).");
+        const bool this_p0_inf = (P0() == Point::infinity());
+        const bool this_p1_inf = (P1() == Point::infinity());
+        const bool other_p0_inf = (other.P0() == Point::infinity());
+        const bool other_p1_inf = (other.P1() == Point::infinity());
+
+        const bool this_is_default = this_p0_inf && this_p1_inf;
+        const bool this_is_mixed = this_p0_inf != this_p1_inf;
+        const bool other_is_default = other_p0_inf && other_p1_inf;
+        const bool other_is_mixed = other_p0_inf != other_p1_inf;
+
+        if (other_is_default || other_is_mixed) {
+            throw_or_abort("Cannot aggregate: incoming pairing points are at infinity or mixed-infinity.");
         }
-        // If this is at infinity (default/uninitialized), just adopt the incoming points
-        if (P0() == Point::infinity() || P1() == Point::infinity()) {
+        if (this_is_mixed) {
+            throw_or_abort("Cannot aggregate: accumulator pairing points are mixed-infinity (corrupted state).");
+        }
+        // Only a fully-default accumulator is uninitialized; adopt the incoming points.
+        if (this_is_default) {
             *this = other;
             return;
         }

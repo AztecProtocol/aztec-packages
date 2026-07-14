@@ -41,8 +41,8 @@ std::pair<std::vector<FF>, std::vector<FF>> get_hypernova_batching_challenges(
         labels_shifted[idx] = "shifted_challenge_" + std::to_string(idx);
     }
 
-    auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted);
-    auto shifted_challenges = transcript->template get_challenges<FF>(labels_shifted);
+    auto unshifted_challenges = transcript->template get_short_challenges<FF>(labels_unshifted);
+    auto shifted_challenges = transcript->template get_short_challenges<FF>(labels_shifted);
 
     // Prepend implicit coefficient 1 for the first polynomial
     unshifted_challenges.insert(unshifted_challenges.begin(), FF(1));

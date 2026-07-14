@@ -105,6 +105,14 @@ namespace execution;
     // end columns from precomputed.pil's GETENVVAR opcode precomputed columns
     ////////////////////////////////////////////////////////////////////////////
 
+    // Boolean by lookup into precomputed when sel_execute_get_env_var == 1.
+    // Forced to zero otherwise by #[SEL_ENV_PI_COL_0_IS_ZERO] and #[SEL_ENV_PI_COL_1_IS_ZERO].
+    // Therefore, unconditionally boolean — required as lookup source selectors.
+    #[SEL_ENV_PI_COL_0_IS_ZERO]
+    sel_envvar_pi_lookup_col0 * (1 - sel_execute_get_env_var) = 0;
+    #[SEL_ENV_PI_COL_1_IS_ZERO]
+    sel_envvar_pi_lookup_col1 * (1 - sel_execute_get_env_var) = 0;
+
     // NOTE: we do not need to gate on `1 - sel_opcode_error` for these relations below
     // because if `sel_execute_get_env_var` is 1 and `sel_opcode_error` is 1, then there is an invalid enum
     // the precomputed table will provide 0 for the selectors like `sel_envvar_pi_lookup_col0/1`,

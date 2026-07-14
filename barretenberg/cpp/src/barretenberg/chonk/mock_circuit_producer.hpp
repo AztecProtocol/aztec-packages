@@ -27,16 +27,50 @@ class MockDatabusProducer {
     std::array<BusDataArray, MAX_APPS_PER_KERNEL> app_return_data;
     BusDataArray kernel_return_data;
 
-    FF dummy_return_val = 1; // use simple return val for easier test debugging
+    uint64_t next_bus_value = 1; // use simple deterministic values for easier test debugging
 
-    BusDataArray generate_random_bus_array()
+    BusDataArray generate_mock_bus_array()
     {
         BusDataArray result;
         for (size_t i = 0; i < BUS_ARRAY_SIZE; ++i) {
-            result.emplace_back(dummy_return_val);
+            result.emplace_back(FF(next_bus_value++));
         }
-        dummy_return_val += 1;
         return result;
+    }
+
+    static BusDataArray generate_default_commitment_bus_array(const BusId bus_idx)
+    {
+        // All-zero entries preserve the default commitment while giving the mock lookup relation a non-empty,
+        // column-specific table shape.
+        return BusDataArray(static_cast<size_t>(bus_idx) + 1, FF(0));
+    }
+
+    static void append_calldata(ClientCircuit& circuit, const BusId bus_idx, const BusDataArray& data)
+    {
+        for (const auto& val : data) {
+            circuit.add_public_calldata(bus_idx, circuit.add_variable(val));
+        }
+    }
+
+    static void append_return_data(ClientCircuit& circuit, const BusDataArray& data)
+    {
+        for (const auto& val : data) {
+            circuit.add_public_return_data(circuit.add_variable(val));
+        }
+    }
+
+    static void exercise_calldata_lookup(ClientCircuit& circuit, const BusId bus_idx, const size_t bus_size)
+    {
+        BB_ASSERT_GT(bus_size, 0UL);
+        const size_t read_idx = static_cast<size_t>(bus_idx) % bus_size;
+        circuit.read_calldata(bus_idx, circuit.add_variable(FF(read_idx)));
+    }
+
+    static void exercise_return_data_lookup(ClientCircuit& circuit, const size_t bus_size)
+    {
+        BB_ASSERT_GT(bus_size, 0UL);
+        const size_t read_idx = static_cast<size_t>(BusId::RETURNDATA) % bus_size;
+        circuit.read_return_data(circuit.add_variable(FF(read_idx)));
     }
 
   public:
@@ -47,10 +81,9 @@ class MockDatabusProducer {
     {
         for (auto& app_data : app_return_data) {
             if (app_data.empty()) {
-                app_data = generate_random_bus_array();
-                for (auto& val : app_data) {
-                    circuit.add_public_return_data(circuit.add_variable(val));
-                }
+                app_data = generate_mock_bus_array();
+                append_return_data(circuit, app_data);
+                exercise_return_data_lookup(circuit, app_data.size());
                 return;
             }
         }
@@ -63,22 +96,26 @@ class MockDatabusProducer {
     void populate_kernel_databus(ClientCircuit& circuit)
     {
         // Populate kernel calldata from previous kernel return data (if it exists)
-        for (auto& val : kernel_return_data) {
-            circuit.add_public_calldata(BusId::KERNEL_CALLDATA, circuit.add_variable(val));
-        }
+        const BusDataArray& kernel_calldata = kernel_return_data.empty()
+                                                  ? generate_default_commitment_bus_array(BusId::KERNEL_CALLDATA)
+                                                  : kernel_return_data;
+        append_calldata(circuit, BusId::KERNEL_CALLDATA, kernel_calldata);
+        exercise_calldata_lookup(circuit, BusId::KERNEL_CALLDATA, kernel_calldata.size());
+
         // Populate app calldata from app return data (if it exists), then clear the app return data
         for (size_t idx = 0; idx < app_return_data.size(); ++idx) {
-            for (auto& val : app_return_data[idx]) {
-                circuit.add_public_calldata(static_cast<BusId>(idx + 1), circuit.add_variable(val));
-            }
+            const auto bus_idx = static_cast<BusId>(idx + static_cast<size_t>(BusId::APP_CALLDATA));
+            const BusDataArray& app_calldata =
+                app_return_data[idx].empty() ? generate_default_commitment_bus_array(bus_idx) : app_return_data[idx];
+            append_calldata(circuit, bus_idx, app_calldata);
+            exercise_calldata_lookup(circuit, bus_idx, app_calldata.size());
             app_return_data[idx].clear();
         }
 
         // Mock the return data for the present kernel circuit
-        kernel_return_data = generate_random_bus_array();
-        for (auto& val : kernel_return_data) {
-            circuit.add_public_return_data(circuit.add_variable(val));
-        }
+        kernel_return_data = generate_mock_bus_array();
+        append_return_data(circuit, kernel_return_data);
+        exercise_return_data_lookup(circuit, kernel_return_data.size());
     };
 };
 
@@ -114,10 +151,28 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     MockDatabusProducer mock_databus;
     bool large_first_app = true;
-    constexpr static size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
+    constexpr static size_t NUM_TRAILING_KERNELS = bb::NUM_TRAILING_KERNELS; // reset-tail, hiding
 
   public:
     size_t total_num_circuits = 0;
+
+    /**
+     * @brief Per-circuit kinds for the full mock IVC stack, as required by the Chonk constructor.
+     */
+    std::vector<Chonk::CircuitKind> circuit_kinds() const
+    {
+        std::vector<Chonk::CircuitKind> kinds;
+        kinds.reserve(total_num_circuits);
+        for (size_t idx = 0; idx < total_num_circuits; ++idx) {
+            if (!is_kernel_flags[idx]) {
+                kinds.push_back(Chonk::CircuitKind::App);
+            } else {
+                kinds.push_back(idx + 1 == total_num_circuits ? Chonk::CircuitKind::HidingKernel
+                                                              : Chonk::CircuitKind::Kernel);
+            }
+        }
+        return kinds;
+    }
 
     PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits, bool large_first_app = true)
         : large_first_app(large_first_app)
@@ -153,28 +208,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
     }
 
     /**
-     * @brief Precompute the verification key for the given circuit.
-     */
-    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in,
-                                                                 bool is_hiding_kernel = false)
-    {
-        // This is a workaround to ensure that the circuit is finalized before we create the verification key
-        // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
-        // but this is a workaround for the test setup.
-        MegaCircuitBuilder_<bb::fr> builder{ builder_in };
-
-        // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
-        builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-
-        if (is_hiding_kernel) {
-            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(builder);
-            return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-        }
-        auto prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
-        return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-    }
-
-    /**
      * @brief Create either a circuit with certain number of gates or a more realistic circuit (withv various custom
      * gates and databus usage) in case number of gates is not specified, that is also filled up to 2^17 or 2^19 if
      * large.
@@ -188,7 +221,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
         const bool is_kernel = is_kernel_flags[circuit_counter++];
         const bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
         // Check if this is one of the trailing kernels (reset, tail, hiding)
-        const bool is_trailing_kernel = (ivc.num_circuits_accumulated >= ivc.get_num_circuits() - NUM_TRAILING_KERNELS);
+        const bool is_trailing_kernel =
+            (ivc.get_num_circuits_accumulated() >= ivc.get_num_circuits() - NUM_TRAILING_KERNELS);
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
         // if the number of gates is specified we just add a number of arithmetic gates
@@ -206,11 +240,15 @@ class PrivateFunctionExecutionMockCircuitProducer {
                 if (!is_trailing_kernel) {
                     GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
                 }
-                mock_databus.populate_kernel_databus(circuit); // populate databus inputs/outputs
             } else {
                 GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
-                mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
             }
+        }
+
+        if (is_kernel) {
+            mock_databus.populate_kernel_databus(circuit); // populate databus inputs/outputs
+        } else {
+            mock_databus.populate_app_databus(circuit); // populate databus outputs
         }
 
         if (is_kernel) {
@@ -220,8 +258,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
 
         if (check_circuit_sizes) {
-            auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
-            size_t log2_dyadic_size = prover_instance->log_dyadic_size();
+            // Size the circuit under its actual proving flavor — apps are MegaAppFlavor, kernels
+            // are MegaKernelFlavor (trailing kernels included: the hiding-kernel-sized
+            // MegaZKFlavor only differs in TRACE_OFFSET, not in dyadic size for these mocks).
+            const size_t log2_dyadic_size = is_kernel ? ProverInstance_<Chonk::KernelFlavor>(circuit).log_dyadic_size()
+                                                      : ProverInstance_<Chonk::AppFlavor>(circuit).log_dyadic_size();
             if (log2_num_gates != 0) {
                 if (is_kernel) {
                     // There are various possibilities here, so we provide a bound
@@ -264,26 +305,32 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return circuit;
     }
 
-    /**
-     * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
-     */
-    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(
-        Chonk& ivc, TestSettings settings = {}, bool check_circuit_size = false)
+    void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {}, bool check_circuit_sizes = false)
     {
         // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
-        const bool is_hiding_kernel = ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1;
+        const bool is_hiding_kernel = ivc.get_num_circuits_accumulated() == ivc.get_num_circuits() - 1;
         if (is_hiding_kernel) {
             settings = TestSettings{};
         }
         auto circuit =
-            create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_size);
-        return { circuit, get_verification_key(circuit, is_hiding_kernel) };
+            create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_sizes);
+        ivc.accumulate(circuit, make_circuit_verification_key(ivc.current_kind(), circuit));
     }
 
-    void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {}, bool check_circuit_sizes = false)
+  public:
+    // Build the per-kind verification key for the current circuit. Uses `dispatch_kind` to map
+    // the runtime `CircuitKind` to the matching flavor and derive its precomputed VK.
+    static Chonk::CircuitVerificationKey make_circuit_verification_key(Chonk::CircuitKind kind,
+                                                                       ClientCircuit& builder_in)
     {
-        auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings, check_circuit_sizes);
-        ivc.accumulate(circuit, vk);
+        return dispatch_kind(kind, [&]<Chonk::CircuitKind K>() -> Chonk::CircuitVerificationKey {
+            using FlavorT = flavor_for<K>;
+            using VK = typename FlavorT::VerificationKey;
+            MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+            builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+            auto prover_instance = std::make_shared<ProverInstance_<FlavorT>>(builder);
+            return Chonk::CircuitVerificationKey{ std::make_shared<VK>(prover_instance->get_precomputed()) };
+        });
     }
 };
 

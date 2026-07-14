@@ -8,7 +8,9 @@
 export class Option<T> {
   private constructor(
     public readonly value: T | undefined,
-    public readonly template: T | undefined,
+    // `unknown` (not the descriptor shape) keeps this generic Option decoupled from the serialization layer's
+    // `{ length }`/`{ maxLength }` size descriptors; only the None-serialization path inspects it.
+    public readonly size: unknown,
   ) {}
 
   /**
@@ -26,25 +28,22 @@ export class Option<T> {
   /**
    * Construct an absent Option.
    *
-   * When serialized back to ACVM, the `None` case must produce the same number of fields as `Some`.
-   * For types whose wire size varies per call site (`BoundedVec`, `FixedArray`), pass a `template` so the
-   * serializer knows how many zero fields to emit. Omit the template when the Option will not be
-   * re-serialized (e.g. deserialized input params).
-   *
-   * @param template - A representative empty `T` whose serialization determines the zero-filled wire format.
+   * When serialized back to ACVM, the `None` case must produce the same number of fields as `Some`. For an inner type whose
+   * wire size varies per call site (`BoundedVec`, an array), pass a `size` descriptor so the inner type's shape can
+   * resolve how many zero fields to emit; fixed-size inners take no argument.
    *
    * @example None for a fixed-size type:
    * ```ts
-   * return Option.none(AztecAddress.ZERO);
+   * return Option.none();
    * ```
    *
    * @example None for a dynamic-size type:
    * ```ts
-   * return Option.none(BoundedVec.empty<number>({ maxLength: ciphertext.maxLength }));
+   * return Option.none({ maxLength: ciphertext.maxLength });
    * ```
    */
-  static none<T>(template?: T): Option<T> {
-    return new Option<T>(undefined, template);
+  static none<T>(size?: unknown): Option<T> {
+    return new Option<T>(undefined, size);
   }
 
   /**
@@ -65,5 +64,12 @@ export class Option<T> {
   /** Type guard: narrows `value` to `undefined` in the truthy branch. */
   isNone(): this is Option<T> & { value: undefined } {
     return this.value === undefined;
+  }
+
+  equals(other: Option<T>, innerEquals: (a: T, b: T) => boolean): boolean {
+    if (this.isSome() && other.isSome()) {
+      return innerEquals(this.value, other.value);
+    }
+    return this.isNone() && other.isNone();
   }
 }

@@ -33,21 +33,26 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
     using View = typename Accumulator::View;
 
     auto op = View(in.op);
-    const auto lagrange_mini_masking = View(in.lagrange_mini_masking);
+    const auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+    const auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
     static const FF minus_three = FF(-3);
     static const FF minus_four = FF(-4);
     static const FF minus_eight = FF(-8);
-    static const FF minus_one = FF(-1);
 
-    // Contribution (1) op(op-3)(op-4)(op-8))
+    // Contribution (1) opcode validity:
+    //   - on even rows: op·(op-3)·(op-4)·(op-8) = 0, i.e. op ∈ {0,3,4,8}
+    //   - on odd rows:  op = 0
+    // The odd-row term forbids a genuine opcode from sitting on an odd row, where the non-native accumulator
+    // (gated by lagrange_even·op) would skip it, letting a prover exclude an ECC op from the batched evaluation.
+    // Random masking ops are unaffected because lagrange_even_in_minicircuit and lagrange_odd_in_minicircuit are
+    // both zero in the masking regions.
     auto tmp_1 = op * (op + minus_three);
     tmp_1 *= (op + minus_four);
     tmp_1 *= (op + minus_eight);
-    tmp_1 *= (lagrange_mini_masking + minus_one);
+    tmp_1 *= lagrange_even_in_minicircuit;
+    tmp_1 += op * lagrange_odd_in_minicircuit;
     tmp_1 *= scaling_factor;
     std::get<0>(accumulators) += tmp_1;
-
-    const auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
 
     auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
     auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);

@@ -37,6 +37,7 @@ locals {
   # Environment variables for the container (omit keys with null values)
   env_vars = { for k, v in {
     NETWORK                                  = var.NETWORK
+    ALLOW_OVERRIDING_NETWORK_CONFIG          = var.ALLOW_OVERRIDING_NETWORK_CONFIG
     AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET    = var.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET
     AZTEC_LAG_IN_EPOCHS_FOR_RANDAO           = var.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
     AZTEC_SLOT_DURATION                      = var.AZTEC_SLOT_DURATION

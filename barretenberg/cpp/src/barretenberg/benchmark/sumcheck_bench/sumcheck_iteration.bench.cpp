@@ -17,6 +17,7 @@
 #include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation_impl.hpp"
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
@@ -25,8 +26,11 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
 #include <numeric>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -365,39 +369,65 @@ template <typename Flavor> void bench_compute_univariate_round0(benchmark::State
     state.counters["threads"] = static_cast<double>(get_num_cpus());
 }
 
-template <typename Flavor> void register_flavor_benches(const std::string& name, const bool fragmented)
+// log_n sizes swept by the size-dependent benches. Override with SUMCHECK_BENCH_LOG_N
+// (comma-separated), e.g. SUMCHECK_BENCH_LOG_N=16,18 to match a specific flow's circuit sizes.
+std::vector<int> log_n_sweep()
+{
+    const char* env = std::getenv("SUMCHECK_BENCH_LOG_N");
+    if (env == nullptr) {
+        return { 15, 17, 19 };
+    }
+    std::vector<int> sizes;
+    std::string spec(env);
+    size_t pos = 0;
+    while (pos < spec.size()) {
+        size_t comma = spec.find(',', pos);
+        const std::string token = spec.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+        if (!token.empty()) {
+            sizes.push_back(std::stoi(token));
+        }
+        if (comma == std::string::npos) {
+            break;
+        }
+        pos = comma + 1;
+    }
+    return sizes.empty() ? std::vector<int>{ 17 } : sizes;
+}
+
+template <typename Flavor>
+void register_flavor_benches(const std::string& name, const bool fragmented, const std::vector<int>& sizes)
 {
     benchmark::RegisterBenchmark((name + "/accumulate_relations_only").c_str(),
                                  &bench_accumulate_relations_only<Flavor>)
         ->UseRealTime();
-    benchmark::RegisterBenchmark((name + "/loop_static_blocks").c_str(),
-                                 &bench_sumcheck_loop_shape<Flavor>,
-                                 Scheduler::STATIC_BLOCKS,
-                                 fragmented)
-        ->Arg(17)
-        ->UseRealTime()
-        ->Unit(benchmark::kMillisecond);
-    benchmark::RegisterBenchmark((name + "/loop_chunk_stealing").c_str(),
-                                 &bench_sumcheck_loop_shape<Flavor>,
-                                 Scheduler::CHUNK_STEALING,
-                                 fragmented)
-        ->Arg(17)
-        ->UseRealTime()
-        ->Unit(benchmark::kMillisecond);
-    benchmark::RegisterBenchmark((name + "/compute_univariate_round0").c_str(),
-                                 &bench_compute_univariate_round0<Flavor>)
-        ->Arg(17)
-        ->UseRealTime()
-        ->Unit(benchmark::kMillisecond);
+    auto* loop_static = benchmark::RegisterBenchmark((name + "/loop_static_blocks").c_str(),
+                                                     &bench_sumcheck_loop_shape<Flavor>,
+                                                     Scheduler::STATIC_BLOCKS,
+                                                     fragmented);
+    auto* loop_stealing = benchmark::RegisterBenchmark((name + "/loop_chunk_stealing").c_str(),
+                                                       &bench_sumcheck_loop_shape<Flavor>,
+                                                       Scheduler::CHUNK_STEALING,
+                                                       fragmented);
+    auto* univariate_round0 = benchmark::RegisterBenchmark((name + "/compute_univariate_round0").c_str(),
+                                                           &bench_compute_univariate_round0<Flavor>);
+    for (const int log_n : sizes) {
+        loop_static->Arg(log_n);
+        loop_stealing->Arg(log_n);
+        univariate_round0->Arg(log_n);
+    }
+    loop_static->UseRealTime()->Unit(benchmark::kMillisecond);
+    loop_stealing->UseRealTime()->Unit(benchmark::kMillisecond);
+    univariate_round0->UseRealTime()->Unit(benchmark::kMillisecond);
 }
 
 } // namespace
 
 int main(int argc, char** argv)
 {
-    register_flavor_benches<bb::MegaZKFlavor>("MegaZK", /*fragmented=*/false);
-    register_flavor_benches<bb::TranslatorShortMonomialFlavor>("TranslatorShort", /*fragmented=*/true);
-    register_flavor_benches<bb::ECCVMShortMonomialFlavor>("ECCVMShort", /*fragmented=*/false);
+    const std::vector<int> sizes = log_n_sweep();
+    register_flavor_benches<bb::MegaZKFlavor>("MegaZK", /*fragmented=*/false, sizes);
+    register_flavor_benches<bb::TranslatorShortMonomialFlavor>("TranslatorShort", /*fragmented=*/true, sizes);
+    register_flavor_benches<bb::ECCVMShortMonomialFlavor>("ECCVMShort", /*fragmented=*/false, sizes);
     benchmark::RegisterBenchmark("Nano/static_blocks", &bench_nano_scheduler<Scheduler::STATIC_BLOCKS>)
         ->Args({ 17, 0 })
         ->Args({ 17, 1 })

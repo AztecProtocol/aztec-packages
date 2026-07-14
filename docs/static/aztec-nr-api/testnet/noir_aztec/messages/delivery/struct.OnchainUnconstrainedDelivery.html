@@ -21,6 +21,7 @@
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#via_address_derived_secret">via_address_derived_secret</a></li>
+<li><a href="#via_interactive_handshake">via_interactive_handshake</a></li>
 <li><a href="#via_non_interactive_handshake">via_non_interactive_handshake</a></li>
 <li><a href="#with_sender">with_sender</a></li>
 </ul>
@@ -55,7 +56,11 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>On-chain delivery without constrained encryption/tagging. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_unconstrained"><code>MessageDelivery::onchain_unconstrained</code></a>.</p></div>
+<p>On-chain unconstrained delivery. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_unconstrained"><code>MessageDelivery::onchain_unconstrained</code></a>.</p>
+<p>By default the tag reuses a handshake already registered for the pair, and
+otherwise falls back to the wallet-resolved [tagging secret
+strategy]<a href="../../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html"><code>crate::messages::delivery::ResolvedTaggingStrategy</code></a>. The contract can also fix the
+derivation, and its choice is honored over this default.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html" class="struct">OnchainUnconstrainedDelivery</a></code></h3>
 
@@ -71,16 +76,28 @@ constructor: the deployer is the one that initiated the transaction, but any not
 should be tagged by the account contract itself.</p>
 <h4>Examples</h4>
 <pre><code>MessageDelivery::onchain_unconstrained().with_sender(self.address)</code></pre></div>
-</div><code id="via_address_derived_secret" class="code-header">pub fn <a href="#via_address_derived_secret"><span class="fn">via_address_derived_secret</span></a>(&mut self) -> Self</code>
-
-<div class="padded-description"><div class="comments">
-<p>Uses the PXE-derived address Diffie-Hellman secret for discovery tags.</p>
-</div>
 </div><code id="via_non_interactive_handshake" class="code-header">pub fn <a href="#via_non_interactive_handshake"><span class="fn">via_non_interactive_handshake</span></a>(&mut self) -> Self</code>
 
 <div class="padded-description"><div class="comments">
-<p>Uses the standard handshake registry's non-interactive handshake secret for discovery tags.</p>
+<p>Derives the discovery tag from a non-interactive handshake for the pair, reusing an existing one and creating a
+fresh one only when none exists.</p>
 </div>
+</div><code id="via_interactive_handshake" class="code-header">pub fn <a href="#via_interactive_handshake"><span class="fn">via_interactive_handshake</span></a>(&mut self) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Derives the discovery tag from an interactive handshake.</p>
+<p>Reuses an existing handshake for the pair, creating a fresh interactive one only when none exists.</p>
+<p>Unlike a non-interactive handshake, establishing an interactive one announces nothing onchain, but it requires
+the recipient's cooperation: they must answer the registry's signed-authorization request, so the send fails
+if they cannot be reached.</p>
+</div>
+</div><code id="via_address_derived_secret" class="code-header">pub fn <a href="#via_address_derived_secret"><span class="fn">via_address_derived_secret</span></a>(&mut self) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Derives the discovery tag from the address-derived secret for the <code>(sender, recipient)</code> pair, established via
+Diffie-Hellman between their addresses. Leaves no on-chain trace and never consults the handshake registry.</p>
+<h4>Examples</h4>
+<pre><code>MessageDelivery::onchain_unconstrained().via_address_derived_secret()</code></pre></div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-MessageDeliveryBuilder-for-OnchainUnconstrainedDelivery"><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a> for <a href="../../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html" class="struct">OnchainUnconstrainedDelivery</a></code></h3>
 

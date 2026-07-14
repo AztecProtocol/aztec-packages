@@ -49,14 +49,18 @@ template <class Curve> class CommitmentKey {
 
     CommitmentKey() = default;
 
+    static constexpr size_t round_up_to_even(size_t n) { return (n + 1) & ~size_t{ 1 }; }
+
     /**
      * @brief Construct a new Kate Commitment Key object from existing SRS
      *
-     * @param num_points Number of points needed for commitments
+     * @param num_points Number of points needed for commitments. Always rounded up to the next even
+     * value so that callers which need one extra SRS point (e.g. sparse masking polynomials that
+     * round their top pair up to an even index) always fit.
      */
     CommitmentKey(const size_t num_points)
-        : srs(srs::get_crs_factory<Curve>()->get_crs(num_points))
-        , srs_size(num_points)
+        : srs(srs::get_crs_factory<Curve>()->get_crs(round_up_to_even(num_points)))
+        , srs_size(round_up_to_even(num_points))
     {}
     /**
      * @brief Checks the commitment key is properly initialized.
@@ -98,7 +102,7 @@ template <class Curve> class CommitmentKey {
      * @return std::vector<Commitment> vector of commitments, one for each polynomial
      */
     std::vector<Commitment> batch_commit(RefSpan<Polynomial<Fr>> polynomials,
-                                         std::span<const uint8_t> has_duplicates_hints = {}) const
+                                         std::span<const uint32_t> dedup_infos = {}) const
     {
         BB_BENCH_NAME("CommitmentKey::batch_commit");
 
@@ -117,7 +121,7 @@ template <class Curve> class CommitmentKey {
         }
 
         auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            get_monomial_points(), scalar_spans, /*handle_edge_cases=*/false, has_duplicates_hints);
+            get_monomial_points(), scalar_spans, /*handle_edge_cases=*/false, dedup_infos);
         return std::vector<Commitment>(results.begin(), results.end());
     };
 
@@ -126,22 +130,28 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
-        std::vector<uint8_t> has_duplicates_hints; // per-poly dedup opt-in (parallel to wires)
+        // Per-poly dedup channel (parallel to wires): 0 = off, 1 = hinted with no
+        // estimate, k >= 2 = hinted with a measured duplicate count of k.
+        std::vector<uint32_t> dedup_infos;
 
         std::vector<Commitment> commit_and_send_to_verifier(auto transcript)
         {
-            std::vector<Commitment> commitments = key->batch_commit(wires, has_duplicates_hints);
+            std::vector<Commitment> commitments = key->batch_commit(wires, dedup_infos);
             for (size_t i = 0; i < commitments.size(); ++i) {
                 transcript->send_to_verifier(labels[i], commitments[i]);
             }
             return commitments;
         }
 
-        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool has_duplicates_hint = false)
+        void add_to_batch(Polynomial<Fr>& poly,
+                          const std::string& label,
+                          bool has_duplicates_hint = false,
+                          uint32_t measured_duplicate_count = 0)
         {
             wires.push_back(poly);
             labels.push_back(label);
-            has_duplicates_hints.push_back(has_duplicates_hint ? uint8_t{ 1 } : uint8_t{ 0 });
+            dedup_infos.push_back(has_duplicates_hint ? std::max<uint32_t>(1, measured_duplicate_count)
+                                                      : uint32_t{ 0 });
         }
     };
 

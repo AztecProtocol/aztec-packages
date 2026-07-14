@@ -7,7 +7,7 @@ use ::aztec::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::event::MAX_EVENT_SERIALIZED_LEN,
         msg_type::custom_msg_type_id,
-        processing::{enqueue_event_for_validation, MessageContext},
+        processing::{enqueue_event_for_validation, ResolvedTx},
     },
     oracle::capsules,
     protocol::{address::AztecAddress, hash::poseidon2_hash, traits::FromField},
@@ -31,7 +31,7 @@ unconstrained fn handle_multi_log_message(
     msg_type_id: u64,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-    message_context: MessageContext,
+    resolved_tx: ResolvedTx,
     scope: AztecAddress,
 ) {
     if msg_type_id == MULTI_LOG_MSG_TYPE_ID {
@@ -83,7 +83,7 @@ unconstrained fn handle_multi_log_message(
                 randomness,
                 serialized_event,
                 event_commitment,
-                message_context.tx_hash,
+                resolved_tx.tx_hash,
             );
         } else {
             capsules::store(contract_address, slot, multi_log, scope);
@@ -104,7 +104,7 @@ contract CustomMessage {
     use aztec::{
         event::event_interface::{compute_private_event_commitment, EventInterface},
         macros::{events::event, functions::external},
-        messages::{encoding::encode_message, message_delivery::{do_private_message_delivery, MessageDelivery}},
+        messages::{delivery::{do_private_message_delivery, MessageDelivery}, encoding::encode_message},
         oracle::random::random,
         protocol::{address::AztecAddress, traits::ToField},
     };

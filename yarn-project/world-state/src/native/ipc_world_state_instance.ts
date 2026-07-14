@@ -639,6 +639,8 @@ export class IpcWorldState implements NativeWorldStateInstance {
     blockNumber: BlockNumber;
     blockStateRef: BlockStateReference;
     blockHeaderHash: Buffer;
+    expectedArchiveRoot: Buffer;
+    expectedPreviousArchiveRoot: Buffer;
     paddedNoteHashes: readonly SerializedLeafValue[];
     paddedL1ToL2Messages: readonly SerializedLeafValue[];
     paddedNullifiers: readonly SerializedLeafValue[];
@@ -649,6 +651,8 @@ export class IpcWorldState implements NativeWorldStateInstance {
         blockNumber: Number(input.blockNumber),
         blockStateRef: blockStateRefToMap(input.blockStateRef),
         blockHeaderHash: new Uint8Array(input.blockHeaderHash),
+        expectedArchiveRoot: new Uint8Array(input.expectedArchiveRoot),
+        expectedPreviousArchiveRoot: new Uint8Array(input.expectedPreviousArchiveRoot),
         paddedNoteHashes: input.paddedNoteHashes.map(toFrLeaf),
         paddedL1ToL2Messages: input.paddedL1ToL2Messages.map(toFrLeaf),
         paddedNullifiers: input.paddedNullifiers.map(toNullifierLeaf),

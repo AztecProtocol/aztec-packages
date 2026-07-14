@@ -96,6 +96,135 @@ TEST(Polynomial, Indices)
     EXPECT_EQ(std::get<1>(*poly.indexed_values().begin()), poly[poly.start_index()]);
 }
 
+TEST(Polynomial, AddScaledVectorizedMatchesScalar)
+{
+    using FF = bb::fr;
+    using Poly = bb::Polynomial<FF>;
+
+    // self: logical indices [2, 32); other: logical indices [5, 18).
+    // Overlap region is other's range [5, 18) — 13 elements, not a multiple
+    // of 5 (exercises both the bulk and the tail of vectorized_for).
+    constexpr size_t SELF_SIZE = 30;
+    constexpr size_t SELF_VSIZE = 32;
+    constexpr size_t SELF_START = 2;
+    constexpr size_t OTHER_SIZE = 13;
+    constexpr size_t OTHER_VSIZE = 32;
+    constexpr size_t OTHER_START = 5;
+
+    Poly self(SELF_SIZE, SELF_VSIZE, SELF_START);
+    Poly other(OTHER_SIZE, OTHER_VSIZE, OTHER_START);
+    for (size_t i = SELF_START; i < SELF_START + SELF_SIZE; ++i) {
+        self.at(i) = FF((i * 11) + 1);
+    }
+    for (size_t i = OTHER_START; i < OTHER_START + OTHER_SIZE; ++i) {
+        other.at(i) = FF((i * 17) + 3);
+    }
+    Poly self_ref = self;
+    FF scalar = FF(7);
+
+    self.add_scaled(other, scalar);
+
+    for (size_t i = OTHER_START; i < OTHER_START + OTHER_SIZE; ++i) {
+        self_ref.at(i) = self_ref.at(i) + scalar * other.at(i);
+    }
+    for (size_t i = SELF_START; i < SELF_START + SELF_SIZE; ++i) {
+        EXPECT_EQ(self.at(i), self_ref.at(i)) << "i=" << i;
+    }
+}
+
+// Parity tests for the vectorized operator+=, operator-=, operator*=
+// migrations. Each pairs an in-place operation against an iterated scalar
+// reference over a span whose length is deliberately not a multiple of
+// VECTOR_FIELD_WIDTH=5, so both bulk and tail paths fire.
+TEST(Polynomial, AddAssignVectorizedMatchesScalar)
+{
+    using FF = bb::fr;
+    using Poly = bb::Polynomial<FF>;
+    constexpr size_t SELF_SIZE = 30;
+    constexpr size_t SELF_VSIZE = 32;
+    constexpr size_t SELF_START = 2;
+    constexpr size_t OTHER_SIZE = 13;
+    constexpr size_t OTHER_VSIZE = 32;
+    constexpr size_t OTHER_START = 5;
+
+    Poly self(SELF_SIZE, SELF_VSIZE, SELF_START);
+    Poly other(OTHER_SIZE, OTHER_VSIZE, OTHER_START);
+    for (size_t i = SELF_START; i < SELF_START + SELF_SIZE; ++i) {
+        self.at(i) = FF((i * 11) + 1);
+    }
+    for (size_t i = OTHER_START; i < OTHER_START + OTHER_SIZE; ++i) {
+        other.at(i) = FF((i * 17) + 3);
+    }
+    Poly self_ref = self;
+
+    self += other;
+
+    for (size_t i = OTHER_START; i < OTHER_START + OTHER_SIZE; ++i) {
+        self_ref.at(i) = self_ref.at(i) + other.at(i);
+    }
+    for (size_t i = SELF_START; i < SELF_START + SELF_SIZE; ++i) {
+        EXPECT_EQ(self.at(i), self_ref.at(i)) << "i=" << i;
+    }
+}
+
+TEST(Polynomial, SubtractAssignVectorizedMatchesScalar)
+{
+    using FF = bb::fr;
+    using Poly = bb::Polynomial<FF>;
+    constexpr size_t SELF_SIZE = 30;
+    constexpr size_t SELF_VSIZE = 32;
+    constexpr size_t SELF_START = 2;
+    constexpr size_t OTHER_SIZE = 13;
+    constexpr size_t OTHER_VSIZE = 32;
+    constexpr size_t OTHER_START = 5;
+
+    Poly self(SELF_SIZE, SELF_VSIZE, SELF_START);
+    Poly other(OTHER_SIZE, OTHER_VSIZE, OTHER_START);
+    for (size_t i = SELF_START; i < SELF_START + SELF_SIZE; ++i) {
+        self.at(i) = FF((i * 11) + 1);
+    }
+    for (size_t i = OTHER_START; i < OTHER_START + OTHER_SIZE; ++i) {
+        other.at(i) = FF((i * 17) + 3);
+    }
+    Poly self_ref = self;
+
+    self -= other;
+
+    for (size_t i = OTHER_START; i < OTHER_START + OTHER_SIZE; ++i) {
+        self_ref.at(i) = self_ref.at(i) - other.at(i);
+    }
+    for (size_t i = SELF_START; i < SELF_START + SELF_SIZE; ++i) {
+        EXPECT_EQ(self.at(i), self_ref.at(i)) << "i=" << i;
+    }
+}
+
+TEST(Polynomial, MultiplyAssignVectorizedMatchesScalar)
+{
+    using FF = bb::fr;
+    using Poly = bb::Polynomial<FF>;
+    // 17 elements covers a full 5-wide block plus a non-trivial tail (12 → 2),
+    // and the start offset keeps the buffer's contiguous range unaligned.
+    constexpr size_t SIZE = 17;
+    constexpr size_t VSIZE = 24;
+    constexpr size_t START = 3;
+
+    Poly p(SIZE, VSIZE, START);
+    for (size_t i = START; i < START + SIZE; ++i) {
+        p.at(i) = FF((i * 13) + 5);
+    }
+    Poly p_ref = p;
+    FF scalar = FF(11);
+
+    p *= scalar;
+
+    for (size_t i = START; i < START + SIZE; ++i) {
+        p_ref.at(i) = p_ref.at(i) * scalar;
+    }
+    for (size_t i = START; i < START + SIZE; ++i) {
+        EXPECT_EQ(p.at(i), p_ref.at(i)) << "i=" << i;
+    }
+}
+
 // evaluate_mle on a 0-variable MLE returns the constant coefficient.
 TEST(Polynomial, EvaluateMleSingleCoefficientEmptyPoints)
 {

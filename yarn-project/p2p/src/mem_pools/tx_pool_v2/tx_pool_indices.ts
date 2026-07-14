@@ -131,6 +131,9 @@ export class TxPoolIndices {
     meta.minedL2BlockId = blockId;
     // Safe to call unconditionally - removeFromPendingIndices is idempotent
     this.#removeFromPendingIndices(meta);
+    // A mined tx supersedes any protection: drop the stale entry so it can't linger in the map and
+    // be matched by later protection scans.
+    this.#protectedTransactions.delete(meta.txHash);
   }
 
   /** Clears the mined status from a transaction */
@@ -225,6 +228,29 @@ export class TxPoolIndices {
     return this.#pendingByPriority.length;
   }
 
+  /**
+   * Returns whether at least `minCount` pending transactions were received at or before maxReceivedAt,
+   * i.e. are old enough to be eligible for block building. Stops as soon as the threshold is met, so it
+   * does not scan the whole pool when only a handful of eligible txs are needed. The total pending count
+   * is an upper bound on the eligible count, so a pool with fewer than `minCount` pending can never
+   * satisfy the threshold and short-circuits without scanning.
+   */
+  hasEligiblePendingTxs(maxReceivedAt: number, minCount: number): boolean {
+    if (minCount <= 0) {
+      return true;
+    }
+    if (this.#pendingByPriority.length < minCount) {
+      return false;
+    }
+    let count = 0;
+    for (const _ of this.iterateEligiblePendingByPriority('desc', maxReceivedAt)) {
+      if (++count >= minCount) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Gets the lowest priority pending transaction hashes (up to limit) */
   getLowestPriorityPending(limit: number): string[] {
     if (limit <= 0) {
@@ -314,6 +340,15 @@ export class TxPoolIndices {
       }
     }
     return result;
+  }
+
+  /**
+   * From the given hashes, returns those whose protection is recorded at exactly the given slot.
+   * Used to release the protections a single block proposal created without disturbing entries a
+   * later proposal raised to a higher slot via updateProtection.
+   */
+  findProtectedTxsAtSlot(txHashes: string[], slotNumber: SlotNumber): string[] {
+    return txHashes.filter(txHash => this.#protectedTransactions.get(txHash) === slotNumber);
   }
 
   /** Filters out transactions that are currently protected */

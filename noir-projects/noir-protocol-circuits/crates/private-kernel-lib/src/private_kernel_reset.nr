@@ -9,20 +9,26 @@ use types::{
     abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     constants::{
         PRIVATE_KERNEL_INIT_2_VK_INDEX, PRIVATE_KERNEL_INIT_3_VK_INDEX,
+        PRIVATE_KERNEL_INIT_4_VK_INDEX, PRIVATE_KERNEL_INIT_5_VK_INDEX,
         PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_2_VK_INDEX,
-        PRIVATE_KERNEL_INNER_3_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX,
+        PRIVATE_KERNEL_INNER_3_VK_INDEX, PRIVATE_KERNEL_INNER_4_VK_INDEX,
+        PRIVATE_KERNEL_INNER_5_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX,
         PRIVATE_KERNEL_RESET_VK_INDEX,
     },
     PrivateKernelCircuitPublicInputs,
 };
 
-pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 7] = [
+pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 11] = [
     PRIVATE_KERNEL_INIT_VK_INDEX,
     PRIVATE_KERNEL_INIT_2_VK_INDEX,
     PRIVATE_KERNEL_INIT_3_VK_INDEX,
+    PRIVATE_KERNEL_INIT_4_VK_INDEX,
+    PRIVATE_KERNEL_INIT_5_VK_INDEX,
     PRIVATE_KERNEL_INNER_VK_INDEX,
     PRIVATE_KERNEL_INNER_2_VK_INDEX,
     PRIVATE_KERNEL_INNER_3_VK_INDEX,
+    PRIVATE_KERNEL_INNER_4_VK_INDEX,
+    PRIVATE_KERNEL_INNER_5_VK_INDEX,
     PRIVATE_KERNEL_RESET_VK_INDEX,
 ];
 
@@ -98,7 +104,8 @@ pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 7] = [
 //
 // It could be that two (or more) app circuits each make so many "Read Requests" that even the
 // largest variant of the Reset circuit can't process them all at once. In that case, an instance
-// of the Reset circuit would need to be
+// of the Reset circuit would need to be invoked multiple times, with each invocation processing a
+// subset of the read requests, until all of them have been handled.
 //
 // ### Nullifier Read Requests
 //
@@ -110,16 +117,14 @@ pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 7] = [
 
 /// Another explanation, because why not:
 /// TODO: combine explanations
-/// The Private Kernel Reset circuit performs cleanup, validation, and siloing on accumulated transaction data.
-///
-/// This circuit may be invoked multiple times during private execution to validate pending requests and reduce the size
-/// of accumulated data by squashing transient side effects.
-///
-/// Siloing of side effects, however, must be performed at most once for a transaction. The Reset circuit is therefore
-/// required to be called exactly once with siloing enabled before transitioning to the Tail(-to-Public) circuit. This
-/// siloing call does not need to occur immediately before the Tail circuit, but it must be the final Reset that
-/// operates on side effects that require siloing - no additional silo-relevant side effects may be added in subsequent
-/// private function calls.
+/// The Private Kernel Reset circuit performs cleanup and validation on accumulated transaction data. Two entry
+/// points share this struct and its variant catalog:
+/// - Inner resets (`execute`): invoked mid-tx to drain accumulated requests so that subsequent Inner kernels have
+///   room to append more. May be invoked any number of times during private execution. These do not silo. The inner
+///   `execute` `static_assert`s that the three `*SiloingAmount` generics are zero.
+/// - Final resets (`execute_as_terminal`): invoked exactly once at the end of private execution. Live inside the
+///   `reset_tail` / `reset_tail_to_public` circuits, which both perform the final reset and produce the tail output
+///   in a single circuit. These do silo, and no further reset is permitted after a `reset_tail`.
 ///
 /// It performs:
 /// - Read request validation: Verifies note hash and nullifier read requests against pending data (from this
@@ -127,13 +132,18 @@ pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 7] = [
 /// - Key validation: Validates key derivation requests used for nullifier key generation
 /// - Transient data squashing: Removes note hash/nullifier pairs where a note is created and nullified within the
 ///   current transaction, along with their associated logs
-/// - Siloing: Applies contract-specific siloing to note hashes, nullifiers, and logs for scoping and privacy
+/// - Siloing (final reset only): Applies contract-specific siloing to note hashes, nullifiers, and logs for scoping
+///   and privacy
 /// - Padding: Pads accumulated arrays to obscure their true sizes for privacy
 ///
 /// The Reset circuit is parameterized by the number of each type of operation to perform, allowing multiple "variants"
 /// optimized for different transaction patterns.
 ///
 /// The vk indexes of all the reset variants are allocated after the PRIVATE_KERNEL_RESET_VK_INDEX.
+///
+/// TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): "siloing only runs in
+/// the terminal path" is enforced by static_asserts and runtime branches, not by the type system.
+/// A real simplification needs a type-level Unsiloed/Siloed split. See issue.
 
 pub struct PrivateKernelResetCircuitPrivateInputs<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32, let NullifierPendingReadHintsLen: u32, let NullifierSettledReadHintsLen: u32, let KeyValidationHintsLen: u32, let TransientDataSquashingHintsLen: u32> {
     previous_kernel: PrivateKernelData,
@@ -175,22 +185,67 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     pub fn execute<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
     ) -> PrivateKernelCircuitPublicInputs {
+        // Siloing is only performed by the terminal reset+tail circuits (see `execute_as_terminal`).
+        std::static_assert(
+            NoteHashSiloingAmount == 0,
+            "inner reset must not silo note hashes",
+        );
+        std::static_assert(
+            NullifierSiloingAmount == 0,
+            "inner reset must not silo nullifiers",
+        );
+        std::static_assert(
+            PrivateLogSiloingAmount == 0,
+            "inner reset must not silo private logs",
+        );
+
         let previous_public_inputs = self.previous_kernel.public_inputs;
-        // Validate inputs.
 
         if !::std::runtime::is_unconstrained() {
-            self.previous_kernel.verify(false);
+            self.previous_kernel.verify();
             self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
-        // Generate output.
         // Safety: The output is validated below by ResetOutputValidator.
         let (output, squashed_output_array_hints) = unsafe {
             self
                 .generate_output::<NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount, KeyValidationAmount>()
         };
 
-        // Validate output.
+        if ::types::validate::should_validate_output() {
+            ResetOutputValidator::new(
+                output,
+                previous_public_inputs,
+                self.padded_side_effects,
+                self.hints,
+                squashed_output_array_hints,
+            )
+                .validate::<NoteHashPendingReadAmount, NoteHashSettledReadAmount, NullifierPendingReadAmount, NullifierSettledReadAmount, KeyValidationAmount, TransientDataSquashingAmount, NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount>();
+        }
+
+        output
+    }
+
+    /// Terminal reset entry point used by the `reset_tail` / `reset_tail_to_public` circuits. Unlike
+    /// the non-terminal `execute`, this variant performs note-hash/nullifier/private-log siloing (the
+    /// `execute` path static-asserts the siloing amounts are zero). The recursive verification of the
+    /// previous kernel is identical to the non-terminal case.
+    pub fn execute_as_terminal<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
+        self,
+    ) -> PrivateKernelCircuitPublicInputs {
+        let previous_public_inputs = self.previous_kernel.public_inputs;
+
+        if !::std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+            self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
+
+        // Safety: The output is validated below by ResetOutputValidator.
+        let (output, squashed_output_array_hints) = unsafe {
+            self
+                .generate_output::<NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount, KeyValidationAmount>()
+        };
+
         if ::types::validate::should_validate_output() {
             ResetOutputValidator::new(
                 output,

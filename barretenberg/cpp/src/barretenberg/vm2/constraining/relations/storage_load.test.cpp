@@ -81,7 +81,8 @@ TEST(SLoadConstrainingTest, NegativeInvalidOutputTag)
           { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U32) },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD } },
     });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sload>(trace), "SLOAD_FF_OUTPUT_TAG");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sload>(trace),
+                              sload::get_subrelation_label(sload::SR_SLOAD_FF_OUTPUT_TAG));
 }
 
 TEST(SLoadConstrainingTest, NegativeSloadSuccess)
@@ -100,7 +101,7 @@ TEST(SLoadConstrainingTest, NegativeSloadSuccess)
 
     check_relation<sload>(trace);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
-                              "INFALLIBLE_OPCODES_SUCCESS");
+                              execution::get_subrelation_label(execution::SR_INFALLIBLE_OPCODES_SUCCESS));
 }
 
 TEST(SLoadConstrainingTest, Interactions)

@@ -16,3 +16,8 @@ ts/src/cbind/generated/
 
 # Codegen output dirs (ipc-codegen emits into a `generated/` subdir under each consumer)
 **/generated/
+# ...but these are committed source dirs, not codegen output:
+!cpp/src/barretenberg/flavor/generated/
+!cpp/src/barretenberg/vm2/generated/
+!cpp/src/barretenberg/honk/execution_trace/generated/
+!cpp/src/barretenberg/vm2/generated/

@@ -10,7 +10,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 30_000;
 
 describe('AVM check-circuit – unhappy paths 2', () => {
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
@@ -20,7 +20,7 @@ describe('AVM check-circuit – unhappy paths 2', () => {
     tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
+      /*deployer=*/ AztecAddress.fromNumberUnsafe(420),
       AvmTestContractArtifact,
     );
   });

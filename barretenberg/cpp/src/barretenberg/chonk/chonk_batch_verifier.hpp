@@ -1,6 +1,6 @@
 #pragma once
 #ifndef __wasm__
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "batch_verifier_types.hpp"
@@ -10,6 +10,7 @@
 #include <deque>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <unordered_set>
 #include <vector>
@@ -22,7 +23,7 @@ namespace bb {
  * Pipeline:
  *   Phase 1 (parallel reduce): Work-stealing threads each run full non-IPA verification
  *                               (MegaZK sumcheck, databus, Goblin merge/eccvm/translator).
- *   Phase 2 (batch check):     Batch IPA verification via IPA::batch_reduce_verify on all passed proofs.
+ *   Phase 2 (batch check):     Reduce and batch-verify the deferred TripleIPA claims from successful reductions.
  *   Phase 3 (emit/bisect):     On success, emit OK for all. On failure, binary-search to isolate bad proofs.
  */
 class ChonkBatchVerifier {
@@ -34,9 +35,10 @@ class ChonkBatchVerifier {
      * @brief Per-proof result from the reduce phase.
      */
     struct ReduceResult {
+        using DeferredTripleIpaOpening = typename ECCVMVerifier::DeferredTripleIpaOpening;
+
         uint64_t request_id = 0;
-        OpeningClaim<curve::Grumpkin> ipa_claim;
-        ::bb::HonkProof ipa_proof;
+        std::optional<DeferredTripleIpaOpening> triple_ipa_opening;
         bool all_checks_passed = false;
         std::string error_message;
         std::chrono::steady_clock::time_point enqueue_time;
@@ -83,7 +85,7 @@ class ChonkBatchVerifier {
     void emit_ok(const std::vector<ReduceResult>& results,
                  const std::vector<size_t>& indices,
                  std::chrono::steady_clock::time_point reduce_start,
-                 double ipa_ms,
+                 double pcs_ms,
                  uint32_t depth);
 
     static double ms_since(std::chrono::steady_clock::time_point t)

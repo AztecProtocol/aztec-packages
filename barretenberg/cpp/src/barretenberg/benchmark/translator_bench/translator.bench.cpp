@@ -45,7 +45,7 @@ CircuitBuilder generate_translator_circuit(size_t capacity_percent)
 
     add_mixed_ops(op_queue, mixed_op_count);
     add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     return CircuitBuilder{ Fq::random_element(), Fq::random_element(), op_queue };
 }

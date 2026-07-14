@@ -5,11 +5,94 @@
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include <algorithm>
+#include <cstddef>
 #include <optional>
+#include <span>
+#include <utility>
+#include <vector>
 
 namespace bb {
+
+template <typename Curve> struct ProverOpeningClaimBatcher {
+    using Commitment = typename Curve::AffineElement;
+    using ProverClaim = ProverOpeningClaim<Curve>;
+    using VerifierClaim = OpeningClaim<Curve>;
+
+    std::vector<ProverClaim> prover_claims;
+    std::vector<VerifierClaim> verifier_claims;
+
+    void add(ProverClaim prover_claim, Commitment commitment)
+    {
+        verifier_claims.push_back({ prover_claim.opening_pair, commitment });
+        prover_claims.push_back(std::move(prover_claim));
+    }
+};
+
+template <typename Fr> inline std::vector<Fr> batching_scalars(const Fr& challenge, const size_t count)
+{
+    std::vector<Fr> scalars;
+    scalars.reserve(count);
+    Fr scalar = Fr::one();
+    for (size_t idx = 0; idx < count; ++idx) {
+        scalars.emplace_back(scalar);
+        scalar *= challenge;
+    }
+    return scalars;
+}
+
+template <typename Curve>
+typename Curve::ScalarField batch_evaluations(std::span<const typename Curve::ScalarField> evaluations,
+                                              std::span<const typename Curve::ScalarField> scalars)
+{
+    using Fr = typename Curve::ScalarField;
+    BB_ASSERT_EQ(evaluations.size(), scalars.size());
+    if (evaluations.empty()) {
+        return Fr::zero();
+    }
+    if constexpr (Curve::is_stdlib_type) {
+        constexpr size_t max_products = 16;
+        Fr result;
+        for (size_t start = 0; start < evaluations.size(); start += max_products) {
+            const size_t len = std::min(max_products, evaluations.size() - start);
+            std::vector<Fr> scalar_chunk(scalars.begin() + static_cast<std::ptrdiff_t>(start),
+                                         scalars.begin() + static_cast<std::ptrdiff_t>(start + len));
+            std::vector<Fr> evaluation_chunk(evaluations.begin() + static_cast<std::ptrdiff_t>(start),
+                                             evaluations.begin() + static_cast<std::ptrdiff_t>(start + len));
+            result = (start == 0) ? Fr::mult_madd(scalar_chunk, evaluation_chunk, {})
+                                  : Fr::mult_madd(scalar_chunk, evaluation_chunk, { result });
+        }
+        return result;
+    } else {
+        Fr result = Fr::zero();
+        for (size_t idx = 0; idx < evaluations.size(); ++idx) {
+            result += scalars[idx] * evaluations[idx];
+        }
+        return result;
+    }
+}
+
+template <typename Curve>
+typename Curve::AffineElement batch_commitments(std::span<const typename Curve::AffineElement> commitments,
+                                                std::span<const typename Curve::ScalarField> scalars)
+{
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    using GroupElement = typename Curve::Element;
+    BB_ASSERT_EQ(commitments.size(), scalars.size());
+    BB_ASSERT_GT(commitments.size(), 0UL);
+
+    std::vector<Fr> scalars_copy(scalars.begin(), scalars.end());
+    if constexpr (Curve::is_stdlib_type) {
+        return GroupElement::batch_mul(std::vector<Commitment>(commitments.begin(), commitments.end()), scalars_copy);
+    } else {
+        return Commitment::batch_mul(commitments, std::span<Fr>(scalars_copy));
+    }
+}
 
 /**
  * @brief Logic to support batching opening claims for unshifted and shifted polynomials in Shplemini

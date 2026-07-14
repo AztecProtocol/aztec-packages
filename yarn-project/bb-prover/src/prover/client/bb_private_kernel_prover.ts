@@ -9,22 +9,31 @@ import {
   convertPrivateKernelInit2OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInit3InputsToWitnessMapWithAbi,
   convertPrivateKernelInit3OutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInit4InputsToWitnessMapWithAbi,
+  convertPrivateKernelInit4OutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInit5InputsToWitnessMapWithAbi,
+  convertPrivateKernelInit5OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
   convertPrivateKernelInner2InputsToWitnessMapWithAbi,
   convertPrivateKernelInner2OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInner3InputsToWitnessMapWithAbi,
   convertPrivateKernelInner3OutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInner4InputsToWitnessMapWithAbi,
+  convertPrivateKernelInner4OutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInner5InputsToWitnessMapWithAbi,
+  convertPrivateKernelInner5OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInnerInputsToWitnessMapWithAbi,
   convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
   convertPrivateKernelResetInputsToWitnessMapWithAbi,
   convertPrivateKernelResetOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelResetTailInputsToWitnessMapWithAbi,
+  convertPrivateKernelResetTailToPublicInputsToWitnessMapWithAbi,
   convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
-  convertPrivateKernelTailInputsToWitnessMapWithAbi,
   convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
-  convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
   foreignCallHandler,
   getPrivateKernelResetArtifactName,
+  getPrivateKernelResetTailArtifactName,
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
 import {
@@ -42,13 +51,17 @@ import type {
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInit2CircuitPrivateInputs,
   PrivateKernelInit3CircuitPrivateInputs,
+  PrivateKernelInit4CircuitPrivateInputs,
+  PrivateKernelInit5CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInner2CircuitPrivateInputs,
   PrivateKernelInner3CircuitPrivateInputs,
+  PrivateKernelInner4CircuitPrivateInputs,
+  PrivateKernelInner5CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelResetTailCircuitPrivateInputs,
   PrivateKernelSimulateOutput,
-  PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
@@ -135,6 +148,50 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
+  public async generateInit4Output(
+    inputs: PrivateKernelInit4CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInit4Artifact',
+      convertPrivateKernelInit4InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit4OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInit4(
+    inputs: PrivateKernelInit4CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInit4Artifact',
+      convertPrivateKernelInit4InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit4OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateInit5Output(
+    inputs: PrivateKernelInit5CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInit5Artifact',
+      convertPrivateKernelInit5InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit5OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInit5(
+    inputs: PrivateKernelInit5CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInit5Artifact',
+      convertPrivateKernelInit5InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit5OutputsFromWitnessMapWithAbi,
+    );
+  }
+
   public async generateInnerOutput(
     inputs: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
@@ -201,6 +258,50 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
+  public async generateInner4Output(
+    inputs: PrivateKernelInner4CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInner4Artifact',
+      convertPrivateKernelInner4InputsToWitnessMapWithAbi,
+      convertPrivateKernelInner4OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInner4(
+    inputs: PrivateKernelInner4CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInner4Artifact',
+      convertPrivateKernelInner4InputsToWitnessMapWithAbi,
+      convertPrivateKernelInner4OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateInner5Output(
+    inputs: PrivateKernelInner5CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInner5Artifact',
+      convertPrivateKernelInner5InputsToWitnessMapWithAbi,
+      convertPrivateKernelInner5OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInner5(
+    inputs: PrivateKernelInner5CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInner5Artifact',
+      convertPrivateKernelInner5InputsToWitnessMapWithAbi,
+      convertPrivateKernelInner5OutputsFromWitnessMapWithAbi,
+    );
+  }
+
   public async generateResetOutput(
     inputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
@@ -228,40 +329,42 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async generateTailOutput(
-    inputs: PrivateKernelTailCircuitPrivateInputs,
+  public async generateResetTailOutput(
+    inputs: PrivateKernelResetTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const artifactName = getPrivateKernelResetTailArtifactName(inputs.dimensions, inputs.isForPublic());
     if (!inputs.isForPublic()) {
       return await this.generateCircuitOutput(
         inputs,
-        'PrivateKernelTailArtifact',
-        convertPrivateKernelTailInputsToWitnessMapWithAbi,
+        artifactName,
+        convertPrivateKernelResetTailInputsToWitnessMapWithAbi,
         convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
       );
     }
     return await this.generateCircuitOutput(
       inputs,
-      'PrivateKernelTailToPublicArtifact',
-      convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+      artifactName,
+      convertPrivateKernelResetTailToPublicInputsToWitnessMapWithAbi,
       convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
     );
   }
 
-  public async simulateTail(
-    inputs: PrivateKernelTailCircuitPrivateInputs,
+  public async simulateResetTail(
+    inputs: PrivateKernelResetTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const artifactName = getPrivateKernelResetTailArtifactName(inputs.dimensions, inputs.isForPublic());
     if (!inputs.isForPublic()) {
       return await this.simulateCircuitOutput(
         inputs,
-        'PrivateKernelTailArtifact',
-        convertPrivateKernelTailInputsToWitnessMapWithAbi,
+        artifactName,
+        convertPrivateKernelResetTailInputsToWitnessMapWithAbi,
         convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
       );
     }
     return await this.simulateCircuitOutput(
       inputs,
-      'PrivateKernelTailToPublicArtifact',
-      convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+      artifactName,
+      convertPrivateKernelResetTailToPublicInputsToWitnessMapWithAbi,
       convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
     );
   }
@@ -384,6 +487,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       executionSteps.map(step => ungzip(step.bytecode)),
       barretenberg,
       executionSteps.map(step => step.functionName),
+      executionSteps.map(step => step.kind),
     );
 
     // Use compressed prove path to get both proof fields and compressed proof bytes
@@ -410,13 +514,17 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return proofWithPubInputs;
   }
 
-  public async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+  public async computeGateCountForCircuit(
+    _bytecode: Buffer,
+    _circuitName: string,
+    _circuitKind: PrivateExecutionStep['kind'],
+  ): Promise<number> {
     // Note we do not pass the vk to the backend. This is unneeded for gate counts.
     const barretenberg = await Barretenberg.initSingleton({
       ...this.options,
       logger: this.options.logger?.[(process.env.LOG_LEVEL as LogLevel) || 'verbose'],
     });
-    const backend = new AztecClientBackend([ungzip(_bytecode)], barretenberg, [_circuitName]);
+    const backend = new AztecClientBackend([ungzip(_bytecode)], barretenberg, [_circuitName], [_circuitKind]);
     const gateCount = await backend.gates();
     return gateCount[0];
   }

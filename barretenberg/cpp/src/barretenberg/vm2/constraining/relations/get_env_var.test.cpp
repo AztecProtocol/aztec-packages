@@ -59,7 +59,7 @@ TEST(GetEnvVarConstrainingTest, AddressContextVariable)
     // Negative test: getting ADDRESS but register != contract_address
     trace.set(C::execution_register_0_, 1, FF(0xDEADBEEF));
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_ADDRESS_FROM_CONTEXT),
-                              "ADDRESS_FROM_CONTEXT");
+                              get_env_var::get_subrelation_label(get_env_var::SR_ADDRESS_FROM_CONTEXT));
 }
 
 TEST(GetEnvVarConstrainingTest, SenderContextVariable)
@@ -88,7 +88,7 @@ TEST(GetEnvVarConstrainingTest, SenderContextVariable)
     // Negative test: getting SENDER but register != msg_sender
     trace.set(C::execution_register_0_, 1, FF(0xDEADBEEF));
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_SENDER_FROM_CONTEXT),
-                              "SENDER_FROM_CONTEXT");
+                              get_env_var::get_subrelation_label(get_env_var::SR_SENDER_FROM_CONTEXT));
 }
 
 TEST(GetEnvVarConstrainingTest, TransactionFeeContextVariable)
@@ -117,7 +117,7 @@ TEST(GetEnvVarConstrainingTest, TransactionFeeContextVariable)
     // Negative test: getting TRANSACTIONFEE but register != transaction_fee
     trace.set(C::execution_register_0_, 1, 2000);
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_TRANSACTION_FEE_FROM_CONTEXT),
-                              "TRANSACTION_FEE_FROM_CONTEXT");
+                              get_env_var::get_subrelation_label(get_env_var::SR_TRANSACTION_FEE_FROM_CONTEXT));
 }
 
 TEST(GetEnvVarConstrainingTest, IsStaticCallContextVariable)
@@ -153,7 +153,7 @@ TEST(GetEnvVarConstrainingTest, IsStaticCallContextVariable)
     // Negative test: getting ISSTATICCALL but register != is_static
     trace.set(C::execution_register_0_, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_ISSTATICCALL_FROM_CONTEXT),
-                              "ISSTATICCALL_FROM_CONTEXT");
+                              get_env_var::get_subrelation_label(get_env_var::SR_ISSTATICCALL_FROM_CONTEXT));
 }
 
 TEST(GetEnvVarConstrainingTest, L2GasLeftGasVariable)
@@ -184,7 +184,7 @@ TEST(GetEnvVarConstrainingTest, L2GasLeftGasVariable)
     // Negative test: getting L2GASLEFT but register != (limit - used)
     trace.set(C::execution_register_0_, 1, 5000);
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_L2GASLEFT_FROM_GAS),
-                              "L2GASLEFT_FROM_GAS");
+                              get_env_var::get_subrelation_label(get_env_var::SR_L2GASLEFT_FROM_GAS));
 }
 
 TEST(GetEnvVarConstrainingTest, DaGasLeftGasVariable)
@@ -215,7 +215,7 @@ TEST(GetEnvVarConstrainingTest, DaGasLeftGasVariable)
     // Negative test: getting DAGASLEFT but register != (limit - used)
     trace.set(C::execution_register_0_, 1, 1000);
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_DAGASLEFT_FROM_GAS),
-                              "DAGASLEFT_FROM_GAS");
+                              get_env_var::get_subrelation_label(get_env_var::SR_DAGASLEFT_FROM_GAS));
 }
 
 TEST(GetEnvVarConstrainingTest, NoSideEffectsWhenNotGettingEnvVar)

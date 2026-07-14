@@ -1,67 +1,61 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { SiloedTag, Tag } from '@aztec/stdlib/logs';
-import { makeBlockHeader, randomPrivateLogResult } from '@aztec/stdlib/testing';
+import { deriveKeys } from '@aztec/stdlib/keys';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  type LogResult,
+  SiloedTag,
+  Tag,
+  computeSharedTaggingSecret,
+} from '@aztec/stdlib/logs';
+import { makeBlockHeader, makeL2Tips, randomPrivateLogResult } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { LogRetrievalRequest, LogSource } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
+import {
+  type LogRetrievalRequest,
+  LogSource,
+} from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
+import { Option } from '../contract_function_simulator/noir-structs/option.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
-import { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
+import { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import { LogService } from './log_service.js';
 
 describe('LogService', () => {
   let contractAddress: AztecAddress;
   let aztecNode: MockProxy<AztecNode>;
   let keyStore: KeyStore;
-  let recipientTaggingStore: RecipientTaggingStore;
   let addressStore: AddressStore;
-  let senderAddressBookStore: SenderAddressBookStore;
+  let taggingSecretSourcesStore: TaggingSecretSourcesStore;
   let logService: LogService;
 
   describe('fetchLogsByTag', () => {
     const tag = Tag.random();
 
     beforeEach(async () => {
-      // Set up contract address
       contractAddress = await AztecAddress.random();
-      keyStore = new KeyStore(await openTmpStore('test'));
-      recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
-      senderAddressBookStore = new SenderAddressBookStore(await openTmpStore('test'));
-      addressStore = new AddressStore(await openTmpStore('test'));
-
-      aztecNode = mock<AztecNode>();
+      ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } = await createTestLogService());
 
       aztecNode.getPrivateLogsByTags.mockReset();
       aztecNode.getPublicLogsByTags.mockReset();
       aztecNode.getTxEffect.mockReset();
-
-      // Set up anchor block header (required for bulkRetrieveLogs)
-      const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
-
-      logService = new LogService(
-        aztecNode,
-        anchorBlockHeader,
-        mock<L2TipsProvider>(),
-        keyStore,
-        recipientTaggingStore,
-        senderAddressBookStore,
-        addressStore,
-        'test',
-      );
     });
 
     it('returns empty arrays if no logs are found', async () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
       aztecNode.getPublicLogsByTags.mockResolvedValue([[]]);
-      const request = new LogRetrievalRequest(contractAddress, tag);
+      const request = makeLogRetrievalRequest(contractAddress, tag);
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
       expect(responses).toEqual([[]]);
     });
@@ -73,7 +67,7 @@ describe('LogService', () => {
       aztecNode.getPublicLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-      const request = new LogRetrievalRequest(contractAddress, tag);
+      const request = makeLogRetrievalRequest(contractAddress, tag);
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses[0]).toHaveLength(2);
@@ -88,7 +82,7 @@ describe('LogService', () => {
       aztecNode.getPublicLogsByTags.mockResolvedValue([[]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
 
-      const request = new LogRetrievalRequest(contractAddress, tag);
+      const request = makeLogRetrievalRequest(contractAddress, tag);
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses[0]).toHaveLength(2);
@@ -103,7 +97,7 @@ describe('LogService', () => {
       aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
 
-      const request = new LogRetrievalRequest(contractAddress, tag);
+      const request = makeLogRetrievalRequest(contractAddress, tag);
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses[0]).toHaveLength(2);
@@ -111,10 +105,28 @@ describe('LogService', () => {
       expect(responses[0][1].txHash).toEqual(privateLog.txHash);
     });
 
+    it('threads the origin block number, timestamp and hash from the source log', async () => {
+      const publicLog = randomPrivateLogResult({ includeEffects: true });
+      const privateLog = randomPrivateLogResult({ includeEffects: true });
+
+      aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog]]);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
+
+      const request = makeLogRetrievalRequest(contractAddress, tag);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
+
+      expect(responses[0][0].blockNumber).toEqual(publicLog.blockNumber);
+      expect(responses[0][0].blockTimestamp).toEqual(publicLog.blockTimestamp);
+      expect(responses[0][0].blockHash).toEqual(publicLog.blockHash);
+      expect(responses[0][1].blockNumber).toEqual(privateLog.blockNumber);
+      expect(responses[0][1].blockTimestamp).toEqual(privateLog.blockTimestamp);
+      expect(responses[0][1].blockHash).toEqual(privateLog.blockHash);
+    });
+
     it('rejects a batch where at least one request targets a different contract', async () => {
       const differentContract = await AztecAddress.random();
-      const validRequest = new LogRetrievalRequest(contractAddress, tag);
-      const invalidRequest = new LogRetrievalRequest(differentContract, Tag.random());
+      const validRequest = makeLogRetrievalRequest(contractAddress, tag);
+      const invalidRequest = makeLogRetrievalRequest(differentContract, Tag.random());
 
       await expect(logService.fetchLogsByTag(contractAddress, [validRequest, invalidRequest])).rejects.toThrow(
         /Got a log retrieval request from/,
@@ -133,9 +145,9 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[], [privateLog2], []]);
 
       const requests = [
-        new LogRetrievalRequest(contractAddress, tag1),
-        new LogRetrievalRequest(contractAddress, tag2),
-        new LogRetrievalRequest(contractAddress, tag3),
+        makeLogRetrievalRequest(contractAddress, tag1),
+        makeLogRetrievalRequest(contractAddress, tag2),
+        makeLogRetrievalRequest(contractAddress, tag3),
       ];
 
       const responses = await logService.fetchLogsByTag(contractAddress, requests);
@@ -167,7 +179,12 @@ describe('LogService', () => {
         aztecNode.getPublicLogsByTags.mockResolvedValue([[logAtBoundary]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-        const request = new LogRetrievalRequest(contractAddress, tag, LogSource.PUBLIC_AND_PRIVATE, BlockNumber(10));
+        const request = makeLogRetrievalRequest(
+          contractAddress,
+          tag,
+          LogSource.PUBLIC_AND_PRIVATE,
+          Option.some(BlockNumber(10)),
+        );
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
         expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledWith(
@@ -183,12 +200,12 @@ describe('LogService', () => {
         aztecNode.getPublicLogsByTags.mockResolvedValue([[logBeforeBoundary]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-        const request = new LogRetrievalRequest(
+        const request = makeLogRetrievalRequest(
           contractAddress,
           tag,
           LogSource.PUBLIC_AND_PRIVATE,
           undefined,
-          BlockNumber(10),
+          Option.some(BlockNumber(10)),
         );
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
@@ -205,12 +222,12 @@ describe('LogService', () => {
         aztecNode.getPublicLogsByTags.mockResolvedValue([[logInRange]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-        const request = new LogRetrievalRequest(
+        const request = makeLogRetrievalRequest(
           contractAddress,
           tag,
           LogSource.PUBLIC_AND_PRIVATE,
-          BlockNumber(10),
-          BlockNumber(20),
+          Option.some(BlockNumber(10)),
+          Option.some(BlockNumber(20)),
         );
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
@@ -228,7 +245,7 @@ describe('LogService', () => {
 
         aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog]]);
 
-        const request = new LogRetrievalRequest(contractAddress, tag, LogSource.PUBLIC);
+        const request = makeLogRetrievalRequest(contractAddress, tag, LogSource.PUBLIC);
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
         expect(responses[0]).toHaveLength(1);
@@ -241,7 +258,7 @@ describe('LogService', () => {
 
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
 
-        const request = new LogRetrievalRequest(contractAddress, tag, LogSource.PRIVATE);
+        const request = makeLogRetrievalRequest(contractAddress, tag, LogSource.PRIVATE);
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
         expect(responses[0]).toHaveLength(1);
@@ -263,9 +280,9 @@ describe('LogService', () => {
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog2], [privateLog3]]);
 
         const requests = [
-          new LogRetrievalRequest(contractAddress, tag1, LogSource.PUBLIC),
-          new LogRetrievalRequest(contractAddress, tag2, LogSource.PRIVATE),
-          new LogRetrievalRequest(contractAddress, tag3, LogSource.PUBLIC_AND_PRIVATE),
+          makeLogRetrievalRequest(contractAddress, tag1, LogSource.PUBLIC),
+          makeLogRetrievalRequest(contractAddress, tag2, LogSource.PRIVATE),
+          makeLogRetrievalRequest(contractAddress, tag3, LogSource.PUBLIC_AND_PRIVATE),
         ];
 
         const responses = await logService.fetchLogsByTag(contractAddress, requests);
@@ -295,4 +312,213 @@ describe('LogService', () => {
       });
     });
   });
+
+  describe('fetchTaggedLogs', () => {
+    let recipient: AztecAddress;
+    let sharedSecret: Point;
+
+    beforeEach(async () => {
+      contractAddress = await AztecAddress.random();
+
+      const l2TipsProvider = mock<L2TipsProvider>();
+      ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } =
+        await createTestLogService(l2TipsProvider));
+      l2TipsProvider.getL2Tips.mockResolvedValue(makeL2Tips(0));
+
+      const completeAddress = await keyStore.addAccount(await deriveKeys(Fr.random()), Fr.random());
+      await addressStore.addCompleteAddress(completeAddress);
+      recipient = completeAddress.address;
+
+      sharedSecret = await Point.random();
+    });
+
+    it('scans handshake secrets under the handshake derivation for both delivery modes', async () => {
+      await taggingSecretSourcesStore.addSharedSecret(recipient, 'handshake', sharedSecret);
+      const [unconstrainedTag, constrainedTag] = await handshakeTags(sharedSecret, contractAddress);
+
+      const unconstrainedLog = randomPrivateLogResult({ includeEffects: true });
+      const constrainedLog = randomPrivateLogResult({ includeEffects: true });
+      servePrivateLogsByTag(
+        aztecNode,
+        new Map([
+          [unconstrainedTag.toString(), unconstrainedLog],
+          [constrainedTag.toString(), constrainedLog],
+        ]),
+      );
+
+      const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
+
+      const txHashes = logs.map(l => l.context.txHash);
+      expect(txHashes).toContainEqual(unconstrainedLog.txHash);
+      expect(txHashes).toContainEqual(constrainedLog.txHash);
+    });
+
+    it('does not scan arbitrary secrets under the handshake derivation', async () => {
+      await taggingSecretSourcesStore.addSharedSecret(recipient, 'arbitrary-secret', sharedSecret);
+      const [unconstrainedTag, constrainedTag] = await handshakeTags(sharedSecret, contractAddress);
+
+      const directionalLog = randomPrivateLogResult({ includeEffects: true });
+      const handshakeStreamLog = randomPrivateLogResult({ includeEffects: true });
+      servePrivateLogsByTag(
+        aztecNode,
+        new Map([
+          [(await directionalTag(sharedSecret, contractAddress, recipient)).toString(), directionalLog],
+          [unconstrainedTag.toString(), handshakeStreamLog],
+          [constrainedTag.toString(), handshakeStreamLog],
+        ]),
+      );
+
+      const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
+
+      const txHashes = logs.map(l => l.context.txHash);
+      expect(txHashes).toContainEqual(directionalLog.txHash);
+      expect(txHashes).not.toContainEqual(handshakeStreamLog.txHash);
+    });
+
+    it('does not scan handshake secrets under the directional derivation', async () => {
+      await taggingSecretSourcesStore.addSharedSecret(recipient, 'handshake', sharedSecret);
+      const [unconstrainedTag] = await handshakeTags(sharedSecret, contractAddress);
+
+      const handshakeStreamLog = randomPrivateLogResult({ includeEffects: true });
+      const directionalLog = randomPrivateLogResult({ includeEffects: true });
+      servePrivateLogsByTag(
+        aztecNode,
+        new Map([
+          [unconstrainedTag.toString(), handshakeStreamLog],
+          [(await directionalTag(sharedSecret, contractAddress, recipient)).toString(), directionalLog],
+        ]),
+      );
+
+      const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
+
+      const txHashes = logs.map(l => l.context.txHash);
+      expect(txHashes).toContainEqual(handshakeStreamLog.txHash);
+      expect(txHashes).not.toContainEqual(directionalLog.txHash);
+    });
+
+    function handshakeTags(secret: Point, app: AztecAddress): Promise<SiloedTag[]> {
+      return Promise.all(
+        [AppTaggingSecretKind.UNCONSTRAINED, AppTaggingSecretKind.CONSTRAINED].map(async kind =>
+          SiloedTag.compute({ extendedSecret: await AppTaggingSecret.computeAppSiloed(secret, app, kind), index: 0 }),
+        ),
+      );
+    }
+
+    async function directionalTag(secret: Point, app: AztecAddress, directedTo: AztecAddress): Promise<SiloedTag> {
+      const directionalSecret = await AppTaggingSecret.computeDirectional(secret, app, directedTo);
+      return SiloedTag.compute({ extendedSecret: directionalSecret, index: 0 });
+    }
+  });
+
+  describe('address-derived discovery requires a registered sender', () => {
+    let recipientCompleteAddress: CompleteAddress;
+    let recipient: AztecAddress;
+    let sender: AztecAddress;
+    let senderIndex0Tag: SiloedTag;
+    let senderLog: LogResult;
+
+    beforeEach(async () => {
+      contractAddress = await AztecAddress.random();
+
+      const l2TipsProvider = mock<L2TipsProvider>();
+      const testContext = await createTestLogService(l2TipsProvider);
+      ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } = testContext);
+      l2TipsProvider.getL2Tips.mockResolvedValue(makeL2Tips(testContext.anchorBlockHeader.globalVariables.blockNumber));
+
+      // A real recipient account, so the ECDH tag derivation has the keys and address preimage it needs.
+      recipientCompleteAddress = await keyStore.addAccount(await deriveKeys(new Fr(1)), Fr.random());
+      recipient = recipientCompleteAddress.address;
+      await addressStore.addCompleteAddress(recipientCompleteAddress);
+
+      sender = await AztecAddress.random();
+
+      // Recompute, from the same ECDH inputs the service uses, the tag the recipient would scan for the sender's
+      // first message. The node returns the sender's log only for this exact tag, so discovery proves the tag was
+      // scanned, which only happens when the sender is registered.
+      const recipientIvsk = await keyStore.getMasterIncomingViewingSecretKey(recipient);
+      const sharedSecret = await computeSharedTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
+      const appSecret = await AppTaggingSecret.computeDirectional(sharedSecret!, contractAddress, recipient);
+      senderIndex0Tag = await SiloedTag.compute({ extendedSecret: appSecret, index: 0 });
+
+      // Past the anchor block, so the log is unfinalized and the scan completes in a single round.
+      senderLog = randomPrivateLogResult({ blockNumber: INITIAL_L2_BLOCK_NUM + 1, includeEffects: true });
+      aztecNode.getPrivateLogsByTags.mockImplementation(({ tags }) =>
+        Promise.resolve(
+          // A tag query is either a bare tag (first page) or a `{ tag, afterLog }` cursor (paginated follow-ups).
+          tags.map(query => {
+            const siloedTag = query instanceof SiloedTag ? query : query.tag;
+            return siloedTag.equals(senderIndex0Tag) ? [senderLog] : [];
+          }),
+        ),
+      );
+    });
+
+    it('does not discover messages from an unregistered sender', async () => {
+      const discovered = await logService.fetchTaggedLogs(contractAddress, recipient, []);
+      expect(discovered).toEqual([]);
+    });
+
+    it('discovers the sender messages once the sender is registered', async () => {
+      await taggingSecretSourcesStore.addSender(sender);
+
+      const discovered = await logService.fetchTaggedLogs(contractAddress, recipient, []);
+
+      expect(discovered).toHaveLength(1);
+      expect(discovered[0].context.txHash).toEqual(senderLog.txHash);
+    });
+  });
 });
+
+async function createTestLogService(l2TipsProvider: MockProxy<L2TipsProvider> = mock<L2TipsProvider>()) {
+  const keyStore = new KeyStore(await openTmpStore('test'));
+  const recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
+  const taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
+  const addressStore = new AddressStore(await openTmpStore('test'));
+  const aztecNode = mock<AztecNode>();
+  // Anchor block header is required for bulkRetrieveLogs.
+  const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+
+  const logService = new LogService(
+    aztecNode,
+    anchorBlockHeader,
+    l2TipsProvider,
+    keyStore,
+    recipientTaggingStore,
+    taggingSecretSourcesStore,
+    addressStore,
+    'test',
+  );
+
+  return {
+    aztecNode,
+    keyStore,
+    recipientTaggingStore,
+    taggingSecretSourcesStore,
+    addressStore,
+    anchorBlockHeader,
+    logService,
+  };
+}
+
+/** Serves one private log per matching siloed tag and an empty page for every other tag. */
+function servePrivateLogsByTag(aztecNode: MockProxy<AztecNode>, logsByTag: Map<string, LogResult>) {
+  aztecNode.getPrivateLogsByTags.mockImplementation(({ tags }) =>
+    Promise.resolve(
+      tags.map(tagQuery => {
+        const tag = tagQuery instanceof SiloedTag ? tagQuery : tagQuery.tag;
+        const log = logsByTag.get(tag.toString());
+        return log ? [log] : [];
+      }),
+    ),
+  );
+}
+
+function makeLogRetrievalRequest(
+  contractAddress: AztecAddress,
+  tag: Tag,
+  source: LogSource = LogSource.PUBLIC_AND_PRIVATE,
+  fromBlock: Option<BlockNumber> = Option.none(),
+  toBlock: Option<BlockNumber> = Option.none(),
+): LogRetrievalRequest {
+  return { contractAddress, tag, source, fromBlock, toBlock };
+}

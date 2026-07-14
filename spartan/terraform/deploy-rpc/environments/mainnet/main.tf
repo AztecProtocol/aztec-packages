@@ -54,17 +54,17 @@ locals {
   }
 
   rpcs = {
-    #canonical = merge(local.l1_secret_names, {
-    #  aztec_docker_image = var.CANONICAL_AZTEC_DOCKER_IMAGE
-    #  hosts              = ["canonical.mainnet.rpc.aztec-labs.com"]
-    #  storage_size       = "8Gi"
-    #  env = merge(local.env, {
-    #    ROLLUP_VERSION = ""
-    #  })
-    #})
+    canonical = merge(local.l1_secret_names, {
+      aztec_docker_image = var.CANONICAL_AZTEC_DOCKER_IMAGE
+      hosts              = ["v5.mainnet.rpc.aztec-labs.com", "canonical.mainnet.rpc.aztec-labs.com"]
+      storage_size       = "8Gi"
+      env = merge(local.env, {
+        ROLLUP_VERSION = ""
+      })
+    })
     v4 = merge(local.l1_secret_names, {
       aztec_docker_image = var.V4_AZTEC_DOCKER_IMAGE
-      hosts              = ["v4.mainnet.rpc.aztec-labs.com", "canonical.mainnet.rpc.aztec-labs.com"]
+      hosts              = ["v4.mainnet.rpc.aztec-labs.com"]
       storage_size       = "8Gi"
       env = merge(local.env, {
         ROLLUP_VERSION = "2934756905"
@@ -110,6 +110,16 @@ module "environment" {
     client5 = {
       username                       = "mainnet-rpc-consumer-client5"
       gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client5"
+      rate_limit_minute              = 0
+    }
+    client6 = {
+      username                       = "mainnet-rpc-consumer-client6"
+      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client6"
+      rate_limit_minute              = 0
+    }
+    client7 = {
+      username                       = "mainnet-rpc-consumer-client7"
+      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client7"
       rate_limit_minute              = 0
     }
   }

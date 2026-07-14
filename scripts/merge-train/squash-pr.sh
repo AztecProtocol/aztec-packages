@@ -54,6 +54,16 @@ git fetch origin "$base_branch"
 # Find the merge-base between our branch and the base branch
 merge_base=$(git merge-base "$original_head" "origin/$base_branch")
 
+# Idempotency guard: if the branch is already a single commit on top of the base there is nothing
+# to squash. Rewriting it anyway produces a new commit (fresh committer timestamp, identical tree)
+# and force-pushes it, which retriggers CI and re-enters this script — an infinite loop while the
+# ci-squash-and-merge label remains. Skip the rewrite and force-push so the caller can go straight
+# to merging.
+if [[ "$(git rev-list --count "$merge_base..$original_head")" -le 1 ]]; then
+  echo "PR #$pr_number is already a single commit on top of $base_branch; nothing to squash."
+  exit 0
+fi
+
 # Collect all unique authors from non-merge commits that are not in the base branch
 # Get all commits between merge_base and HEAD, excluding merges
 authors_info=$(git log "$merge_base..$original_head" --no-merges --format='%an <%ae>' | sort -u)

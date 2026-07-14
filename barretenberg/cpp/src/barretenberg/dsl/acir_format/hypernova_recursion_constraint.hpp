@@ -43,13 +43,9 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
 
 /**
  * @brief Add mock accumulation data to a Chonk instance
- * @details Populates the verification queue with a mock proof/VK entry. HN_FINAL also gets a mock batch merge proof.
- * Also initializes the recursive verifier accumulator which is hashed into the circuit.
- *
- * @param ivc The Chonk instance to populate
- * @param type The verification type (OINK for first app, HN for subsequent, HN_TAIL/HN_FINAL for ending)
- * @param is_kernel True if mocking a kernel circuit accumulation, false for app circuits
+ * @details DO NOT use directly, this is an helper function used in create_mock_chonk_from_constraints. Use that
+ * function to create a mock Chonk state.
  */
-void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel);
+void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, bool is_kernel, bool is_hiding_kernel = false);
 
 } // namespace acir_format

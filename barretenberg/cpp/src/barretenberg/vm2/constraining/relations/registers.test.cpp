@@ -50,9 +50,7 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorNoReadNoWrite)
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_3,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_3);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -63,13 +61,13 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorNoReadNoWrite)
                   { C::execution_sel_op_reg_effective_3_, 1 },
               } });
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_0),
-                              "SEL_OP_REG_EFFECTIVE_0");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_0));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_1),
-                              "SEL_OP_REG_EFFECTIVE_1");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_1));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_2),
-                              "SEL_OP_REG_EFFECTIVE_2");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_2));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_3),
-                              "SEL_OP_REG_EFFECTIVE_3");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_3));
 }
 
 TEST(RegistersConstrainingTest, EffectiveRegOpSelectorOnlyRead)
@@ -100,9 +98,7 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorOnlyRead)
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_3,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_3);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -113,13 +109,13 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorOnlyRead)
                   { C::execution_sel_op_reg_effective_3_, 1 },
               } });
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_0),
-                              "SEL_OP_REG_EFFECTIVE_0");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_0));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_1),
-                              "SEL_OP_REG_EFFECTIVE_1");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_1));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_2),
-                              "SEL_OP_REG_EFFECTIVE_2");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_2));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_3),
-                              "SEL_OP_REG_EFFECTIVE_3");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_3));
 }
 
 TEST(RegistersConstrainingTest, EffectiveRegOpSelectorReadThenWrite)
@@ -150,9 +146,7 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorReadThenWrite)
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_3,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_3);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -163,13 +157,13 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorReadThenWrite)
                   { C::execution_sel_op_reg_effective_3_, 1 },
               } });
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_0),
-                              "SEL_OP_REG_EFFECTIVE_0");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_0));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_1),
-                              "SEL_OP_REG_EFFECTIVE_1");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_1));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_2),
-                              "SEL_OP_REG_EFFECTIVE_2");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_2));
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_SEL_OP_REG_EFFECTIVE_3),
-                              "SEL_OP_REG_EFFECTIVE_3");
+                              registers::get_subrelation_label(registers::SR_SEL_OP_REG_EFFECTIVE_3));
 }
 
 TEST(RegistersConstrainingTest, TagCheckNoFailure)
@@ -201,7 +195,7 @@ TEST(RegistersConstrainingTest, TagCheckNoFailure)
     // Should fail if I try to trick the selector.
     trace.set(C::execution_sel_register_read_error, /*row=*/0, /*value=*/1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
-                              "REGISTER_READ_TAG_CHECK");
+                              registers::get_subrelation_label(registers::SR_REGISTER_READ_TAG_CHECK));
 }
 
 TEST(RegistersConstrainingTest, TagCheckSingleFailure)
@@ -227,12 +221,12 @@ TEST(RegistersConstrainingTest, TagCheckSingleFailure)
     // Should fail if I try to trick the selector.
     trace.set(C::execution_sel_register_read_error, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
-                              "REGISTER_READ_TAG_CHECK");
+                              registers::get_subrelation_label(registers::SR_REGISTER_READ_TAG_CHECK));
 
     // Should fail if inverse is wrong.
     trace.set(C::execution_batched_tags_diff_inv_reg, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
-                              "REGISTER_READ_TAG_CHECK");
+                              registers::get_subrelation_label(registers::SR_REGISTER_READ_TAG_CHECK));
 }
 
 TEST(RegistersConstrainingTest, TagCheckIgnoresFailureWhenNotReading)
@@ -254,7 +248,7 @@ TEST(RegistersConstrainingTest, TagCheckIgnoresFailureWhenNotReading)
     // Should fail if I try to trick the selector.
     trace.set(C::execution_sel_register_read_error, /*row=*/0, /*value=*/1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
-                              "REGISTER_READ_TAG_CHECK");
+                              registers::get_subrelation_label(registers::SR_REGISTER_READ_TAG_CHECK));
 }
 
 TEST(RegistersConstrainingTest, TagCheckMultipleFailures)
@@ -288,12 +282,12 @@ TEST(RegistersConstrainingTest, TagCheckMultipleFailures)
     // Should fail if I try to trick the selector.
     trace.set(C::execution_sel_register_read_error, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
-                              "REGISTER_READ_TAG_CHECK");
+                              registers::get_subrelation_label(registers::SR_REGISTER_READ_TAG_CHECK));
 
     // Should fail if inverse is wrong.
     trace.set(C::execution_batched_tags_diff_inv_reg, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
-                              "REGISTER_READ_TAG_CHECK");
+                              registers::get_subrelation_label(registers::SR_REGISTER_READ_TAG_CHECK));
 }
 
 } // namespace

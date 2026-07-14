@@ -1,5 +1,6 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
@@ -23,10 +24,10 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     return new this(nativeWorldStateService);
   }
 
-  public async handleL2Block(block: L2Block) {
+  public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
     await this.nativeWorldStateService.handleL2BlockAndMessages(
       block,
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero),
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
 
     this.blockNumber = block.header.globalVariables.blockNumber;
@@ -55,6 +56,11 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   /** Gets a handle that allows reading the state as it was at the given block number. */
   public getSnapshot(blockNumber: number): MerkleTreeReadOperations {
     return this.nativeWorldStateService.getSnapshot(BlockNumber(blockNumber));
+  }
+
+  /** Gets a snapshot at the given block number. The TXE has no reorgs, so the fork hash is not verified. */
+  public getVerifiedSnapshot(blockNumber: number, _blockHash: BlockHash): Promise<MerkleTreeReadOperations> {
+    return Promise.resolve(this.getSnapshot(blockNumber));
   }
 
   /** Backups the db to the target path. */

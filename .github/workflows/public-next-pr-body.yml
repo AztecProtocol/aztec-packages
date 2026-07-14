@@ -1,0 +1,34 @@
+name: Public Next PR Body
+
+on:
+  push:
+    branches:
+      - next
+  workflow_dispatch:
+
+concurrency:
+  group: public-next-pr-body
+  cancel-in-progress: true
+
+jobs:
+  update-public-next-pr-body:
+    name: Update next to public-next PR body
+    runs-on: ubuntu-latest
+    if: github.repository == 'AztecProtocol/aztec-packages-private'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout automation from next
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: next
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Update holding PR body
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BASE_BRANCH: public-next
+          HEAD_BRANCH: next
+        run: ./scripts/merge-train/update-public-next-pr-body.sh

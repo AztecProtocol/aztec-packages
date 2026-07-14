@@ -55,6 +55,14 @@ To check current AVM setting: `grep "AVM:" build/CMakeCache.txt`
 
 Note: Once you enable AVM, subsequent `ninja` calls will include AVM targets until you reconfigure.
 
+## Running the full bb test suite
+
+`./bootstrap.sh test` runs every native bb test binary; it takes 5+ minutes and burns significant CPU. Run it (asking the user before kicking it off, unless they explicitly told you to test) whenever a change plausibly affects more than one bb module, and ALWAYS run it when a change rotates verification keys or shifts a widely-included constant (`barretenberg/cpp/src/barretenberg/constants.hpp`, `gate_count_constants.hpp`, public-input formulas, etc.).
+
+Two operational rules for an honest signal:
+- **Build all targets first.** Run plain `ninja` (no target) before `./bootstrap.sh test`. `ninja <one_target>` leaves other test binaries stale and the suite will pass against out-of-date code.
+- **Use `NO_FAIL_FAST=1` for multi-failure passes.** The default halts on the first failure, so a constants-update with several drifts forces a fix → 5-minute rerun → next failure loop. `NO_FAIL_FAST=1 ./bootstrap.sh test` enumerates every failure in one pass.
+
 ### Barretenberg module components:
 
 - **commitment_schemes/** - Polynomial commitment schemes (KZG, IPA)
@@ -88,6 +96,8 @@ These are load-bearing: violating them will compile on native but break WASM, or
 ## Benchmarking:
 
 **IMPORTANT**: In the barretenberg context, "bench" or "benchmark" almost always means running `benchmark_remote.sh` for the given target on a remote benchmarking machine.
+
+**Never benchmark against test binaries (`*_tests`) — the results will always be wrong.** Test circuits are small mocks whose cost profile does not resemble real proving workloads. Benchmark against real inputs: the pinned Chonk flows (`scripts/chonk_inputs.sh download`, then `bb prove --scheme chonk --ivc_inputs_path chonk-pinned-flows/<flow>/ivc-inputs.msgpack`) or the dedicated `*_bench` targets.
 
 To run benchmarks for a specific target:
 ```bash
@@ -130,7 +140,7 @@ Regenerate via the e2e prover full test with fake proofs:
 
 ```bash
 cd yarn-project
-AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test full.test
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test e2e_prover/full.test
 ```
 
 `FAKE_PROOFS=1` skips real proving — runs in ~2 min (orchestrator + witness generation only). Writes 12 `Prover.toml` files under `noir-projects/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
@@ -188,7 +198,7 @@ For bb.js, run:
 
 ```bash
 barretenberg/cpp/scripts/chonk_inputs.sh download
-barretenberg/ts/bb.js/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
+barretenberg/ts/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
 ```
 
 Typical workflow
