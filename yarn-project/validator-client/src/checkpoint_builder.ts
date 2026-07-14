@@ -412,8 +412,16 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     );
   }
 
-  /** Returns a fork of the world state at the given block number. */
-  getFork(blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations> {
+  /**
+   * Syncs world state to the given block number and returns a fork of it at that block.
+   *
+   * Syncing first is required: the block source (archiver) can already hold a block while world state
+   * still trails it, and forking a not-yet-applied block throws a raw "initialize from future block"
+   * tree error. syncImmediate blocks until world state reaches the block, or throws a typed error if it
+   * genuinely cannot.
+   */
+  async getFork(blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations> {
+    await this.worldState.syncImmediate(blockNumber);
     return this.worldState.fork(blockNumber);
   }
 }

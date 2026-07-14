@@ -51,7 +51,6 @@ describe('ProposalHandler checkpoint validation', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
-  let worldState: MockProxy<WorldStateSynchronizer>;
   let dateProvider: TestDateProvider;
   let metrics: MockProxy<ValidatorMetrics>;
   let config: ValidatorClientFullConfig;
@@ -77,8 +76,6 @@ describe('ProposalHandler checkpoint validation', () => {
       rollupManaLimit: 200_000_000,
     });
 
-    worldState = mock<WorldStateSynchronizer>();
-
     epochCache = mock<EpochCache>();
     epochCache.getL1Constants.mockReturnValue({
       l1GenesisTime: 0n,
@@ -99,7 +96,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
     handler = new ProposalHandler(
       checkpointsBuilder,
-      worldState,
+      mock<WorldStateSynchronizer>(),
       blockSource,
       l1ToL2MessageSource,
       mock<ITxProvider>(),
@@ -494,8 +491,12 @@ describe('ProposalHandler checkpoint validation', () => {
     let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
     let mockDispose: jest.Mock;
 
-    /** Sets up mocks so the handler passes all early checks and reaches the checkpoint rebuild path. */
-    function setupDeepValidationMocks(computedCheckpoint: Partial<Checkpoint>) {
+    /**
+     * Sets up mocks so the handler passes all early checks and reaches the checkpoint rebuild path.
+     * `forkArchiveRoot` is the archive root the forked world state reports; it must match the proposal
+     * header's lastArchiveRoot (default Fr.ZERO, as CheckpointHeader.empty) to pass the fork archive check.
+     */
+    function setupDeepValidationMocks(computedCheckpoint: Partial<Checkpoint>, forkArchiveRoot: Fr = Fr.ZERO) {
       // Block with matching archive so the early archive check passes
       const block = {
         archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
@@ -508,7 +509,10 @@ describe('ProposalHandler checkpoint validation', () => {
       blockSource.getBlocksForSlot.mockResolvedValue([block]);
 
       mockDispose = jest.fn();
-      checkpointsBuilder.getFork.mockResolvedValue({ [Symbol.asyncDispose]: mockDispose } as any);
+      checkpointsBuilder.getFork.mockResolvedValue({
+        [Symbol.asyncDispose]: mockDispose,
+        getTreeInfo: () => Promise.resolve({ root: forkArchiveRoot.toBuffer() }),
+      } as any);
 
       mockCheckpointBuilder = mock<CheckpointBuilder>();
       mockCheckpointBuilder.completeCheckpoint.mockResolvedValue({
@@ -621,14 +625,17 @@ describe('ProposalHandler checkpoint validation', () => {
         toBlobFields: () => [],
       } as unknown as L2Block;
 
-      setupDeepValidationMocks({
-        header,
-        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
-        blocks: [minimalBlock],
-        number: CheckpointNumber(1),
-        slot: SlotNumber(1),
-        toBlobFields: () => [],
-      });
+      setupDeepValidationMocks(
+        {
+          header,
+          archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+          blocks: [minimalBlock],
+          number: CheckpointNumber(1),
+          slot: SlotNumber(1),
+          toBlobFields: () => [],
+        },
+        lastArchiveRoot,
+      );
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
@@ -647,39 +654,38 @@ describe('ProposalHandler checkpoint validation', () => {
     // Parent of the single block (number 1) used across the deep-validation setup.
     const parentBlockNumber = BlockNumber(0);
 
-    it('syncs world state to the parent block before forking', async () => {
+    // getFork syncs world state to the parent block before forking (see FullNodeCheckpointsBuilder tests).
+    // This asserts the caller forks at the parent block number (one before the checkpoint's first block).
+    it('forks at the parent block number', async () => {
       setupDeepValidationMocks({ header: makeHeader({ totalManaUsed: new Fr(999) }) });
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
       await handler.handleCheckpointProposal(proposal, proposalInfo);
 
-      expect(worldState.syncImmediate).toHaveBeenCalledWith(parentBlockNumber);
       expect(checkpointsBuilder.getFork).toHaveBeenCalledWith(parentBlockNumber);
-      // World state must be synced before forking. The block source (archiver) can already hold a block
-      // while world state still trails it by one; forking a not-yet-applied block throws a raw tree error.
-      expect(worldState.syncImmediate.mock.invocationCallOrder[0]).toBeLessThan(
-        checkpointsBuilder.getFork.mock.invocationCallOrder[0],
-      );
     });
 
-    it('returns world_state_not_synced without forking when world state cannot sync to the parent block', async () => {
-      setupDeepValidationMocks({ header: makeHeader() });
-      worldState.syncImmediate.mockRejectedValue(new Error('Unable to initialize from future block'));
+    // If world state forked from a different chain than the proposal was built on (e.g. a reorg), the fork's
+    // archive root will not match the checkpoint's expected starting archive. Fail fast before rebuilding.
+    it('returns initial_archive_mismatch when the fork archive does not match the last archive', async () => {
+      // Fork reports a different archive root than the proposal header's lastArchiveRoot (Fr.ZERO).
+      setupDeepValidationMocks({ header: makeHeader() }, Fr.random());
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
 
       expect(result).toEqual({
         isValid: false,
-        reason: 'world_state_not_synced',
+        reason: 'initial_archive_mismatch',
         checkpointNumber: CheckpointNumber(1),
       });
-      expect(checkpointsBuilder.getFork).not.toHaveBeenCalled();
+      expect(mockDispose).toHaveBeenCalled();
     });
 
     // Regression: on a live node the archiver held block N (so getBlocksForSlot succeeds) while world state
     // still trailed at N-1, so forking the parent threw "Unable to initialize from future block" and the raw
-    // tree error escaped as an uncaught gossipsub error. Validation must map it to a clean failure instead.
+    // tree error escaped as an uncaught gossipsub error. Validation must map any fork failure to a clean
+    // result instead of letting it escape.
     it('returns world_state_not_synced when forking the parent block fails', async () => {
       setupDeepValidationMocks({ header: makeHeader() });
       checkpointsBuilder.getFork.mockRejectedValue(

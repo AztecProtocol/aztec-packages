@@ -101,6 +101,7 @@ export type CheckpointProposalValidationFailureReason =
   | 'no_blocks_for_slot'
   | 'last_block_archive_mismatch'
   | 'too_many_blocks_in_checkpoint'
+  | 'initial_archive_mismatch'
   | 'checkpoint_header_mismatch'
   | 'archive_mismatch'
   | 'out_hash_mismatch'
@@ -122,6 +123,7 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   last_block_not_found: 'unvalidated',
   block_fetch_error: 'unvalidated',
   world_state_not_synced: 'unvalidated',
+  initial_archive_mismatch: 'unvalidated',
   no_blocks_for_slot: 'unvalidated',
   last_block_archive_mismatch: 'invalid',
   too_many_blocks_in_checkpoint: 'invalid',
@@ -194,6 +196,8 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   ['last_block_not_found']: false,
   ['block_fetch_error']: false,
   ['world_state_not_synced']: false,
+  // A reorg / divergent local chain, not a proposer offense (mirrors the block path's initial_state_mismatch).
+  ['initial_archive_mismatch']: false,
   ['checkpoint_already_published']: false,
 };
 
@@ -1169,15 +1173,14 @@ export class ProposalHandler {
       log: this.log,
     });
 
-    // Fork world state at the block before the first block. Sync world state to the parent block first,
-    // mirroring the block-proposal re-execution path: the block source (archiver) can already hold the block
-    // while world state still trails it by one, and forking a not-yet-applied block throws a raw tree error
-    // that would otherwise escape as an uncaught gossipsub error. syncImmediate throws a typed error if the
-    // block genuinely cannot be reached, which we map to a clean validation failure below.
+    // Fork world state at the block before the first block. getFork syncs world state to the parent block
+    // first (see its doc): the block source (archiver) can already hold the block while world state still
+    // trails it by one, and forking a not-yet-applied block throws a raw tree error that would otherwise
+    // escape as an uncaught gossipsub error. On failure we map to a clean validation result rather than
+    // letting it escape.
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
     let forkResult: MerkleTreeWriteOperations;
     try {
-      await this.worldState.syncImmediate(parentBlockNumber);
       forkResult = await this.checkpointsBuilder.getFork(parentBlockNumber);
     } catch (err) {
       this.log.warn(`Failed to sync world state to block ${parentBlockNumber} for checkpoint proposal`, {
@@ -1188,6 +1191,21 @@ export class ProposalHandler {
       return { isValid: false, reason: 'world_state_not_synced', checkpointNumber };
     }
     await using fork = forkResult;
+
+    // Verify the fork's archive root matches the checkpoint's expected starting archive (the archive after
+    // the parent block). A mismatch means world state forked from a different chain than the proposal was
+    // built on (e.g. a reorg), so recomputing the checkpoint against it would be meaningless. This mirrors
+    // the block-proposal re-execution check and fails fast with a clean, non-slashable result instead of a
+    // confusing downstream mismatch.
+    const forkArchiveRoot = new Fr((await fork.getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+    if (!forkArchiveRoot.equals(proposal.checkpointHeader.lastArchiveRoot)) {
+      this.log.warn(`Fork archive root does not match checkpoint proposal's last archive`, {
+        ...proposalInfo,
+        forkArchiveRoot: forkArchiveRoot.toString(),
+        expectedLastArchiveRoot: proposal.checkpointHeader.lastArchiveRoot.toString(),
+      });
+      return { isValid: false, reason: 'initial_archive_mismatch', checkpointNumber };
+    }
 
     // Create checkpoint builder with all existing blocks
     const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(

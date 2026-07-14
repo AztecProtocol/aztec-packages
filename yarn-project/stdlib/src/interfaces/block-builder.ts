@@ -143,6 +143,7 @@ export interface ICheckpointBlockBuilder {
 
 /** Interface for creating checkpoint builders. */
 export interface ICheckpointsBuilder {
+  /** Syncs world state to `blockNumber` and returns a fork of it at that block. */
   getFork(blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations>;
 
   startCheckpoint(
