@@ -194,13 +194,13 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     // Step (1) s0 := ror(w[i - 15], 7) ^ ror(w[i - 15], 18) ^ (w[i - 15] >> 3);
     // Compute ror(w[i - 15], 7)
     uint32_t rot_7 = ror_with_witness(prev_w_helpers[1], 7, C::sha256_w_15_rotr_7, C::sha256_rhs_w_7, trace);
-    trace.set(C::sha256_two_pow_7, row, 128); // Store 2^7 for reference
+    trace.set(C::sha256_rng_chk_7, row, 7);
     // Compute ror(w[i - 15], 18)
     uint32_t rot_18 = ror_with_witness(prev_w_helpers[1], 18, C::sha256_w_15_rotr_18, C::sha256_rhs_w_18, trace);
-    trace.set(C::sha256_two_pow_18, row, 262144); // Store 2^18 for reference
+    trace.set(C::sha256_rng_chk_18, row, 18);
     // Compute (w[i - 15] >> 3)
     uint32_t shift_3 = shr_with_witness(prev_w_helpers[1], 3, C::sha256_lhs_w_3, C::sha256_rhs_w_3, trace);
-    trace.set(C::sha256_two_pow_3, row, 8); // Store 2^3 for reference
+    trace.set(C::sha256_rng_chk_3, row, 3);
 
     // Compute ror(w[i - 15], 7) ^ ror(w[i - 15], 18)
     trace.set(C::sha256_w_15_rotr_7_xor_w_15_rotr_18, row, rot_7 ^ rot_18);
@@ -211,13 +211,13 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     // Step (2) s1 := ror(w[i - 2], 17) ^ ror(w[i - 2], 19) ^ (w[i - 2] >> 10);
     // Compute ror(w[i - 2], 17)
     uint32_t rot_17 = ror_with_witness(prev_w_helpers[14], 17, C::sha256_w_2_rotr_17, C::sha256_rhs_w_17, trace);
-    trace.set(C::sha256_two_pow_17, row, 131072); // Store 2^17 for reference
+    trace.set(C::sha256_rng_chk_17, row, 17);
     // Compute ror(wi - 2, 19)
     uint32_t rot_19 = ror_with_witness(prev_w_helpers[14], 19, C::sha256_w_2_rotr_19, C::sha256_rhs_w_19, trace);
-    trace.set(C::sha256_two_pow_19, row, 524288); // Store 2^19 for reference
+    trace.set(C::sha256_rng_chk_19, row, 19);
     // Compute (w[i - 2] >> 10)
     uint32_t shift_10 = shr_with_witness(prev_w_helpers[14], 10, C::sha256_lhs_w_10, C::sha256_rhs_w_10, trace);
-    trace.set(C::sha256_two_pow_10, row, 1024); // Store 2^10 for reference
+    trace.set(C::sha256_rng_chk_10, row, 10);
 
     // Compute ror(w[i - 2], 17) ^ ror(w[i - 2], 19)
     trace.set(C::sha256_w_2_rotr_17_xor_w_2_rotr_19, row, rot_17 ^ rot_19);
@@ -256,13 +256,13 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     // Compute S1 := ror(e, 6U) ^ ror(e, 11U) ^ ror(e, 25U);
     // Compute ror(e, 6)
     uint32_t rot_6 = ror_with_witness(state[4], 6, C::sha256_e_rotr_6, C::sha256_rhs_e_6, trace);
-    trace.set(C::sha256_two_pow_6, row, 64); // Store 2^6 for reference
+    trace.set(C::sha256_rng_chk_6, row, 6);
     // Compute ror(e, 11)
     uint32_t rot_11 = ror_with_witness(state[4], 11, C::sha256_e_rotr_11, C::sha256_rhs_e_11, trace);
-    trace.set(C::sha256_two_pow_11, row, 2048); // Store 2^11 for reference
+    trace.set(C::sha256_rng_chk_11, row, 11);
     // Compute ror(e, 25)
     uint32_t rot_25 = ror_with_witness(state[4], 25, C::sha256_e_rotr_25, C::sha256_rhs_e_25, trace);
-    trace.set(C::sha256_two_pow_25, row, 33554432); // Store 2^25 for reference
+    trace.set(C::sha256_rng_chk_25, row, 25);
 
     // Compute ror(e, 6) ^ ror(e, 11)
     trace.set(C::sha256_e_rotr_6_xor_e_rotr_11, row, rot_6 ^ rot_11);
@@ -287,13 +287,13 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     // Compute S0 := ror(a, 2U) ^ ror(a, 13U) ^ ror(a, 22U);
     // Compute ror(a, 2)
     uint32_t rot_2 = ror_with_witness(state[0], 2, C::sha256_a_rotr_2, C::sha256_rhs_a_2, trace);
-    trace.set(C::sha256_two_pow_2, row, 4); // Store 2^2 for reference
+    trace.set(C::sha256_rng_chk_2, row, 2);
     // Compute ror(a, 13)
     uint32_t rot_13 = ror_with_witness(state[0], 13, C::sha256_a_rotr_13, C::sha256_rhs_a_13, trace);
-    trace.set(C::sha256_two_pow_13, row, 8192); // Store 2^13 for reference
+    trace.set(C::sha256_rng_chk_13, row, 13);
     // Compute ror(a, 22)
     uint32_t rot_22 = ror_with_witness(state[0], 22, C::sha256_a_rotr_22, C::sha256_rhs_a_22, trace);
-    trace.set(C::sha256_two_pow_22, row, 4194304); // Store 2^22 for reference
+    trace.set(C::sha256_rng_chk_22, row, 22);
 
     // Compute ror(a, 2) ^ ror(a, 13)
     trace.set(C::sha256_a_rotr_2_xor_a_rotr_13, row, rot_2 ^ rot_13);
@@ -628,7 +628,7 @@ void Sha256TraceBuilder::process(
                           { C::sha256_output_addr, output_addr },
                           { C::sha256_input_addr, round_input_addr },
                           { C::sha256_u32_tag, TAG_U32_AS_FF },
-                          { C::sha256_two_pow_32, static_cast<uint64_t>(1) << 32 },
+                          { C::sha256_rng_chk_32, 32 },
                           // For round selectors
                           { C::sha256_xor_op_id, AVM_BITWISE_XOR_OP_ID },
                           { C::sha256_and_op_id, AVM_BITWISE_AND_OP_ID },
@@ -690,7 +690,7 @@ void Sha256TraceBuilder::process(
                       { C::sha256_sel_mem_state_or_output, 1 },
                       { C::sha256_rw, 1 }, // Writing output
                       { C::sha256_u32_tag, TAG_U32_AS_FF },
-                      { C::sha256_two_pow_32, static_cast<uint64_t>(1) << 32 },
+                      { C::sha256_rng_chk_32, 32 },
                       { C::sha256_output_addr, output_addr },
                       // Output Addresses
                       { C::sha256_memory_address_0_, output_addr },
@@ -734,50 +734,51 @@ const InteractionDefinition Sha256TraceBuilder::interactions =
         .add<InteractionType::LookupGeneric, lookup_sha256_mem_check_input_addr_in_range_settings>(C::gt_sel)
         .add<InteractionType::LookupGeneric, lookup_sha256_mem_check_output_addr_in_range_settings>(C::gt_sel)
         // Bitwise operations
-        .add<InteractionType::LookupGeneric, lookup_sha256_w_s_0_xor_0_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_w_s_0_xor_1_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_w_s_1_xor_0_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_w_s_1_xor_1_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_s_1_xor_0_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_s_1_xor_1_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_ch_and_0_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_ch_and_1_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_ch_xor_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_s_0_xor_0_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_s_0_xor_1_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_maj_and_0_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_maj_and_1_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_maj_and_2_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_maj_xor_0_settings>(C::bitwise_start)
-        .add<InteractionType::LookupGeneric, lookup_sha256_maj_xor_1_settings>(C::bitwise_start)
-        // GT Checks for Rotations and Shifts
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_7_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_18_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_3_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_17_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_19_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_10_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_e_6_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_e_11_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_e_25_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_a_2_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_a_13_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_a_22_settings>(C::gt_sel)
-        // GT Checks for modulo add (rhs only; lhs uses range-8 precomputed lookups or boolean constraints)
+        .add<InteractionType::LookupGeneric, lookup_sha256_w_s_0_xor_0_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_w_s_0_xor_1_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_w_s_1_xor_0_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_w_s_1_xor_1_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_s_1_xor_0_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_s_1_xor_1_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_ch_and_0_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_ch_and_1_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_ch_xor_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_s_0_xor_0_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_s_0_xor_1_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_maj_and_0_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_maj_and_1_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_maj_and_2_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_maj_xor_0_settings>(C::bitwise_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_maj_xor_1_settings>(C::bitwise_sel)
+        // Range checks for Rotations and Shifts
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_7_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_18_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_3_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_17_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_19_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_10_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_e_6_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_e_11_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_e_25_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_a_2_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_a_13_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_a_22_settings>(C::range_check_sel)
+        // Modulo-add rhs is 32-bit range_check; lhs uses range-8 precomputed lookups (w/next_a/next_e)
+        // or boolean PIL constraints (output_*_lhs).
         .add<InteractionType::LookupIntoIndexedByRow, lookup_sha256_range_comp_w_lhs_settings>()
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_w_rhs_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_w_rhs_settings>(C::range_check_sel)
         .add<InteractionType::LookupIntoIndexedByRow, lookup_sha256_range_comp_next_a_lhs_settings>()
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_next_a_rhs_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_next_a_rhs_settings>(C::range_check_sel)
         .add<InteractionType::LookupIntoIndexedByRow, lookup_sha256_range_comp_next_e_lhs_settings>()
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_next_e_rhs_settings>(C::gt_sel)
-        // Output rhs GT checks (output lhs uses boolean constraints, no lookup needed)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_a_rhs_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_b_rhs_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_c_rhs_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_d_rhs_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_e_rhs_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_f_rhs_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_g_rhs_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_h_rhs_settings>(C::gt_sel);
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_next_e_rhs_settings>(C::range_check_sel)
+        // Output rhs range_check; output_*_lhs is constrained as boolean directly in PIL.
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_a_rhs_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_b_rhs_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_c_rhs_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_d_rhs_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_e_rhs_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_f_rhs_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_g_rhs_settings>(C::range_check_sel)
+        .add<InteractionType::LookupGeneric, lookup_sha256_range_comp_h_rhs_settings>(C::range_check_sel);
 
 } // namespace bb::avm2::tracegen

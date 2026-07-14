@@ -7,7 +7,7 @@ namespace bb {
 template <typename OuterFlavor>
 static void compare_ultra_blocks_and_verification_keys(
     std::array<typename OuterFlavor::CircuitBuilder::ExecutionTrace, 2> blocks,
-    std::array<std::shared_ptr<typename OuterFlavor::VerificationKey>, 2> verification_keys)
+    const std::array<std::shared_ptr<typename OuterFlavor::VerificationKey>, 2>& verification_keys)
 {
 
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
@@ -35,7 +35,7 @@ static void compare_ultra_blocks_and_verification_keys(
         block_idx++;
     }
 
-    typename OuterFlavor::CommitmentLabels labels;
+    const auto& labels = OuterFlavor::commitment_labels();
     for (auto [vk_0, vk_1, label] :
          zip_view(verification_keys[0]->get_all(), verification_keys[1]->get_all(), labels.get_precomputed())) {
         if (vk_0 != vk_1) {

@@ -47,14 +47,17 @@ static constexpr uint32_t NUM_MASKED_ROWS = 3;
 // but the gate separator vanishes there, so the first row where relations are active is TRACE_OFFSET.
 static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 
-// For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
-static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
+// Length (degree + 1) of the masking term (r_0 + r_1·X)·Z_H(X) added to a concatenated witness polynomial G in the
+// small-subgroup-IPA argument. It is degree-1 (length 2) because a single random linear term suffices to hide both
+// the commitment [G] and the evaluation G(r). This value is shared by every party that touches G's length: the
+// builders that pad G (ZKSumcheckData for Libra, TranslationData for ECCVM) and the SmallSubgroupIPAProver that
+// consumes it; they must all agree, so the constant lives here rather than being duplicated per class.
+static constexpr size_t WITNESS_MASKING_TERM_LENGTH = 2;
 
-// The SmallSubgroupIPA is a sub-protocol used in several Flavors, to prove claimed inner product, the Prover sends 4
-// extra evaluations
-static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
+// Number of wires in Ultra and Mega arithmetization
+static constexpr uint32_t NUM_WIRES = 4;
 
-static constexpr uint32_t MERGE_PROOF_SIZE = 42; // used to ensure mock proofs are generated correctly
+static constexpr uint32_t MERGE_PROOF_SIZE = 41; // used to ensure mock proofs are generated correctly
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
@@ -63,14 +66,21 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 // The number of leading zero rows in the execution trace. Used to enable shifted polynomials.
 static constexpr size_t NUM_ZERO_ROWS = 1;
 
-// The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
-static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
+// Number of trailing kernels: reset-tail, hiding
+static constexpr size_t NUM_TRAILING_KERNELS = 2;
 
-static constexpr size_t CHONK_MAX_NUM_APPS = 36;
+// The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
+static constexpr uint8_t MAX_APPS_PER_KERNEL = 5;
+
+// The maximum number of claims combined in a single per-kernel multilinear batching sumcheck: the accumulator carried
+// in from the previous kernel, the previous kernel's proof, and up to MAX_APPS_PER_KERNEL app proofs.
+static constexpr size_t CHONK_MAX_CLAIMS_PER_KERNEL = MAX_APPS_PER_KERNEL + 2;
+
+static constexpr size_t CHONK_MAX_NUM_APPS = 45;
 static constexpr size_t compute_chonk_max_num_circuits()
 {
     return CHONK_MAX_NUM_APPS + ((CHONK_MAX_NUM_APPS + MAX_APPS_PER_KERNEL - 1) / MAX_APPS_PER_KERNEL) +
-           /*trailing kernels*/ 3;
+           NUM_TRAILING_KERNELS;
 }
 static constexpr size_t CHONK_MAX_NUM_CIRCUITS = compute_chonk_max_num_circuits();
 
@@ -80,4 +90,8 @@ static constexpr size_t BATCH_MERGE_PROOF_SIZE =
     /*commitments*/ (4 * (4 * (CHONK_MAX_NUM_CIRCUITS + /*zk tables, merged tables*/ 2) + /*degree check*/ 1)) +
     /*evals*/ (4 * (CHONK_MAX_NUM_CIRCUITS + 2) + 1) +
     /*shplonk and kzg*/ 8;
+
+// Number of ultra ops the hiding kernel appends. The final merge verifier hard-codes its shift size from this,
+// and the merge prover asserts the hiding subtable matches it, so it must equal the hiding kernel's ultra-op count.
+static constexpr size_t HIDING_KERNEL_ULTRA_OPS = 363;
 } // namespace bb

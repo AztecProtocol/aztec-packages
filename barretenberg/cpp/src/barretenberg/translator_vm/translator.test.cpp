@@ -12,6 +12,7 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
@@ -206,7 +207,7 @@ class TranslatorTests : public ::testing::Test {
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
         // Merge with fixed append
-        op_queue->merge_fixed_append(op_queue->get_append_offset());
+        op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }

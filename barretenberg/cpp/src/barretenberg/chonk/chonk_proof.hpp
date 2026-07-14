@@ -26,8 +26,8 @@ namespace bb {
  * @details Contains five proof segments produced by the batched MegaZK + Translator protocol:
  *   1. hiding_oink_proof: Hiding kernel Oink (pre-sumcheck commitments for the hiding kernel)
  *   2. merge_proof: Merge proof for the hiding kernel's ECC op subtable
- *   3. eccvm_proof: ECCVM proof
- *   4. ipa_proof: IPA opening proof for ECCVM (separate transcript)
+ *   3. eccvm_proof: ECCVM proof without the final TripleIPA proof
+ *   4. ipa_proof: TripleIPA transcript for reducing ECCVM PCS checks to an accumulator
  *   5. joint_proof: Translator Oink + joint sumcheck + joint Shplemini/KZG PCS
  *
  * The joint sumcheck and PCS batch the MegaZK and translator circuits together,
@@ -41,7 +41,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     HonkProof hiding_oink_proof; // Hiding kernel Oink (pre-sumcheck only)
     HonkProof merge_proof;       // Merge proof
     HonkProof eccvm_proof;       // ECCVM proof
-    HonkProof ipa_proof;         // IPA opening proof (separate transcript)
+    HonkProof ipa_proof;         // TripleIPA transcript
     HonkProof joint_proof;       // Translator Oink + joint sumcheck + joint PCS
 
     // Sub-proof sizes (in field elements, excluding public inputs).
@@ -51,14 +51,14 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     static constexpr size_t JOINT_PROOF_LENGTH =
         TranslatorFlavor::COMMITTED_SUMCHECK_PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES;
 
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        HIDING_OINK_LENGTH + MERGE_PROOF_SIZE + ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS = HIDING_OINK_LENGTH + MERGE_PROOF_SIZE +
+                                                              ECCVMFlavor::PROOF_LENGTH +
+                                                              ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
     static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS + bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     // Default constructor
     ChonkProof_() = default;
 
-    // 5-arg constructor
     ChonkProof_(HonkProof mega_zk, HonkProof merge, HonkProof eccvm, HonkProof ipa, HonkProof joint)
         : hiding_oink_proof(std::move(mega_zk))
         , merge_proof(std::move(merge))

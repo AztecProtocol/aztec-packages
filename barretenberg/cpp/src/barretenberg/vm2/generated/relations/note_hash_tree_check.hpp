@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -44,6 +43,7 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_DISABLE_SILOING_ON_READ:
             return "DISABLE_SILOING_ON_READ";
@@ -56,6 +56,7 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
         case SR_MERKLE_HASH_SEPARATOR_CONSTANT:
             return "MERKLE_HASH_SEPARATOR_CONSTANT";
         }
+#endif
         return std::to_string(index);
     }
 };

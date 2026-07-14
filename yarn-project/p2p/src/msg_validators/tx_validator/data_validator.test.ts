@@ -26,6 +26,8 @@ import {
   type Tx,
 } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
+
 import { DataTxValidator } from './data_validator.js';
 
 const mockTxs = (numTxs: number) =>
@@ -362,6 +364,43 @@ describe('TxDataValidator', () => {
       expect(result.result === 'invalid' && result.reason[0]).toMatch(
         new RegExp(`${TX_ERROR_INCORRECT_CONTRACT_CLASS_ID}|${TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG}`),
       );
+    });
+
+    it('rejects an over-large declared bytecode length without allocating it', async () => {
+      const tx = await mockTx(5, {
+        numberOfNonRevertiblePublicCallRequests: 1,
+        numberOfRevertiblePublicCallRequests: 0,
+      });
+      // A small log that declares a 16 MiB packed-bytecode length. The fixed-size class log can only
+      // carry ~93 KiB, so decoding it must reject rather than Buffer.alloc the attacker-declared size.
+      const overLargeByteLength = 16 * 1024 * 1024;
+      const headerFields = [
+        new Fr(CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE),
+        Fr.random(),
+        new Fr(1),
+        Fr.random(),
+        Fr.random(),
+        new Fr(overLargeByteLength),
+      ];
+      const allFields = [
+        ...headerFields,
+        ...Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - headerFields.length).fill(Fr.ZERO),
+      ];
+      const fields = new ContractClassLogFields(allFields);
+      const log = new ContractClassLog(ProtocolContractAddress.ContractClassRegistry, fields, headerFields.length);
+      await injectContractClassLog(tx, log, headerFields.length);
+      await tx.recomputeHash();
+
+      const allocSpy = jest.spyOn(Buffer, 'alloc');
+      try {
+        const result = await validator.validateTx(tx);
+        expect(result.result).toBe('invalid');
+        expect(result.result === 'invalid' && result.reason[0]).toBe(TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG);
+        // The declared length was never allocated.
+        expect(allocSpy.mock.calls.some(([size]) => Number(size) >= overLargeByteLength)).toBe(false);
+      } finally {
+        allocSpy.mockRestore();
+      }
     });
   });
 });

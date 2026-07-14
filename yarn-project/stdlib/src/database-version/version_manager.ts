@@ -6,10 +6,19 @@ import { join } from 'path';
 
 import { DatabaseVersion } from './database_version.js';
 
-export type DatabaseVersionManagerFs = Pick<typeof fs, 'readFile' | 'writeFile' | 'rm' | 'mkdir'>;
+export type DatabaseVersionManagerFs = Pick<typeof fs, 'readFile' | 'rm' | 'mkdir' | 'rename' | 'open'>;
 
 export const DATABASE_VERSION_FILE_NAME = 'db_version';
 export type SchemaVersionMismatchPolicy = 'reset' | 'throw';
+
+/**
+ * How to react when the version file exists but cannot be read (permissions, IO error, truncation).
+ * `'reset'` (default) treats the store as unversioned and lets the reset path run — safe for stores
+ * where an empty state is legitimate. `'throw'` refuses to open, leaving data untouched — required
+ * for protection stores (e.g. signing protection) that must never be silently wiped by a transient
+ * filesystem error. A genuinely missing file (ENOENT) is a first boot and is never affected by this.
+ */
+export type VersionFileReadFailurePolicy = 'reset' | 'throw';
 
 export type DatabaseVersionManagerOptions<T> = {
   schemaVersion: number;
@@ -18,6 +27,7 @@ export type DatabaseVersionManagerOptions<T> = {
   onOpen: (dataDir: string) => Promise<T>;
   onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
   schemaVersionMismatchPolicy?: SchemaVersionMismatchPolicy;
+  versionFileReadFailurePolicy?: VersionFileReadFailurePolicy;
   fileSystem?: DatabaseVersionManagerFs;
   log?: Logger;
 };
@@ -37,6 +47,7 @@ export class DatabaseVersionManager<T> {
   private onOpen: (dataDir: string) => Promise<T>;
   private onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
   private schemaVersionMismatchPolicy: SchemaVersionMismatchPolicy;
+  private versionFileReadFailurePolicy: VersionFileReadFailurePolicy;
   private fileSystem: DatabaseVersionManagerFs;
   private log: Logger;
 
@@ -47,8 +58,11 @@ export class DatabaseVersionManager<T> {
    * @param rollupAddress - The rollup contract address
    * @param dataDirectory - The directory where version information will be stored
    * @param onOpen - A callback to the open the database at the given location
-   * @param onUpgrade - An optional callback to upgrade the database before opening. If not provided it will reset the database
+   * @param onUpgrade - An optional callback to upgrade the database before opening. If not provided it will reset the
+   *   database. Must be idempotent: since the version marker is written only after a successful open, a crash after
+   *   onUpgrade but before the marker is written re-runs onUpgrade on the next start.
    * @param schemaVersionMismatchPolicy - Whether schema mismatches should reset data or throw
+   * @param versionFileReadFailurePolicy - Whether an unreadable (non-missing) version file should reset data or throw
    * @param fileSystem - An interface to access the filesystem
    * @param log - Optional custom logger
    * @param options - Configuration options
@@ -60,6 +74,7 @@ export class DatabaseVersionManager<T> {
     onOpen,
     onUpgrade,
     schemaVersionMismatchPolicy = 'reset',
+    versionFileReadFailurePolicy = 'reset',
     fileSystem = fs,
     log = createLogger(`foundation:version-manager`),
   }: DatabaseVersionManagerOptions<T>) {
@@ -74,13 +89,40 @@ export class DatabaseVersionManager<T> {
     this.onOpen = onOpen;
     this.onUpgrade = onUpgrade;
     this.schemaVersionMismatchPolicy = schemaVersionMismatchPolicy;
+    this.versionFileReadFailurePolicy = versionFileReadFailurePolicy;
     this.fileSystem = fileSystem;
     this.log = log;
   }
 
   static async writeVersion(version: DatabaseVersion, dataDir: string, fileSystem: DatabaseVersionManagerFs = fs) {
     await fileSystem.mkdir(dataDir, { recursive: true });
-    return fileSystem.writeFile(join(dataDir, DatabaseVersionManager.VERSION_FILE), version.toBuffer());
+    const finalPath = join(dataDir, DatabaseVersionManager.VERSION_FILE);
+    const tmpPath = `${finalPath}.tmp`;
+
+    // Atomic durable write: fill a temp file, fsync it, then rename it into place. The marker only
+    // becomes visible under its final name once its bytes are durably on disk, so a crash mid-write
+    // can never leave a "valid" version file sitting over an empty or partially-populated data dir.
+    const handle = await fileSystem.open(tmpPath, 'w');
+    try {
+      await handle.writeFile(version.toBuffer());
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await fileSystem.rename(tmpPath, finalPath);
+
+    // Best-effort fsync of the containing directory so the rename itself survives a crash. Not all
+    // filesystems support directory fsync, so a failure here is non-fatal.
+    try {
+      const dirHandle = await fileSystem.open(dataDir, 'r');
+      try {
+        await dirHandle.sync();
+      } finally {
+        await dirHandle.close();
+      }
+    } catch {
+      // directory fsync is best-effort
+    }
   }
 
   /**
@@ -105,6 +147,17 @@ export class DatabaseVersionManager<T> {
         storedVersion = DatabaseVersion.empty();
         // only turn off these logs if the data dir didn't exist before
         shouldLogDataReset = false;
+      } else if (this.versionFileReadFailurePolicy === 'throw') {
+        // The version file exists but could not be read/parsed (permissions, IO error, truncation).
+        // Treating this as "unversioned" would reset the data directory, silently wiping a store that
+        // must fail closed. Refuse to open instead, leaving the data untouched for the operator.
+        const code = (err as Error & { code?: string })?.code;
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `Failed to read database version file at ${this.versionFile} (${code ?? 'unknown error'}: ${message}). ` +
+            `Refusing to open the database; data was NOT reset. Resolve the underlying filesystem error and retry.`,
+          { cause: err },
+        );
       } else {
         this.log.warn(`Failed to read stored version information: ${err}. Defaulting to empty version`);
         storedVersion = DatabaseVersion.empty();
@@ -159,10 +212,47 @@ export class DatabaseVersionManager<T> {
       await this.resetDataDirectory();
     }
 
-    // Write the current version to disk
-    await this.writeVersion();
+    // Open the database first, then record the version marker. Writing the marker only after a
+    // successful open makes it a post-commit record: if the process crashes between the reset and a
+    // durable open, no marker is left behind, so the next startup re-runs the reset instead of
+    // trusting a marker that sits over empty or partially-initialized data.
+    const instance = await this.onOpen(this.dataDirectory);
 
-    return [await this.onOpen(this.dataDirectory), needsReset];
+    // Only (re)write the marker when it would actually change — first boot, reset, or upgrade. On a
+    // normal boot it already matches, so skipping avoids an unnecessary fsync (and the directory
+    // write permission the temp-file+rename needs) and, more importantly, any window where a
+    // marker-write failure would orphan the database we just opened.
+    if (!storedVersion.equals(this.currentVersion)) {
+      try {
+        await this.writeVersion();
+      } catch (err) {
+        // The database opened but recording the marker failed; close the freshly opened instance so
+        // we do not leak its file handles / locks before propagating the failure.
+        await this.closeQuietly(instance);
+        throw err;
+      }
+    }
+
+    return [instance, needsReset];
+  }
+
+  /**
+   * Best-effort close of a just-opened database instance, used to avoid leaking handles/locks when a
+   * post-open step fails. Swallows close errors so the original failure is the one that propagates.
+   */
+  private async closeQuietly(instance: T): Promise<void> {
+    const closable = instance as
+      | { close?: () => Promise<void> | void; [Symbol.asyncDispose]?: () => Promise<void> }
+      | undefined;
+    const dispose = closable?.close ?? closable?.[Symbol.asyncDispose];
+    if (typeof dispose !== 'function') {
+      return;
+    }
+    try {
+      await dispose.call(closable);
+    } catch (err) {
+      this.log.warn(`Failed to close database after version-write failure: ${err}`);
+    }
   }
 
   /**

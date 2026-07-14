@@ -31,7 +31,10 @@
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">hash</a></div>
 <h1>Function <span class="fn">compute_l1_to_l2_message_nullifier</span></h1>
-<pre><code>pub fn compute_l1_to_l2_message_nullifier(message_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, secret: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
+<pre><code>pub fn compute_l1_to_l2_message_nullifier&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    message_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    secret: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N],
+) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
 
 </main>
 </span>

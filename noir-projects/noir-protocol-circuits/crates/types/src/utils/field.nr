@@ -1,5 +1,5 @@
 pub fn field_from_bytes<let N: u32>(bytes: [u8; N], big_endian: bool) -> Field {
-    assert(bytes.len() < 32, "field_from_bytes: N must be less than 32");
+    std::static_assert(N < 32, "field_from_bytes: N must be less than 32");
     let mut as_field = 0;
     let mut offset = 1;
     for i in 0..N {
@@ -315,8 +315,23 @@ unconstrained fn sqrt_has_two_roots_test() {
 #[test]
 unconstrained fn sqrt_negative_one_test() {
     let x = 0 - 1;
-    let result = sqrt(x);
-    assert(result.unwrap() == 0x30644e72e131a029048b6e193fd841045cea24f6fd736bec231204708f703636);
+    let result = sqrt(x).unwrap();
+    // -1 has two square roots, `r` and `-r` (= p - r), and `sqrt()` may legitimately return either one.
+    // Accept both rather than pinning the test to one particular root.
+    let known_root = 0x30644e72e131a029048b6e193fd841045cea24f6fd736bec231204708f703636;
+    assert((result == known_root) | (result == 0 - known_root));
+}
+
+#[test]
+unconstrained fn sqrt_negative_one_squares_back_test() {
+    let x = 0 - 1;
+    let root = sqrt(x).unwrap();
+    // Whichever root `sqrt` returns is a genuine square root of -1...
+    assert_eq(root * root, x);
+    // ...and so is its negation (the other root), which must be distinct.
+    let other_root = 0 - root;
+    assert_eq(other_root * other_root, x);
+    assert(root != other_root);
 }
 
 #[test]

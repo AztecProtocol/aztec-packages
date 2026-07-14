@@ -87,6 +87,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto& msm_transition_shift = View(in.msm_transition_shift);
     const auto& round = View(in.msm_round);
     const auto& round_shift = View(in.msm_round_shift);
+    const auto& round_minus_31_inv = View(in.msm_round_minus_31_inv);
     const auto& q_add = View(in.msm_add); // is 1 iff we are at an ADD row in Straus algorithm
     const auto& q_add_shift = View(in.msm_add_shift);
     const auto& q_skew = View(in.msm_skew);
@@ -506,6 +507,22 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<IDLE_ROW_PRESERVES_ACC_Y>(accumulator) +=
         no_op_selector * (acc_y_shift - acc_y) * scaling_factor; // degree 6
 
+    // MSM-START ANCHOR: the first row of every MSM block must have msm_transition = 1.
+    //
+    // `first_add` is gated on `msm_transition`: when msm_transition = 1 the chain begins from
+    // offset_generator, when msm_transition = 0 the chain begins from the row's witness (acc_x, acc_y).
+    // Without an anchor, the prover can flip msm_transition to 0 at the first row of an MSM and
+    // open the chain from any point A, shifting the user-visible MSM result by (A - offset_generator).
+    //
+    // We force msm_transition_shift = 1 whenever the current row is not actively computing an MSM phase
+    // (lagrange_first, idle padding, or the synthetic-final sentinel of the previous MSM) and the next
+    // row activates a phase. q_add/q_double/q_skew are mutually exclusive booleans, so q_add_shift + q_double_shift +
+    // q_skew_shift is itself boolean.
+    auto curr_not_phase = (-q_add + 1) * (-q_double + 1) * (-q_skew + 1); // degree 3
+    auto next_phase = q_add_shift + q_double_shift + q_skew_shift;        // degree 1
+    std::get<MSM_TRANSITION_AT_ACTIVE_START>(accumulator) +=
+        curr_not_phase * next_phase * (msm_transition_shift - 1) * scaling_factor; // degree 5
+
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
     // NOTE(#2222): could just get rid of add1 as a column, as it is a linear combination.
     std::get<ADD1_DECOMPOSITION>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
@@ -540,10 +557,15 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // the fact that a round_transition occurs at the first time skew_shift == 1 follows from the fact that skew == 1
     // implies round == 32 and the above three relations, together with the _definition_ of round_transition.
     std::get<ROUND_TRANSITION_SKEW_IMPLIES_ROUND_31>(accumulator) +=
-        round_transition * q_skew_shift * (round - 31) * scaling_factor;
+        round_transition * q_skew_shift * (round - LAST_ADDITION_ROUND) * scaling_factor;
     std::get<ROUND_TRANSITION_EXACTLY_ONE_DOUBLE_OR_SKEW>(accumulator) +=
         round_transition * (q_skew_shift + q_double_shift - 1) * scaling_factor;
     std::get<DOUBLE_REQUIRES_ROUND_CHANGE>(accumulator) += (-round_delta + 1) * q_double_shift * scaling_factor;
+    // `round_minus_31_inv` is intentionally zero when round == 31, because (round - 31)^-1 is undefined there.
+    // On every other active MSM row, it stores the canonical inverse (round - 31)^-1. Therefore, if q_double_shift
+    // is active, the prover must witness that round != 31.
+    std::get<DOUBLE_SHIFT_FORBIDS_ROUND_31>(accumulator) +=
+        q_double_shift * (FF(1) - (round - FF(LAST_ADDITION_ROUND)) * round_minus_31_inv) * scaling_factor;
     // if the next is neither double nor skew, and we are not at an msm_transition, then round_delta = 0 and the next
     // "row" of our VM is processing the same wNAF digit place.
     std::get<ROUND_TRANSITION_NEEDS_DOUBLE_OR_SKEW>(accumulator) +=
@@ -596,6 +618,25 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // NB: `ecc_set_relation` ensures `msm_size` maps to `transcript.msm_count` for the current value of `pc`
     std::get<MSM_TRANSITION_PC>(accumulator) +=
         is_not_first_row * msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
+
+    // Pin `msm_pc` constant within an MSM segment. On every ADD or DOUBLE row that is not the last
+    // row of its segment, `pc_shift = pc`. Without this, the multiset arguments alone do not force
+    // per-row consistency of `msm_pc` — a swap of `(msm_pc, slice, x, y, lambda, collision_x)`
+    // between two same-base MSMs at the same interior round still balances both the WNAF and
+    // lookup multisets, but produces swapped final accumulators. The constraint fires at the row
+    // immediately preceding any ADD or SKEW swap (always a DOUBLE for an interior swap, or the
+    // round-31 ADD for a SKEW swap), so q_skew is intentionally excluded from `active_phase` —
+    // including it would also fire at the last skew row of the entire MSM trace, which is followed
+    // by trailing idle rows where msm_transition_shift = 0. Requires `msm_pc` to be populated on
+    // DOUBLE rows (see `msm_builder.hpp`).
+    const auto active_phase = q_add + q_double;
+    std::get<MSM_PC_CONTINUITY>(accumulator) +=
+        is_not_first_row * active_phase * (-msm_transition_shift + 1) * (pc_shift - pc) * scaling_factor;
+
+    // Pin `msm_pc` across consecutive SKEW rows of a segment. The skew round spans `ceil(msm_size/4)`
+    // rows; for msm_size >= 9 it has interior skew rows that `MSM_PC_CONTINUITY` leaves free (its
+    // `active_phase` excludes q_skew, and `MSM_TRANSITION_PC` only pins the last skew row).
+    std::get<MSM_PC_SKEW_CONTINUITY>(accumulator) += q_skew * q_skew_shift * (pc_shift - pc) * scaling_factor;
 
     // Addition continuity checks
     // We want to RULE OUT the following scenarios:

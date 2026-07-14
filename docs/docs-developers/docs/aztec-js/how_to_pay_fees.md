@@ -38,25 +38,25 @@ Mana is Aztec's unit of computational effort (like gas on Ethereum), and Fee Jui
 When using `EmbeddedWallet`, gas is estimated automatically on every `send()` call. You only need to manually estimate if you want to preview costs before sending, or if you're using a custom wallet implementation.
 :::
 
-Before sending a transaction, you can estimate the mana it will consume by simulating with `estimateGas: true`:
+Before sending a transaction, you can read the mana it will consume by simulating with `includeMetadata: true` and reading `gasUsed` from the result:
 
 #include_code estimate_mana /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-The `estimatedGas` object contains:
+The `gasUsed` object contains the raw gas the simulation consumed:
 
-- `gasLimits.daGas` - Estimated DA mana for main execution
-- `gasLimits.l2Gas` - Estimated L2 mana for main execution
-- `teardownGasLimits.daGas` - Estimated DA mana for teardown phase
-- `teardownGasLimits.l2Gas` - Estimated L2 mana for teardown phase
+- `totalGas.daGas` / `totalGas.l2Gas` - DA and L2 mana consumed across the whole transaction
+- `teardownGas.daGas` / `teardownGas.l2Gas` - DA and L2 mana consumed in the teardown phase
+
+It is up to you to derive the gas limits you declare from this raw usage (typically by padding it, as shown above). If you don't declare any gas limits, the wallet fills in the network's per-tx admission limits for you.
 
 ### Calculate expected fee from estimate
 
-To calculate the expected fee from estimated gas, use the `computeFee` method with current network fees:
+To calculate the expected fee from the padded gas, use the `computeFee` method with current network fees:
 
 #include_code compute_fee_from_estimate /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 :::tip
-The `estimatedGasPadding` parameter adds a safety margin to the estimate. A value of `0.1` adds 10% padding. Use higher padding for transactions with variable gas costs.
+Pad the raw `gasUsed` yourself to leave a safety margin. Multiplying by `1.1` adds 10%; use higher padding for transactions with variable gas costs. The wallet rejects any declared limit above the network's per-tx admission limit.
 :::
 
 ## Get transaction fee from receipt
@@ -101,7 +101,7 @@ You can derive the Sponsored FPC address from its deployment parameters, registe
 
 Here's a simpler example from the test suite:
 
-#include_code sponsored_fpc_simple yarn-project/end-to-end/src/e2e_fees/sponsored_payments.test.ts typescript
+#include_code sponsored_fpc_simple yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts typescript
 
 ### Private fee payment
 
@@ -148,7 +148,7 @@ const payment = await fpcClient.createPaymentMethod({
   wallet,
   user: aliceAddress, // the account paying the fee
   tokenAddress,     // the token you want to pay in
-  estimatedGas,     // from a prior estimateGas call
+  estimatedGas,     // gas limits derived from a prior simulation's gasUsed
 });
 
 // Use it like any other payment method
@@ -171,7 +171,7 @@ Fee Juice is non-transferable on L2, but you can bridge it from L1, claim it on 
 
 #include_code bridge_fee_juice_setup /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-Under the hood, `L1FeeJuicePortalManager` gets the L1 addresses from the node `node_getNodeInfo` endpoint. It then exposes an easy method `bridgeTokensPublic` which mints fee juice on L1 and sends it to an L2 address via the L1 portal:
+Under the hood, `L1FeeJuicePortalManager` gets the L1 addresses from the node `aztec_getNodeInfo` endpoint. It then exposes an easy method `bridgeTokensPublic` which mints fee juice on L1 and sends it to an L2 address via the L1 portal:
 
 #include_code bridge_fee_juice_execute /docs/examples/ts/aztecjs_connection/index.ts typescript
 
@@ -207,7 +207,7 @@ Note that `gasLimits` and `teardownGasLimits` use `daGas`/`l2Gas` field names, w
 ### Use automatic gas estimation
 
 :::note
-When using `EmbeddedWallet`, gas estimation happens automatically on every `send()`; you don't need to pass `estimateGas`. This option is useful for custom wallet implementations or when you want to estimate gas during a `simulate()` call.
+When using `EmbeddedWallet`, gas estimation happens automatically on every `send()`; you don't need to declare gas limits at all. Reading `gasUsed` from a `simulate({ includeMetadata: true })` result is useful when you want to preview costs before sending, or to set explicit limits with a custom wallet implementation.
 :::
 
 #include_code auto_gas_estimation /docs/examples/ts/aztecjs_advanced/index.ts typescript

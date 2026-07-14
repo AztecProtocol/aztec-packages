@@ -61,7 +61,17 @@ export class FeePredictor {
     const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
     if (this.cachedL1BlockNumber === undefined || blockNumber > this.cachedL1BlockNumber) {
       this.cachedL1BlockNumber = blockNumber;
-      this.cachedState = this.fetchState(blockNumber);
+      // Reset the cached block number on failure so a transient L1 RPC error does not leave a
+      // rejected promise cached for this block, which would replay the same rejection on every
+      // subsequent call until the next L1 block arrives. Only clear it if it still points at the
+      // block this attempt was for, so a stale rejection from an older block cannot wipe a marker
+      // a newer call already advanced (which would also defeat the monotonic block-number guard).
+      this.cachedState = this.fetchState(blockNumber).catch(err => {
+        if (this.cachedL1BlockNumber === blockNumber) {
+          this.cachedL1BlockNumber = undefined;
+        }
+        throw err;
+      });
     }
     return this.cachedState!;
   }

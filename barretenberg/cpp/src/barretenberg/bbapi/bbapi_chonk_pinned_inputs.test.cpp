@@ -88,14 +88,20 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
         bb::bbapi::BBApiRequest request;
         request.vk_policy = bb::bbapi::VkPolicy::DEFAULT;
 
-        bb::bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
+        std::vector<bb::CircuitKind> kinds;
+        kinds.reserve(raw_steps.size());
+        for (const auto& step : raw_steps) {
+            kinds.push_back(step.kind);
+        }
+        bb::bbapi::ChonkStart{ .kinds = std::move(kinds) }.execute(request);
 
         for (auto& step : raw_steps) {
-            bb::bbapi::ChonkLoad{
-                .circuit = { .name = std::move(step.function_name),
-                             .bytecode = std::move(step.bytecode),
-                             .verification_key = std::move(step.vk) }
-            }.execute(request);
+            const bb::CircuitKind kind = step.kind;
+            bb::bbapi::ChonkLoad{ .circuit = { .name = std::move(step.function_name),
+                                               .bytecode = std::move(step.bytecode),
+                                               .verification_key = std::move(step.vk) },
+                                  .kind = kind }
+                .execute(request);
             bb::bbapi::ChonkAccumulate{ .witness = std::move(step.witness) }.execute(request);
         }
 

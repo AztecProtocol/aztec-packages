@@ -19,10 +19,9 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
 
     transcript->load_proof(proof);
 
-    // Get the lowest 127 bits of the hash
-    // We compare the calculated hashes against this value so that we can reuse the transcript hash calculations
-    // A collision happens with probability 2^{-127}
-    const FF binding_hash = std::get<0>(Transcript::Codec::split_challenge(hash));
+    // Compare the calculated column hashes against the running ECC-op hash, reusing the transcript hash
+    // calculations.
+    const FF binding_hash = hash;
 
     // -------------------------------------------------------------------------
     // Step 1: Receive commitments to columns to be merged

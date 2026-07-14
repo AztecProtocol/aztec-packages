@@ -356,10 +356,6 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
         Acc3((is_accumulator_empty * transcript_accumulator_x) * scaling_factor);
     std::get<Base::INFINITY_ACC_Y>(accumulator) +=
         Acc3((is_accumulator_empty * transcript_accumulator_y) * scaling_factor);
-
-    // ACCUMULATOR_NOT_EMPTY_INIT: deg 2, length 3.
-    std::get<Base::ACCUMULATOR_NOT_EMPTY_INIT>(accumulator) +=
-        Acc3((lagrange_first * transcript_accumulator_not_empty) * scaling_factor);
 }
 
 } // namespace bb

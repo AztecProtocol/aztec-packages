@@ -3,7 +3,11 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 import { promises as fs } from 'fs';
 
 import type { ClientProtocolArtifact } from '../artifacts/types.js';
-import { PrivateKernelResetArtifactFileNames } from '../private_kernel_reset_types.js';
+import {
+  PrivateKernelResetArtifactFileNames,
+  PrivateKernelResetTailArtifactFileNames,
+  PrivateKernelResetTailToPublicArtifactFileNames,
+} from '../private_kernel_reset_types.js';
 
 const log = createConsoleLogger('autogenerate');
 
@@ -13,14 +17,18 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
   PrivateKernelInitArtifact: 'private_kernel_init',
   PrivateKernelInit2Artifact: 'private_kernel_init_2',
   PrivateKernelInit3Artifact: 'private_kernel_init_3',
+  PrivateKernelInit4Artifact: 'private_kernel_init_4',
+  PrivateKernelInit5Artifact: 'private_kernel_init_5',
   PrivateKernelInnerArtifact: 'private_kernel_inner',
   PrivateKernelInner2Artifact: 'private_kernel_inner_2',
   PrivateKernelInner3Artifact: 'private_kernel_inner_3',
-  PrivateKernelTailArtifact: 'private_kernel_tail',
-  PrivateKernelTailToPublicArtifact: 'private_kernel_tail_to_public',
+  PrivateKernelInner4Artifact: 'private_kernel_inner_4',
+  PrivateKernelInner5Artifact: 'private_kernel_inner_5',
   HidingKernelToRollup: 'hiding_kernel_to_rollup',
   HidingKernelToPublic: 'hiding_kernel_to_public',
   ...PrivateKernelResetArtifactFileNames,
+  ...PrivateKernelResetTailArtifactFileNames,
+  ...PrivateKernelResetTailToPublicArtifactFileNames,
 };
 
 const artifactsWithoutSimulatedVersions = [
@@ -28,8 +36,12 @@ const artifactsWithoutSimulatedVersions = [
   'hiding_kernel_to_public',
   'private_kernel_init_2',
   'private_kernel_init_3',
+  'private_kernel_init_4',
+  'private_kernel_init_5',
   'private_kernel_inner_2',
   'private_kernel_inner_3',
+  'private_kernel_inner_4',
+  'private_kernel_inner_5',
 ];
 
 function generateImports() {
@@ -52,11 +64,30 @@ function generateArtifactNames() {
   `;
 }
 
+// Maps a constrained reset-family artifact name to its simulated counterpart. The simple
+// `${name}_simulated` rule doesn't work for reset variants because their names carry a dimension
+// suffix and the `_simulated` infix lives *before* that suffix on disk. Concretely:
+//   private_kernel_reset_4_4_4_4_4_4_0_0_0           ->  private_kernel_reset_simulated_4_4_4_4_4_4_0_0_0
+//   private_kernel_reset_tail_4_4_..._4              ->  private_kernel_reset_tail_simulated_4_4_..._4
+//   private_kernel_reset_tail_to_public_4_4_..._4    ->  private_kernel_reset_tail_to_public_simulated_4_4_..._4
+// Order matters: the longest prefix must be checked first so `_tail_to_public` doesn't get
+// truncated to `_tail` (or to plain `_reset`) by an earlier match.
+const RESET_SIMULATED_PREFIXES: Array<[string, string]> = [
+  ['private_kernel_reset_tail_to_public', 'private_kernel_reset_tail_to_public_simulated'],
+  ['private_kernel_reset_tail', 'private_kernel_reset_tail_simulated'],
+  ['private_kernel_reset', 'private_kernel_reset_simulated'],
+];
+
+// Returns the simulated artifact name for `artifactName`. For reset variants this swaps the
+// family prefix per `RESET_SIMULATED_PREFIXES`; for everything else (init, inner, ...) there's
+// no dimension suffix, so plain `${name}_simulated` is the right answer.
 function generateSimulatedArtifactName(artifactName: string) {
-  const isReset = artifactName.includes('private_kernel_reset');
-  return isReset
-    ? artifactName.replace('private_kernel_reset', 'private_kernel_reset_simulated')
-    : `${artifactName}_simulated`;
+  for (const [from, to] of RESET_SIMULATED_PREFIXES) {
+    if (artifactName.startsWith(from)) {
+      return artifactName.replace(from, to);
+    }
+  }
+  return `${artifactName}_simulated`;
 }
 
 function generateCircuitArtifactImportFunction() {
@@ -68,7 +99,7 @@ function generateCircuitArtifactImportFunction() {
     .map(artifactName => {
       // Cannot assert this import as it's incompatible with bundlers like vite
       // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
-      // Even if now supported by al major browsers, the MIME type is replaced with
+      // Even if now supported by all major browsers, the MIME type is replaced with
       // "text/javascript"
       // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
       return `case '${artifactName}': {
@@ -88,12 +119,24 @@ function generateCircuitArtifactImportFunction() {
       }`,
     );
 
+  // Emit the same RESET_SIMULATED_PREFIXES table into the generated runtime helper so its prefix
+  // mapping stays in lockstep with this generator's.
+  const prefixTableLiteral = `[\n${RESET_SIMULATED_PREFIXES.map(([from, to]) => `      ['${from}', '${to}'],`).join(
+    '\n',
+  )}\n    ]`;
+
   return `
+    // See the comment on RESET_SIMULATED_PREFIXES in generate_client_artifacts_helper.ts for the
+    // worked example: reset variant artifacts carry a dimension suffix, so the \`_simulated\`
+    // infix has to be substring-replaced into the prefix rather than appended.
+    const RESET_SIMULATED_PREFIXES: Array<[string, string]> = ${prefixTableLiteral};
+
     export async function getClientCircuitArtifact(artifactName: string, simulated: boolean): Promise<NoirCompiledCircuitWithName> {
-      const isReset = artifactName.includes('private_kernel_reset');
-      const normalizedArtifactName = isReset
-        ? \`\${simulated ? artifactName.replace('private_kernel_reset', 'private_kernel_reset_simulated') : artifactName}\`
-        : \`\${artifactName}\${simulated ? '_simulated' : ''}\`;
+      let normalizedArtifactName = artifactName;
+      if (simulated) {
+        const match = RESET_SIMULATED_PREFIXES.find(([from]) => artifactName.startsWith(from));
+        normalizedArtifactName = match ? artifactName.replace(match[0], match[1]) : \`\${artifactName}_simulated\`;
+      }
       switch(normalizedArtifactName) {
         ${[...cases, ...simulatedFallbackCases].join('\n')}
         default: throw new Error(\`Unknown artifact: \${artifactName}\`);
@@ -106,7 +149,7 @@ function generateVkImportFunction() {
   const cases = Object.values(ClientCircuitArtifactNames).map(artifactName => {
     // Cannot assert this import as it's incompatible with bundlers like vite
     // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
-    // Even if now supported by al major browsers, the MIME type is replaced with
+    // Even if now supported by all major browsers, the MIME type is replaced with
     // "text/javascript"
     // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
     return `case '${artifactName}': {

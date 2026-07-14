@@ -17,7 +17,6 @@ export class PrivateKernelInit2CircuitPrivateInputs {
     public privateCall0: PrivateCallData,
     public privateCall1: PrivateCallData,
     public isPrivateOnly: boolean,
-    public firstNullifierHint: Fr,
     public revertibleCounterHint: number,
   ) {}
 
@@ -28,7 +27,6 @@ export class PrivateKernelInit2CircuitPrivateInputs {
       this.protocolContracts,
       this.privateCall0,
       this.privateCall1,
-      this.firstNullifierHint,
       this.revertibleCounterHint,
     );
   }
@@ -42,7 +40,6 @@ export class PrivateKernelInit2CircuitPrivateInputs {
       reader.readObject(PrivateCallData),
       reader.readObject(PrivateCallData),
       reader.readBoolean(),
-      Fr.fromBuffer(reader),
       reader.readNumber(),
     );
   }

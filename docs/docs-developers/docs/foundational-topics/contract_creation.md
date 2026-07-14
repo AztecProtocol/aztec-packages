@@ -53,7 +53,7 @@ A contract instance includes:
 
 - `salt`: User-generated pseudorandom value for uniqueness
 - `deployer`: Optional address of the contract deployer. Zero for universal deployment
-- `contract_class_id`: Identifier of the contract class for this instance
+- `original_contract_class_id`: Identifier of the contract class the instance was deployed with. Updating the instance to a new class via the ContractInstanceRegistry does not change this value, since it is part of the address preimage
 - `initialization_hash`: Hash of the selector and arguments to the constructor
 - `immutables_hash`: Hash of the contract's compile-time immutable state
 - `public_keys`: Public keys participating in address derivation (nullifier, incoming viewing, outgoing viewing, tagging, message-signing, and fallback keys). Only the incoming viewing key is held as an elliptic curve point; the other five are held as their `hash_public_key` digests.

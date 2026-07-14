@@ -27,13 +27,16 @@ environments/*
 !environments/staging-internal.env
 !environments/testnet-canary.env
 !environments/testnet.env
+!environments/testnet-v4.env
 !environments/mainnet.env
+!environments/mainnet-v4.env
 !environments/tps-scenario.env
 !environments/kind-minimal.env
 !environments/kind-provers.env
 !environments/alpha-net.env
 !environments/mbps-pipeline.env
 !environments/bench-10tps.env
+!environments/bench-inclusion-sweep.env
 *.tfvars
 !terraform/deploy-external-secrets/*.tfvars
 !terraform/deploy-rpc/modules/environment/alloy-*.tgz

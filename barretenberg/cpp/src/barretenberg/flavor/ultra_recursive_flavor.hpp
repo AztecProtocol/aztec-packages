@@ -44,6 +44,12 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
+    static constexpr bool HasLogDerivLookup = UltraFlavor::HasLogDerivLookup;
+    static constexpr bool HasElliptic = UltraFlavor::HasElliptic;
+    static constexpr bool HasMemory = UltraFlavor::HasMemory;
+    static constexpr bool HasNonNativeField = UltraFlavor::HasNonNativeField;
+    static constexpr bool HasEccOpQueue = UltraFlavor::HasEccOpQueue;
+    static constexpr bool HasDataBus = UltraFlavor::HasDataBus;
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = UltraFlavor::USE_PADDING;
@@ -84,11 +90,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     };
 
     using CommitmentLabels = UltraFlavor::CommitmentLabels;
+    static const CommitmentLabels& commitment_labels() { return UltraFlavor::commitment_labels(); }
 
     using WitnessCommitments = UltraFlavor::WitnessEntities<Commitment>;
-
-    // Reuse the VerifierCommitments from Ultra
-    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };

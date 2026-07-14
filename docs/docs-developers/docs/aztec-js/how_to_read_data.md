@@ -39,7 +39,7 @@ Set `includeMetadata: true` to get additional information about the simulation:
 
 #include_code simulate_with_metadata /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-The result includes `result` (the function return value), `stats` (execution statistics), `offchainEffects`, and `estimatedGas` (with `gasLimits` and `teardownGasLimits`).
+The result includes `result` (the function return value), `stats` (execution statistics), `offchainEffects`, and `gasUsed` (the raw gas the simulation consumed, with `totalGas` and `teardownGas`). Derive your own gas limits from `gasUsed` if you want to declare them explicitly; otherwise the wallet fills in the network's per-tx admission limits.
 
 ### Private function considerations
 
@@ -90,7 +90,7 @@ Use the `getPublicEvents` helper to retrieve typed public events:
 
 #include_code import_get_public_events /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-#include_code get_public_events yarn-project/end-to-end/src/e2e_event_logs.test.ts typescript
+#include_code get_public_events yarn-project/end-to-end/src/automine/effects/event_logs.test.ts typescript
 
 The function parameters are:
 
@@ -112,7 +112,7 @@ Private events are stored in the PXE with privacy scoping. Use `wallet.getPrivat
 
 The `BlockNumber` type is a branded type that wraps raw numbers for type safety. Use it when setting `fromBlock` and `toBlock` in filters.
 
-#include_code get_private_events yarn-project/end-to-end/src/e2e_event_logs.test.ts typescript
+#include_code get_private_events yarn-project/end-to-end/src/automine/effects/event_logs.test.ts typescript
 
 The `PrivateEventFilter` includes:
 

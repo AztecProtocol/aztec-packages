@@ -30,6 +30,9 @@ import type { ServiceEndpoint } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
+// Multi-blocks-per-slot (MBPS) test against a live k8s deployment. Reconfigures sequencers to allow
+// multiple blocks per L2 slot and verifies that the rollup contract reports more than one block produced
+// within a single slot period.
 describe('multi-blocks-per-slot network test', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
@@ -86,8 +89,6 @@ describe('multi-blocks-per-slot network test', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       blockDurationMs: BLOCK_DURATION_MS,
-      enforceTimeTable: true,
-      l1PublishingTime: 2,
       attestationPropagationTime: 0.5,
     });
     logger.info(
@@ -96,8 +97,6 @@ describe('multi-blocks-per-slot network test', () => {
           minTxsPerBlock: sequencerConfig.minTxsPerBlock,
           maxTxsPerBlock: sequencerConfig.maxTxsPerBlock,
           blockDurationMs: sequencerConfig.blockDurationMs,
-          enforceTimeTable: sequencerConfig.enforceTimeTable,
-          l1PublishingTime: sequencerConfig.l1PublishingTime,
           attestationPropagationTime: sequencerConfig.attestationPropagationTime,
         })),
       )}`,

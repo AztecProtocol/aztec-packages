@@ -1,7 +1,7 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
+import { DefaultWaitOpts, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
@@ -14,8 +14,10 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TxStatus } from '@aztec/stdlib/tx';
+import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
@@ -54,6 +56,8 @@ export async function setupTestAccountsWithTokens(
 
   const aztecNode = createAztecNodeClient(nodeUrl);
   const wallet = await TestWallet.create(aztecNode);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   const [recipientAccount, ...accounts] = (await registerInitialLocalNetworkAccountsInWallet(wallet)).slice(
     0,
@@ -142,8 +146,9 @@ async function deployAccountWithDiagnostics(
   const deployMethod = await account.getDeployMethod();
   let gasSettings: any;
   if (estimateGas) {
-    const sim = await deployMethod.simulate({ from: NO_FROM, fee: { paymentMethod } });
-    gasSettings = sim.estimatedGas;
+    const sim = await deployMethod.simulate({ from: NO_FROM, fee: { paymentMethod }, includeMetadata: true });
+    const { txsLimits } = await aztecNode.getNodeInfo();
+    gasSettings = getGasLimits(sim.gasUsed!, Gas.from(txsLimits.gas));
     logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
   }
 
@@ -273,6 +278,8 @@ export async function deployTestAccountsWithTokens(
 ): Promise<TestAccounts> {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const wallet = await TestWallet.create(aztecNode);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
   const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
@@ -456,6 +463,8 @@ export async function createWalletAndAztecNodeClient(
     proverEnabled,
   };
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   return {
     wallet,

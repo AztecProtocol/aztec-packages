@@ -80,4 +80,35 @@ TEST_F(NativePairingPointsTests, AggregateInfinityIntoPopulatedThrows)
     EXPECT_THROW(acc.aggregate(empty), std::runtime_error);
 }
 
+// A mixed-infinity accumulator (exactly one point at infinity) is corrupt: aggregation must reject it rather
+// than treat it as uninitialized and silently discard the real point by adopting the incoming points.
+TEST_F(NativePairingPointsTests, AggregateMixedInfinityAccumulatorP0AtInfinityThrows)
+{
+    PP acc(Point::infinity(), Point::one());
+    PP other = make_valid_pairing_points();
+    EXPECT_THROW(acc.aggregate(other), std::runtime_error);
+}
+
+TEST_F(NativePairingPointsTests, AggregateMixedInfinityAccumulatorP1AtInfinityThrows)
+{
+    PP acc(Point::one(), Point::infinity());
+    PP other = make_valid_pairing_points();
+    EXPECT_THROW(acc.aggregate(other), std::runtime_error);
+}
+
+// Mixed-infinity incoming points are equally invalid and must be rejected.
+TEST_F(NativePairingPointsTests, AggregateMixedInfinityOtherP0AtInfinityThrows)
+{
+    PP acc = make_valid_pairing_points();
+    PP other(Point::infinity(), Point::one());
+    EXPECT_THROW(acc.aggregate(other), std::runtime_error);
+}
+
+TEST_F(NativePairingPointsTests, AggregateMixedInfinityOtherP1AtInfinityThrows)
+{
+    PP acc = make_valid_pairing_points();
+    PP other(Point::one(), Point::infinity());
+    EXPECT_THROW(acc.aggregate(other), std::runtime_error);
+}
+
 } // namespace bb

@@ -21,7 +21,8 @@
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#new">new</a></li>
-<li><a href="#with_tagging_secret_strategy">with_tagging_secret_strategy</a></li>
+<li><a href="#with_default_tag_secret_strategy">with_default_tag_secret_strategy</a></li>
+<li><a href="#with_default_tag_secret_strategy_all_modes">with_default_tag_secret_strategy_all_modes</a></li>
 </ul>
 <h2>In module test_environment</h2>
 <h3>Structs</h3><ul class="item-list">
@@ -45,7 +46,10 @@
 <p>Configuration values for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#new_opts"><code>TestEnvironment::new_opts</code></a>. Meant to be used by calling <code>new</code> and then chaining
 methods setting each value, e.g.:</p>
 <pre><code><span class="kw">let</span> env = TestEnvironment::new_opts(
-    TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
+    TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+        MessageDelivery::onchain_unconstrained(),
+        TaggingSecretStrategy::non_interactive_handshake(),
+    ),
 );</code></pre></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironmentOptions.html" class="struct">TestEnvironmentOptions</a></code></h3>
@@ -55,13 +59,31 @@ methods setting each value, e.g.:</p>
 <div class="padded-description"><div class="comments">
 <p>Creates a new <code>TestEnvironmentOptions</code> with default values.</p>
 </div>
-</div><code id="with_tagging_secret_strategy" class="code-header">pub fn <a href="#with_tagging_secret_strategy"><span class="fn">with_tagging_secret_strategy</span></a>(&mut self, strategy: <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a>) -> Self</code>
+</div><code id="with_default_tag_secret_strategy" class="code-header">pub fn <a href="#with_default_tag_secret_strategy"><span class="fn">with_default_tag_secret_strategy</span></a>&lt;M&gt;(
+    &mut self,
+    mode: M,
+    strategy: <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a>,
+) -> Self
+<div class="where-clause">where
+    M: <a href="../../../../std/convert/trait.Into.html" class="trait">Into</a>&lt;<a href="../../../../noir_aztec/messages/delivery/struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a>&gt;</div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Sets the <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html"><code>TaggingSecretStrategy</code></a> the wallet reports through the
+<p>Sets the default <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html"><code>TaggingSecretStrategy</code></a> the wallet reports for <code>mode</code> through the
 <a href="../../../../noir_aztec/oracle/resolve_tagging_strategy/index.html"><code>resolve_tagging_strategy</code></a> oracle, affecting message delivery in
-private executions.</p>
-<p>If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.</p></div>
+private executions that do not fix their own delivery derivation.</p>
+<p>If no strategy is set for either mode, the wallet hook is left unconfigured and the private execution
+environment applies its own default. A mode left unset while the other is configured falls back to the default
+<a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html#non_interactive_handshake"><code>TaggingSecretStrategy::non_interactive_handshake</code></a>, the strategy a PXE <code>resolveTaggingSecretStrategy</code> hook
+typically hardcodes for modes it does not customize.</p></div>
+</div><code id="with_default_tag_secret_strategy_all_modes" class="code-header">pub fn <a href="#with_default_tag_secret_strategy_all_modes"><span class="fn">with_default_tag_secret_strategy_all_modes</span></a>(
+    &mut self,
+    strategy: <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a>,
+) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Sets <code>strategy</code> for both delivery modes: the equivalent of a PXE <code>resolveTaggingSecretStrategy</code> hook that
+ignores the request's mode. See
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironmentOptions.html#with_default_tag_secret_strategy"><code>with_default_tag_secret_strategy</code></a> to configure a single mode.</p></div>
 </div></div></main>
 </span>
 </body>

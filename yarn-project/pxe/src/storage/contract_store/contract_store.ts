@@ -6,7 +6,6 @@ import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import {
   type ContractArtifact,
-  type FunctionAbi,
   type FunctionArtifactWithContractName,
   FunctionCall,
   type FunctionDebugMetadata,
@@ -23,8 +22,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractClassIdPreimage,
   type ContractClassWithId,
-  type ContractInstanceWithAddress,
-  SerializableContractInstance,
+  type ContractInstancePreimageWithAddress,
+  SerializableContractInstancePreimage,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 
@@ -112,9 +111,6 @@ export class ContractStore {
   // TODO: Update it to be LRU cache so that it doesn't keep all the data all the time.
   #contractArtifactCache: Map<string, ContractArtifact> = new Map();
 
-  /** Map from contract address to contract class id (avoids KV round-trip on hot path). */
-  #contractClassIdMap: Map<string, Fr> = new Map();
-
   #store: AztecAsyncKVStore;
   #contractArtifacts: AztecAsyncMap<string, Buffer>;
   #contractClassData: AztecAsyncMap<string, Buffer>;
@@ -131,9 +127,10 @@ export class ContractStore {
 
   /**
    * Registers a new contract artifact and its corresponding class data.
-   * IMPORTANT: This method does not verify that the provided artifact matches the class data or that the class id matches the artifact.
-   * It is the caller's responsibility to ensure the consistency and correctness of the provided data.
-   * This is done to avoid redundant, expensive contract class computations
+   *
+   * IMPORTANT: This method does not verify that the provided artifact matches the class data or that the class id
+   * matches the artifact. It is the caller's responsibility to ensure the consistency and correctness of the provided
+   * data. This is done to avoid redundant, expensive contract class computations.
    */
   public async addContractArtifact(
     contract: ContractArtifact,
@@ -168,30 +165,16 @@ export class ContractStore {
     return contractClass.id;
   }
 
-  async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
+  async addContractInstance(contract: ContractInstancePreimageWithAddress): Promise<void> {
     await this.#store.transactionAsync(async () => {
       await this.#contractInstances.set(
         contract.address.toString(),
-        new SerializableContractInstance(contract).toBuffer(),
+        new SerializableContractInstancePreimage(contract).toBuffer(),
       );
     });
-
-    this.#contractClassIdMap.set(contract.address.toString(), contract.currentContractClassId);
   }
 
   // Private getters
-
-  async #getContractClassId(contractAddress: AztecAddress): Promise<Fr | undefined> {
-    const key = contractAddress.toString();
-    if (!this.#contractClassIdMap.has(key)) {
-      const instance = await this.getContractInstance(contractAddress);
-      if (!instance) {
-        return;
-      }
-      this.#contractClassIdMap.set(key, instance.currentContractClassId);
-    }
-    return this.#contractClassIdMap.get(key);
-  }
 
   async #getPrivateFunctionTreeForClassId(classId: Fr): Promise<PrivateFunctionsTree | undefined> {
     if (!this.#privateFunctionTrees.has(classId.toString())) {
@@ -205,25 +188,20 @@ export class ContractStore {
     return this.#privateFunctionTrees.get(classId.toString())!;
   }
 
-  async #getArtifactByAddress(contractAddress: AztecAddress): Promise<ContractArtifact | undefined> {
-    const classId = await this.#getContractClassId(contractAddress);
-    return classId && this.getContractArtifact(classId);
-  }
-
   // Public getters
 
   getContractsAddresses(): Promise<AztecAddress[]> {
     return this.#store.transactionAsync(async () => {
       const keys = await toArray(this.#contractInstances.keysAsync());
-      return keys.map(AztecAddress.fromString);
+      return keys.map(AztecAddress.fromStringUnsafe);
     });
   }
 
-  /** Returns a contract instance for a given address. */
-  public getContractInstance(contractAddress: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  /** Returns the address preimage of a given address. */
+  public getContractInstance(contractAddress: AztecAddress): Promise<ContractInstancePreimageWithAddress | undefined> {
     return this.#store.transactionAsync(async () => {
       const contract = await this.#contractInstances.getAsync(contractAddress.toString());
-      return contract && SerializableContractInstance.fromBuffer(contract).withAddress(contractAddress);
+      return contract && SerializableContractInstancePreimage.fromBuffer(contract).withAddress(contractAddress);
     });
   }
 
@@ -262,82 +240,69 @@ export class ContractStore {
     return { ...classData, packedBytecode };
   }
 
-  public async getContract(
-    address: AztecAddress,
-  ): Promise<(ContractInstanceWithAddress & ContractArtifact) | undefined> {
-    const instance = await this.getContractInstance(address);
-    if (!instance) {
-      return;
-    }
-    const artifact = await this.getContractArtifact(instance.currentContractClassId);
-    if (!artifact) {
-      return;
-    }
-    return { ...instance, ...artifact };
-  }
-
   /**
-   * Retrieves the artifact of a specified function within a given contract.
+   * Retrieves the artifact of a specified function within a given contract class.
    *
-   * @param contractAddress - The AztecAddress representing the contract containing the function.
+   * @param contractClassId - The id of the contract class containing the function.
    * @param selector - The function selector.
-   * @returns The corresponding function's artifact as an object.
+   * @returns The corresponding function's artifact as an object, or `undefined` if the class is not registered.
    */
   public async getFunctionArtifact(
-    contractAddress: AztecAddress,
+    contractClassId: Fr,
     selector: FunctionSelector,
   ): Promise<FunctionArtifactWithContractName | undefined> {
-    const artifact = await this.#getArtifactByAddress(contractAddress);
+    const artifact = await this.getContractArtifact(contractClassId);
     if (!artifact) {
       return undefined;
     }
-    const fn = await findFunctionArtifactBySelector(artifact, selector);
-    return fn && { ...fn, contractName: artifact.name };
+    const fn = assertSelectorInArtifact(artifact, await findFunctionArtifactBySelector(artifact, selector), {
+      contractClassId,
+      selector,
+    });
+    return { ...fn, contractName: artifact.name };
   }
 
+  /**
+   * Same as {@link getFunctionArtifact} but with debug metadata attached. Returns `undefined` when the class artifact
+   * is not registered.
+   */
   public async getFunctionArtifactWithDebugMetadata(
-    contractAddress: AztecAddress,
+    contractClassId: Fr,
     selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithContractName> {
-    const artifact = await this.getFunctionArtifact(contractAddress, selector);
+  ): Promise<FunctionArtifactWithContractName | undefined> {
+    const artifact = await this.getContractArtifact(contractClassId);
     if (!artifact) {
-      throw new Error(`Function artifact not found for contract ${contractAddress} and selector ${selector}.`);
+      return undefined;
     }
-    const debug = await this.getFunctionDebugMetadata(contractAddress, selector);
+    const fn = assertSelectorInArtifact(artifact, await findFunctionArtifactBySelector(artifact, selector), {
+      contractClassId,
+      selector,
+    });
     return {
-      ...artifact,
-      debug,
+      ...fn,
+      contractName: artifact.name,
+      debug: getFunctionDebugMetadata(artifact, fn),
     };
   }
 
-  public async getPublicFunctionArtifact(
-    contractAddress: AztecAddress,
-  ): Promise<FunctionArtifactWithContractName | undefined> {
-    const artifact = await this.#getArtifactByAddress(contractAddress);
+  public async getPublicFunctionArtifact(contractClassId: Fr): Promise<FunctionArtifactWithContractName | undefined> {
+    const artifact = await this.getContractArtifact(contractClassId);
     const fn = artifact && artifact.functions.find(f => f.functionType === FunctionType.PUBLIC);
     return fn && { ...fn, contractName: artifact.name };
   }
 
-  public async getFunctionAbi(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionAbi | undefined> {
-    const artifact = await this.#getArtifactByAddress(contractAddress);
-    return artifact && (await findFunctionAbiBySelector(artifact, selector));
-  }
-
   /**
-   * Retrieves the debug metadata of a specified function within a given contract.
+   * Retrieves the debug metadata of a specified function within a given contract class.
    *
-   * @param contractAddress - The AztecAddress representing the contract containing the function.
+   * @param contractClassId - The id of the contract class containing the function.
    * @param selector - The function selector.
    * @returns The corresponding function's debug metadata, or undefined.
    */
   public async getFunctionDebugMetadata(
-    contractAddress: AztecAddress,
+    contractClassId: Fr,
     selector: FunctionSelector,
   ): Promise<FunctionDebugMetadata | undefined> {
-    const artifact = await this.#getArtifactByAddress(contractAddress);
+    const artifact = await this.getContractArtifact(contractClassId);
     if (!artifact) {
       return undefined;
     }
@@ -345,10 +310,8 @@ export class ContractStore {
     return fn && getFunctionDebugMetadata(artifact, fn);
   }
 
-  public async getPublicFunctionDebugMetadata(
-    contractAddress: AztecAddress,
-  ): Promise<FunctionDebugMetadata | undefined> {
-    const artifact = await this.#getArtifactByAddress(contractAddress);
+  public async getPublicFunctionDebugMetadata(contractClassId: Fr): Promise<FunctionDebugMetadata | undefined> {
+    const artifact = await this.getContractArtifact(contractClassId);
     const fn = artifact && artifact.functions.find(f => f.functionType === FunctionType.PUBLIC);
     return fn && getFunctionDebugMetadata(artifact, fn);
   }
@@ -368,28 +331,34 @@ export class ContractStore {
     return tree?.getFunctionMembershipWitness(selector);
   }
 
-  public async getDebugContractName(contractAddress: AztecAddress) {
-    const artifact = await this.#getArtifactByAddress(contractAddress);
+  public async getDebugContractName(contractClassId: Fr) {
+    const artifact = await this.getContractArtifact(contractClassId);
     return artifact?.name;
   }
 
-  public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {
-    const artifact = await this.#getArtifactByAddress(contractAddress);
+  public async getDebugFunctionName(contractClassId: Fr, selector: FunctionSelector) {
+    const artifact = await this.getContractArtifact(contractClassId);
     const fn = artifact && (await findFunctionAbiBySelector(artifact, selector));
-    return `${artifact?.name ?? contractAddress}:${fn?.name ?? selector}`;
+    return `${artifact?.name ?? contractClassId}:${fn?.name ?? selector}`;
   }
 
-  public async getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
-    const contract = await this.getContract(to);
-    if (!contract) {
+  public async getFunctionCall(
+    functionName: string,
+    args: any[],
+    to: AztecAddress,
+    contractClassId: Fr,
+  ): Promise<FunctionCall> {
+    const artifact = await this.getContractArtifact(contractClassId);
+    if (!artifact) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `No artifact registered for contract class ${contractClassId} (contract ${to}): register it by calling ` +
+          `wallet.registerContract(...).\nSee docs for context: https://docs.aztec.network/errors/14`,
       );
     }
 
-    const functionDao = contract.functions.find(f => f.name === functionName);
+    const functionDao = artifact.functions.find(f => f.name === functionName);
     if (!functionDao) {
-      throw new Error(`Unknown function ${functionName} in contract ${contract.name}.`);
+      throw new Error(`Unknown function ${functionName} in contract ${artifact.name}.`);
     }
 
     const selector = await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters);
@@ -405,4 +374,28 @@ export class ContractStore {
       returnTypes: functionDao.returnTypes,
     });
   }
+}
+
+/**
+ * Narrows the result of a selector lookup against a registered artifact. A missing class artifact is reported as
+ * `undefined` by the callers (an absence they can handle), but a selector that is absent from an artifact we *do* have
+ * is exceptional and throws rather than returning undefined. We cannot tell from here why the selector is missing: it
+ * may be that no such function exists in the contract (a wrong selector), or that the registered artifact does not
+ * correspond to the resolved class id (registration performs no validation, so a mismatched artifact is possible). The
+ * error names both possibilities.
+ */
+function assertSelectorInArtifact<T>(
+  artifact: ContractArtifact,
+  fn: T | undefined,
+  context: { contractClassId: Fr; selector: FunctionSelector },
+): T {
+  if (!fn) {
+    throw new Error(
+      `Function with selector ${context.selector} not found in the registered artifact for contract class ` +
+        `${context.contractClassId} (${artifact.name}). Either no function with this selector exists in the ` +
+        `contract, or the registered artifact does not match the class id (re-register it via ` +
+        `wallet.registerContract(...)).`,
+    );
+  }
+  return fn;
 }

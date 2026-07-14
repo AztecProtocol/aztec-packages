@@ -63,6 +63,8 @@ export const EPOCH_SIZE = 'aztec.epoch.size';
 export const BLOCK_PROPOSER = 'aztec.block.proposer';
 /** The epoch number */
 export const EPOCH_NUMBER = 'aztec.epoch.number';
+/** Kind of an EpochSession: 'full' or 'partial'. */
+export const EPOCH_SESSION_KIND = 'aztec.epoch_session.kind';
 /** The tx hash */
 export const TX_HASH = 'aztec.tx.hash';
 /** Generic attribute representing whether the action was successful or not */
@@ -71,6 +73,8 @@ export const OK = 'aztec.ok';
 export const STATUS = 'aztec.status';
 /** Generic error type attribute */
 export const ERROR_TYPE = 'aztec.error_type';
+/** The cause of an archiver prune (unproven / uncheckpointed / l1_conflict / orphan / l1_mismatch) */
+export const PRUNE_TYPE = 'aztec.archiver.prune_type';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The L1 address of the entity that sent a transaction to L1 */

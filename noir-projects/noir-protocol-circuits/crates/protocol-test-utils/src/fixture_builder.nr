@@ -59,9 +59,9 @@ use types::{
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TX_LIFETIME, MAX_U32_VALUE,
-        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS,
-        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
-        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        MEGA_APP_VK_LENGTH_IN_FIELDS, MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PRIVATE_CALL_REQUEST_LENGTH,
+        PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
+        SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -80,7 +80,10 @@ use types::{
     },
     merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::L2ToL1Message,
-    proof::{verification_key::{MegaVerificationKey, VerificationKey}, vk_data::VkData},
+    proof::{
+        verification_key::{MegaAppVerificationKey, MegaKernelVerificationKey, VerificationKey},
+        vk_data::VkData,
+    },
     public_keys::PublicKeys,
     side_effect::{Counted, Ordered, Scoped},
     storage::map::derive_storage_slot_in_map,
@@ -103,7 +106,6 @@ pub struct FixtureBuilder {
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
     pub is_private_only: bool,
-    pub claimed_first_nullifier: Field,
     pub claimed_revertible_counter: u32,
     pub expiration_timestamp: u64,
 
@@ -146,6 +148,7 @@ pub struct FixtureBuilder {
     pub args_hash: Field,
     pub calldata_hash: Field,
     pub returns_hash: Field,
+    pub tx_request_salt: Field,
 
     // Private call.
     pub salted_initialization_hash: SaltedInitializationHash,
@@ -159,7 +162,11 @@ pub struct FixtureBuilder {
     pub prover_id: Field,
 
     // Proof.
-    pub vk: MegaVerificationKey,
+    // FixtureBuilder is shared across app-circuit and kernel-circuit fixtures, which carry
+    // distinct Mega VK shapes. We keep both so a single fixture can be turned into either
+    // `to_private_call_data` (app) or `to_private_kernel_data` (kernel) without re-typing.
+    pub vk: MegaAppVerificationKey,
+    pub vk_kernel: MegaKernelVerificationKey,
     pub vk_index: u32,
     pub vk_path: [Field; VK_TREE_HEIGHT],
     pub vk_tree_root: Field,
@@ -219,6 +226,7 @@ impl FixtureBuilder {
         builder.msg_sender = fixtures::contracts::parent_contract.address;
         builder.counter_start = counter_start;
         builder.counter = counter_start + 1;
+        builder.tx_request_salt = 54321;
 
         builder.protocol_contracts = fixtures::protocol_contracts::get_protocol_contracts();
 
@@ -238,11 +246,16 @@ impl FixtureBuilder {
     }
 
     pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
-        let vk_data = get_vk_data(vk_index);
+        // Same vk_index/path for both fixtures: the fake VK hash depends only on vk_index (not on
+        // the VK length), so both shapes hash to the same leaf. `get_vk_data` is generic in `VkLen`,
+        // so the explicit type annotation picks the shape.
+        let vk_data_app: VkData<MEGA_APP_VK_LENGTH_IN_FIELDS> = get_vk_data(vk_index);
+        let vk_data_kernel: VkData<MEGA_KERNEL_VK_LENGTH_IN_FIELDS> = get_vk_data(vk_index);
 
         self.vk_index = vk_index;
-        self.vk = vk_data.vk;
-        self.vk_path = vk_data.sibling_path;
+        self.vk = vk_data_app.vk;
+        self.vk_kernel = vk_data_kernel.vk;
+        self.vk_path = vk_data_app.sibling_path;
 
         *self
     }
@@ -297,7 +310,7 @@ impl FixtureBuilder {
     pub fn use_function(
         &mut self,
         function_data: ContractFunction,
-        vk: [Field; MEGA_VK_LENGTH_IN_FIELDS],
+        vk: [Field; MEGA_APP_VK_LENGTH_IN_FIELDS],
     ) -> Self {
         self.function_data = function_data.data;
         self.function_leaf_membership_witness = function_data.membership_witness;
@@ -328,6 +341,7 @@ impl FixtureBuilder {
         PrivateTxConstantData {
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
+            tx_request_salt: self.tx_request_salt,
             vk_tree_root: self.vk_tree_root,
             protocol_contracts: self.protocol_contracts,
         }
@@ -339,7 +353,7 @@ impl FixtureBuilder {
             args_hash: self.args_hash,
             tx_context: self.tx_context,
             function_data: self.function_data,
-            salt: 54321,
+            salt: self.tx_request_salt,
         }
     }
 
@@ -429,6 +443,7 @@ impl FixtureBuilder {
             },
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
+            tx_request_salt: self.tx_request_salt,
         }
     }
 
@@ -616,7 +631,6 @@ impl FixtureBuilder {
             fee_payer: self.fee_payer,
             expiration_timestamp: self.expiration_timestamp,
             is_private_only: self.is_private_only,
-            claimed_first_nullifier: self.claimed_first_nullifier,
             claimed_revertible_counter: self.claimed_revertible_counter,
         }
     }
@@ -625,7 +639,11 @@ impl FixtureBuilder {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
         PrivateKernelData {
             public_inputs,
-            vk_data: VkData { vk: self.vk, leaf_index: self.vk_index, sibling_path: self.vk_path },
+            vk_data: VkData {
+                vk: self.vk_kernel,
+                leaf_index: self.vk_index,
+                sibling_path: self.vk_path,
+            },
         }
     }
 
@@ -749,21 +767,26 @@ impl FixtureBuilder {
     pub fn add_siloed_note_hash(&mut self, value: NoteHash) {
         let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         self.note_hashes.push(Counted::new(siloed_value, self.next_counter()).scope(
-            AztecAddress::zero(),
+            self.contract_address,
         ));
     }
 
     pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
         let siloed_value = compute_siloed_note_hash(self.contract_address, value);
         let current_index = self.note_hashes.len();
+        let first_nullifier = self.nullifiers.get_unchecked(0);
+        let siloed_first_nullifier = compute_siloed_nullifier(
+            first_nullifier.contract_address,
+            first_nullifier.innermost().value,
+        );
         let unique_siloed_value = compute_note_nonce_and_unique_note_hash(
             siloed_value,
-            self.claimed_first_nullifier,
+            siloed_first_nullifier,
             current_index,
         );
 
         self.note_hashes.push(Counted::new(unique_siloed_value, self.next_counter()).scope(
-            AztecAddress::zero(),
+            self.contract_address,
         ));
     }
 
@@ -813,11 +836,11 @@ impl FixtureBuilder {
         for i in 0..self.note_hashes.max_len() {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
-                // Silo and clear the contract address here because the padded note hashes are siloed when added in the
-                // reset circuit. We can only see the siloed version of it in the public inputs.
+                // Padded note hashes are siloed in the reset circuit under SIDE_EFFECT_MASKING_ADDRESS;
+                // we mirror the scoping here so the fixture matches the circuit output.
                 let siloed_value = compute_siloed_note_hash(SIDE_EFFECT_MASKING_ADDRESS, value);
                 self.note_hashes.push(Counted::new(siloed_value, MAX_U32_VALUE).scope(
-                    AztecAddress::zero(),
+                    SIDE_EFFECT_MASKING_ADDRESS,
                 ));
             }
         }
@@ -828,7 +851,6 @@ impl FixtureBuilder {
         let tx_request = self.to_tx_request();
         let protocol_nullifier = create_protocol_nullifier(tx_request);
         self.nullifiers.push(protocol_nullifier);
-        self.claimed_first_nullifier = protocol_nullifier.innermost().value;
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
@@ -851,7 +873,7 @@ impl FixtureBuilder {
         let siloed_value = compute_siloed_nullifier(self.contract_address, value);
         self.nullifiers.push(Nullifier { value: siloed_value, note_hash }
             .count(self.next_counter())
-            .scope(AztecAddress::zero()));
+            .scope(self.contract_address));
     }
 
     pub fn append_nullifiers(&mut self, num_extra_nullifier: u32) {
@@ -879,12 +901,12 @@ impl FixtureBuilder {
         for i in 0..self.nullifiers.max_len() {
             if i < num_nullifiers {
                 let value = self.mock_nullifier_value(index_offset + i);
-                // Silo and clear the contract address here because the padded nullifiers are siloed when added in the
-                // reset circuit. We can only see the siloed version of it in the public inputs.
+                // Padded nullifiers are siloed in the reset circuit under SIDE_EFFECT_MASKING_ADDRESS;
+                // we mirror the scoping here so the fixture matches the circuit output.
                 let siloed_value = compute_siloed_nullifier(SIDE_EFFECT_MASKING_ADDRESS, value);
                 self.nullifiers.push(Nullifier { value: siloed_value, note_hash: 0 }
                     .count(MAX_U32_VALUE)
-                    .scope(AztecAddress::zero()));
+                    .scope(SIDE_EFFECT_MASKING_ADDRESS));
             }
         }
     }
@@ -1039,7 +1061,7 @@ impl FixtureBuilder {
     ) {
         let log = PrivateLogData { log: PrivateLog { fields, length }, note_hash_counter }
             .count(self.next_counter())
-            .scope(AztecAddress::zero()); // When siloed, the address is set to zero by the reset kernel.
+            .scope(self.contract_address);
         self.private_logs.push(log);
     }
 
@@ -1083,8 +1105,8 @@ impl FixtureBuilder {
         for i in 0..self.private_logs.max_len() {
             if i < num_logs {
                 let mut fields = self.mock_private_log_fields(index_offset + i);
-                // Silo and clear the contract address here because the padded private logs are siloed when added in the
-                // reset circuit. We can only see the siloed version of it in the public inputs.
+                // Padded private logs are siloed in the reset circuit under SIDE_EFFECT_MASKING_ADDRESS;
+                // we mirror the scoping here so the fixture matches the circuit output.
                 fields[0] =
                     compute_siloed_private_log_first_field(SIDE_EFFECT_MASKING_ADDRESS, fields[0]);
                 self.private_logs.push(PrivateLogData {
@@ -1092,7 +1114,7 @@ impl FixtureBuilder {
                     note_hash_counter: 0,
                 }
                     .count(MAX_U32_VALUE)
-                    .scope(AztecAddress::zero()));
+                    .scope(SIDE_EFFECT_MASKING_ADDRESS));
             }
         }
     }

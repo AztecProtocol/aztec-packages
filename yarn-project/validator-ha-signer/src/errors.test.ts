@@ -2,7 +2,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 
 import { describe, expect, it } from '@jest/globals';
 
-import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
+import { DutyAlreadySignedError, SigningLockLostError, SlashingProtectionError } from './errors.js';
 import { DutyType } from './types.js';
 
 describe('DutyAlreadySignedError', () => {
@@ -38,6 +38,25 @@ describe('DutyAlreadySignedError', () => {
     const error = new DutyAlreadySignedError(largeSlot, DutyType.BLOCK_PROPOSAL, 0, 'node-large');
     expect(error.slot).toBe(largeSlot);
     expect(error.message).toContain(largeSlot.toString());
+  });
+});
+
+describe('SigningLockLostError', () => {
+  it('should create error with correct properties', () => {
+    const slot = SlotNumber(100);
+    const dutyType = DutyType.BLOCK_PROPOSAL;
+    const nodeId = 'node-1';
+
+    const error = new SigningLockLostError(slot, dutyType, nodeId);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error.name).toBe('SigningLockLostError');
+    expect(error.slot).toBe(slot);
+    expect(error.dutyType).toBe(dutyType);
+    expect(error.nodeId).toBe(nodeId);
+    expect(error.message).toContain('BLOCK_PROPOSAL');
+    expect(error.message).toContain('slot 100');
+    expect(error.message).toContain('node-1');
   });
 });
 

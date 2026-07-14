@@ -4,10 +4,10 @@ import { times } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import {
   type ActualProverConfig,
-  type EpochProver,
   type EpochProverManager,
   type ForkMerkleTreeOperations,
   type ProvingJobBroker,
@@ -23,13 +23,11 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { ProverClientConfig } from '../config.js';
 import { CheckpointSubTreeOrchestrator } from '../orchestrator/checkpoint-sub-tree-orchestrator.js';
-import { EpochProvingContext } from '../orchestrator/epoch-proving-context.js';
-import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import type { ChonkCache } from '../orchestrator/chonk-cache.js';
 import { TopTreeOrchestrator } from '../orchestrator/top-tree-orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
-import { ServerEpochProver } from './server-epoch-prover.js';
 
 /**
  * The factory surface that `EpochProvingJob` (in `prover-node`) depends on. Implemented
@@ -49,14 +47,13 @@ import { ServerEpochProver } from './server-epoch-prover.js';
 export interface EpochProverFactory {
   getProverId(): EthAddress;
   /**
-   * Constructs a per-epoch shared context for the caching of e.g. chonk verifier results
-   */
-  createEpochProvingContext(epochNumber: EpochNumber): EpochProvingContext;
-  /**
-   * Constructs and starts a `CheckpointSubTreeOrchestrator` for a single checkpoint.
+   * Constructs and starts a `CheckpointSubTreeOrchestrator` for a single checkpoint
+   * against the supplied shared `chonkCache`. The cache is owned by the prover-node
+   * and survives across epochs / sessions.
    */
   createCheckpointSubTreeOrchestrator(
-    epochContext: EpochProvingContext,
+    chonkCache: ChonkCache,
+    epochNumber: EpochNumber,
     checkpointConstants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
@@ -75,6 +72,13 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
    * `EpochProverFactory` for why a single shared facade is required.
    */
   private facade: BrokerCircuitProverFacade | undefined;
+  /**
+   * Single deferred-proving-job queue shared across every orchestrator (sub-trees and
+   * top-trees, across every concurrent epoch session). Throttles the total rate of job
+   * submission to the broker once, rather than once per orchestrator. Started lazily
+   * alongside the facade and cancelled on `stop()`.
+   */
+  private deferredJobQueue: SerialQueue | undefined;
 
   private constructor(
     private config: ProverClientConfig,
@@ -112,40 +116,21 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     return this.facade;
   }
 
-  /**
-   * Legacy single-class epoch prover. Each call constructs its own
-   * `BrokerCircuitProverFacade`; the new factory methods (`createCheckpointSubTreeOrchestrator`,
-   * `createTopTreeOrchestrator`, `createEpochProvingContext`) share a single facade
-   * owned by `ProverClient`. Both APIs coexist while the prover-node migrates onto
-   * the new pair.
-   */
-  public createEpochProver(): EpochProver {
-    const bindings = this.log.getBindings();
-    const facade = new BrokerCircuitProverFacade(
-      this.orchestratorClient,
-      this.proofStore,
-      this.failedProofStore,
-      undefined,
-      bindings,
-    );
-    const orchestrator = new ProvingOrchestrator(
-      this.worldState,
-      facade,
-      this.config.proverId,
-      this.config.cancelJobsOnStop,
-      this.config.enqueueConcurrency,
-      this.telemetry,
-      bindings,
-    );
-    return new ServerEpochProver(facade, orchestrator);
-  }
-
-  public createEpochProvingContext(epochNumber: EpochNumber): EpochProvingContext {
-    return new EpochProvingContext(this.getFacade(), epochNumber, this.log.getBindings());
+  /** Lazy-init the shared deferred-job queue, started with the configured enqueue concurrency. */
+  private getDeferredJobQueue(): SerialQueue {
+    if (!this.running) {
+      throw new Error('ProverClient is not running; call start() before constructing orchestrators.');
+    }
+    if (!this.deferredJobQueue) {
+      this.deferredJobQueue = new SerialQueue();
+      this.deferredJobQueue.start(this.config.enqueueConcurrency);
+    }
+    return this.deferredJobQueue;
   }
 
   public createCheckpointSubTreeOrchestrator(
-    epochContext: EpochProvingContext,
+    chonkCache: ChonkCache,
+    epochNumber: EpochNumber,
     checkpointConstants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
@@ -155,9 +140,10 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
       this.worldState,
       this.getFacade(),
       this.config.proverId,
-      epochContext,
+      chonkCache,
+      epochNumber,
       this.config.cancelJobsOnStop,
-      this.config.enqueueConcurrency,
+      this.getDeferredJobQueue(),
       checkpointConstants,
       l1ToL2Messages,
       totalNumBlocks,
@@ -171,7 +157,7 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     return new TopTreeOrchestrator(
       this.getFacade(),
       this.config.proverId,
-      this.config.enqueueConcurrency,
+      this.getDeferredJobQueue(),
       this.telemetry,
       this.log.getBindings(),
     );
@@ -216,12 +202,12 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     }
     this.running = false;
     await this.stopAgents();
+    if (this.deferredJobQueue) {
+      await this.deferredJobQueue.cancel();
+      this.deferredJobQueue = undefined;
+    }
     if (this.facade) {
-      try {
-        await this.facade.stop();
-      } catch (err) {
-        this.log.error('Error stopping shared broker facade', err);
-      }
+      await tryStop(this.facade, this.log);
       this.facade = undefined;
     }
     await tryStop(this.orchestratorClient);

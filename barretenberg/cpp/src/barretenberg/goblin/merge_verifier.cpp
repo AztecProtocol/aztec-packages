@@ -83,17 +83,16 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
     for (auto& scalar : shplonk_batching_challenges) {
         batch_opening_claim.scalars.emplace_back(std::move(scalar));
     }
-    batch_opening_claim.scalars.back() *=
-        (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert();
+
+    FF ratio = (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert();
+    batch_opening_claim.scalars.back() *= ratio;
 
     batch_opening_claim.scalars.emplace_back(FF(0));
     for (size_t idx = 0; idx < evals.size(); idx++) {
         if (idx < evals.size() - 1) {
             batch_opening_claim.scalars.back() -= evals[idx] * shplonk_batching_challenges[idx];
         } else {
-            batch_opening_claim.scalars.back() -= shplonk_batching_challenges.back() * evals.back() *
-                                                  (shplonk_opening_challenge - kappa) *
-                                                  (shplonk_opening_challenge - kappa_inv).invert();
+            batch_opening_claim.scalars.back() -= shplonk_batching_challenges.back() * evals.back() * ratio;
         }
     }
 
@@ -120,16 +119,17 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     BB_BENCH_NAME("MergeVerifier::reduce");
     transcript->load_proof(proof);
 
-    // Receive shift size from prover
-    // For native: shift_size is uint32_t
-    // For stdlib: shift_size is FF (we'll get the value later)
-    const FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
+    // Hard-coded shift size: the merge is only used when verifying the hiding kernel, in which case the shift size is
+    // fixed to preserve zero-knowledge
+    const FF shift_size = FF(ECCOpQueue::compute_fixed_append_offset(ECCOpQueue::get_append_offset_for_verifier()));
 
     // Store T_commitments of the verifier
     TableCommitments merged_table_commitments;
 
     // Vector of commitments
     // The vector is composed of: [L_1], .., [L_4], [R_1], .., [R_4], [M_1], .., [M_4], [G]
+    // The input commitments are not absorbed here; the caller must already have bound them to the shared transcript.
+    // In Chonk this happens in the preceding Oink phase.
     std::vector<Commitment> table_commitments;
     table_commitments.reserve((3 * NUM_WIRES) + 1);
     table_commitments.insert(table_commitments.end(),
@@ -149,10 +149,6 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // Receive commitment to reversed batched left table
     table_commitments.emplace_back(
         transcript->template receive_from_prover<Commitment>("REVERSED_BATCHED_LEFT_TABLES"));
-
-    // Compute batching challenges
-    std::vector<FF> shplonk_batching_challenges =
-        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
 
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
@@ -176,14 +172,18 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // Receive evaluation of G at 1/κ
     evals.emplace_back(transcript->template receive_from_prover<FF>("REVERSED_BATCHED_LEFT_TABLES_EVAL"));
 
-    // OriginTag false positive: The evaluations are PCS-bound - once the table commitments
-    // are fixed and kappa is derived, the correct evaluations are uniquely determined. Tag them
-    // with kappa to reflect this constraint. The last eval (G at 1/κ) is bound by degree_check_challenges.
+    // OriginTag false positive: evals are PCS bound - once the table commitments are fixed and kappa is derived, the
+    // correct evaluations are uniquely determined. The origin tag mechanism alerts us that we are mixing a challenge
+    // from a previous round (kappa) with element sent afterwards, which in this case is OK because the evals are
+    // uniquely determined.
+    std::vector<OriginTag> origin_tags;
+    origin_tags.reserve(evals.size());
+
     if constexpr (IsRecursive) {
         for (auto& eval : evals) {
-            eval.set_origin_tag(kappa.get_origin_tag());
+            origin_tags.emplace_back(eval.get_origin_tag());
+            eval.set_origin_tag(pow_kappa.get_origin_tag());
         }
-        evals.back().set_origin_tag(degree_check_challenges.back().get_origin_tag());
     }
 
     // Check concatenation identities
@@ -191,6 +191,17 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
 
     // Check degree identity
     bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
+
+    // Reset origin tags
+    if constexpr (IsRecursive) {
+        for (auto [eval, origin_tag] : zip_view(evals, origin_tags)) {
+            eval.set_origin_tag(origin_tag);
+        }
+    }
+
+    // Compute batching challenges
+    std::vector<FF> shplonk_batching_challenges =
+        transcript->template get_short_challenges<FF>(labels_shplonk_batching_challenges);
 
     // Receive Shplonk batched quotient
     Commitment shplonk_batched_quotient =

@@ -12,10 +12,10 @@ TEST(ToRadixTest, CheckPlimbsPerRadixSize)
     std::vector<size_t> hardcoded_sizes;
     std::vector<size_t> computed_sizes;
 
-    hardcoded_sizes.reserve(257);
-    computed_sizes.reserve(257);
+    hardcoded_sizes.reserve(NUM_RADIXES);
+    computed_sizes.reserve(NUM_RADIXES);
 
-    for (size_t radix = 0; radix < 257; ++radix) {
+    for (size_t radix = 0; radix < NUM_RADIXES; ++radix) {
         hardcoded_sizes.push_back(get_p_limbs_per_radix_size(radix));
         computed_sizes.push_back(get_p_limbs_per_radix()[radix].size());
     }

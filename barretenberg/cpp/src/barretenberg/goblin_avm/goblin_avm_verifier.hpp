@@ -41,22 +41,20 @@ class GoblinAvmRecursiveVerifier {
 
     /**
      * @brief Result of GoblinAvm verification
-     * @details Both pairing and IPA verification deferred for batched verification
+     * @details Pairing verification and TripleIPA verification are deferred.
      */
+    using DeferredTripleIpaOpening = typename ECCVMVerifier::DeferredTripleIpaOpening;
+
     struct ReductionResult {
         using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
-        using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
-        using IPAProof = stdlib::Proof<UltraCircuitBuilder>;
-
-        PairingPoints translator_pairing_points; // KZG pairing points from Translator
-        IPAClaim ipa_claim;                      // IPA opening claim from ECCVM (Grumpkin curve)
-        IPAProof ipa_proof;                      // IPA proof for verifying the claim
+        PairingPoints translator_pairing_points;     // KZG pairing points from Translator
+        DeferredTripleIpaOpening triple_ipa_opening; // Compact TripleIPA verifier input and proof from ECCVM
     };
 
     /**
      * @brief Construct a GoblinAvm verifier
      * @param transcript Shared transcript for Fiat-Shamir
-     * @param proof The complete GoblinAvm proof containing ECCVM, IPA, and Translator proofs
+     * @param proof The complete GoblinAvm proof containing ECCVM, TripleIPA, and Translator proofs
      * @param table_commitments The commitments to the full table of ECC ops
      */
     GoblinAvmRecursiveVerifier(std::shared_ptr<Transcript> transcript,
@@ -68,14 +66,16 @@ class GoblinAvmRecursiveVerifier {
         , table_commitments(table_commitments) {};
 
     /**
-     * @brief Reduce Goblin proof to pairing check and IPA opening claim
+     * @brief Reduce GoblinAvm proof to a pairing check and TripleIPA claim
      * @details Orchestrates two sub-verifiers in sequence: ECCVM → Translator
-     *   - ECCVM: reduces to IPA opening claim (Grumpkin curve)
+     *   - ECCVM: reconstructs a compact TripleIPA claim (Grumpkin curve)
      *   - Translator: reduces to KZG pairing check
      *
-     * @warning Caller must verify translator_pairing_points with a pairing check, and ipa_claim using ipa_proof
+     * @warning Caller must verify translator_pairing_points with a pairing check and reduce or verify
+     * triple_ipa_opening.
      */
-    [[nodiscard("Verification result must be accumulated")]] ReductionResult reduce_to_pairing_check_and_ipa_opening();
+    [[nodiscard("Verification result must be accumulated")]] ReductionResult
+    reduce_to_pairing_check_and_triple_ipa_opening();
 
   private:
     std::shared_ptr<Transcript> transcript;

@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   collect-avm-circuit-inputs:
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository != 'AztecProtocol/aztec-packages-private' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -67,7 +67,7 @@ jobs:
 
   avm-check-circuit:
     needs: collect-avm-circuit-inputs
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository != 'AztecProtocol/aztec-packages-private' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

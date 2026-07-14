@@ -15,7 +15,7 @@ pub contract SchnorrAccount {
         context::PrivateContext,
         hash::compute_siloed_nullifier,
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         oracle::{
             auth_witness::get_auth_witness, get_nullifier_membership_witness::get_low_nullifier_membership_witness,
         },
@@ -39,7 +39,7 @@ pub contract SchnorrAccount {
         // The deployment transaction is typically sent from a separate account (e.g. a fee-paying deployer), which
         // would otherwise be used as the sender for tags. We override it with this account's own address so the
         // recipient can discover the note by registering the account address, regardless of who deployed it.
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_constrained()
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_unconstrained()
             .with_sender(self.address));
     }
 

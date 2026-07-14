@@ -59,25 +59,29 @@ void sha256Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (static_cast<View>(in.get(C::sha256_and_op_id)) - CView(constants_AVM_BITWISE_AND_OP_ID));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // ROUNDS_REM_INIT
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::sha256_start)) *
-                        (static_cast<View>(in.get(C::sha256_rounds_remaining)) - CView(sha256_NUM_ROUNDS)) +
-                    static_cast<View>(in.get(C::sha256_perform_round)) *
-                        ((static_cast<View>(in.get(C::sha256_rounds_remaining)) -
-                          static_cast<View>(in.get(C::sha256_rounds_remaining_shift))) -
-                         FF(1)));
+        auto tmp = static_cast<View>(in.get(C::sha256_start)) *
+                   (static_cast<View>(in.get(C::sha256_rounds_remaining)) - CView(sha256_NUM_ROUNDS));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // ROUNDS_REM_DECREMENT
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = CView(sha256_SEL_NO_ERR) *
-                   (static_cast<View>(in.get(C::sha256_round_count)) -
-                    (CView(sha256_NUM_ROUNDS) - static_cast<View>(in.get(C::sha256_rounds_remaining))));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   ((static_cast<View>(in.get(C::sha256_rounds_remaining)) -
+                     static_cast<View>(in.get(C::sha256_rounds_remaining_shift))) -
+                    FF(1));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        auto tmp = CView(sha256_SEL_NO_ERR) *
+                   (static_cast<View>(in.get(C::sha256_round_count)) -
+                    (CView(sha256_NUM_ROUNDS) - static_cast<View>(in.get(C::sha256_rounds_remaining))));
+        std::get<6>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp =
             CView(sha256_SEL_NO_ERR) * ((static_cast<View>(in.get(C::sha256_rounds_remaining)) *
                                              (static_cast<View>(in.get(C::sha256_end)) *
@@ -85,581 +89,581 @@ void sha256Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                               static_cast<View>(in.get(C::sha256_rounds_remaining_inv))) -
                                          FF(1)) +
                                         static_cast<View>(in.get(C::sha256_end)));
-        std::get<6>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = CView(sha256_SEL_NO_ERR) * (static_cast<View>(in.get(C::sha256_two_pow_32)) - FF(4294967296UL));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
-                   (static_cast<View>(in.get(C::sha256_a)) - static_cast<View>(in.get(C::sha256_init_a)));
+        auto tmp = CView(sha256_SEL_NO_ERR) * (static_cast<View>(in.get(C::sha256_rng_chk_32)) - FF(32));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
-                   (static_cast<View>(in.get(C::sha256_b)) - static_cast<View>(in.get(C::sha256_init_b)));
+                   (static_cast<View>(in.get(C::sha256_a)) - static_cast<View>(in.get(C::sha256_init_a)));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
-                   (static_cast<View>(in.get(C::sha256_c)) - static_cast<View>(in.get(C::sha256_init_c)));
+                   (static_cast<View>(in.get(C::sha256_b)) - static_cast<View>(in.get(C::sha256_init_b)));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
-                   (static_cast<View>(in.get(C::sha256_d)) - static_cast<View>(in.get(C::sha256_init_d)));
+                   (static_cast<View>(in.get(C::sha256_c)) - static_cast<View>(in.get(C::sha256_init_c)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
-                   (static_cast<View>(in.get(C::sha256_e)) - static_cast<View>(in.get(C::sha256_init_e)));
+                   (static_cast<View>(in.get(C::sha256_d)) - static_cast<View>(in.get(C::sha256_init_d)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
-                   (static_cast<View>(in.get(C::sha256_f)) - static_cast<View>(in.get(C::sha256_init_f)));
+                   (static_cast<View>(in.get(C::sha256_e)) - static_cast<View>(in.get(C::sha256_init_e)));
         std::get<13>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
-                   (static_cast<View>(in.get(C::sha256_g)) - static_cast<View>(in.get(C::sha256_init_g)));
+                   (static_cast<View>(in.get(C::sha256_f)) - static_cast<View>(in.get(C::sha256_init_f)));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
-                   (static_cast<View>(in.get(C::sha256_h)) - static_cast<View>(in.get(C::sha256_init_h)));
+                   (static_cast<View>(in.get(C::sha256_g)) - static_cast<View>(in.get(C::sha256_init_g)));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_INIT_A
+    {
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_init_a_shift)) - static_cast<View>(in.get(C::sha256_init_a)));
+        auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_err))) *
+                   (static_cast<View>(in.get(C::sha256_h)) - static_cast<View>(in.get(C::sha256_init_h)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_INIT_B
+    { // PROPAGATE_INIT_A
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_init_b_shift)) - static_cast<View>(in.get(C::sha256_init_b)));
+                   (static_cast<View>(in.get(C::sha256_init_a_shift)) - static_cast<View>(in.get(C::sha256_init_a)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_INIT_C
+    { // PROPAGATE_INIT_B
         using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_init_c_shift)) - static_cast<View>(in.get(C::sha256_init_c)));
+                   (static_cast<View>(in.get(C::sha256_init_b_shift)) - static_cast<View>(in.get(C::sha256_init_b)));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_INIT_D
+    { // PROPAGATE_INIT_C
         using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_init_d_shift)) - static_cast<View>(in.get(C::sha256_init_d)));
+                   (static_cast<View>(in.get(C::sha256_init_c_shift)) - static_cast<View>(in.get(C::sha256_init_c)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_INIT_E
+    { // PROPAGATE_INIT_D
         using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_init_e_shift)) - static_cast<View>(in.get(C::sha256_init_e)));
+                   (static_cast<View>(in.get(C::sha256_init_d_shift)) - static_cast<View>(in.get(C::sha256_init_d)));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_INIT_F
+    { // PROPAGATE_INIT_E
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_init_f_shift)) - static_cast<View>(in.get(C::sha256_init_f)));
+                   (static_cast<View>(in.get(C::sha256_init_e_shift)) - static_cast<View>(in.get(C::sha256_init_e)));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_INIT_G
+    { // PROPAGATE_INIT_F
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_init_g_shift)) - static_cast<View>(in.get(C::sha256_init_g)));
+                   (static_cast<View>(in.get(C::sha256_init_f_shift)) - static_cast<View>(in.get(C::sha256_init_f)));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
-    { // PROPAGATE_INIT_H
+    { // PROPAGATE_INIT_G
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_init_h_shift)) - static_cast<View>(in.get(C::sha256_init_h)));
+                   (static_cast<View>(in.get(C::sha256_init_g_shift)) - static_cast<View>(in.get(C::sha256_init_g)));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // PROPAGATE_INIT_H
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w0_shift)) - static_cast<View>(in.get(C::sha256_helper_w1)));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_init_h_shift)) - static_cast<View>(in.get(C::sha256_init_h)));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w1_shift)) - static_cast<View>(in.get(C::sha256_helper_w2)));
+            (static_cast<View>(in.get(C::sha256_helper_w0_shift)) - static_cast<View>(in.get(C::sha256_helper_w1)));
         std::get<25>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w2_shift)) - static_cast<View>(in.get(C::sha256_helper_w3)));
+            (static_cast<View>(in.get(C::sha256_helper_w1_shift)) - static_cast<View>(in.get(C::sha256_helper_w2)));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w3_shift)) - static_cast<View>(in.get(C::sha256_helper_w4)));
+            (static_cast<View>(in.get(C::sha256_helper_w2_shift)) - static_cast<View>(in.get(C::sha256_helper_w3)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w4_shift)) - static_cast<View>(in.get(C::sha256_helper_w5)));
+            (static_cast<View>(in.get(C::sha256_helper_w3_shift)) - static_cast<View>(in.get(C::sha256_helper_w4)));
         std::get<28>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w5_shift)) - static_cast<View>(in.get(C::sha256_helper_w6)));
+            (static_cast<View>(in.get(C::sha256_helper_w4_shift)) - static_cast<View>(in.get(C::sha256_helper_w5)));
         std::get<29>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w6_shift)) - static_cast<View>(in.get(C::sha256_helper_w7)));
+            (static_cast<View>(in.get(C::sha256_helper_w5_shift)) - static_cast<View>(in.get(C::sha256_helper_w6)));
         std::get<30>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w7_shift)) - static_cast<View>(in.get(C::sha256_helper_w8)));
+            (static_cast<View>(in.get(C::sha256_helper_w6_shift)) - static_cast<View>(in.get(C::sha256_helper_w7)));
         std::get<31>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w8_shift)) - static_cast<View>(in.get(C::sha256_helper_w9)));
+            (static_cast<View>(in.get(C::sha256_helper_w7_shift)) - static_cast<View>(in.get(C::sha256_helper_w8)));
         std::get<32>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w9_shift)) - static_cast<View>(in.get(C::sha256_helper_w10)));
+            (static_cast<View>(in.get(C::sha256_helper_w8_shift)) - static_cast<View>(in.get(C::sha256_helper_w9)));
         std::get<33>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w10_shift)) - static_cast<View>(in.get(C::sha256_helper_w11)));
+            (static_cast<View>(in.get(C::sha256_helper_w9_shift)) - static_cast<View>(in.get(C::sha256_helper_w10)));
         std::get<34>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w11_shift)) - static_cast<View>(in.get(C::sha256_helper_w12)));
+            (static_cast<View>(in.get(C::sha256_helper_w10_shift)) - static_cast<View>(in.get(C::sha256_helper_w11)));
         std::get<35>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w12_shift)) - static_cast<View>(in.get(C::sha256_helper_w13)));
+            (static_cast<View>(in.get(C::sha256_helper_w11_shift)) - static_cast<View>(in.get(C::sha256_helper_w12)));
         std::get<36>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w13_shift)) - static_cast<View>(in.get(C::sha256_helper_w14)));
+            (static_cast<View>(in.get(C::sha256_helper_w12_shift)) - static_cast<View>(in.get(C::sha256_helper_w13)));
         std::get<37>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::sha256_perform_round)) *
-            (static_cast<View>(in.get(C::sha256_helper_w14_shift)) - static_cast<View>(in.get(C::sha256_helper_w15)));
+            (static_cast<View>(in.get(C::sha256_helper_w13_shift)) - static_cast<View>(in.get(C::sha256_helper_w14)));
         std::get<38>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_helper_w15_shift)) - static_cast<View>(in.get(C::sha256_w)));
+        auto tmp =
+            static_cast<View>(in.get(C::sha256_perform_round)) *
+            (static_cast<View>(in.get(C::sha256_helper_w14_shift)) - static_cast<View>(in.get(C::sha256_helper_w15)));
         std::get<39>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::sha256_sel_compute_w)) -
-                    static_cast<View>(in.get(C::sha256_perform_round)) *
-                        (FF(1) - static_cast<View>(in.get(C::sha256_sel_is_input_round))));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_helper_w15_shift)) - static_cast<View>(in.get(C::sha256_w)));
         std::get<40>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   ((static_cast<View>(in.get(C::sha256_computed_w_lhs)) * FF(4294967296UL) +
-                     static_cast<View>(in.get(C::sha256_computed_w_rhs))) -
-                    CView(sha256_COMPUTED_W));
+        auto tmp = (static_cast<View>(in.get(C::sha256_sel_compute_w)) -
+                    static_cast<View>(in.get(C::sha256_perform_round)) *
+                        (FF(1) - static_cast<View>(in.get(C::sha256_sel_is_input_round))));
         std::get<41>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   (static_cast<View>(in.get(C::sha256_w)) - static_cast<View>(in.get(C::sha256_computed_w_rhs)));
+                   ((static_cast<View>(in.get(C::sha256_computed_w_lhs)) * FF(4294967296UL) +
+                     static_cast<View>(in.get(C::sha256_computed_w_rhs))) -
+                    CView(sha256_COMPUTED_W));
         std::get<42>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   ((static_cast<View>(in.get(C::sha256_helper_w1)) -
-                     static_cast<View>(in.get(C::sha256_w_15_rotr_7)) * FF(128)) +
-                    static_cast<View>(in.get(C::sha256_rhs_w_7)) * FF(4294967295UL));
+                   (static_cast<View>(in.get(C::sha256_w)) - static_cast<View>(in.get(C::sha256_computed_w_rhs)));
         std::get<43>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_7)) - FF(128));
+                   ((static_cast<View>(in.get(C::sha256_helper_w1)) -
+                     static_cast<View>(in.get(C::sha256_w_15_rotr_7)) * FF(128)) +
+                    static_cast<View>(in.get(C::sha256_rhs_w_7)) * FF(4294967295UL));
         std::get<44>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<45, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   ((static_cast<View>(in.get(C::sha256_helper_w1)) -
-                     static_cast<View>(in.get(C::sha256_w_15_rotr_18)) * FF(262144)) +
-                    static_cast<View>(in.get(C::sha256_rhs_w_18)) * FF(4294967295UL));
+                   (static_cast<View>(in.get(C::sha256_rng_chk_7)) - FF(7));
         std::get<45>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<46, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_18)) - FF(262144));
+                   ((static_cast<View>(in.get(C::sha256_helper_w1)) -
+                     static_cast<View>(in.get(C::sha256_w_15_rotr_18)) * FF(262144)) +
+                    static_cast<View>(in.get(C::sha256_rhs_w_18)) * FF(4294967295UL));
         std::get<46>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<47, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-            (static_cast<View>(in.get(C::sha256_helper_w1)) -
-             (static_cast<View>(in.get(C::sha256_lhs_w_3)) * FF(8) + static_cast<View>(in.get(C::sha256_rhs_w_3))));
+        auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
+                   (static_cast<View>(in.get(C::sha256_rng_chk_18)) - FF(18));
         std::get<47>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_3)) - FF(8));
+        auto tmp =
+            static_cast<View>(in.get(C::sha256_sel_compute_w)) *
+            (static_cast<View>(in.get(C::sha256_helper_w1)) -
+             (static_cast<View>(in.get(C::sha256_lhs_w_3)) * FF(8) + static_cast<View>(in.get(C::sha256_rhs_w_3))));
         std::get<48>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   ((static_cast<View>(in.get(C::sha256_helper_w14)) -
-                     static_cast<View>(in.get(C::sha256_w_2_rotr_17)) * FF(131072)) +
-                    static_cast<View>(in.get(C::sha256_rhs_w_17)) * FF(4294967295UL));
+                   (static_cast<View>(in.get(C::sha256_rng_chk_3)) - FF(3));
         std::get<49>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<50, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_17)) - FF(131072));
+                   ((static_cast<View>(in.get(C::sha256_helper_w14)) -
+                     static_cast<View>(in.get(C::sha256_w_2_rotr_17)) * FF(131072)) +
+                    static_cast<View>(in.get(C::sha256_rhs_w_17)) * FF(4294967295UL));
         std::get<50>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<51, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   ((static_cast<View>(in.get(C::sha256_helper_w14)) -
-                     static_cast<View>(in.get(C::sha256_w_2_rotr_19)) * FF(524288)) +
-                    static_cast<View>(in.get(C::sha256_rhs_w_19)) * FF(4294967295UL));
+                   (static_cast<View>(in.get(C::sha256_rng_chk_17)) - FF(17));
         std::get<51>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<52, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_19)) - FF(524288));
+                   ((static_cast<View>(in.get(C::sha256_helper_w14)) -
+                     static_cast<View>(in.get(C::sha256_w_2_rotr_19)) * FF(524288)) +
+                    static_cast<View>(in.get(C::sha256_rhs_w_19)) * FF(4294967295UL));
         std::get<52>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<53, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   (static_cast<View>(in.get(C::sha256_helper_w14)) -
-                    (static_cast<View>(in.get(C::sha256_lhs_w_10)) * FF(1024) +
-                     static_cast<View>(in.get(C::sha256_rhs_w_10))));
+                   (static_cast<View>(in.get(C::sha256_rng_chk_19)) - FF(19));
         std::get<53>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_10)) - FF(1024));
+                   (static_cast<View>(in.get(C::sha256_helper_w14)) -
+                    (static_cast<View>(in.get(C::sha256_lhs_w_10)) * FF(1024) +
+                     static_cast<View>(in.get(C::sha256_rhs_w_10))));
         std::get<54>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   ((static_cast<View>(in.get(C::sha256_e)) - static_cast<View>(in.get(C::sha256_e_rotr_6)) * FF(64)) +
-                    static_cast<View>(in.get(C::sha256_rhs_e_6)) * FF(4294967295UL));
+        auto tmp = static_cast<View>(in.get(C::sha256_sel_compute_w)) *
+                   (static_cast<View>(in.get(C::sha256_rng_chk_10)) - FF(10));
         std::get<55>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<56, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_6)) - FF(64));
+                   ((static_cast<View>(in.get(C::sha256_e)) - static_cast<View>(in.get(C::sha256_e_rotr_6)) * FF(64)) +
+                    static_cast<View>(in.get(C::sha256_rhs_e_6)) * FF(4294967295UL));
         std::get<56>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<57, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::sha256_perform_round)) *
-            ((static_cast<View>(in.get(C::sha256_e)) - static_cast<View>(in.get(C::sha256_e_rotr_11)) * FF(2048)) +
-             static_cast<View>(in.get(C::sha256_rhs_e_11)) * FF(4294967295UL));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_rng_chk_6)) - FF(6));
         std::get<57>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<58, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_11)) - FF(2048));
+        auto tmp =
+            static_cast<View>(in.get(C::sha256_perform_round)) *
+            ((static_cast<View>(in.get(C::sha256_e)) - static_cast<View>(in.get(C::sha256_e_rotr_11)) * FF(2048)) +
+             static_cast<View>(in.get(C::sha256_rhs_e_11)) * FF(4294967295UL));
         std::get<58>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<59, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::sha256_perform_round)) *
-            ((static_cast<View>(in.get(C::sha256_e)) - static_cast<View>(in.get(C::sha256_e_rotr_25)) * FF(33554432)) +
-             static_cast<View>(in.get(C::sha256_rhs_e_25)) * FF(4294967295UL));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_rng_chk_11)) - FF(11));
         std::get<59>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<60, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_25)) - FF(33554432));
+        auto tmp =
+            static_cast<View>(in.get(C::sha256_perform_round)) *
+            ((static_cast<View>(in.get(C::sha256_e)) - static_cast<View>(in.get(C::sha256_e_rotr_25)) * FF(33554432)) +
+             static_cast<View>(in.get(C::sha256_rhs_e_25)) * FF(4294967295UL));
         std::get<60>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<61, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::sha256_perform_round)) *
-            ((static_cast<View>(in.get(C::sha256_e)) + static_cast<View>(in.get(C::sha256_not_e))) - FF(4294967295UL));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_rng_chk_25)) - FF(25));
         std::get<61>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<62, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   ((static_cast<View>(in.get(C::sha256_a)) - static_cast<View>(in.get(C::sha256_a_rotr_2)) * FF(4)) +
-                    static_cast<View>(in.get(C::sha256_rhs_a_2)) * FF(4294967295UL));
+        auto tmp =
+            static_cast<View>(in.get(C::sha256_perform_round)) *
+            ((static_cast<View>(in.get(C::sha256_e)) + static_cast<View>(in.get(C::sha256_not_e))) - FF(4294967295UL));
         std::get<62>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<63, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_2)) - FF(4));
+                   ((static_cast<View>(in.get(C::sha256_a)) - static_cast<View>(in.get(C::sha256_a_rotr_2)) * FF(4)) +
+                    static_cast<View>(in.get(C::sha256_rhs_a_2)) * FF(4294967295UL));
         std::get<63>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<64, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::sha256_perform_round)) *
-            ((static_cast<View>(in.get(C::sha256_a)) - static_cast<View>(in.get(C::sha256_a_rotr_13)) * FF(8192)) +
-             static_cast<View>(in.get(C::sha256_rhs_a_13)) * FF(4294967295UL));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_rng_chk_2)) - FF(2));
         std::get<64>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<65, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_13)) - FF(8192));
+        auto tmp =
+            static_cast<View>(in.get(C::sha256_perform_round)) *
+            ((static_cast<View>(in.get(C::sha256_a)) - static_cast<View>(in.get(C::sha256_a_rotr_13)) * FF(8192)) +
+             static_cast<View>(in.get(C::sha256_rhs_a_13)) * FF(4294967295UL));
         std::get<65>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<66, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::sha256_perform_round)) *
-            ((static_cast<View>(in.get(C::sha256_a)) - static_cast<View>(in.get(C::sha256_a_rotr_22)) * FF(4194304)) +
-             static_cast<View>(in.get(C::sha256_rhs_a_22)) * FF(4294967295UL));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_rng_chk_13)) - FF(13));
         std::get<66>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<67, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_two_pow_22)) - FF(4194304));
+        auto tmp =
+            static_cast<View>(in.get(C::sha256_perform_round)) *
+            ((static_cast<View>(in.get(C::sha256_a)) - static_cast<View>(in.get(C::sha256_a_rotr_22)) * FF(4194304)) +
+             static_cast<View>(in.get(C::sha256_rhs_a_22)) * FF(4294967295UL));
         std::get<67>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<68, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   ((static_cast<View>(in.get(C::sha256_next_a_lhs)) * FF(4294967296UL) +
-                     static_cast<View>(in.get(C::sha256_next_a_rhs))) -
-                    CView(sha256_NEXT_A));
+                   (static_cast<View>(in.get(C::sha256_rng_chk_22)) - FF(22));
         std::get<68>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   ((static_cast<View>(in.get(C::sha256_next_e_lhs)) * FF(4294967296UL) +
-                     static_cast<View>(in.get(C::sha256_next_e_rhs))) -
-                    CView(sha256_NEXT_E));
+                   ((static_cast<View>(in.get(C::sha256_next_a_lhs)) * FF(4294967296UL) +
+                     static_cast<View>(in.get(C::sha256_next_a_rhs))) -
+                    CView(sha256_NEXT_A));
         std::get<69>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<70, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_a_shift)) - static_cast<View>(in.get(C::sha256_next_a_rhs)));
+                   ((static_cast<View>(in.get(C::sha256_next_e_lhs)) * FF(4294967296UL) +
+                     static_cast<View>(in.get(C::sha256_next_e_rhs))) -
+                    CView(sha256_NEXT_E));
         std::get<70>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<71, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_b_shift)) - static_cast<View>(in.get(C::sha256_a)));
+                   (static_cast<View>(in.get(C::sha256_a_shift)) - static_cast<View>(in.get(C::sha256_next_a_rhs)));
         std::get<71>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<72, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_c_shift)) - static_cast<View>(in.get(C::sha256_b)));
+                   (static_cast<View>(in.get(C::sha256_b_shift)) - static_cast<View>(in.get(C::sha256_a)));
         std::get<72>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<73, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_d_shift)) - static_cast<View>(in.get(C::sha256_c)));
+                   (static_cast<View>(in.get(C::sha256_c_shift)) - static_cast<View>(in.get(C::sha256_b)));
         std::get<73>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<74, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_e_shift)) - static_cast<View>(in.get(C::sha256_next_e_rhs)));
+                   (static_cast<View>(in.get(C::sha256_d_shift)) - static_cast<View>(in.get(C::sha256_c)));
         std::get<74>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<75, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_f_shift)) - static_cast<View>(in.get(C::sha256_e)));
+                   (static_cast<View>(in.get(C::sha256_e_shift)) - static_cast<View>(in.get(C::sha256_next_e_rhs)));
         std::get<75>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<76, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_g_shift)) - static_cast<View>(in.get(C::sha256_f)));
+                   (static_cast<View>(in.get(C::sha256_f_shift)) - static_cast<View>(in.get(C::sha256_e)));
         std::get<76>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<77, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
-                   (static_cast<View>(in.get(C::sha256_h_shift)) - static_cast<View>(in.get(C::sha256_g)));
+                   (static_cast<View>(in.get(C::sha256_g_shift)) - static_cast<View>(in.get(C::sha256_f)));
         std::get<77>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<78, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_last)) *
-                   (CView(sha256_OUT_A) - (static_cast<View>(in.get(C::sha256_output_a_lhs)) * FF(4294967296UL) +
-                                           static_cast<View>(in.get(C::sha256_output_a_rhs))));
+        auto tmp = static_cast<View>(in.get(C::sha256_perform_round)) *
+                   (static_cast<View>(in.get(C::sha256_h_shift)) - static_cast<View>(in.get(C::sha256_g)));
         std::get<78>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<79, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_last)) *
-                   (CView(sha256_OUT_B) - (static_cast<View>(in.get(C::sha256_output_b_lhs)) * FF(4294967296UL) +
-                                           static_cast<View>(in.get(C::sha256_output_b_rhs))));
+                   (CView(sha256_OUT_A) - (static_cast<View>(in.get(C::sha256_output_a_lhs)) * FF(4294967296UL) +
+                                           static_cast<View>(in.get(C::sha256_output_a_rhs))));
         std::get<79>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<80, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_last)) *
-                   (CView(sha256_OUT_C) - (static_cast<View>(in.get(C::sha256_output_c_lhs)) * FF(4294967296UL) +
-                                           static_cast<View>(in.get(C::sha256_output_c_rhs))));
+                   (CView(sha256_OUT_B) - (static_cast<View>(in.get(C::sha256_output_b_lhs)) * FF(4294967296UL) +
+                                           static_cast<View>(in.get(C::sha256_output_b_rhs))));
         std::get<80>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<81, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_last)) *
-                   (CView(sha256_OUT_D) - (static_cast<View>(in.get(C::sha256_output_d_lhs)) * FF(4294967296UL) +
-                                           static_cast<View>(in.get(C::sha256_output_d_rhs))));
+                   (CView(sha256_OUT_C) - (static_cast<View>(in.get(C::sha256_output_c_lhs)) * FF(4294967296UL) +
+                                           static_cast<View>(in.get(C::sha256_output_c_rhs))));
         std::get<81>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<82, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_last)) *
-                   (CView(sha256_OUT_E) - (static_cast<View>(in.get(C::sha256_output_e_lhs)) * FF(4294967296UL) +
-                                           static_cast<View>(in.get(C::sha256_output_e_rhs))));
+                   (CView(sha256_OUT_D) - (static_cast<View>(in.get(C::sha256_output_d_lhs)) * FF(4294967296UL) +
+                                           static_cast<View>(in.get(C::sha256_output_d_rhs))));
         std::get<82>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<83, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_last)) *
-                   (CView(sha256_OUT_F) - (static_cast<View>(in.get(C::sha256_output_f_lhs)) * FF(4294967296UL) +
-                                           static_cast<View>(in.get(C::sha256_output_f_rhs))));
+                   (CView(sha256_OUT_E) - (static_cast<View>(in.get(C::sha256_output_e_lhs)) * FF(4294967296UL) +
+                                           static_cast<View>(in.get(C::sha256_output_e_rhs))));
         std::get<83>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<84, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_last)) *
-                   (CView(sha256_OUT_G) - (static_cast<View>(in.get(C::sha256_output_g_lhs)) * FF(4294967296UL) +
-                                           static_cast<View>(in.get(C::sha256_output_g_rhs))));
+                   (CView(sha256_OUT_F) - (static_cast<View>(in.get(C::sha256_output_f_lhs)) * FF(4294967296UL) +
+                                           static_cast<View>(in.get(C::sha256_output_f_rhs))));
         std::get<84>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<85, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_last)) *
-                   (CView(sha256_OUT_H) - (static_cast<View>(in.get(C::sha256_output_h_lhs)) * FF(4294967296UL) +
-                                           static_cast<View>(in.get(C::sha256_output_h_rhs))));
+                   (CView(sha256_OUT_G) - (static_cast<View>(in.get(C::sha256_output_g_lhs)) * FF(4294967296UL) +
+                                           static_cast<View>(in.get(C::sha256_output_g_rhs))));
         std::get<85>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<86, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_output_a_lhs)) *
-                   (static_cast<View>(in.get(C::sha256_output_a_lhs)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::sha256_last)) *
+                   (CView(sha256_OUT_H) - (static_cast<View>(in.get(C::sha256_output_h_lhs)) * FF(4294967296UL) +
+                                           static_cast<View>(in.get(C::sha256_output_h_rhs))));
         std::get<86>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<87, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_output_b_lhs)) *
-                   (static_cast<View>(in.get(C::sha256_output_b_lhs)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::sha256_output_a_lhs)) *
+                   (static_cast<View>(in.get(C::sha256_output_a_lhs)) - FF(1));
         std::get<87>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<88, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_output_c_lhs)) *
-                   (static_cast<View>(in.get(C::sha256_output_c_lhs)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::sha256_output_b_lhs)) *
+                   (static_cast<View>(in.get(C::sha256_output_b_lhs)) - FF(1));
         std::get<88>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<89, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_output_d_lhs)) *
-                   (static_cast<View>(in.get(C::sha256_output_d_lhs)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::sha256_output_c_lhs)) *
+                   (static_cast<View>(in.get(C::sha256_output_c_lhs)) - FF(1));
         std::get<89>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<90, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_output_e_lhs)) *
-                   (static_cast<View>(in.get(C::sha256_output_e_lhs)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::sha256_output_d_lhs)) *
+                   (static_cast<View>(in.get(C::sha256_output_d_lhs)) - FF(1));
         std::get<90>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<91, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_output_f_lhs)) *
-                   (static_cast<View>(in.get(C::sha256_output_f_lhs)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::sha256_output_e_lhs)) *
+                   (static_cast<View>(in.get(C::sha256_output_e_lhs)) - FF(1));
         std::get<91>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<92, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_output_g_lhs)) *
-                   (static_cast<View>(in.get(C::sha256_output_g_lhs)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::sha256_output_f_lhs)) *
+                   (static_cast<View>(in.get(C::sha256_output_f_lhs)) - FF(1));
         std::get<92>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<93, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::sha256_output_g_lhs)) *
+                   (static_cast<View>(in.get(C::sha256_output_g_lhs)) - FF(1));
+        std::get<93>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<94, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::sha256_output_h_lhs)) *
                    (static_cast<View>(in.get(C::sha256_output_h_lhs)) - FF(1));
-        std::get<93>(evals) += (tmp * scaling_factor);
+        std::get<94>(evals) += (tmp * scaling_factor);
     }
 }
 

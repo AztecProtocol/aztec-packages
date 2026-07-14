@@ -2,12 +2,16 @@
 import { createLogger } from '@aztec/foundation/log';
 import { MAX_TX_SIZE_KB, TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
 
-import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
 import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
 import type { Message } from '@libp2p/interface';
 import { webcrypto } from 'node:crypto';
 import { compressSync, uncompressSync } from 'snappy';
-import xxhashFactory from 'xxhash-wasm';
+
+/**
+ * Fallback maximum response size (in KB) applied when no explicit per-request bound is supplied.
+ * Used both as the `SnappyTransform` default and as the reception-side fallback in `readMessage`.
+ */
+export const DEFAULT_MAX_RESPONSE_SIZE_KB = 10 * 1024;
 
 /** Thrown when a Snappy-compressed response exceeds the allowed decompressed size. */
 export class OversizedSnappyResponseError extends Error {
@@ -17,25 +21,20 @@ export class OversizedSnappyResponseError extends Error {
   }
 }
 
-// Load WASM
-const xxhash = await xxhashFactory();
-
-// Use salt to prevent msgId from being mined for collisions
-const h64Seed = BigInt(Math.floor(Math.random() * 1e9));
+/**
+ * Thrown when the compressed bytes accumulated while reading a response stream exceed the reception
+ * bound, before the full payload is buffered. Distinct from {@link OversizedSnappyResponseError},
+ * which guards the decompressed size after the stream has already been fully received.
+ */
+export class ResponseSizeLimitExceededError extends Error {
+  constructor(accumulatedBytes: number, limitBytes: number) {
+    super(`Accumulated response size ${accumulatedBytes} bytes exceeds reception limit of ${limitBytes} bytes`);
+    this.name = 'ResponseSizeLimitExceededError';
+  }
+}
 
 // Shared buffer to convert msgId to string
 const sharedMsgIdBuf = Buffer.alloc(20);
-
-/**
- * The function used to generate a gossipsub message id
- * We use the first 8 bytes of SHA256(data) for content addressing
- */
-export function fastMsgIdFn(rpcMsg: RPC.Message): string {
-  if (rpcMsg.data) {
-    return xxhash.h64Raw(rpcMsg.data, h64Seed).toString(16);
-  }
-  return '0000000000000000';
-}
 
 export function msgIdToStrFn(msgId: Uint8Array): string {
   // This happens serially, no need to reallocate the buffer
@@ -49,11 +48,20 @@ export function msgIdToStrFn(msgId: Uint8Array): string {
  * Follows similarly to:
  * https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/p2p-interface.md#topics-and-messages
  *
+ * The topic length is framed into the hash input (`uint32be(topicLen) || topic || data`) so the
+ * `(topic, data)` boundary is unambiguous. A raw `topic || data` concatenation is not injective —
+ * shifting bytes across the boundary (e.g. `(topic + data[0], data[1:])`) yields the same bytes and
+ * thus the same id, letting an unsubscribed-topic message pre-occupy a real message's seenCache slot
+ * and suppress it as a duplicate.
+ *
  * @param message - The libp2p message
  * @returns The message identifier
  */
-export async function getMsgIdFn({ topic, data }: Message): Promise<Uint8Array> {
-  const buffer = Buffer.concat([Buffer.from(topic), data]);
+export async function getMsgIdFn({ topic, data }: Pick<Message, 'topic' | 'data'>): Promise<Uint8Array> {
+  const topicBytes = Buffer.from(topic);
+  const framedTopicLength = Buffer.allocUnsafe(4);
+  framedTopicLength.writeUInt32BE(topicBytes.length);
+  const buffer = Buffer.concat([framedTopicLength, topicBytes, data]);
   const hash = await webcrypto.subtle.digest('SHA-256', buffer);
   return Buffer.from(hash.slice(0, 20));
 }
@@ -76,7 +84,7 @@ const DefaultMaxSizesKb: Record<TopicType, number> = {
 export class SnappyTransform implements DataTransform {
   constructor(
     private maxSizesKb: Record<TopicType, number> = DefaultMaxSizesKb,
-    private defaultMaxSizeKb: number = 10 * 1024,
+    private defaultMaxSizeKb: number = DEFAULT_MAX_RESPONSE_SIZE_KB,
     private logger = createLogger('p2p:snappy-transform'),
   ) {}
 

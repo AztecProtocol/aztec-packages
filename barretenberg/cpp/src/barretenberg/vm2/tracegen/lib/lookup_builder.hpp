@@ -1,16 +1,13 @@
 #pragma once
 
-#include <array>
-#include <bit>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
-#include <utility>
+#include <vector>
 
-#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/map_hashes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -36,8 +33,10 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
         init(trace);
 
         // Let "src_sel {c1, c2, ...} in dst_sel {d1, d2, ...}" be a lookup,
-        // For each row that has a 1 in the src_sel, we take the values of {c1, c2, ...},
+        // For each row with src_sel == 1, we take the values of {c1, c2, ...},
         // find a row dst_row in the target columns {d1, d2, ...} where the values match.
+        // It is assumed that SRC_SELECTOR is boolean as visit_column() is being called
+        // for every non-zero row, i.e., a row with SRC_SELECTOR different from 1 and 0 is visited.
         // Then we increment the count in the counts column at dst_row.
         // The complexity is O(|src_selector|) * O(find_in_dst).
         trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
@@ -184,7 +183,7 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
         src_rows_in_order.reserve(trace.get_column_rows(LookupSettings::SRC_SELECTOR));
         trace.visit_column(LookupSettings::SRC_SELECTOR,
                            [&](uint32_t row, const FF&) { src_rows_in_order.push_back(row); });
-        std::sort(src_rows_in_order.begin(), src_rows_in_order.end());
+        std::ranges::sort(src_rows_in_order.begin(), src_rows_in_order.end());
 
         for (uint32_t row : src_rows_in_order) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
@@ -192,9 +191,10 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             // We find the first row in the destination columns where the values match.
             bool found = false;
             while (!found && dst_row < max_dst_row) {
-                // TODO: As an optimization, we could try to only walk the rows where the selector is active.
-                // We can't just do a visit because we cannot skip rows with that.
                 auto dst_selector = trace.get(this->outer_dst_selector, dst_row);
+                // All our sequential lookups do not use fine grained selectors and therefore
+                // most of the time dst_selector == 1. Therefore, we do not expect much gain to
+                // filter by dst_selector == 1 outside of the loop.
                 if (dst_selector == 1 && src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row)) {
                     trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
 

@@ -1,6 +1,6 @@
 # External Audit Scope: avm_recursive_verifier
 
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit

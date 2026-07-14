@@ -233,6 +233,37 @@ CustomBytecodeCase cast_truncation()
     return { "CastTruncation", std::move(bytecode), /*expect_revert=*/false };
 }
 
+// A SET_FF instruction whose 32-byte FF immediate encodes a value larger than the field modulus
+// (FF::modulus + 25). The deserializer reads the immediate into a field element, which reduces it
+// modulo the field modulus, so the resolved value is 25, the instruction is accepted, and execution
+// succeeds. The FF type cannot represent a value >= the modulus (it reduces on construction), so we
+// build a valid SET_FF first and then overwrite the immediate bytes directly with the overflowing
+// value.
+CustomBytecodeCase set_field_overflow()
+{
+    auto bytecode = BytecodeBuilder()
+                        .add(set8(/*dst=*/0, MemoryTag::U32, /*value=*/0)) // Return copy-size slot.
+                        .add(setff(/*dst=*/1, MemoryTag::FF, FF(25)))
+                        .add(ret(/*copySizeOffset=*/0, /*returnOffset=*/0))
+                        .build();
+
+    // The FF immediate is the trailing operand of the SET_FF instruction, which itself follows the
+    // leading SET_8. Locate it from the serialized instruction sizes rather than hard-coding offsets.
+    const uint32_t ff_width = simulation::testonly::get_operand_type_sizes().at(simulation::OperandType::FF);
+    const size_t set8_size = BytecodeBuilder().add(set8(/*dst=*/0, MemoryTag::U32, /*value=*/0)).size();
+    const size_t setff_size = BytecodeBuilder().add(setff(/*dst=*/1, MemoryTag::FF, FF(25))).size();
+    const size_t ff_offset = set8_size + (setff_size - ff_width);
+
+    // Overwrite the big-endian FF immediate with a value that overflows the field modulus.
+    uint256_t value = FF::modulus + uint256_t(25);
+    for (size_t i = 0; i < ff_width; ++i) {
+        bytecode[ff_offset + (ff_width - 1 - i)] = static_cast<uint8_t>(value);
+        value >>= 8;
+    }
+
+    return { "SetFieldOverflow", std::move(bytecode), /*expect_revert=*/false };
+}
+
 // All custom-bytecode cases: a minimal happy path, the addressing/bytecode-flow unhappy paths
 // (which must exceptionally halt), and the SET/CAST truncation happy paths.
 std::vector<CustomBytecodeCase> get_custom_bytecode_cases()
@@ -252,6 +283,7 @@ std::vector<CustomBytecodeCase> get_custom_bytecode_cases()
     cases.push_back(invalid_tag_value_and_instruction_truncated());
     cases.push_back(set_truncation());
     cases.push_back(cast_truncation());
+    cases.push_back(set_field_overflow());
     return cases;
 }
 

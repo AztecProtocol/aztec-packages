@@ -4,7 +4,6 @@
 #include "../kzg/kzg.hpp"
 #include "../pcs_test_utils.hpp"
 #include "../shplonk/shplonk.hpp"
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
@@ -33,16 +32,177 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using GroupElement = typename Flavor::Curve::Element;
     using Commitment = typename Flavor::Curve::AffineElement;
     using CK = typename Flavor::CommitmentKey;
-    using IPA = bb::IPA<typename Flavor::Curve, log_n>;
 
-    // Witness polynomials array: [0]=Concatenated(G), [1]=GrandSum(A), [2]=unused, [3]=Quotient(Q)
-    enum class TamperedPolynomial : size_t { None = SIZE_MAX, Concatenated = 0, GrandSum = 1, Quotient = 3 };
+    // Witness polynomial slots returned by SmallSubgroupIPAProver::get_witness_polynomials(): {G, A, Q}.
+    enum class TamperedPolynomial : size_t { None = SIZE_MAX, Concatenated = 0, GrandSum = 1, Quotient = 2 };
 
     // libra_commitments array: [0]=Concatenated, [1]=GrandSum, [2]=Quotient
     enum class TamperedCommitment : size_t { None = SIZE_MAX, Concatenated = 0, GrandSum = 1, Quotient = 2 };
+
+    Fr run_forged_small_ipa_prover(const std::shared_ptr<typename Flavor::Transcript>& prover_transcript,
+                                   CK& ck,
+                                   ZKSumcheckData<Flavor>& zk_sumcheck_data,
+                                   std::vector<Fr>& mle_opening_point,
+                                   MockClaimGenerator<typename Flavor::Curve>& mock_claims,
+                                   const Fr& honest_inner_product);
 };
 
-using TestSettings = ::testing::Types<BN254Settings, GrumpkinSettings>;
+/**
+ * @brief Simulated malicious prover for the Shplemini + SmallSubgroupIPA soundness regression.
+ *
+ * @details The production verifier does not run SmallSubgroupIPA in isolation: it receives the SmallSubgroupIPA
+ * commitments/evaluations through the transcript, checks the SmallSubgroupIPA identity, and then relies on Shplemini
+ * to PCS-bind those evaluations to the committed witness polynomials. To regression-test the full path, this helper
+ * acts as a malicious prover rather than calling the honest `SmallSubgroupIPAProver::prove()` end to end.
+ *
+ * Starting from honest setup data, it tampers the SmallSubgroupIPA witness by constructing forged
+ * `(A_f, Q_f, s_f)` data that still satisfies the local algebraic identity at the random Gemini challenge
+ *
+ *   L_1(X) A(X) + (X - g^{-1})(A(gX) - A(X) - F(X) G(X)) + L_{|H|}(X)(A(X) - s) = Z_H(X) Q(X)
+ *
+ * but does not satisfy the boundary condition expected from an honestly generated grand-sum polynomial. The forging
+ * uses the homogeneous perturbation
+ *   delta_A's Lagrange values on H = (delta, c, c, ..., c)   with   c = -delta / (g - 1)
+ *   delta_s = c
+ *   delta_Q = (L_1*delta_A + (X-g^{-1})(delta_A(gX) - delta_A) + L_{|H|}*(delta_A - delta_s)) / Z_H
+ *
+ * The helper writes forged transcript data and commitments for `(A_f, Q_f, s_f)`, then runs ShpleminiProver under
+ * `BB_DISABLE_ASSERTS` so the honest prover's fail-fast exact-division precondition is downgraded to a warning. This
+ * lets the test feed the verifier the kind of inconsistent PCS material a malicious prover would submit and check that
+ * Shplemini rejects it. Returns the forged inner product so the test can confirm what the verifier is actually fed.
+ */
+template <class Flavor>
+typename ShpleminiTest<Flavor>::Fr ShpleminiTest<Flavor>::run_forged_small_ipa_prover(
+    const std::shared_ptr<typename Flavor::Transcript>& prover_transcript,
+    typename Flavor::CommitmentKey& ck,
+    ZKSumcheckData<Flavor>& zk_sumcheck_data,
+    std::vector<typename Flavor::Curve::ScalarField>& mle_opening_point,
+    MockClaimGenerator<typename Flavor::Curve>& mock_claims,
+    const typename Flavor::Curve::ScalarField& honest_inner_product)
+{
+    using Curve = typename Flavor::Curve;
+    using Fr = typename Curve::ScalarField;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+
+    static constexpr size_t SUBGROUP_SIZE = Flavor::SUBGROUP_SIZE;
+    const Fr g = Curve::subgroup_generator;
+    const Fr g_inv = Curve::subgroup_generator_inverse;
+
+    // ---- Forging perturbation: pick delta != 0, then derive (c, delta_s, forged_s). ------------
+    Fr delta = Fr::random_element();
+    while (delta == Fr(0)) {
+        delta = Fr::random_element();
+    }
+    const Fr c = -delta / (g - Fr(1));
+    const Fr delta_s = c;
+    const Fr forged_inner_product = honest_inner_product + delta_s;
+
+    // Send forged s_f to the transcript before any prover commitments — the verifier will read this back.
+    prover_transcript->send_to_verifier("Libra:claimed_evaluation", forged_inner_product);
+
+    // Drive the small-IPA prover's component methods with the HONEST inner product so the resulting (A_h, Q_h)
+    // satisfy the identity for s_h. We bypass prove() to avoid sending honest commitments — we'll commit to the
+    // forged polynomials ourselves below.
+    SmallSubgroupIPAProver<Flavor> ipa_prover(
+        zk_sumcheck_data, mle_opening_point, honest_inner_product, prover_transcript, ck);
+    ipa_prover.compute_grand_sum_polynomial();
+    ipa_prover.compute_grand_sum_identity_polynomial();
+    ipa_prover.compute_grand_sum_identity_quotient();
+
+    auto honest_polys = ipa_prover.get_witness_polynomials();
+    const Polynomial<Fr>& A_honest = honest_polys[1];
+    const Polynomial<Fr>& Q_honest = honest_polys[2];
+
+    // ---- Build delta_A in monomial form via Lagrange interpolation on H. -----------------------
+    std::array<Fr, SUBGROUP_SIZE> H_domain;
+    H_domain[0] = Fr(1);
+    for (size_t i = 1; i < SUBGROUP_SIZE; ++i) {
+        H_domain[i] = H_domain[i - 1] * g;
+    }
+    std::vector<Fr> delta_A_lagrange(SUBGROUP_SIZE, c);
+    delta_A_lagrange[0] = delta;
+    Polynomial<Fr> delta_A(
+        std::span<const Fr>(H_domain.data(), SUBGROUP_SIZE), std::span<const Fr>(delta_A_lagrange), SUBGROUP_SIZE);
+
+    // L_1, L_{|H|} in monomial form.
+    std::vector<Fr> L_1_lag(SUBGROUP_SIZE, Fr(0));
+    L_1_lag[0] = Fr(1);
+    Polynomial<Fr> L_1(
+        std::span<const Fr>(H_domain.data(), SUBGROUP_SIZE), std::span<const Fr>(L_1_lag), SUBGROUP_SIZE);
+    std::vector<Fr> L_H_lag(SUBGROUP_SIZE, Fr(0));
+    L_H_lag[SUBGROUP_SIZE - 1] = Fr(1);
+    Polynomial<Fr> L_H(
+        std::span<const Fr>(H_domain.data(), SUBGROUP_SIZE), std::span<const Fr>(L_H_lag), SUBGROUP_SIZE);
+
+    // delta_A(gX) — coefficient i scaled by g^i.
+    std::vector<Fr> delta_A_shifted(SUBGROUP_SIZE);
+    for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
+        delta_A_shifted[i] = delta_A.at(i) * H_domain[i];
+    }
+
+    // delta_C(X) = L_1*delta_A + (X - g^{-1})*(delta_A(gX) - delta_A) + L_{|H|}*(delta_A - delta_s).
+    std::vector<Fr> delta_C(2 * SUBGROUP_SIZE, Fr(0));
+    for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
+        for (size_t j = 0; j < SUBGROUP_SIZE; ++j) {
+            delta_C[i + j] += L_1.at(i) * delta_A.at(j);
+        }
+    }
+    for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
+        for (size_t j = 0; j < SUBGROUP_SIZE; ++j) {
+            delta_C[i + j] += L_H.at(i) * delta_A.at(j);
+        }
+        delta_C[i] -= L_H.at(i) * delta_s;
+    }
+    for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
+        const Fr u_i = delta_A_shifted[i] - delta_A.at(i);
+        delta_C[i + 1] += u_i;
+        delta_C[i] -= g_inv * u_i;
+    }
+
+    // delta_Q = delta_C / Z_H (exact division by construction; the loop below also clears the remainder buffer).
+    std::vector<Fr> delta_Q_coeffs(SUBGROUP_SIZE, Fr(0));
+    for (size_t i = 2 * SUBGROUP_SIZE; i-- > SUBGROUP_SIZE;) {
+        delta_Q_coeffs[i - SUBGROUP_SIZE] = delta_C[i];
+        delta_C[i - SUBGROUP_SIZE] += delta_C[i];
+        delta_C[i] = Fr(0);
+    }
+    for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
+        BB_ASSERT_EQ(delta_C[i], Fr(0), "delta_C is not divisible by Z_H — perturbation is malformed.");
+    }
+    Polynomial<Fr> delta_Q(std::span<const Fr>(delta_Q_coeffs), SUBGROUP_SIZE);
+
+    // ---- A_forged = A_honest + delta_A; Q_forged = Q_honest + delta_Q. -------------------------
+    Polynomial<Fr> A_forged = A_honest;
+    Polynomial<Fr> Q_forged = Q_honest;
+    for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
+        A_forged.at(i) += delta_A.at(i);
+        Q_forged.at(i) += delta_Q.at(i);
+    }
+
+    // Forged commitments — these are what the verifier will see for [A] and [Q].
+    prover_transcript->send_to_verifier("Libra:grand_sum_commitment", ck.commit(A_forged));
+    prover_transcript->send_to_verifier("Libra:quotient_commitment", ck.commit(Q_forged));
+
+    // Witness layout passed to Shplemini: 3-array {G, A_f, Q_f} matching
+    // SmallSubgroupIPAProver::get_witness_polynomials().
+    std::array<Polynomial<Fr>, NUM_SMALL_IPA_COMMITMENTS> forged_witness = { honest_polys[0], A_forged, Q_forged };
+
+    // A protocol-following prover aborts inside factor_roots when constructing the (A, 1, 0) opening, because
+    // A_forged(1) != 0 makes the division non-exact. Demote asserts to warnings to simulate a malicious prover
+    // that ignores this fail-fast precondition; the resulting proof is the (incorrect) one a real attacker would
+    // submit, and the verifier must still reject it.
+    BB_DISABLE_ASSERTS();
+    const auto opening_claim = ShpleminiProver::prove(
+        this->n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript, forged_witness);
+    KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+
+    return forged_inner_product;
+}
+
+// Shplemini's multilinear opening is a production flow only over BN254 (KZG) — UltraHonk/MegaHonk/Translator/AVM.
+// The Grumpkin (IPA) instantiation exercised Shplemini -> IPA, which ECCVM replaced with the TripleIPA; ECCVM
+// only uses Shplemini's `compute_sumcheck_round_claims` helper, covered by the eccvm integration tests.
+using TestSettings = ::testing::Types<BN254Settings>;
 
 TYPED_TEST_SUITE(ShpleminiTest, TestSettings);
 
@@ -308,17 +468,13 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                                       prover_transcript,
                                                       small_subgroup_ipa_prover.get_witness_polynomials());
 
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        TestFixture::IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
-    } else {
-        KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
-    }
+    KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
 
     // Initialize verifier's transcript
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     // Start populating Verifier's array of Libra commitments
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] =
         verifier_transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
@@ -345,24 +501,19 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                                        {},
                                                        libra_commitments,
                                                        libra_evaluation);
-    // Verify claim using KZG or IPA
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        auto result =
-            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
-        EXPECT_EQ(result, true);
-    } else {
-        const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(pairing_points.check(), true);
-    }
+    // Verify claim using KZG
+    const auto pairing_points =
+        KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+    // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
+    EXPECT_EQ(pairing_points.check(), true);
     EXPECT_EQ(consistency_checked, true);
 }
 
 /**
  * @brief Test Shplemini with ZK data consisting of a hiding polynomial generated by GeminiProver, Libra polynomials
  * used to mask Sumcheck Round Univariates and prove/verify the claimed evaluations of committed sumcheck round
- * univariates. This test abstracts the PCS step in each ZK Flavor running over Grumpkin.
+ * univariates. This test abstracts the PCS step of the joint BatchedHonkTranslator flow, the remaining user of
+ * committed sumcheck round openings in Shplemini.
  *
  */
 TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
@@ -413,16 +564,12 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
                                                       mock_claims.round_univariates,
                                                       mock_claims.sumcheck_evaluations);
 
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        TestFixture::IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
-    } else {
-        KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
-    }
+    KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
 
     // Initialize verifier's transcript
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] =
         verifier_transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
@@ -451,17 +598,11 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
                                                                               mock_claims.sumcheck_commitments,
                                                                               mock_claims.sumcheck_evaluations)
                                    .batch_opening_claim;
-    // Verify claim using KZG or IPA
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        auto result =
-            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
-        EXPECT_EQ(result, true);
-    } else {
-        const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(pairing_points.check(), true);
-    }
+    // Verify claim using KZG
+    const auto pairing_points =
+        KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+    // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
+    EXPECT_EQ(pairing_points.check(), true);
 }
 
 /**
@@ -514,12 +655,8 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
     const auto opening_claim =
         ShpleminiProver::prove(this->n, mock_claims.polynomial_batcher, u, ck, prover_transcript);
 
-    // Run KZG/IPA prover
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        TestFixture::IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
-    } else {
-        KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
-    }
+    // Run KZG prover
+    KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // Verifier side
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
@@ -529,15 +666,9 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
                                    .batch_opening_claim;
 
     // Verify claim - should succeed because the polynomial was crafted to fold correctly
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        auto result =
-            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
-        EXPECT_EQ(result, true);
-    } else {
-        const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        EXPECT_EQ(pairing_points.check(), true);
-    }
+    const auto pairing_points =
+        KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+    EXPECT_EQ(pairing_points.check(), true);
 }
 
 /**
@@ -582,12 +713,8 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
     // Run Shplemini prover
     const auto opening_claim = ShpleminiProver::prove(big_n, mock_claims.polynomial_batcher, u, ck, prover_transcript);
 
-    // Run KZG/IPA prover
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        TestFixture::IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
-    } else {
-        KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
-    }
+    // Run KZG prover
+    KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // Verifier side
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
@@ -597,17 +724,9 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
                                    .batch_opening_claim;
 
     // Verify claim - should fail because the random polynomial doesn't fold correctly
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        // IPA verification failure normally throws, but with BB_DISABLE_ASSERTS the assertion
-        // becomes a warning and the function may return false instead of throwing.
-        auto result =
-            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
-        EXPECT_EQ(result, false);
-    } else {
-        const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        EXPECT_EQ(pairing_points.check(), false);
-    }
+    const auto pairing_points =
+        KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+    EXPECT_EQ(pairing_points.check(), false);
 }
 
 /**
@@ -653,13 +772,9 @@ TYPED_TEST(ShpleminiTest, ToBeShiftedNonZeroConstantTermRejected)
     const auto opening_claim =
         ShpleminiProver::prove(this->n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
-    // For KZG, run the opening proof now: KZG never binds the claim into Fiat-Shamir, so the
-    // verifier can be handed a tampered claim later without affecting the prover transcript.
-    // For IPA, defer the opening proof until after the tampered batched claim is available; the
-    // adversarial prover hashes that claim into its FS buffer to match the verifier (see below).
-    if constexpr (!std::is_same_v<TypeParam, GrumpkinSettings>) {
-        KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
-    }
+    // KZG never binds the claim into Fiat-Shamir, so the verifier can be handed a tampered claim
+    // later without affecting the prover transcript.
+    KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // Simulate adversary: replace the first to-be-shifted commitment with com(p + c * delta_0),
     // i.e. add c * [1]_1 to it. The shifted MLE evaluation is unchanged (shifting drops the [0]
@@ -685,35 +800,14 @@ TYPED_TEST(ShpleminiTest, ToBeShiftedNonZeroConstantTermRejected)
                                    mock_claims.claim_batcher, mle_opening_point, g1_identity, verifier_transcript)
                                    .batch_opening_claim;
 
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        // Adversarial IPA prover: stage the prover transcript with the same reduced claim the
-        // verifier will hash via add_claim_to_hash_buffer, then fold the honest polynomial. This
-        // keeps prover/verifier FS in sync so the rejection isolates the inner-product relation
-        // rather than transcript divergence.
-        const auto reduced = TestFixture::IPA::reduce_batch_opening_claim(batch_opening_claim);
-        prover_transcript->add_to_hash_buffer("IPA:commitment", reduced.commitment);
-        prover_transcript->add_to_hash_buffer("IPA:challenge", reduced.opening_pair.challenge);
-        prover_transcript->add_to_hash_buffer("IPA:evaluation", reduced.opening_pair.evaluation);
-        TestFixture::IPA::compute_opening_proof_internal(ck, opening_claim, prover_transcript);
-
-        // The verifier transcript was initialized before the IPA prover wrote its bytes; refresh
-        // its view of proof_data so the IPA verifier can read them.
-        verifier_transcript->test_get_proof_data() = prover_transcript->test_get_proof_data();
-
-        auto result =
-            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
-        EXPECT_EQ(result, false);
-    } else {
-        const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        EXPECT_EQ(pairing_points.check(), false);
-    }
+    const auto pairing_points =
+        KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+    EXPECT_EQ(pairing_points.check(), false);
 
     // Confirm the rejection is not an artifact of transcript divergence: a fresh challenge with
-    // the same label drawn from both transcripts must agree. For KZG this is automatic (the
-    // claim is never hashed into FS). For IPA we matched the prover and verifier hash buffers
-    // explicitly above; if this check fails, the rejection above could be attributed to the
-    // prover and verifier consuming different challenges rather than the PCS check itself.
+    // the same label drawn from both transcripts must agree. If this check fails, the rejection
+    // above could be attributed to the prover and verifier consuming different challenges rather
+    // than the PCS check itself.
     EXPECT_EQ(prover_transcript->template get_challenge<Fr>("transcript_sync_check"),
               verifier_transcript->template get_challenge<Fr>("transcript_sync_check"));
 }
@@ -776,17 +870,13 @@ TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
                                                       prover_transcript,
                                                       small_subgroup_ipa_prover.get_witness_polynomials());
 
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        TestFixture::IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
-    } else {
-        KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
-    }
+    KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
 
     // Initialize verifier's transcript
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
     // Start populating Verifier's array of Libra commitments
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] =
         verifier_transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
@@ -863,18 +953,15 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
         witness_polynomials[static_cast<size_t>(tamper_polynomial)].at(0) += Fr::random_element();
     }
 
+    // Generate opening proof material for the possibly tampered witness polynomials.
     const auto opening_claim = ShpleminiProver::prove(
         test->n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript, witness_polynomials);
 
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        ShpleminiTest<TypeParam>::IPA::compute_opening_proof(test->ck(), opening_claim, prover_transcript);
-    } else {
-        KZG<Curve>::compute_opening_proof(test->ck(), opening_claim, prover_transcript);
-    }
+    KZG<Curve>::compute_opening_proof(test->ck(), opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] =
         verifier_transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
@@ -903,14 +990,9 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
     EXPECT_EQ(consistency_checked, expected_consistency_checked);
 
     // PCS verification should always fail when tampering occurred
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        EXPECT_FALSE(ShpleminiTest<TypeParam>::IPA::reduce_verify_batch_opening_claim(
-            batch_opening_claim, test->vk(), verifier_transcript));
-    } else {
-        const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
-        EXPECT_FALSE(pairing_points.check());
-    }
+    const auto pairing_points =
+        KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+    EXPECT_FALSE(pairing_points.check());
 }
 
 /**
@@ -935,18 +1017,6 @@ TYPED_TEST(ShpleminiTest, LibraQuotientCommitmentTamperingCausesVerificationFail
     // Consistency check passes because evaluations are honest
     run_libra_tampering_test(
         this, TamperedPolynomial::None, TamperedCommitment::Quotient, /*expected_consistency_checked=*/true);
-}
-
-/**
- * @brief Test tampering with grand sum polynomial A - breaks consistency check and PCS.
- */
-TYPED_TEST(ShpleminiTest, LibraGrandSumPolynomialTamperingCausesVerificationFailure)
-{
-    using TamperedPolynomial = typename TestFixture::TamperedPolynomial;
-    using TamperedCommitment = typename TestFixture::TamperedCommitment;
-    // Consistency check fails because A(r) and A(g*r) are wrong
-    run_libra_tampering_test(
-        this, TamperedPolynomial::GrandSum, TamperedCommitment::None, /*expected_consistency_checked=*/false);
 }
 
 /**
@@ -983,6 +1053,75 @@ TYPED_TEST(ShpleminiTest, LibraConcatenatedCommitmentTamperingCausesVerification
     // Consistency check passes because evaluations are honest
     run_libra_tampering_test(
         this, TamperedPolynomial::None, TamperedCommitment::Concatenated, /*expected_consistency_checked=*/true);
+}
+
+/**
+ * @brief End-to-end Shplemini + SmallSubgroupIPA soundness regression.
+ *
+ * @details Drives `run_forged_small_ipa_prover` to create malicious SmallSubgroupIPA witness data that satisfies the
+ * local algebraic identity at the random Gemini challenge. The test then runs the production Shplemini verifier path
+ * and asserts:
+ *   - `consistency_checked == true`, proving the local SmallSubgroupIPA identity alone accepts the tampered data,
+ *   - PCS verification fails, proving the Shplemini-batched opening catches the inconsistency in the committed data.
+ */
+TYPED_TEST(ShpleminiTest, SmallSubgroupIPABoundaryOpeningRejectsForgedInnerProduct)
+{
+    using ZKData = ZKSumcheckData<TypeParam>;
+    using Curve = typename TypeParam::Curve;
+    constexpr bool HasZK = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, HasZK>;
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    using CK = typename TypeParam::CommitmentKey;
+
+    static constexpr size_t SUBGROUP_SIZE = TypeParam::SUBGROUP_SIZE;
+    auto prover_transcript = TypeParam::Transcript::test_prover_init_empty();
+
+    static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(SUBGROUP_SIZE));
+    CK ck = create_commitment_key<CK>(std::max<size_t>(this->n, 1ULL << (log_subgroup_size + 1)));
+
+    ZKData zk_sumcheck_data(this->log_n, prover_transcript, ck);
+    std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
+    MockClaimGenerator<Curve> mock_claims(this->n, this->num_polynomials, this->num_shiftable, mle_opening_point, ck);
+
+    const Fr honest_inner_product = SmallSubgroupIPAProver<TypeParam>::compute_claimed_inner_product(
+        zk_sumcheck_data, mle_opening_point, this->log_n);
+
+    const Fr forged_inner_product = this->run_forged_small_ipa_prover(
+        prover_transcript, ck, zk_sumcheck_data, mle_opening_point, mock_claims, honest_inner_product);
+
+    // ---- Verifier ------------------------------------------------------------------------------
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
+
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
+    libra_commitments[0] =
+        verifier_transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+    [[maybe_unused]] const Fr libra_total_sum = verifier_transcript->template receive_from_prover<Fr>("Libra:Sum");
+    [[maybe_unused]] const Fr libra_challenge = verifier_transcript->template get_challenge<Fr>("Libra:Challenge");
+    const Fr libra_evaluation = verifier_transcript->template receive_from_prover<Fr>("Libra:claimed_evaluation");
+    libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
+    libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    EXPECT_EQ(libra_evaluation, forged_inner_product);
+    EXPECT_NE(libra_evaluation, honest_inner_product);
+
+    auto [batch_opening_claim, consistency_checked] =
+        ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
+                                                       mle_opening_point,
+                                                       this->vk().get_g1_identity(),
+                                                       verifier_transcript,
+                                                       {},
+                                                       libra_commitments,
+                                                       libra_evaluation);
+
+    // The algebraic identity at r holds for (A_forged, Q_forged, forged_inner_product) by construction.
+    EXPECT_TRUE(consistency_checked);
+
+    // The Shplemini batched opening MUST reject because the committed [A_forged] does not actually evaluate to 0
+    // at X = 1 — it evaluates to delta != 0 — contradicting the verifier's hardcoded boundary claim.
+    const auto pairing_points =
+        KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+    EXPECT_FALSE(pairing_points.check());
 }
 
 } // namespace bb

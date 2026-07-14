@@ -31,6 +31,13 @@ export interface AccountContract {
   >;
 
   /**
+   * The hash of this account's immutable instantiation params, committed into its address. Returns
+   * undefined for accounts that have no immutables (these are instead deployed via an on-chain
+   * initializer, which contributes to the address through its initialization hash).
+   */
+  getImmutablesHash(): Promise<Fr | undefined>;
+
+  /**
    * Returns the account implementation for this account contract given an instance at the provided address.
    * The account is responsible for assembling tx requests given requested function calls, and
    * for creating signed auth witnesses given action identifiers (message hashes).
@@ -47,9 +54,14 @@ export interface AccountContract {
 }
 
 /**
- * Compute the address of an account contract from secret and salt.
+ * Compute the address of an account contract from secret, salt and optional immutables hash
  */
-export async function getAccountContractAddress(accountContract: AccountContract, secret: Fr, salt: Fr) {
+export async function getAccountContractAddress(
+  accountContract: AccountContract,
+  secret: Fr,
+  salt: Fr,
+  immutablesHash?: Fr,
+) {
   const { publicKeys } = await deriveKeys(secret);
   const { constructorName, constructorArgs } = (await accountContract.getInitializationFunctionAndArgs()) ?? {
     constructorName: undefined,
@@ -61,6 +73,7 @@ export async function getAccountContractAddress(accountContract: AccountContract
     constructorArgs,
     salt,
     publicKeys,
+    immutablesHash: immutablesHash ?? (await accountContract.getImmutablesHash()),
   });
   return instance.address;
 }

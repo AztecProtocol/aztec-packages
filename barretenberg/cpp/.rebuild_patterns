@@ -6,3 +6,5 @@
 ^barretenberg/cpp/scripts/
 ^barretenberg/cpp/bootstrap.sh
 ^barretenberg/cpp/CMakePresets.json
+^ipc-codegen/src/.*\.ts$
+^ipc-codegen/templates/cpp/

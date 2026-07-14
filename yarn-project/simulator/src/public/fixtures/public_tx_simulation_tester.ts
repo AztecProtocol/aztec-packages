@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import { PublicSimulatorConfig, type PublicTxResult } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT, Gas, GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { GlobalVariables, PublicCallRequestWithCalldata, type Tx } from '@aztec/stdlib/tx';
@@ -26,6 +26,8 @@ import { SimpleContractDataSource } from './simple_contract_data_source.js';
 import { type TestPrivateInsertions, createTxForPublicCalls } from './utils.js';
 
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
+const TEARDOWN_DA_GAS_LIMIT = 98_304;
+const TEARDOWN_L2_GAS_LIMIT = 817_500;
 
 export type TestEnqueuedCall = {
   sender?: AztecAddress;
@@ -129,10 +131,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       teardownCallRequest,
       feePayer,
       /*gasUsedByPrivate*/ teardownCall
-        ? new Gas(
-            FALLBACK_TEARDOWN_DA_GAS_LIMIT + TX_DA_GAS_OVERHEAD,
-            FALLBACK_TEARDOWN_L2_GAS_LIMIT + PUBLIC_TX_L2_GAS_OVERHEAD,
-          )
+        ? new Gas(TEARDOWN_DA_GAS_LIMIT + TX_DA_GAS_OVERHEAD, TEARDOWN_L2_GAS_LIMIT + PUBLIC_TX_L2_GAS_OVERHEAD)
         : new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD),
       defaultGlobals(),
       gasLimits,

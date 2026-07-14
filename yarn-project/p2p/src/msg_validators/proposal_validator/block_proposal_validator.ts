@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import type { BlockProposal, CoordinationSignatureContext, P2PValidator, ValidationResult } from '@aztec/stdlib/p2p';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
 import { ProposalValidator } from '../proposal_validator/proposal_validator.js';
 
@@ -8,16 +9,17 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
 
   constructor(
     epochCache: EpochCacheInterface,
+    timetable: ConsensusTimetable,
     opts: {
       txsPermitted: boolean;
       maxTxsPerBlock?: number;
       maxBlocksPerCheckpoint?: number;
-      p2pPropagationTime?: number;
       skipSlotValidation?: boolean;
       signatureContext: CoordinationSignatureContext;
+      clockDisparityMs: number;
     },
   ) {
-    this.proposalValidator = new ProposalValidator(epochCache, opts, 'p2p:block_proposal_validator');
+    this.proposalValidator = new ProposalValidator(epochCache, timetable, opts, 'p2p:block_proposal_validator');
   }
 
   async validate(proposal: BlockProposal): Promise<ValidationResult> {

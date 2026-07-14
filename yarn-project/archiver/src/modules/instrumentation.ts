@@ -84,7 +84,9 @@ export class ArchiverInstrumentation {
 
     this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION);
 
-    this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT);
+    this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT, {
+      [Attributes.PRUNE_TYPE]: ['unproven', 'uncheckpointed', 'l1_conflict', 'orphan', 'l1_mismatch'],
+    });
 
     this.blockProposalTxTargetCount = createUpDownCounterWithDefault(
       meter,
@@ -150,8 +152,19 @@ export class ArchiverInstrumentation {
   }
 
   public processPrune(duration: number) {
-    this.pruneCount.add(1);
+    this.pruneCount.add(1, { [Attributes.PRUNE_TYPE]: 'unproven' });
     this.pruneDuration.record(Math.ceil(duration));
+  }
+
+  /**
+   * Records a pending-chain reorg, where the archiver dropped proposed blocks (and world-state follows by pruning). The
+   * type distinguishes the cause: 'uncheckpointed' (slot ended without a checkpoint), 'l1_conflict' (proposed blocks
+   * conflicting with an L1 checkpoint), 'orphan' (no matching proposed checkpoint arrived before the deadline), or
+   * 'l1_mismatch' (the local checkpointed tip diverged from L1 — an L1 reorg or a pruned/missed-proof checkpoint — so
+   * already-checkpointed blocks were rewound).
+   */
+  public recordPrune(pruneType: 'uncheckpointed' | 'l1_conflict' | 'orphan' | 'l1_mismatch') {
+    this.pruneCount.add(1, { [Attributes.PRUNE_TYPE]: pruneType });
   }
 
   public updateLastProvenCheckpoint(checkpoint: CheckpointData) {

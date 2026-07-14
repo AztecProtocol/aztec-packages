@@ -40,11 +40,12 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log: Logger;
   private config: PublisherManagerConfig;
   private static readonly FUNDING_CHECK_INTERVAL_MS = 2 * 60 * 1000;
-  private funder?: UtilsType;
-  private fundingPromise?: RunningPromise;
+  protected funder?: UtilsType;
+  protected readonly fundingPromise?: RunningPromise;
+  private started = false;
 
   constructor(
-    private publishers: UtilsType[],
+    protected publishers: UtilsType[],
     config: PublisherManagerConfig,
     opts?: { bindings?: LoggerBindings; funder?: UtilsType },
   ) {
@@ -67,34 +68,60 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
         this.funder = undefined;
       }
     }
-  }
 
-  /** Loads the state of all publishers and the funder, and starts periodic funding checks. */
-  public async start(): Promise<void> {
-    await Promise.all([
-      ...this.publishers.map(pub => pub.loadStateAndResumeMonitoring()),
-      this.funder?.loadStateAndResumeMonitoring(),
-    ]);
-
-    if (
-      this.funder &&
-      this.config.publisherFundingThreshold !== undefined &&
-      this.config.publisherFundingAmount !== undefined
-    ) {
+    if (this.funder && hasThreshold && hasAmount) {
       this.fundingPromise = new RunningPromise(
         () => this.triggerFundingIfNeeded(),
         this.log,
         PublisherManager.FUNDING_CHECK_INTERVAL_MS,
       );
-      this.fundingPromise.start();
     }
   }
 
-  /** Stops the funding loop and interrupts all publishers. */
+  /**
+   * Clears any interrupted flag left by a previous {@link stop} so publishing works again after a restart,
+   * loads the state of all publishers and the funder, and starts periodic funding checks. Idempotent: a
+   * start while already started is a no-op, so it never re-runs `loadStateAndResumeMonitoring` (which
+   * would spawn a duplicate background monitor per pending nonce). Lifecycle calls are expected to be
+   * serialized by the caller.
+   */
+  public async start(): Promise<void> {
+    if (this.started) {
+      this.log.debug('PublisherManager already started, ignoring start');
+      return;
+    }
+
+    // Clear the interrupted flag set by a previous stop() so a restarted manager can publish again.
+    // On a first start this is a no-op (the flag is already clear).
+    this.publishers.forEach(pub => pub.restart());
+    this.funder?.restart();
+
+    await Promise.all([
+      ...this.publishers.map(pub => pub.loadStateAndResumeMonitoring()),
+      this.funder?.loadStateAndResumeMonitoring(),
+    ]);
+
+    this.fundingPromise?.start();
+    // Marked started only once fully up, so a start that failed to load state can be retried.
+    this.started = true;
+  }
+
+  /**
+   * Stops the funding loop, interrupts all publishers so no further L1 txs are sent, and waits (bounded)
+   * for their in-flight tx monitor loops to wind down. Idempotent, and the manager may be restarted
+   * afterwards via {@link start}, which clears the interrupted flag.
+   */
   public async stop(): Promise<void> {
+    this.started = false;
     await this.fundingPromise?.stop();
     this.publishers.forEach(pub => pub.interrupt());
     this.funder?.interrupt();
+    // Wait for in-flight tx monitor loops to observe the interrupt, so no L1 requests are still
+    // being issued after shutdown (e.g. against an anvil instance a test is about to tear down).
+    await Promise.all([
+      ...this.publishers.map(pub => pub.waitMonitoringStopped()),
+      this.funder?.waitMonitoringStopped(),
+    ]);
   }
 
   // Finds and prioritises available publishers based on
@@ -133,8 +160,17 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
       }),
     );
 
+    // Discount unfunded publishers: a publisher with no ETH cannot send a tx, so it must never win
+    // selection regardless of how favourable its state or last-used time is. Fall back to the full
+    // set only if every candidate is unfunded, so behaviour is no worse than before.
+    let fundedPublishers = publishersWithBalance.filter(p => p.balance > 0n);
+    if (fundedPublishers.length === 0) {
+      this.log.warn(`All candidate publishers have zero balance; selecting from unfunded publishers.`);
+      fundedPublishers = publishersWithBalance;
+    }
+
     // Sort based on state, then balance, then time since last use
-    const sortedPublishers = publishersWithBalance.sort((a, b) => {
+    const sortedPublishers = fundedPublishers.sort((a, b) => {
       const stateComparison = sortOrder.indexOf(a.publisher.state) - sortOrder.indexOf(b.publisher.state);
       if (stateComparison !== 0) {
         return stateComparison;

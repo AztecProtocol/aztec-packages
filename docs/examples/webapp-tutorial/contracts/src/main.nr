@@ -23,7 +23,7 @@ use aztec::macros::aztec;
 pub contract PodRacing {
     use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
     };
     use aztec::protocol::address::AztecAddress;
@@ -95,7 +95,7 @@ pub contract PodRacing {
             .at(game_id)
             .at(player)
             .insert(GameRoundNote::new(track1, track2, track3, track4, track5, round, player))
-            .deliver(MessageDelivery::onchain_constrained());
+            .deliver(MessageDelivery::onchain_unconstrained());
 
         self.enqueue(PodRacing::at(self.context.this_address()).validate_and_play_round(
             player,

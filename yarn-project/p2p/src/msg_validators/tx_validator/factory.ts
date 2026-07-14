@@ -100,7 +100,7 @@ export function createFirstStageTxValidationsForGossipedTransactions(
   txsPermitted: boolean,
   allowedInSetup: AllowedElement[] = [],
   bindings?: LoggerBindings,
-  gasLimitOpts?: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
+  gasLimitOpts?: { maxTxL2Gas?: number; maxTxDAGas?: number },
 ): Record<string, TransactionValidator> {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
@@ -292,24 +292,24 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     setupAllowList,
     gasFees,
     skipFeeEnforcement,
+    isSimulation,
     timestamp,
     blockNumber,
     txsPermitted,
-    rollupManaLimit,
-    maxBlockL2Gas,
-    maxBlockDAGas,
+    maxTxL2Gas,
+    maxTxDAGas,
   }: {
     l1ChainId: number;
     rollupVersion: number;
     setupAllowList: AllowedElement[];
     gasFees: GasFees;
     skipFeeEnforcement?: boolean;
+    isSimulation?: boolean;
     timestamp: UInt64;
     blockNumber: BlockNumber;
     txsPermitted: boolean;
-    rollupManaLimit: number;
-    maxBlockL2Gas?: number;
-    maxBlockDAGas?: number;
+    maxTxL2Gas?: number;
+    maxTxDAGas?: number;
   },
   bindings?: LoggerBindings,
 ): TxValidator<Tx> {
@@ -339,13 +339,19 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     new ContractInstanceTxValidator(bindings),
   ];
 
+  // Declared gas-limit admission is not fee enforcement, so it runs even when fees are skipped, but it is
+  // skipped during simulation: gas estimation submits intentionally-inflated `forEstimation` limits (above
+  // the per-tx max) and the wallet clamps the real tx to the admission limit afterward, so enforcing the
+  // limit on the estimation tx would reject a valid estimation. The fee-balance check below stays behind
+  // `skipFeeEnforcement`, and GasTxValidator is constructed without the limit opts so it does not re-run
+  // this same check.
+  if (!isSimulation) {
+    validators.push(new GasLimitsValidator<Tx>({ maxTxL2Gas, maxTxDAGas, bindings }));
+  }
+
   if (!skipFeeEnforcement) {
     validators.push(
-      new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees, bindings, {
-        rollupManaLimit,
-        maxBlockL2Gas,
-        maxBlockDAGas,
-      }),
+      new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees, bindings),
     );
   }
 
@@ -431,7 +437,7 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   worldStateSynchronizer: WorldStateSynchronizer,
   timestamp: bigint,
   blockNumber: BlockNumber,
-  gasLimitOpts: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
+  gasLimitOpts: { maxTxL2Gas?: number; maxTxDAGas?: number },
   gasFees: GasFees,
   bindings?: LoggerBindings,
 ): Promise<TxValidator<TxMetaData>> {

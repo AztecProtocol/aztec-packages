@@ -1,3 +1,4 @@
+import { CircuitKind } from '@aztec/bb.js';
 import { bufferSchema, mapSchema } from '@aztec/foundation/schemas';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { serializeWitness } from '@aztec/noir-noirc_abi';
@@ -15,6 +16,7 @@ export const PrivateExecutionStepSchema = z.object({
   bytecode: bufferSchema,
   witness: mapSchema(z.number(), z.string()),
   vk: bufferSchema,
+  kind: z.nativeEnum(CircuitKind),
   timings: z.object({
     witgen: z.number(),
     gateCount: z.number().optional(),
@@ -31,6 +33,7 @@ export interface PrivateExecutionStep {
   witness: WitnessMap;
   /* TODO(https://github.com/AztecProtocol/barretenberg/issues/1328) this should get its own proper class. */
   vk: Buffer;
+  kind: CircuitKind;
   timings: {
     witgen: number;
     gateCount?: number;
@@ -64,6 +67,7 @@ export function serializePrivateExecutionSteps(steps: PrivateExecutionStep[]) {
       witness: serializeWitness(step.witness),
       vk: step.vk,
       functionName: step.functionName,
+      kind: step.kind,
     };
   };
   return new Encoder({ useRecords: false }).pack(steps.map(stepToStruct));

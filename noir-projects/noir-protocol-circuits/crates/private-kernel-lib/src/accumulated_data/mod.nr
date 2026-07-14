@@ -1,4 +1,5 @@
 pub mod assert_array_appended;
+pub mod assert_array_concat_appended;
 pub mod assert_array_prepended;
 pub mod assert_dense_trimmed_array;
 pub mod assert_sorted_padded_transformed_array;
@@ -11,6 +12,9 @@ pub(crate) mod test_value;
 
 pub use assert_array_appended::{
     assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+};
+pub use assert_array_concat_appended::{
+    assert_array_concat_appended, assert_array_concat_appended_and_scoped,
 };
 pub use assert_array_prepended::{assert_array_prepended, assert_array_prepended_up_to_some_length};
 pub use assert_dense_trimmed_array::{assert_dense_trimmed_array, assert_trimmed_array};

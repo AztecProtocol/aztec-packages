@@ -8,6 +8,8 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include <array>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -128,14 +130,8 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
     // Populate the ecc_op block with TWO rows (matching Ultra format)
     // Row 1: OP   | x_lo | x_hi | y_lo
     // Row 2: 0    | y_hi | z_1  | z_2
-    this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
-    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
-        selector.emplace_back(0);
-    }
-    this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
-    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
-        selector.emplace_back(0);
-    }
+    this->blocks.ecc_op.append_gate({ .wires = { op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo } });
+    this->blocks.ecc_op.append_gate({ .wires = { op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 } });
 
     if (in_finalize) {
         update_used_witnesses(
@@ -220,6 +216,18 @@ uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t&
     return value_witness_idx;
 }
 
+template <typename FF> void MegaCircuitBuilder_<FF>::create_databus_init_read_gate(BusId bus_idx, size_t slot_idx)
+{
+    auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
+    BB_ASSERT_LT(slot_idx, bus_vector.size());
+
+    const uint32_t value_witness_idx = bus_vector[slot_idx];
+    const uint32_t index_witness_idx = this->put_constant_variable(FF(static_cast<uint64_t>(slot_idx)));
+
+    create_databus_read_gate({ index_witness_idx, value_witness_idx }, bus_idx);
+    bus_vector.increment_read_count(slot_idx);
+}
+
 /**
  * @brief Create a databus lookup/read gate
  *
@@ -230,26 +238,39 @@ template <typename FF>
 void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in, const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    block.populate_wires(in.value, in.index, this->zero_idx(), this->zero_idx());
-    apply_databus_selectors(bus_idx);
-
-    this->check_selector_length_consistency();
+    GateRowT row{};
+    row.wires = { in.value, in.index, this->zero_idx(), this->zero_idx() };
+    // Bus column k (0 <= k < NUM_BUS_COLUMNS) is selected by one of these selectors. The order here
+    // must match BusData<bus_idx>::selector in databus_lookup_relation.hpp and the bus selector
+    // order in flavor-codegen mega.ts / mega_kernel.ts.
+    const std::array<FF*, NUM_BUS_COLUMNS> databus_selectors{ &row.q_1, &row.q_2, &row.q_3, &row.q_4,
+                                                              &row.q_5, &row.q_c, &row.q_m };
+    const size_t idx = static_cast<size_t>(bus_idx);
+    BB_ASSERT_LT(idx, databus_selectors.size());
+    *databus_selectors[idx] = 1;
+    row.gate_kind = GateKind::BusRead;
+    row.gate_value = 1;
+    block.append_gate(row);
     this->increment_num_gates();
 }
 
-template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)
+/**
+ * @brief Poseidon2 external-round gate. Mega routes it into the shared `poseidon2` block (Ultra instead uses a
+ * dedicated external block) so every permutation's rows are contiguous and the external/terminal round relations
+ * bind across the external<->internal boundary via `w_shift`.
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.busread;
-    // Bus column k is selected by q_{k+1}; all other wire-linear selectors stay zero on this row.
-    const size_t idx = static_cast<size_t>(bus_idx);
-    block.q_1().emplace_back(idx == 0 ? 1 : 0);
-    block.q_2().emplace_back(idx == 1 ? 1 : 0);
-    block.q_3().emplace_back(idx == 2 ? 1 : 0);
-    block.q_4().emplace_back(idx == 3 ? 1 : 0);
-    block.q_5().emplace_back(0);
-    block.q_m().emplace_back(idx == 4 ? 1 : 0);
-    block.q_c().emplace_back(0);
-    block.set_gate_selector(1);
+    auto& block = this->blocks.poseidon2;
+    block.append_gate({ .wires = { in.a, in.b, in.c, in.d },
+                        .q_1 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0],
+                        .q_2 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1],
+                        .q_3 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2],
+                        .q_4 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3],
+                        .gate_kind = GateKind::Poseidon2Ext,
+                        .gate_value = 1 });
+    this->increment_num_gates();
 }
 
 /**
@@ -259,17 +280,9 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
 template <typename FF>
 void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_external;
-    block.populate_wires(in.a, in.b, in.c, in.d);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.set_gate_selector(GateKind::Poseidon2ExtInitial, 1);
-    this->check_selector_length_consistency();
+    auto& block = this->blocks.poseidon2;
+    block.append_gate(
+        { .wires = { in.a, in.b, in.c, in.d }, .gate_kind = GateKind::Poseidon2ExtInitial, .gate_value = 1 });
     this->increment_num_gates();
 }
 
@@ -285,25 +298,28 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const posei
 template <typename FF>
 void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_quad_internal;
-    block.populate_wires(in.a, in.b, in.c, in.d);
+    auto& block = this->blocks.poseidon2;
     const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
-    block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
-    block.q_2().emplace_back(rc[in.round_idx_start + 1][0]);
-    block.q_3().emplace_back(rc[in.round_idx_start + 2][0]);
-    block.q_4().emplace_back(rc[in.round_idx_start + 3][0]);
-    if (in.is_terminal) {
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.set_gate_selector(GateKind::Poseidon2QuadIntTerminal, 1);
-    } else {
-        block.q_m().emplace_back(rc[in.next_pair_start + 0][0]);
-        block.q_c().emplace_back(rc[in.next_pair_start + 1][0]);
-        block.q_5().emplace_back(rc[in.next_pair_start + 2][0]);
-        block.set_gate_selector(GateKind::Poseidon2QuadInt, 1);
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { in.a, in.b, in.c, in.d };
+        row.q_1 = rc[in.round_idx_start + 0][0];
+        row.q_2 = rc[in.round_idx_start + 1][0];
+        row.q_3 = rc[in.round_idx_start + 2][0];
+        row.q_4 = rc[in.round_idx_start + 3][0];
+        if (in.is_terminal) {
+            row.gate_kind = GateKind::Poseidon2QuadIntTerminal;
+            row.gate_value = 1;
+        } else {
+            row.q_m = rc[in.next_pair_start + 0][0];
+            row.q_c = rc[in.next_pair_start + 1][0];
+            row.q_5 = rc[in.next_pair_start + 2][0];
+            row.gate_kind = GateKind::Poseidon2QuadInt;
+            row.gate_value = 1;
+        }
+        block_for_row.append_gate(row);
     }
-    this->check_selector_length_consistency();
     this->increment_num_gates();
 }
 
@@ -320,18 +336,14 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon
 template <typename FF>
 void MegaCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_quad_internal;
-    block.populate_wires(in.a, in.b, in.c, in.d);
+    auto& block = this->blocks.poseidon2;
     const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
-    block.q_2().emplace_back(rc[in.round_idx_start + 1][0]);
-    block.q_3().emplace_back(rc[in.round_idx_start + 2][0]);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.set_gate_selector(GateKind::Poseidon2TransitionEntry, 1);
-    this->check_selector_length_consistency();
+    block.append_gate({ .wires = { in.a, in.b, in.c, in.d },
+                        .q_1 = rc[in.round_idx_start + 0][0],
+                        .q_2 = rc[in.round_idx_start + 1][0],
+                        .q_3 = rc[in.round_idx_start + 2][0],
+                        .gate_kind = GateKind::Poseidon2TransitionEntry,
+                        .gate_value = 1 });
     this->increment_num_gates();
 }
 

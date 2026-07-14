@@ -6,89 +6,100 @@
 #pragma once
 
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/ultra_honk/oink_verifier.hpp"
+#include "barretenberg/sumcheck/sumcheck_output.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
+
+#include <optional>
+#include <span>
+#include <utility>
+#include <vector>
 
 namespace bb {
 
 /**
- * @brief HyperNova folding verifier (native + recursive). Verifies folding proofs and maintains accumulators.
+ * @brief Stateful HyperNova folding verifier (native + recursive). Verifies a series of instances against a
+ * starting accumulator and reduces them to one accumulator with a single multilinear batching proof.
  * @details See: chonk/README.md#hypernova-folding-details
+ *
+ * ## Lifecycle
+ *
+ * Construct → `accumulate_instance<InstanceFlavor>()` once per incoming proof → `finalize()` exactly once.
+ * SINGLE-USE: construct a fresh verifier for each folding group
  */
-template <typename Flavor_> class HypernovaFoldingVerifier {
+template <bool IsRecursive_> class HypernovaFoldingVerifier {
   public:
-    using Flavor = Flavor_;
-    using FF = Flavor::FF;
-    using Curve = Flavor::Curve;
-    using Commitment = Flavor::Commitment;
-    using VerifierCommitments = Flavor::VerifierCommitments;
-    using Transcript = Flavor::Transcript;
+    static constexpr bool IsRecursive = IsRecursive_;
+    // Representative flavor: Curve/commitment/transcript shapes are common to the app and kernel flavors, so the kernel
+    // one stands in for both.
+    using BaseFlavor = std::conditional_t<IsRecursive, MegaKernelRecursiveFlavor, MegaKernelFlavor>;
+    using FF = typename BaseFlavor::FF;
+    using Curve = typename BaseFlavor::Curve;
+    using Commitment = typename BaseFlavor::Commitment;
+    using Transcript = typename BaseFlavor::Transcript;
     using Accumulator = MultilinearBatchingVerifierClaim<Curve>;
-    using OinkVerifier = bb::OinkVerifier<Flavor>;
-    using SumcheckVerifier = bb::SumcheckVerifier<Flavor>;
-    using MegaSumcheckOutput = SumcheckOutput<Flavor>;
-    using BatchingFlavor =
-        std::conditional_t<IsRecursiveFlavor<Flavor>, MultilinearBatchingRecursiveFlavor, MultilinearBatchingFlavor>;
-    using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<BatchingFlavor>;
-    using VerifierInstance = VerifierInstance_<Flavor>;
+    using BatchingVerifier = MultilinearBatchingVerifier<IsRecursive>;
+    using Proof = std::conditional_t<IsRecursive, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
 
-    using Proof = std::conditional_t<IsRecursiveFlavor<Flavor>, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
-
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+    template <typename InstanceFlavor> using VerifierInstance = VerifierInstance_<InstanceFlavor>;
 
     HypernovaFoldingVerifier(std::shared_ptr<Transcript> transcript)
-        : transcript(std::move(transcript)) {};
+        : transcript(std::move(transcript))
+    {}
 
     /**
-     * @brief Turn an instance into an accumulator by executing sumcheck.
-     *
-     * @param instance
-     * @return std::pair<bool, Accumulator> Pair of sumcheck result and new accumulator.
+     * @brief Verify the instance-to-accumulator sumcheck of one incoming proof and cache the resulting claim.
+     * @return Whether the instance sumcheck passed. The claim is cached for finalize() regardless.
      */
-    std::pair<bool, Accumulator> instance_to_accumulator(const std::shared_ptr<VerifierInstance>& instance,
-                                                         const Proof& proof);
+    template <typename InstanceFlavor>
+    bool accumulate_instance(const std::shared_ptr<VerifierInstance<InstanceFlavor>>& instance, const Proof& proof);
 
     /**
-     * @brief Verify folding proof. Return the new accumulator and the results of the two sumchecks.
-     *
-     * @param instance The verifier instance for the incoming circuit
-     * @param proof The folding proof to verify
-     * @return std::tuple<instance_sumcheck_verified, batching_sumcheck_verified, new_accumulator>
-     *         - instance_sumcheck_verified: Did the Sumcheck on the incoming instance pass?
-     *         - batching_sumcheck_verified: Did the MultilinearBatching Sumcheck pass?
-     *         - new_accumulator: The combined accumulator (valid only if both checks pass)
+     * @brief Batch the previous accumulator (if any) and the cached claims into a single accumulator.
+     * @details The previous accumulator is claim 0, followed by the cached per-instance claims in order. With a single
+     * assembled claim there is nothing to batch: it is returned and the batching proof is ignored (it is
+     * empty). With two or more, the MultilinearBatching proof is loaded onto the shared transcript and verified.
+     * @return (verified, new_accumulator). For the single-claim case verified is true.
      */
-    std::tuple<bool, bool, Accumulator> verify_folding_proof(
-        const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance, const Proof& proof);
+    std::pair<bool, Accumulator> finalize(const Proof& batching_proof,
+                                          std::optional<Accumulator> previous_accumulator = std::nullopt);
+
+    // Read access to the per-instance claims accumulated so far
+    const std::vector<Accumulator>& get_cached_claims() const { return cached_claims; }
 
   private:
     std::shared_ptr<Transcript> transcript;
+    std::vector<Accumulator> cached_claims;
 
     /**
-     * @brief Perform sumcheck on the incoming instance.
-     *
-     * @details Executing this sumcheck we generate the random challenges at which the polynomial commitments have to be
-     * opened.
-     * @param num_public_inputs Number of public inputs (derived from proof size by caller)
+     * @brief Perform Oink + Sumcheck on the incoming instance, generating the challenges at which the polynomial
+     * commitments have to be opened.
      */
-    SumcheckOutput<Flavor> sumcheck_on_incoming_instance(const std::shared_ptr<VerifierInstance>& instance,
-                                                         const Proof& proof,
-                                                         size_t num_public_inputs);
+    template <typename InstanceFlavor>
+    SumcheckOutput<InstanceFlavor> sumcheck_on_incoming_instance(
+        const std::shared_ptr<VerifierInstance<InstanceFlavor>>& instance,
+        const Proof& proof,
+        size_t num_public_inputs);
 
     /**
-     * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
+     * @brief Convert the output of the instance sumcheck into an accumulator claim.
      */
-    Accumulator sumcheck_output_to_accumulator(MegaSumcheckOutput& sumcheck_output,
-                                               const std::shared_ptr<VerifierInstance>& instance);
+    template <typename InstanceFlavor>
+    Accumulator sumcheck_output_to_accumulator(SumcheckOutput<InstanceFlavor>& sumcheck_output,
+                                               const std::shared_ptr<VerifierInstance<InstanceFlavor>>& instance);
 
     /**
      * @brief Utility to perform batch mul of commitments.
      */
-    template <size_t N> Commitment batch_mul(const RefArray<Commitment, N>& _points, std::vector<FF>& scalars);
+    template <size_t N> Commitment batch_mul(std::span<Commitment, N> _points, std::vector<FF>& scalars);
 };
+
+using HypernovaFoldingNativeVerifier = HypernovaFoldingVerifier<false>;
+using HypernovaFoldingRecursiveVerifier = HypernovaFoldingVerifier<true>;
+
 } // namespace bb

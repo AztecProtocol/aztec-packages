@@ -16,6 +16,7 @@
 #include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation_impl.hpp"
 
 namespace bb {
 
@@ -65,8 +66,8 @@ void BatchedHonkTranslatorProver::execute_translator_oink()
  *   U_joint(x) = U_MZK(x) + α^{K_H} · U_translator(x) + L(x)
  * where L(x) is the joint Libra masking univariate.
  *
- * For rounds 0..mega_zk_log_n-1 ("real rounds"), the MegaZK contribution is computed via standard
- * compute_univariate minus compute_disabled_contribution (row-disabling for ZK).
+ * For rounds 0..mega_zk_log_n-1 ("real rounds"), the MegaZK contribution is computed via the
+ * standard sumcheck prover (see `SumcheckProverRound`).
  *
  * For rounds mega_zk_log_n..JOINT_LOG_N-1 ("virtual rounds"), the MegaZK polynomials are treated as
  * zero-padded to 2^JOINT_LOG_N. The contribution is computed via compute_virtual_contribution
@@ -154,7 +155,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         }
         zk_sumcheck_data.update_zk_sumcheck_data(u, round_idx);
         gate_sep.partially_evaluate(u);
-        translator_round.round_size >>= 1;
+        translator_round.advance_round();
     };
 
     // Per-round helper: compute U_joint = U_MZK + α^{K_H}·U_translator from given polynomial
@@ -172,8 +173,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
             }
             {
                 BB_BENCH_NAME("joint_sumcheck/hiding_kernel/disabled_contribution");
-                U_H +=
-                    mega_zk_round.compute_disabled_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
+                U_H += mega_zk_round.compute_offset_area_contribution(
+                    hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
             }
             U_joint += U_H;
         }
@@ -214,7 +215,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
             }
         }
         rdp.update_evaluations(u, 0);
-        mega_zk_round.round_size >>= 1;
+        mega_zk_round.advance_round();
         mega_zk_round.excluded_head_size = 2; // After round 0, disabled zone collapses to 1 edge pair
         update_round_state(0, u);
     }
@@ -237,7 +238,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
             }
         }
         rdp.update_evaluations(u, round_idx);
-        mega_zk_round.round_size >>= 1;
+        mega_zk_round.advance_round();
         update_round_state(round_idx, u);
     }
 

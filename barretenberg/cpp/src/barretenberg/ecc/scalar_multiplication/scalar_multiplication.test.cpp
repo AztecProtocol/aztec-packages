@@ -55,7 +55,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
     const size_t num_logical_threads_for_c =
         bb::get_num_cpus() * scalar_multiplication::window_bits_tuning_oversub_factor(n_input);
     const size_t window_bits = rpd::choose_window_bits(n, actual_num_bits, n_input, num_logical_threads_for_c);
-    const auto sched = rpd::build_var_window_schedule(actual_num_bits, window_bits);
+    const auto sched = rpd::build_window_schedule(actual_num_bits, window_bits);
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
     using rpd::BATCH_CAPACITY;
@@ -69,10 +69,8 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
     const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
     const size_t worker_total = num_threads;
 
-    size_t B_eff = num_buckets;
-    for (size_t w = 0; w < sched.num_windows; ++w) {
-        B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
-    }
+    // Uniform schedule: the widest window's bucket count is the per-window cap.
+    const size_t B_eff = num_buckets;
     const size_t dense_stride_est =
         std::max<size_t>(2, std::bit_ceil((B_eff > 1) ? ((B_eff - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
     const size_t bucket_partials_per_window_max = (B_eff > 0) ? (B_eff - 1 + num_threads - 1) : 0;
@@ -111,7 +109,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
         /*dense_stride_est=*/0);
     const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total) +
-                                  (size_t{ 96 } * rpd::VAR_WINDOW_MAX_WINDOWS) + (size_t{ 8 } * (num_threads + 1)) +
+                                  (size_t{ 96 } * rpd::MAX_SCHEDULE_WINDOWS) + (size_t{ 8 } * (num_threads + 1)) +
                                   phase_one_prologue_bytes;
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
@@ -178,7 +176,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
         const size_t per_worker_bytes = worker_layout.per_worker_bytes;
 
         size_t bytes_P_extra_layout = 0;
-        layout_add(bytes_P_extra_layout, sizeof(Element) * rpd::VAR_WINDOW_MAX_WINDOWS, alignof(Element));
+        layout_add(bytes_P_extra_layout, sizeof(Element) * rpd::MAX_SCHEDULE_WINDOWS, alignof(Element));
         if (dedup_active) {
             layout_add(bytes_P_extra_layout, sizeof(uint32_t) * n, alignof(uint32_t));
             layout_add(bytes_P_extra_layout, sizeof(AffineElement) * rpd::DEDUP_MAX_CLUSTERS, alignof(AffineElement));
@@ -514,6 +512,72 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
 
         std::vector<AffineElement> result =
             scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(generators, batch_scalars_spans);
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            EXPECT_EQ(result[k], expected[k]) << "MSM " << k << " (n=" << sizes[k] << ") mismatched";
+        }
+    }
+
+    /**
+     * @brief Pin the concurrent small-member dispatch in the batch driver.
+     *
+     *        Mixed-size batch: many small MSMs (run one-per-worker with a thread-capped
+     *        pipeline out of per-worker arenas, the dedup-hinted members exercising Phase A at
+     *        num_threads=1) mixed with boundary-size and large members that stay on the
+     *        sequential shared-arena path.
+     */
+    void test_batch_multi_scalar_mul_small_member_dispatch()
+    {
+        std::vector<size_t> sizes;
+        for (size_t k = 0; k < 24; ++k) {
+            sizes.push_back(600 + (257 * k));
+        }
+        // Add members straddling the driver's small/large boundary (MSM_MIN_PTS_PER_THREAD * pool_width)
+        // to exercise both dispatch paths. On wasm MSM_MIN_PTS_PER_THREAD is SIZE_MAX and a single-core
+        // pool has no concurrent path — neither has a finite boundary, so there the cluster above is the
+        // whole batch (and 256 * pool_width never overflows).
+        const size_t pool_width = get_num_cpus();
+        if (scalar_multiplication::MSM_MIN_PTS_PER_THREAD != std::numeric_limits<size_t>::max() && pool_width > 1) {
+            const size_t boundary = scalar_multiplication::MSM_MIN_PTS_PER_THREAD * pool_width;
+            sizes.push_back(boundary - 1);
+            sizes.push_back(boundary);
+            sizes.push_back(boundary * 2);
+        }
+        const size_t num_msms = sizes.size();
+
+        const uint256_t high_bit(0, 0, 0, uint64_t{ 1 } << (200 - 192));
+        std::vector<AffineElement> expected(num_msms);
+        std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
+        std::vector<PolynomialSpan<ScalarField>> batch_scalars_spans;
+        std::vector<uint32_t> dedup_infos(num_msms, 0);
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            const size_t n = sizes[k];
+            batch_scalars[k].resize(n);
+            const bool dup_heavy = (k % 3 == 0);
+            uint32_t dup_count = 0;
+            for (size_t i = 0; i < n; ++i) {
+                if (k % 5 == 4 && i % 3 != 0) {
+                    batch_scalars[k][i] = ScalarField::zero();
+                } else if (dup_heavy) {
+                    // Runs of 8 equal dedup-eligible values (msb >= any window the dispatch picks).
+                    batch_scalars[k][i] = ScalarField(high_bit + uint256_t((i / 8) + 1));
+                    dup_count += static_cast<uint32_t>(i % 8 != 0);
+                } else {
+                    batch_scalars[k][i] = scalars[((k * 31) + i) % num_points];
+                }
+            }
+            if (dup_heavy) {
+                // Alternate measured-count and bare (no-estimate) hints through the channel.
+                dedup_infos[k] = (k % 2 == 0) ? dup_count : uint32_t{ 1 };
+            }
+            std::span<const AffineElement> pts(&generators[0], n);
+            batch_scalars_spans.emplace_back(0, std::span<ScalarField>(batch_scalars[k]));
+            expected[k] = naive_msm(batch_scalars[k], pts);
+        }
+
+        std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
+            generators, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
 
         for (size_t k = 0; k < num_msms; ++k) {
             EXPECT_EQ(result[k], expected[k]) << "MSM " << k << " (n=" << sizes[k] << ") mismatched";
@@ -1623,7 +1687,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         std::vector<std::vector<ScalarField>> scalar_copies(num_msms);
         std::vector<PolynomialSpan<ScalarField>> spans;
         std::vector<AffineElement> expected(num_msms);
-        std::vector<uint8_t> dedup_hints(num_msms, 0);
+        std::vector<uint32_t> dedup_hints(num_msms, 0);
 
         size_t offset = 0;
         for (size_t k = 0; k < num_msms; ++k) {
@@ -1636,7 +1700,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 batch_scalars[k][i] = all_zero ? ScalarField::zero() : scalars[offset + i];
                 scalar_copies[k][i] = batch_scalars[k][i];
             }
-            dedup_hints[k] = static_cast<uint8_t>((k % 2 == 0) ? 1 : 0);
+            dedup_hints[k] = (k % 2 == 0) ? 1U : 0U;
             spans.emplace_back(offset, std::span<ScalarField>(batch_scalars[k]));
             std::span<const AffineElement> pts(&generators[offset], n);
             expected[k] = naive_msm(batch_scalars[k], pts);
@@ -1644,7 +1708,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
 
         std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            generators, spans, handle_edge_cases, std::span<const uint8_t>(dedup_hints));
+            generators, spans, handle_edge_cases, std::span<const uint32_t>(dedup_hints));
 
         ASSERT_EQ(result.size(), num_msms);
         for (size_t k = 0; k < num_msms; ++k) {
@@ -1789,6 +1853,10 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulLargeDense)
 TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulRagged)
 {
     this->test_batch_multi_scalar_mul_ragged();
+}
+TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSmallMemberDispatch)
+{
+    this->test_batch_multi_scalar_mul_small_member_dispatch();
 }
 TYPED_TEST(ScalarMultiplicationTest, MSM)
 {
@@ -2100,8 +2168,7 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
         check_against_naive(ss, pts);
     }
 
-    // Synthetic minimal repro for the SPLIT bookkeeping bug:
-    // half scalars with msb < 64, half full-range. SPLIT may fire (set VAR_WINDOW_FORCE_SPLIT to be sure).
+    // Mixed-magnitude coverage: half the scalars have msb < 64, half are full-range.
     void test_mid_distribution()
     {
         auto pts = make_points(kN);
@@ -2115,10 +2182,8 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
         check_against_naive(ss, pts);
     }
 
-    // All scalars with canonical msb < 192. Triggers GLV path's regular (non-shortcut) lattice
-    // reduction for inputs that fit in 192 bits but not 128 — exposing whether scalars
-    // strictly below the 128-bit shortcut threshold but with non-trivial msb cause a SPLIT
-    // bookkeeping bug.
+    // All scalars with canonical msb < 192. Triggers the GLV path's regular (non-shortcut) lattice
+    // reduction for inputs that fit in 192 bits but not 128.
     void test_below_192()
     {
         auto pts = make_points(kN);
@@ -2129,10 +2194,8 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
         check_against_naive(ss, pts);
     }
 
-    // Pin-style bitwise-identity check: with VAR_WINDOW_FORCE_SPLIT setting window_bits_lo == window_bits_hi ==
-    // window_bits_unsplit and b_star at a clean multiple of window_bits_unsplit, the SPLIT path's window decomposition
-    // is structurally identical to NO_SPLIT. Any divergence in the resulting MSM points to a bookkeeping bug
-    // (per-region driver, schedule layout, idx_large gating in upper region).
+    // Coverage at the 160-bit magnitude boundary: scalars below 2^160 exercise the GLV lattice
+    // reduction and window decomposition for non-trivial-msb inputs, checked against the naive MSM.
     void test_force_split_bitwise_identity()
     {
         auto pts = make_points(kN);

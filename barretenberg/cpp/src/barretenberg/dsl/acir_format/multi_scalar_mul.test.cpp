@@ -378,6 +378,35 @@ template <typename Builder> class MsmSingleTermFixture : public ::testing::Test 
         return { c, witness };
     }
 
+    // Multi-term variant of make_msm: takes a vector of (point, scalar) pairs.
+    static std::pair<MultiScalarMul, WitnessVector> make_msm_multi(
+        const std::vector<std::pair<MsmAcirPoint, MsmScalar>>& terms, MsmAcirPoint result)
+    {
+        WitnessVector witness;
+        std::vector<WitnessOrConstant<MsmFF>> points;
+        std::vector<WitnessOrConstant<MsmFF>> scalars;
+        for (const auto& [pt, sc] : terms) {
+            auto p = push_point(witness, pt);
+            points.push_back(WitnessOrConstant<MsmFF>::from_index(p[0]));
+            points.push_back(WitnessOrConstant<MsmFF>::from_index(p[1]));
+            auto s = push_scalar(witness, sc);
+            scalars.push_back(WitnessOrConstant<MsmFF>::from_index(s[0]));
+            scalars.push_back(WitnessOrConstant<MsmFF>::from_index(s[1]));
+        }
+        auto r = push_point(witness, result);
+        uint32_t pred_idx = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(MsmFF(1));
+
+        MultiScalarMul c{
+            .points = points,
+            .scalars = scalars,
+            .predicate = WitnessOrConstant<MsmFF>::from_index(pred_idx),
+            .out_point_x = r[0],
+            .out_point_y = r[1],
+        };
+        return { c, witness };
+    }
+
     // Run the circuit and return (satisfied, error_string).
     static std::pair<bool, std::string> run_circuit(MultiScalarMul constraint, WitnessVector witness)
     {
@@ -403,6 +432,38 @@ TYPED_TEST(MultiScalarMulInfinityTests, ResultIsInfinity)
 
     auto [ok, err] = TestFixture::run_circuit(constraint, witness);
     EXPECT_TRUE(ok) << "0 * P = infinity should produce a valid circuit";
+}
+
+// 1 * infinity = infinity: input point at infinity must produce a valid circuit.
+TYPED_TEST(MultiScalarMulInfinityTests, InputIsInfinity)
+{
+    BB_DISABLE_ASSERTS();
+    auto [constraint, witness] =
+        TestFixture::make_msm(MsmAcirPoint::infinity(), MsmScalar{ MsmFF(1), MsmFF(0) }, MsmAcirPoint::infinity());
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(ok) << "1 * infinity = infinity should produce a valid circuit";
+}
+
+// s*P + 1*infinity = s*P: an infinity term mixed with a finite term must produce a valid circuit.
+TYPED_TEST(MultiScalarMulInfinityTests, InfinityAmongFiniteTerms)
+{
+    BB_DISABLE_ASSERTS();
+    MsmGrumpkinPoint p = MsmGrumpkinPoint::random_element();
+    bb::fq s_native = bb::fq::random_element();
+    while (s_native.is_zero()) {
+        s_native = bb::fq::random_element();
+    }
+    MsmGrumpkinPoint expected = p * s_native;
+    ASSERT_FALSE(expected.is_point_at_infinity());
+
+    auto [constraint, witness] =
+        TestFixture::make_msm_multi({ { MsmAcirPoint::from_native(p), MsmScalar::from_native(s_native) },
+                                      { MsmAcirPoint::infinity(), MsmScalar{ MsmFF(1), MsmFF(0) } } },
+                                    MsmAcirPoint::from_native(expected));
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(ok) << "s*P + 1*infinity = s*P should produce a valid circuit";
 }
 
 // ============================================================

@@ -6,22 +6,22 @@ import { makeBlockHeader } from '@aztec/stdlib/testing';
 
 import { AnchorBlockStore } from './anchor_block_store.js';
 
-describe('block header', () => {
-  let anchorBlockStore: AnchorBlockStore;
+describe('AnchorBlockStore', () => {
+  let kv: Awaited<ReturnType<typeof openTmpStore>>;
+  let store: AnchorBlockStore;
 
   beforeEach(async () => {
-    const store = await openTmpStore('sync_store_test');
-    anchorBlockStore = new AnchorBlockStore(store);
+    kv = await openTmpStore('anchor-block-store-test');
+    store = new AnchorBlockStore(kv);
   });
 
-  it('stores and retrieves the block header', async () => {
+  it('round-trips the synchronized header', async () => {
     const header = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
-
-    await anchorBlockStore.setHeader(header);
-    await expect(anchorBlockStore.getBlockHeader()).resolves.toEqual(header);
+    await store.setHeader(header);
+    expect((await store.getBlockHeader()).toBuffer()).toEqual(header.toBuffer());
   });
 
-  it('rejects getting header if no block set', async () => {
-    await expect(() => anchorBlockStore.getBlockHeader()).rejects.toThrow();
+  it('throws when reading before a header is set', async () => {
+    await expect(store.getBlockHeader()).rejects.toThrow(/not-yet-synchronized/);
   });
 });

@@ -1,6 +1,6 @@
 import {
-  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
+  MAX_TX_DA_GAS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
@@ -64,22 +64,21 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
   #log: Logger;
   #effectiveMaxL2Gas: number;
   #effectiveMaxDAGas: number;
-  #rollupManaLimit: number;
-  #maxBlockL2Gas: number;
-  #maxBlockDAGas: number;
 
-  constructor(opts?: {
-    rollupManaLimit?: number;
-    maxBlockL2Gas?: number;
-    maxBlockDAGas?: number;
-    bindings?: LoggerBindings;
-  }) {
+  /**
+   * @param maxTxL2Gas - The network admission limit on L2 gas a single tx may declare (the per-block mana
+   * allocation, see {@link computeNetworkTxGasLimits}). Defaults to the per-tx protocol maximum, so callers
+   * that pass nothing (e.g. block building) enforce only the protocol ceiling.
+   * @param maxTxDAGas - The network admission limit on DA gas a single tx may declare. Defaults to the
+   * per-tx protocol maximum {@link MAX_TX_DA_GAS}.
+   */
+  constructor(opts?: { maxTxL2Gas?: number; maxTxDAGas?: number; bindings?: LoggerBindings }) {
     this.#log = createLogger('sequencer:tx_validator:tx_gas', opts?.bindings);
-    this.#rollupManaLimit = opts?.rollupManaLimit ?? Infinity;
-    this.#maxBlockL2Gas = opts?.maxBlockL2Gas ?? Infinity;
-    this.#maxBlockDAGas = opts?.maxBlockDAGas ?? Infinity;
-    this.#effectiveMaxL2Gas = Math.min(MAX_PROCESSABLE_L2_GAS, this.#rollupManaLimit, this.#maxBlockL2Gas);
-    this.#effectiveMaxDAGas = Math.min(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, this.#maxBlockDAGas);
+    // The passed limits are network admission limits; clamp to the per-tx protocol maxima as a hard ceiling.
+    // MAX_TX_DA_GAS bounds DA by what a single tx can actually post to a blob; declaring more is meaningless
+    // and would let a tx reserve checkpoint/block DA budget during proposal building it can't use.
+    this.#effectiveMaxL2Gas = Math.min(MAX_PROCESSABLE_L2_GAS, opts?.maxTxL2Gas ?? Infinity);
+    this.#effectiveMaxDAGas = Math.min(MAX_TX_DA_GAS, opts?.maxTxDAGas ?? Infinity);
   }
 
   validateTx(tx: T): Promise<TxValidationResult> {
@@ -111,8 +110,6 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
       this.#log.verbose(`Rejecting transaction due to the L2 gas limit being higher than the effective maximum`, {
         gasLimits,
         effectiveMaxL2Gas: this.#effectiveMaxL2Gas,
-        rollupManaLimit: this.#rollupManaLimit,
-        maxBlockL2Gas: this.#maxBlockL2Gas,
       });
       return {
         result: 'invalid',
@@ -124,7 +121,6 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
       this.#log.verbose(`Rejecting transaction due to the DA gas limit being higher than the effective maximum`, {
         gasLimits,
         effectiveMaxDAGas: this.#effectiveMaxDAGas,
-        maxBlockDAGas: this.#maxBlockDAGas,
       });
       return {
         result: 'invalid',
@@ -201,14 +197,14 @@ export class GasTxValidator implements TxValidator<Tx> {
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
   #gasFees: GasFees;
-  #gasLimitOpts?: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number };
+  #gasLimitOpts?: { maxTxL2Gas?: number; maxTxDAGas?: number };
 
   constructor(
     publicDataSource: PublicStateSource,
     feeJuiceAddress: AztecAddress,
     gasFees: GasFees,
     private bindings?: LoggerBindings,
-    opts?: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
+    opts?: { maxTxL2Gas?: number; maxTxDAGas?: number },
   ) {
     this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
     this.#publicDataSource = publicDataSource;

@@ -4,22 +4,22 @@ use powdr_ast::analyzed::AlgebraicUnaryOperation;
 use powdr_ast::analyzed::Analyzed;
 use powdr_ast::analyzed::Identity;
 use powdr_ast::analyzed::{AlgebraicExpression, IdentityKind};
-use powdr_ast::parsed::SelectedExpressions;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 
-use powdr_number::{DegreeType, FieldElement};
+use powdr_number::FieldElement;
 
 use handlebars::Handlebars;
 use serde_json::json;
 
 use crate::expression_evaluation::compute_expression;
 use crate::expression_evaluation::get_alias_expressions_in_order;
-use crate::expression_evaluation::get_expression_degree;
+use crate::expression_evaluation::get_expression_degree_with_intermediates;
 use crate::expression_evaluation::PolynomialExpression;
 use crate::file_writer::BBFiles;
 use crate::utils::snake_case;
+use powdr_ast::analyzed::PolyID;
 
 /// Each created bb Identity is passed around with its degree so as needs to be manually
 /// provided for sumcheck
@@ -72,11 +72,30 @@ impl RelationBuilder for BBFiles {
         file_name: &str,
         analyzed: &Analyzed<F>,
     ) -> Vec<String> {
-        // It is easier to compute the degree of the expressions once the pol aliases are inlined.
+        // Compute the polynomial degree of each identity. We avoid
+        // `identities_with_inlined_intermediate_polynomials()` because it
+        // materializes a deep clone of every intermediate's definition at every
+        // reference site — for PILs with deeply-recursive `pol` chains (e.g. the
+        // partial-round chain in poseidon2_perm.pil) the inlined tree grows as
+        // O(branching^depth) and exhausts memory. Instead we build the
+        // intermediate-id → expression lookup once and walk the *original*
+        // identities, recursing through intermediate references with a per-PolyID
+        // memoization cache.
         // Vector will be (identity id, degree).
         println!("Computing degrees...");
+        let intermediates: HashMap<PolyID, &AlgebraicExpression<F>> = analyzed
+            .intermediate_polys_in_source_order()
+            .iter()
+            .flat_map(|(symbol, def)| {
+                symbol
+                    .array_elements()
+                    .zip(def.iter())
+                    .map(|((_, poly_id), def)| (poly_id, def))
+            })
+            .collect();
+        let mut degree_cache: HashMap<PolyID, u64> = HashMap::new();
         let all_degrees = analyzed
-            .identities_with_inlined_intermediate_polynomials()
+            .identities
             .iter()
             .sorted_by_key(|id| id.id)
             .filter_map(|id| {
@@ -85,7 +104,14 @@ impl RelationBuilder for BBFiles {
                 } else {
                     // It is strange that we use "selector" here, but that seems to be what gives you the expression.
                     let expr = id.left.selector.as_ref().unwrap();
-                    Some((id.id, get_expression_degree(expr)))
+                    Some((
+                        id.id,
+                        get_expression_degree_with_intermediates(
+                            expr,
+                            &intermediates,
+                            &mut degree_cache,
+                        ),
+                    ))
                 }
             })
             .collect_vec();
@@ -416,30 +442,4 @@ pub(crate) fn create_identities<F: FieldElement>(
         identities,
         skippable_if: skippable_if_identity,
     }
-}
-
-pub fn get_shifted_polys<F: FieldElement>(expressions: Vec<AlgebraicExpression<F>>) -> Vec<String> {
-    let mut shifted_polys = HashSet::<String>::new();
-    for expr in expressions {
-        match expr {
-            AlgebraicExpression::Reference(polyref) => {
-                if polyref.next {
-                    shifted_polys.insert(polyref.name.clone());
-                }
-            }
-            AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {
-                left: lhe,
-                right: rhe,
-                ..
-            }) => {
-                shifted_polys.extend(get_shifted_polys(vec![*lhe]));
-                shifted_polys.extend(get_shifted_polys(vec![*rhe]));
-            }
-            AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation { expr, .. }) => {
-                shifted_polys.extend(get_shifted_polys(vec![*expr]));
-            }
-            _ => continue,
-        }
-    }
-    shifted_polys.into_iter().collect()
 }

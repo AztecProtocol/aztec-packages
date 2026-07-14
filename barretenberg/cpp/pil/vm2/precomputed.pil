@@ -23,7 +23,7 @@
  *
  * Valid selectors determining the row ranges:
  *   - sel_range_8:                rows [0, 2^8)   — 8-bit range checks and power-of-2 lookups
- *   - sel_range_16:               rows [0, 2^16)  — 16-bit range checks
+ *   - sel_range_16:               rows [0, 2^16)  — 16-bit range checks (used also for bitwise and addressing gas lookups)
  *   - sel_sha256_compression:     SHA-256 round constants
  *   - sel_tag_parameters:         memory tag metadata (byte length, max bits, max value)
  *   - sel_to_radix_p_limb_counts: safe limb counts for radix decomposition
@@ -32,6 +32,13 @@
  *   - sel_addressing_gas:         addressing-mode bitmask to gas cost
  *   - sel_phase:                  transaction execution phase properties
  *   - sel_keccak:                 keccak round constants
+ *
+ * The above selectors are fixed (precomputed) and do not change per transaction/program. For optimization reasons,
+ * we introduce committed granular destination selectors for:
+ * - 16-bit range check: sel_range_16_active
+ * - bitwise: sel_bitwise
+ * - addressing gas: sel_addressing_gas
+ * Therefore, the lookup's log-derivative inverse is materialised over the used entries instead of the full 2^16-row table.
  *
  * The columns are organized into several logical groups:
  *
@@ -112,6 +119,11 @@ pol constant first_row;
 pol constant sel_range_8;  // 1 in the first 2^8 rows [0, 2^8)
 pol constant sel_range_16; // 1 in the first 2^16 rows [0, 2^16)
 
+// Granular destination selector for the 16-bit range-check lookups.
+pol commit sel_range_16_active; // @boolean
+sel_range_16_active * (1 - sel_range_16_active) = 0;
+// Relation #[GRANULAR_SELECTORS_ON_RANGE_16] ensures that `sel_range_16_active == 1 ==> sel_range_16 == 1`.
+
 // ===== Section 3: Bitwise lookup tables =====
 // Precomputed AND/OR/XOR results for all pairs of 8-bit inputs (256x256 = 65536 rows).
 // Row index = (input_a << 8) | input_b, so all 65536 pairs are covered.
@@ -136,6 +148,11 @@ pol constant bitwise_input_b; // column of all 8-bit numbers.
 pol constant bitwise_output_and; // output = a AND b.
 pol constant bitwise_output_or; // output = a OR b.
 pol constant bitwise_output_xor; // output = a XOR b.
+
+// Granular destination selector for the byte-operations lookup (#[BYTE_OPERATIONS]).
+pol commit sel_bitwise; // @boolean
+sel_bitwise * (1 - sel_bitwise) = 0;
+// Relation #[GRANULAR_SELECTORS_ON_RANGE_16] ensures that `sel_bitwise == 1 ==> sel_range_16 == 1`.
 
 // ===== Section 4: Power of 2 table =====
 // Lookup table for 2^idx, populated for idx in [0, 255]. Note the [0, 255] property is guaranteed by the
@@ -243,7 +260,6 @@ pol constant sel_op_dc_12;
 pol constant sel_op_dc_13;
 pol constant sel_op_dc_14;
 pol constant sel_op_dc_15;
-pol constant sel_op_dc_16;
 
 pol constant exec_opcode;
 pol constant instr_size; // Instruction size in bytes
@@ -297,18 +313,18 @@ pol constant p_decomposition_limb;
 
 // ===== Section 9: Execution instruction spec (EXECUTION_INSTRUCTION_SPEC) =====
 // Each valid row encodes: gas costs (L2 opcode, base DA, dynamic L2, dynamic DA),
-// per-register flags (memory access, read/write, tag check, expected tag) for 6 registers,
-// subtrace/gadget dispatch IDs, dynamic gas ID, and address-operand flags for 7 operands.
+// per-register flags (memory access, read/write, tag check, expected tag) for 4 registers,
+// subtrace/gadget dispatch IDs, dynamic gas ID, and address-operand flags for 5 operands.
 // Used by the execution subtrace to dispatch and constrain instruction behavior.
 //
 // Example trace (idx encodes the ExecutionOpCode; array columns use [a,b,...] notation):
 //
-//   idx              | sel_exec_spec | opcode_gas | base_da | dyn_l2 | dyn_da | mem_op[0..5]       | rw[0..5]           | subtrace_id | sub_op_id | dyn_gas_id | is_addr[0..6]
-//   -----------------+---------------+------------+---------+--------+--------+--------------------+--------------------+-------------+-----------+------------+----------------------
-//   0 (ADD)          |             1 |         12 |       0 |      0 |      0 | [1,1,1,0,0,0]      | [0,0,1,0,0,0]      |           1 |         1 |          0 | [1,1,1,0,0,0,0]
-//   1 (SUB)          |             1 |         12 |       0 |      0 |      0 | [1,1,1,0,0,0]      | [0,0,1,0,0,0]      |           1 |         2 |          0 | [1,1,1,0,0,0,0]
-//   ...              |           ... |        ... |     ... |    ... |    ... | ...                | ...                |         ... |       ... |        ... | ...
-//   45 (TORADIXBE)   |             1 |         24 |       0 |      3 |      0 | [1,1,1,1,0,0]      | [0,0,0,0,0,0]      |          13 |         0 |          4 | [1,1,1,1,1,0,0]
+//   idx              | sel_exec_spec | opcode_gas | base_da | dyn_l2 | dyn_da | mem_op[0..3] | rw[0..3]  | subtrace_id | sub_op_id | dyn_gas_id | is_addr[0..4]
+//   -----------------+---------------+------------+---------+--------+--------+--------------+-----------+-------------+-----------+------------+--------------
+//   0 (ADD)          |             1 |         12 |       0 |      0 |      0 | [1,1,1,0]    | [0,0,1,0] |           1 |         1 |          0 | [1,1,1,0,0]
+//   1 (SUB)          |             1 |         12 |       0 |      0 |      0 | [1,1,1,0]    | [0,0,1,0] |           1 |         2 |          0 | [1,1,1,0,0]
+//   ...              |           ... |        ... |     ... |    ... |    ... | ...          | ...       |         ... |       ... |        ... | ...
+//   45 (TORADIXBE)   |             1 |         24 |       0 |      3 |      0 | [1,1,1,1]    | [0,0,0,0] |          13 |         0 |          4 | [1,1,1,1,1]
 
 pol constant sel_exec_spec;
 // Gas Costs
@@ -317,43 +333,50 @@ pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
 pol constant exec_opcode_dynamic_da_gas;
 // Registers: Memory Access
-pol constant sel_mem_op_reg[6];
-pol constant rw_reg[6];
+pol constant sel_mem_op_reg[4];
+pol constant rw_reg[4];
 // Registers: Tag Check
-pol constant sel_tag_check_reg[6];
-pol constant expected_tag_reg[6];
+pol constant sel_tag_check_reg[4];
+pol constant expected_tag_reg[4];
 // Decomposed Subtrace/Gadget Selector
 pol constant dyn_gas_id;
 pol constant subtrace_id;
 pol constant subtrace_operation_id;
 // Whether an operand is an address
 // NOTE: this could be encoded in bits in 1 column and reconstructed.
-pol constant sel_op_is_address[7];
+pol constant sel_op_is_address[5];
 
 // ===== Section 10: Addressing gas table =====
 // Maps an addressing-mode bitmask (encoded in idx) to the total addressing gas cost.
 // Used by the addressing subtrace to look up gas overhead from indirection and relative addressing.
 //
 // idx encodes the indirect/relative operand bitmask: each operand i uses 2 bits,
-// bit[2i] = indirect, bit[2i+1] = relative. Only the first AVM_MAX_OPERANDS (7) are considered.
+// bit[2i] = indirect, bit[2i+1] = relative. Only the first AVM_MAX_OPERANDS (5) are considered.
 // Example encoding for idx = 11 (0b1011):
-//   operand:  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
-//   bits:     | R I | R I | R I | R I | R I | R I | R I |
-//   values:   | 0 0 | 0 0 | 0 0 | 0 0 | 0 0 | 1 0 | 1 1 |
+//   operand:  |  4  |  3  |  2  |  1  |  0  |
+//   bits:     | R I | R I | R I | R I | R I |
+//   values:   | 0 0 | 0 0 | 0 0 | 1 0 | 1 1 |
 //   => 1 indirect + 2 relative => gas = 3 + 1*3 + 2*3 = 12
 //
 // Example trace:
-//   idx   | sel_addressing_gas | addressing_gas
+//   idx   |     sel_range_16   | addressing_gas
 //   ------+--------------------+---------------
 //       0 |                  1 |              0  (no indirect/relative operands)
 //       1 |                  1 |              3  (operand 0 indirect)
 //       3 |                  1 |              9  (operand 0 indirect + relative)
 //     ... |                  1 |            ...
-//    4095 |                  1 |             39  (operands 0-5 indirect + relative)
+//    1023 |                  1 |             33  (operands 0-4 indirect + relative; this is the max gas value for addressing)
 //     ... |                  1 |            ...
-//   65535 |                  1 |             45  (all 7 operands indirect + relative)
+//   65535 |                  1 |             33  (all bits above operand 4 are ignored, see addressing.pil for why this table still needs to be 16-bits)
 
-pol constant sel_addressing_gas;
+// Granular destination selector for the addressing-gas lookup (#[ADDRESSING_GAS_READ]). This is sound
+// because the addressing_gas value column is populated over the entire
+// [0, 2^16) range (every 16-bit bitmask), so any row toggled within sel_range_16 carries a valid gas value;
+// a static assertion in precomputed_trace.cpp guarantees the table spans 2^16 rows.
+pol commit sel_addressing_gas; // @boolean
+sel_addressing_gas * (1 - sel_addressing_gas) = 0;
+// Relation #[GRANULAR_SELECTORS_ON_RANGE_16] ensures that `sel_addressing_gas == 1 ==> sel_range_16 == 1`.
+
 pol constant addressing_gas;
 
 // ===== Section 11: Phase table =====
@@ -445,3 +468,7 @@ pol constant is_deployer;
 pol constant is_class_id;
 pol constant is_init_hash;
 pol constant is_immutables_hash;
+
+// Granular destination selectors must be on sel_range_16 range.
+#[GRANULAR_SELECTORS_ON_RANGE_16]
+(sel_range_16_active + sel_bitwise + sel_addressing_gas) * (1 - sel_range_16) = 0;

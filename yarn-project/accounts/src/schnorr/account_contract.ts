@@ -14,12 +14,25 @@ import { DefaultAccountContract } from '../defaults/account_contract.js';
  * can be implemented with or without lazy loading.
  */
 export abstract class SchnorrBaseAccountContract extends DefaultAccountContract {
-  constructor(private signingPrivateKey: GrumpkinScalar) {
+  constructor(protected signingPrivateKey: GrumpkinScalar) {
     super();
   }
 
-  async getInitializationFunctionAndArgs() {
-    const signingPublicKey = await new Schnorr().computePublicKey(this.signingPrivateKey);
+  /** The Grumpkin public key this account verifies signatures against. */
+  getSigningPublicKey() {
+    return new Schnorr().computePublicKey(this.signingPrivateKey);
+  }
+
+  async getInitializationFunctionAndArgs(): Promise<
+    | {
+        /** The name of the function used to initialize the contract */
+        constructorName: string;
+        /** The args to the function used to initialize the contract */
+        constructorArgs: any[];
+      }
+    | undefined
+  > {
+    const signingPublicKey = await this.getSigningPublicKey();
     return { constructorName: 'constructor', constructorArgs: [signingPublicKey.x, signingPublicKey.y] };
   }
 

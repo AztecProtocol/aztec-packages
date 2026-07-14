@@ -318,25 +318,14 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
     Commitment ecc_op_wire_2_comm;
     Commitment ecc_op_wire_3_comm;
     Commitment ecc_op_wire_4_comm;
-    Commitment kernel_calldata_comm;
-    Commitment kernel_calldata_read_counts_comm;
-    Commitment first_app_calldata_comm;
-    Commitment first_app_calldata_read_counts_comm;
-    Commitment second_app_calldata_comm;
-    Commitment second_app_calldata_read_counts_comm;
-    Commitment third_app_calldata_comm;
-    Commitment third_app_calldata_read_counts_comm;
-    Commitment return_data_comm;
-    Commitment return_data_read_counts_comm;
+    // Per-bus commitments. MegaZK keeps only the kernel_calldata bus; MegaFlavor carries all five.
+    std::array<Commitment, Flavor::NUM_BUS_COLUMNS> bus_comms;
+    std::array<Commitment, Flavor::NUM_BUS_COLUMNS> bus_read_counts_comms;
+    std::array<Commitment, Flavor::NUM_BUS_COLUMNS> bus_inverses_comms;
     Commitment lookup_read_counts_comm;
     Commitment lookup_read_tags_comm;
     Commitment w_4_comm;
     Commitment lookup_inverses_comm;
-    Commitment kernel_calldata_inverses_comm;
-    Commitment first_app_calldata_inverses_comm;
-    Commitment second_app_calldata_inverses_comm;
-    Commitment third_app_calldata_inverses_comm;
-    Commitment return_data_inverses_comm;
     Commitment z_perm_comm;
     std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
     std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -364,25 +353,21 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         ecc_op_wire_2_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         ecc_op_wire_3_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         ecc_op_wire_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        kernel_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        kernel_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        first_app_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        first_app_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        second_app_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        second_app_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        third_app_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        third_app_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        return_data_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        return_data_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        lookup_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        lookup_read_tags_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+            bus_comms[i] = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+            bus_read_counts_comms[i] = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
+        if constexpr (Flavor::HasLogDerivLookup) {
+            lookup_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+            lookup_read_tags_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
         w_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        lookup_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        kernel_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        first_app_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        second_app_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        third_app_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        return_data_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        if constexpr (Flavor::HasLogDerivLookup) {
+            lookup_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
+        for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+            bus_inverses_comms[i] = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
         z_perm_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
     }
 
@@ -396,25 +381,21 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         Base::serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
         Base::serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
         Base::serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
-        Base::serialize_to_buffer(kernel_calldata_comm, proof_data);
-        Base::serialize_to_buffer(kernel_calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(first_app_calldata_comm, proof_data);
-        Base::serialize_to_buffer(first_app_calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(second_app_calldata_comm, proof_data);
-        Base::serialize_to_buffer(second_app_calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(third_app_calldata_comm, proof_data);
-        Base::serialize_to_buffer(third_app_calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(return_data_comm, proof_data);
-        Base::serialize_to_buffer(return_data_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
+        for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+            Base::serialize_to_buffer(bus_comms[i], proof_data);
+            Base::serialize_to_buffer(bus_read_counts_comms[i], proof_data);
+        }
+        if constexpr (Flavor::HasLogDerivLookup) {
+            Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
+            Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
+        }
         Base::serialize_to_buffer(w_4_comm, proof_data);
-        Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
-        Base::serialize_to_buffer(kernel_calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(first_app_calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(second_app_calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(third_app_calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(return_data_inverses_comm, proof_data);
+        if constexpr (Flavor::HasLogDerivLookup) {
+            Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
+        }
+        for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+            Base::serialize_to_buffer(bus_inverses_comms[i], proof_data);
+        }
         Base::serialize_to_buffer(z_perm_comm, proof_data);
     }
 
@@ -832,6 +813,10 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
     FF translation_grand_sum_eval;
     FF translation_quotient_eval;
 
+    // TripleIPA pow-tensor masking claim
+    Commitment pow_mask_commitment;
+    FF pow_mask_evaluation;
+
     // Final Shplonk Q
     Commitment final_shplonk_q_comm;
 
@@ -873,22 +858,11 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
         libra_grand_sum_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         libra_quotient_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
 
-        // Gemini fold commitments and evaluations
-        for (size_t i = 0; i < log_n - 1; ++i) {
-            gemini_fold_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
-        }
-        for (size_t i = 0; i < log_n; ++i) {
-            gemini_fold_evals.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
-        }
-
         // Libra SmallSubgroupIPA evaluations
         libra_concatenation_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         libra_shifted_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         libra_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         libra_quotient_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
-
-        // First Shplonk Q
-        shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
 
         // Translation data
         translation_masking_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
@@ -904,6 +878,10 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
         translation_shifted_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         translation_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         translation_quotient_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // TripleIPA pow-tensor masking claim
+        pow_mask_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        pow_mask_evaluation = this->template deserialize_from_buffer<FF>(proof_data, offset);
 
         // Final Shplonk Q
         final_shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
@@ -941,22 +919,11 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
         Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
         Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
 
-        // Gemini fold commitments and evaluations
-        for (size_t i = 0; i < log_n - 1; ++i) {
-            Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
-        }
-        for (size_t i = 0; i < log_n; ++i) {
-            Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
-        }
-
         // Libra SmallSubgroupIPA evaluations
         Base::serialize_to_buffer(libra_concatenation_eval, proof_data);
         Base::serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
         Base::serialize_to_buffer(libra_grand_sum_eval, proof_data);
         Base::serialize_to_buffer(libra_quotient_eval, proof_data);
-
-        // First Shplonk Q
-        Base::serialize_to_buffer(shplonk_q_comm, proof_data);
 
         // Translation data
         Base::serialize_to_buffer(translation_masking_comm, proof_data);
@@ -972,6 +939,10 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
         Base::serialize_to_buffer(translation_shifted_grand_sum_eval, proof_data);
         Base::serialize_to_buffer(translation_grand_sum_eval, proof_data);
         Base::serialize_to_buffer(translation_quotient_eval, proof_data);
+
+        // TripleIPA pow-tensor masking claim
+        Base::serialize_to_buffer(pow_mask_commitment, proof_data);
+        Base::serialize_to_buffer(pow_mask_evaluation, proof_data);
 
         // Final Shplonk Q
         Base::serialize_to_buffer(final_shplonk_q_comm, proof_data);

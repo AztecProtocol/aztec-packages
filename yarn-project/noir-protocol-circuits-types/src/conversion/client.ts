@@ -1,4 +1,8 @@
-import { MEGA_VK_LENGTH_IN_FIELDS, UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN } from '@aztec/constants';
+import {
+  MEGA_APP_VK_LENGTH_IN_FIELDS,
+  MEGA_KERNEL_VK_LENGTH_IN_FIELDS,
+  UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import {
@@ -473,6 +477,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
     expiration_timestamp: mapU64ToNoir(privateCircuitPublicInputs.expirationTimestamp),
+    tx_request_salt: mapFieldToNoir(privateCircuitPublicInputs.txRequestSalt),
   };
 }
 
@@ -536,7 +541,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
  */
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_VK_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_APP_VK_LENGTH_IN_FIELDS),
     verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
   };
 }
@@ -553,7 +558,6 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapAztecAddressFromNoir(inputs.fee_payer),
     mapU64FromNoir(inputs.expiration_timestamp),
     inputs.is_private_only,
-    mapFieldFromNoir(inputs.claimed_first_nullifier),
     mapNumberFromNoir(inputs.claimed_revertible_counter),
   );
 }
@@ -570,7 +574,6 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
     expiration_timestamp: mapU64ToNoir(inputs.expirationTimestamp),
     is_private_only: inputs.isPrivateOnly,
-    claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
     claimed_revertible_counter: mapNumberToNoir(inputs.claimedRevertibleCounter),
   };
 }
@@ -584,7 +587,7 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, MEGA_VK_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   };
 }
 

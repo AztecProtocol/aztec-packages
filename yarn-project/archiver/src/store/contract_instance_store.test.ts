@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
 import '@aztec/stdlib/testing/jest';
@@ -48,8 +49,73 @@ describe('ContractInstanceStore', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('throws when adding the same contract instance twice', async () => {
+    it('throws when adding the same contract instance again at a different block', async () => {
       await expect(contractInstanceStore.addContractInstances([contractInstance], BlockNumber(2))).rejects.toThrow(
+        /already exists/,
+      );
+    });
+
+    it('treats re-adding the same contract instance at the same block as a no-op (A-1350)', async () => {
+      // An L1 reorg can re-present an already-stored checkpoint, replaying this instance at the same block.
+      await expect(
+        contractInstanceStore.addContractInstances([contractInstance], BlockNumber(blockNum)),
+      ).resolves.not.toThrow();
+      await expect(
+        contractInstanceStore.getContractInstance(contractInstance.address, timestamp),
+      ).resolves.toMatchObject(contractInstance);
+      await expect(
+        contractInstanceStore.getContractInstanceDeploymentBlockNumber(contractInstance.address),
+      ).resolves.toEqual(blockNum);
+    });
+  });
+
+  describe('protocol contract instances (A-1257)', () => {
+    // Protocol contracts are preloaded at synthetic block 0. A later on-chain (re-)publish of a
+    // bundled protocol instance must be treated as a no-op rather than a hard error, and must never
+    // delete the preloaded entry.
+    let protocolInstance: ContractInstanceWithAddress;
+    const timestamp = 3600n;
+    const preloadBlock = 0;
+
+    beforeEach(async () => {
+      const classId = Fr.random();
+      const randomInstance = await SerializableContractInstance.random({
+        currentContractClassId: classId,
+        originalContractClassId: classId,
+      });
+      protocolInstance = { ...randomInstance, address: ProtocolContractAddress.ContractClassRegistry };
+      await contractInstanceStore.addContractInstances([protocolInstance], BlockNumber(preloadBlock));
+    });
+
+    it('treats re-publish of a preloaded protocol instance as a no-op and keeps it queryable', async () => {
+      await expect(
+        contractInstanceStore.addContractInstances([protocolInstance], BlockNumber(50)),
+      ).resolves.not.toThrow();
+      await expect(
+        contractInstanceStore.getContractInstance(protocolInstance.address, timestamp),
+      ).resolves.toMatchObject(protocolInstance);
+      // The block-0 preload must be left untouched: the re-publish must not bump the recorded deployment block.
+      await expect(
+        contractInstanceStore.getContractInstanceDeploymentBlockNumber(protocolInstance.address),
+      ).resolves.toEqual(preloadBlock);
+    });
+
+    it('does not delete a protocol instance', async () => {
+      await contractInstanceStore.deleteContractInstances([protocolInstance]);
+      await expect(
+        contractInstanceStore.getContractInstance(protocolInstance.address, timestamp),
+      ).resolves.toMatchObject(protocolInstance);
+    });
+
+    it('still throws when a non-protocol instance is added twice', async () => {
+      const classId = Fr.random();
+      const randomInstance = await SerializableContractInstance.random({
+        currentContractClassId: classId,
+        originalContractClassId: classId,
+      });
+      const nonProtocolInstance = { ...randomInstance, address: await AztecAddress.random() };
+      await contractInstanceStore.addContractInstances([nonProtocolInstance], BlockNumber(10));
+      await expect(contractInstanceStore.addContractInstances([nonProtocolInstance], BlockNumber(11))).rejects.toThrow(
         /already exists/,
       );
     });

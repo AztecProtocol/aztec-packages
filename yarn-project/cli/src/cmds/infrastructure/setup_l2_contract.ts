@@ -8,7 +8,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
-import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
+import { createFundedInitializerlessAccounts } from '@aztec/wallets/testing';
 
 export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, json: boolean, log: LogFn) {
   const waitOpts: WaitOpts = {
@@ -23,16 +23,16 @@ export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, j
   const node = createAztecNodeClient(nodeUrl);
   const wallet = await EmbeddedWallet.create(node);
 
-  let deployedAccountManagers: AccountManager[] = [];
+  let accountManagers: AccountManager[] = [];
   if (testAccounts) {
-    log('setupL2Contracts: Deploying test accounts...');
+    log('setupL2Contracts: Creating test accounts...');
     const initialAccountsData = await getInitialTestAccountsData();
-    deployedAccountManagers = await deployFundedSchnorrAccounts(wallet, initialAccountsData, waitOpts);
+    accountManagers = await createFundedInitializerlessAccounts(wallet, initialAccountsData);
   }
 
   if (json) {
     const toPrint: Record<string, AztecAddress> = { ...ProtocolContractAddress };
-    deployedAccountManagers.forEach((a, i) => {
+    accountManagers.forEach((a, i) => {
       toPrint[`testAccount${i}`] = a.address;
     });
     log(JSON.stringify(toPrint, null, 2));

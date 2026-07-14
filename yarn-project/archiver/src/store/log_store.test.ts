@@ -5,7 +5,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
-import { LogCursor, SiloedTag, Tag, queryAllPrivateLogsByTags, queryAllPublicLogsByTags } from '@aztec/stdlib/logs';
+import {
+  LogCursor,
+  PublicLog,
+  SiloedTag,
+  Tag,
+  queryAllPrivateLogsByTags,
+  queryAllPublicLogsByTags,
+} from '@aztec/stdlib/logs';
 import '@aztec/stdlib/testing/jest';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
@@ -40,7 +47,7 @@ async function buildChainedCheckpointsWithLogs(
   return checkpoints;
 }
 
-const CONTRACT = AztecAddress.fromNumber(543254);
+const CONTRACT = AztecAddress.fromNumberUnsafe(543254);
 
 describe('LogStore', () => {
   let blockStore: BlockStore;
@@ -98,6 +105,56 @@ describe('LogStore', () => {
 
       const after = await logStore.getPrivateLogsByTags({ tags: [tag] });
       expect(after[0].length).toBe(0);
+    });
+
+    it('ingests a zero-field public log without throwing and omits it from tagged lookup', async () => {
+      const ckpt = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 1, contractAddress: CONTRACT },
+      });
+      const block = ckpt.checkpoint.blocks[0];
+      // A protocol-valid public log can carry zero fields (raw AVM EMITPUBLICLOG with logSize=0); it has
+      // no tag. Previously fieldHex(fields[0]) read off an empty array and aborted the whole store txn.
+      block.body.txEffects[0].publicLogs[0] = new PublicLog(CONTRACT, []);
+      await blockStore.addProposedBlock(block);
+
+      await expect(logStore.addLogs([block])).resolves.toBe(true);
+
+      // The untagged log is still retrievable via the per-block read...
+      const pub = await logStore.getPublicLogsForBlock(block.number);
+      expect(pub.length).toBe(1);
+      expect(pub[0].logData).toEqual([]);
+
+      // ...but a real (64-hex-char) tag query never matches it.
+      const [byTag] = await logStore.getPublicLogsByTags({ contractAddress: CONTRACT, tags: [new Tag(Fr.ZERO)] });
+      expect(byTag).toEqual([]);
+    });
+
+    it('prunes a zero-field public log alongside normal logs (empty-tag key tracked for deletion)', async () => {
+      const ckpt = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 2, contractAddress: CONTRACT },
+      });
+      const block = ckpt.checkpoint.blocks[0];
+      // First public log carries zero fields (no tag, indexed under the empty tag); the second keeps a
+      // normal tagged form. Both must be dropped when the block is pruned on reorg.
+      block.body.txEffects[0].publicLogs[0] = new PublicLog(CONTRACT, []);
+      const normalTag = new Tag(new Fr(0xc0ffee));
+      block.body.txEffects[0].publicLogs[1].fields[0] = normalTag.value;
+      await blockStore.addProposedBlock(block);
+      await logStore.addLogs([block]);
+
+      // Both logs are indexed for the block, and the tagged one is queryable.
+      expect((await logStore.getPublicLogsForBlock(block.number)).length).toBe(2);
+      const [taggedBefore] = await logStore.getPublicLogsByTags({ contractAddress: CONTRACT, tags: [normalTag] });
+      expect(taggedBefore.length).toBe(1);
+
+      await logStore.deleteLogs([block]);
+
+      // The reorg trim drops every key recorded for the block — including the empty-tag one.
+      expect(await logStore.getPublicLogsForBlock(block.number)).toEqual([]);
+      const [taggedAfter] = await logStore.getPublicLogsByTags({ contractAddress: CONTRACT, tags: [normalTag] });
+      expect(taggedAfter).toEqual([]);
     });
   });
 
@@ -468,7 +525,7 @@ describe('LogStore', () => {
       await logStore.addLogs([ckpt.checkpoint.blocks[0]]);
 
       // Same tag, different contract → no hits.
-      const otherContract = AztecAddress.fromNumber(99);
+      const otherContract = AztecAddress.fromNumberUnsafe(99);
       const [missing] = await logStore.getPublicLogsByTags({ contractAddress: otherContract, tags: [tag] });
       expect(missing).toEqual([]);
 

@@ -208,7 +208,7 @@ export class LendingSimulator {
     expect(interestAccumulator).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
-    for (const key of [this.account.address, AztecAddress.fromField(await this.account.key())]) {
+    for (const key of [this.account.address, AztecAddress.fromFieldUnsafe(await this.account.key())]) {
       const { result: privatePos } = await this.lendingContract.methods
         .get_position(key)
         .simulate({ from: this.account.address });

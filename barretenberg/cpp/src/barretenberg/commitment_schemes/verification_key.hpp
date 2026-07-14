@@ -11,6 +11,7 @@
  *
  */
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -94,9 +95,17 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
 
     bool initialized() const { return srs != nullptr; }
 
-    Commitment get_g1_identity() const { return srs->get_g1_identity(); }
+    Commitment get_g1_identity() const
+    {
+        BB_ASSERT(srs != nullptr, "VerifierCommitmentKey<Grumpkin>: SRS not initialized (default-constructed key)");
+        return srs->get_g1_identity();
+    }
 
-    std::span<const Commitment> get_monomial_points() const { return srs->get_monomial_points(); }
+    std::span<const Commitment> get_monomial_points() const
+    {
+        BB_ASSERT(srs != nullptr, "VerifierCommitmentKey<Grumpkin>: SRS not initialized (default-constructed key)");
+        return srs->get_monomial_points();
+    }
 
   private:
     std::shared_ptr<bb::srs::factories::Crs<Curve>> srs;

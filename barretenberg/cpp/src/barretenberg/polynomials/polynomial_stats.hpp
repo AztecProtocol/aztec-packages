@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace bb {
 
@@ -73,7 +74,7 @@ template <typename ProverPolynomials> void analyze_prover_polynomials(ProverPoly
         idx++;
 
         if (poly.is_empty()) {
-            all_stats.push_back(stats);
+            all_stats.push_back(std::move(stats));
             continue;
         }
 
@@ -119,7 +120,7 @@ template <typename ProverPolynomials> void analyze_prover_polynomials(ProverPoly
         totals.actual_mem += stats.actual_mem;
         totals.compressed_mem += stats.compressed_mem;
 
-        all_stats.push_back(stats);
+        all_stats.push_back(std::move(stats));
     }
 
     // Format and print the report

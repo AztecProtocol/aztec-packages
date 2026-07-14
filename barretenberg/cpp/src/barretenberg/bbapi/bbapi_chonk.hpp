@@ -13,7 +13,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 #include "barretenberg/chonk/batch_verifier_types.hpp"
 #include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
@@ -45,10 +45,12 @@ struct ChonkStart {
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
-    // Number of circuits to be accumulated.
-    uint32_t num_circuits;
+    // Kind of every circuit to be accumulated, in accumulation order. The IVC needs the full stack layout
+    // upfront so the prover can tell, while accumulating a circuit, whether a kernel follows (which triggers
+    // the group's multilinear batching proof).
+    std::vector<CircuitKind> kinds;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(num_circuits);
+    SERIALIZATION_FIELDS(kinds);
     bool operator==(const ChonkStart&) const = default;
 };
 
@@ -72,8 +74,10 @@ struct ChonkLoad {
 
     /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
+    /** @brief CircuitKind tag selecting the per-kind slim flavor (App / Kernel / HidingKernel). */
+    CircuitKind kind = CircuitKind::None;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(circuit);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkLoad&) const = default;
 };
 
@@ -192,9 +196,8 @@ struct ChonkVerifyFromFields {
  * @struct ChonkComputeVk
  * @brief Compute MegaHonk verification key for a circuit to be accumulated in Chonk
  *
- * @details This unified command replaces the former ChonkComputeStandaloneVk and ChonkComputeIvcVk.
- * Both standalone circuits (to be accumulated) and the IVC hiding kernel use the same MegaVerificationKey,
- * so a single implementation suffices for all Chonk VK computation needs.
+ * @details Computes a VK for a circuit used by Chonk. The command keeps the existing wire schema;
+ * Chonk owns the mapping from circuit role to concrete VK type.
  */
 struct ChonkComputeVk {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeVk";
@@ -206,7 +209,7 @@ struct ChonkComputeVk {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeVkResponse";
 
-        /** @brief Serialized MegaVerificationKey in binary format */
+        /** @brief Serialized Chonk verification key in binary format */
         std::vector<uint8_t> bytes;
         /** @brief Verification key as array of field elements */
         std::vector<bb::fr> fields;
@@ -215,11 +218,10 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
-    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
-     * The caller sets this to true for the hiding-kernel circuit. */
-    bool use_zk_flavor = false;
+    // CircuitKind tag selecting the per-kind slim flavor (App / Kernel / HidingKernel).
+    CircuitKind kind = CircuitKind::None;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkComputeVk&) const = default;
 };
 
@@ -247,12 +249,11 @@ struct ChonkCheckPrecomputedVk {
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
-    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
-     * The caller sets this to true for the hiding-kernel circuit. */
-    bool use_zk_flavor = false;
+    /** @brief CircuitKind tag selecting the per-kind flavor (App / Kernel / HidingKernel). */
+    CircuitKind kind = CircuitKind::None;
 
     Response execute(const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkCheckPrecomputedVk&) const = default;
 };
 
@@ -354,7 +355,7 @@ struct ChonkDecompressProof {
     bool operator==(const ChonkDecompressProof&) const = default;
 };
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 /**
  * @brief FIFO-streaming batch verification service for Chonk proofs.
  *
@@ -394,7 +395,7 @@ class ChonkBatchVerifierService {
     std::atomic_bool running_ = false;
     std::atomic_bool fifo_failed_ = false;
 };
-#endif // __wasm__
+#endif // BB_HAS_BATCH_VERIFIER_SERVICE
 
 /**
  * @struct ChonkBatchVerifierStart

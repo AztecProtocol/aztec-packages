@@ -115,6 +115,44 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinFr)
 }
 
 /**
+ * @brief convert_short_challenge maps a short (≤ 2 bigfield limbs) challenge to field_t or bigfield.
+ */
+TYPED_TEST(stdlib_field_conversion, ConvertShortChallenge)
+{
+    using Builder = TypeParam;
+    using Codec = StdlibCodec<field_t<Builder>>;
+    constexpr size_t SHORT_BITS = 2 * fq<Builder>::NUM_LIMB_BITS;
+    const uint256_t raw(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+
+    Builder builder;
+    const uint256_t val = raw.slice(0, SHORT_BITS);
+    const auto chal = fr<Builder>::from_witness(&builder, bb::fr(val));
+
+    EXPECT_EQ(uint256_t(Codec::template convert_short_challenge<fr<Builder>>(chal).get_value()), val);
+    EXPECT_EQ(Codec::template convert_short_challenge<fq<Builder>>(chal).get_value(), uint512_t(val));
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief convert_full_challenge maps a full-width challenge to field_t or bigfield, preserving its value.
+ * @details The cross-field (bigfield) result is built by decomposing the full challenge into limbs; the circuit
+ * must be valid and the value exact (the scalar modulus r is smaller than the base modulus q).
+ */
+TYPED_TEST(stdlib_field_conversion, ConvertFullChallenge)
+{
+    using Builder = TypeParam;
+    using Codec = StdlibCodec<field_t<Builder>>;
+
+    Builder builder;
+    const bb::fr val = bb::fr::random_element();
+    const auto chal = fr<Builder>::from_witness(&builder, val);
+
+    EXPECT_EQ(uint256_t(Codec::template convert_full_challenge<fr<Builder>>(chal).get_value()), uint256_t(val));
+    EXPECT_EQ(Codec::template convert_full_challenge<fq<Builder>>(chal).get_value(), uint512_t(uint256_t(val)));
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
  * @brief Field conversion test for bn254_element<Builder>
  *
  */

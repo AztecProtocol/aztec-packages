@@ -239,16 +239,17 @@ TYPED_TEST(PermutationNonZKTests, ZPermZeroedOutFailure)
 
     Prover prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
-    auto& z_perm = prover_instance->polynomials.z_perm;
-
     // First verify that the Permutation relation holds.
     auto permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
         prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
     EXPECT_TRUE(permutation_relation_failures.empty());
 
     // Tamper: zero-out z_perm
-    for (size_t i = z_perm.start_index(); i < z_perm.end_index(); ++i) {
-        z_perm.at(i) = fr(0);
+    {
+        auto& z_perm_mut = prover_instance->polynomials.z_perm();
+        for (size_t i = z_perm_mut.start_index(); i < z_perm_mut.end_index(); ++i) {
+            z_perm_mut.at(i) = fr(0);
+        }
     }
     prover_instance->polynomials.set_shifted();
     auto tampered_permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
@@ -317,23 +318,23 @@ TYPED_TEST(PermutationNonZKTests, ZPermNonZeroAtFirstRowFailure)
     const size_t first_row = ProverInstance::TRACE_OFFSET;
 
     // Verify lagrange_first is indeed 1 at the expected position.
-    ASSERT_EQ(prover_instance->polynomials.lagrange_first[first_row], fr(1))
+    ASSERT_EQ(prover_instance->polynomials.lagrange_first()[first_row], fr(1))
         << "lagrange_first should be 1 at row TRACE_OFFSET";
 
-    auto& z_perm = prover_instance->polynomials.z_perm;
-    auto& z_perm_shift = prover_instance->polynomials.z_perm_shift;
+    auto& z_perm = prover_instance->polynomials.z_perm();
+    auto& z_perm_shift = prover_instance->polynomials.z_perm_shift();
 
     // z_perm is shiftable (start_index = 1), so z_perm at first_row may be a virtual zero.
     // Expand to a full polynomial to write at that index. Also expand z_perm_shift independently
     // (it cannot be derived via shifted() from a full polynomial with start_index = 0).
-    prover_instance->polynomials.z_perm = z_perm.full();
-    prover_instance->polynomials.z_perm_shift = z_perm_shift.full();
+    prover_instance->polynomials.z_perm() = z_perm.full();
+    prover_instance->polynomials.z_perm_shift() = z_perm_shift.full();
 
     // Sanity check: z_perm is currently 0 at the lagrange_first row
-    ASSERT_EQ(prover_instance->polynomials.z_perm[first_row], fr(0));
+    ASSERT_EQ(prover_instance->polynomials.z_perm()[first_row], fr(0));
 
     // Tamper: set z_perm to non-zero where lagrange_first is active
-    prover_instance->polynomials.z_perm.at(first_row) = fr(1);
+    prover_instance->polynomials.z_perm().at(first_row) = fr(1);
 
     // Verify the permutation relation now fails.
     auto tampered_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
@@ -399,18 +400,18 @@ TYPED_TEST(PermutationNonZKTests, ZPermShiftNotZeroAtLagrangeLastFailure)
     EXPECT_TRUE(permutation_relation_failures.empty());
     // we make z_perm and z_perm_shift full polynomials to tamper with values that are outside the usual allocated
     // range. This allows us to failure test for the subrelation `z_perm_shift * lagrange_last == 0`.
-    auto& z_perm = prover_instance->polynomials.z_perm;
+    auto& z_perm = prover_instance->polynomials.z_perm();
     auto last_valid_index = z_perm.end_index();
-    auto& z_perm_shift = prover_instance->polynomials.z_perm_shift;
+    auto& z_perm_shift = prover_instance->polynomials.z_perm_shift();
     // make the polynomial full to tamper with a last value.
-    prover_instance->polynomials.z_perm = z_perm.full();
-    prover_instance->polynomials.z_perm_shift = z_perm_shift.full();
+    prover_instance->polynomials.z_perm() = z_perm.full();
+    prover_instance->polynomials.z_perm_shift() = z_perm_shift.full();
 
-    ASSERT_EQ(prover_instance->polynomials.lagrange_last.at(last_valid_index - 1), fr(1));
-    ASSERT_EQ(prover_instance->polynomials.z_perm.at(last_valid_index), fr(0));
-    ASSERT_EQ(prover_instance->polynomials.z_perm_shift.at(last_valid_index - 1), fr(0));
+    ASSERT_EQ(prover_instance->polynomials.lagrange_last().at(last_valid_index - 1), fr(1));
+    ASSERT_EQ(prover_instance->polynomials.z_perm().at(last_valid_index), fr(0));
+    ASSERT_EQ(prover_instance->polynomials.z_perm_shift().at(last_valid_index - 1), fr(0));
     // Tamper: change `z_perm_shift` to something non-zero when `lagrange_last == 1`.
-    prover_instance->polynomials.z_perm_shift.at(last_valid_index - 1) += fr(1);
+    prover_instance->polynomials.z_perm_shift().at(last_valid_index - 1) += fr(1);
     // Note that `z_perm_shift` and `z_perm` are no longer inextricably linked because we have replaced them by their
     // full incarnations. Therefore, we still `z_perm.at(last_valid_index) == 0`. This does not effect the test we
     // wish to check.
@@ -478,8 +479,8 @@ TYPED_TEST(PermutationNonZKTests, SigmaCorruptionFailure)
     // TAMPER
 
     // Corrupt sigma_1 at a row that's part of the copy cycle.
-    auto& sigma_1 = prover_instance->polynomials.sigma_1;
-    auto& id_1 = prover_instance->polynomials.id_1;
+    auto& sigma_1 = prover_instance->polynomials.sigma_1();
+    auto& id_1 = prover_instance->polynomials.id_1();
 
     // Find the first row that's part of a non-trivial cycle (sigma != id)
     size_t row_to_corrupt = 0;
@@ -509,7 +510,7 @@ TYPED_TEST(PermutationNonZKTests, SigmaCorruptionFailure)
     {
         // Sanity check: if we are recompute z_perm, the first different value will be at `row_to_corrupt + 1`. Store
         // this to ensure that this value indeed changes.
-        auto& z_perm = prover_instance->polynomials.z_perm;
+        auto& z_perm = prover_instance->polynomials.z_perm();
         auto z_perm_before = z_perm.at(row_to_corrupt + 1);
 
         // Recompute z_perm with the corrupted sigma.

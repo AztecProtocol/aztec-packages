@@ -1,3 +1,4 @@
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
   ContractFunctionInteraction,
@@ -10,11 +11,15 @@ import {
   toSendOptions,
 } from '@aztec/aztec.js/contracts';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
+import { timesAsync } from '@aztec/foundation/collection';
+import type { Logger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { type OffchainEffect, type ProvingStats, Tx, TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
 
+import { testSpan, withTestSpanOwner } from '../fixtures/timing.js';
 import type { TestWallet } from './test_wallet.js';
 
 export type ProvenTxSendOpts = {
@@ -35,7 +40,11 @@ export class ProvenTx extends Tx {
 
   send(options?: Omit<ProvenTxSendOpts, 'wait'>): Promise<TxReceipt>;
   send<W extends ProvenTxSendOpts['wait']>(options: ProvenTxSendOpts & { wait: W }): Promise<ProvenTxSendReturn<W>>;
-  async send(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
+  send(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
+    return testSpan('tx:send', () => this.sendInner(options));
+  }
+
+  private async sendInner(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
     const txHash = this.getTxHash();
     await this.node.sendTx(this).catch(err => {
       throw this.contextualizeError(err, inspect(this));
@@ -61,13 +70,101 @@ export class ProvenTx extends Tx {
   }
 }
 
-export async function proveInteraction(
+export function proveInteraction(
   wallet: TestWallet,
   interaction: ContractFunctionInteraction | DeployMethod | BatchCall,
   options: SendInteractionOptions | DeployOptions,
-) {
-  const execPayload = await interaction.request(options);
-  return wallet.proveTx(execPayload, toSendOptions(options));
+): Promise<ProvenTx> {
+  return testSpan('tx:prove', async () => {
+    const execPayload = await interaction.request(options);
+    return wallet.proveTx(execPayload, toSendOptions(options));
+  });
+}
+
+/** Builds an interaction for index `i` of a batch. */
+export type MakeBatchCall = (i: number) => ContractFunctionInteraction | DeployMethod | BatchCall;
+
+/**
+ * Pre-proves `count` interactions built by `makeCall(i)` against `wallet`, all with the same
+ * `options`. Returns the proven txs so the caller can send them individually (e.g. with sleeps
+ * between sends, or anchored to intermediate tips). For the common "send the whole batch at once"
+ * case use {@link proveAndSendTxs}.
+ */
+export function proveTxs(
+  wallet: TestWallet,
+  count: number,
+  makeCall: MakeBatchCall,
+  options: SendInteractionOptions | DeployOptions,
+): Promise<ProvenTx[]> {
+  return timesAsync(count, i => proveInteraction(wallet, makeCall(i), options));
+}
+
+/**
+ * Pre-proves `count` interactions built by `makeCall(i)` and sends each one with `NO_WAIT`, all at
+ * once. Returns the tx hashes in batch order. Pairs with `waitForTxs` for the "send N, wait for N"
+ * arc. Use {@link proveTxs} instead when the sends need bespoke sequencing.
+ */
+export async function proveAndSendTxs(
+  wallet: TestWallet,
+  count: number,
+  makeCall: MakeBatchCall,
+  options: SendInteractionOptions | DeployOptions,
+): Promise<TxHash[]> {
+  const txs = await proveTxs(wallet, count, makeCall, options);
+  return Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+}
+
+/** Options for {@link startMempoolFeeder}. */
+export type MempoolFeederOpts = {
+  /** The account the txs are sent from. */
+  from: AztecAddress;
+  /** Keep the pending-tx count at or above this threshold; defaults to 3. */
+  minPending?: number;
+  /** Milliseconds between top-up polls; defaults to 1000. */
+  intervalMs?: number;
+  /** Logger for verbose top-up traces. */
+  logger?: Logger;
+};
+
+/**
+ * Starts a background loop that keeps `node`'s mempool topped up: whenever the pending-tx count drops
+ * below `opts.minPending`, it proves and sends one interaction built by `makeCall()` (NO_WAIT). Errors
+ * are swallowed and retried. Returns an {@link AsyncDisposable}; disposing stops the loop and awaits it.
+ */
+export function startMempoolFeeder(
+  wallet: TestWallet,
+  node: AztecNode,
+  makeCall: () => ContractFunctionInteraction | DeployMethod | BatchCall,
+  opts: MempoolFeederOpts,
+): AsyncDisposable {
+  const minPending = opts.minPending ?? 3;
+  const intervalMs = opts.intervalMs ?? 1000;
+  let stopped = false;
+
+  // Pin the feeder's prove/send spans to a fixed non-test owner. It runs interleaved with arbitrary
+  // tests, so without this its tx:prove/tx:send spans would smear onto whichever test was current
+  // when each round fired; the pinned owner matches no test/suite record, excluding them cleanly.
+  const loop = withTestSpanOwner('other:mempool-feeder', async () => {
+    while (!stopped) {
+      try {
+        const pendingCount = await node.getPendingTxCount();
+        if (pendingCount < minPending) {
+          await proveAndSendTxs(wallet, 1, makeCall, { from: opts.from });
+          opts.logger?.verbose(`Topped up mempool (was ${pendingCount})`);
+        }
+      } catch (err) {
+        opts.logger?.verbose(`Mempool top-up error (will retry): ${err}`);
+      }
+      await sleep(intervalMs);
+    }
+  });
+
+  return {
+    async [Symbol.asyncDispose]() {
+      stopped = true;
+      await loop;
+    },
+  };
 }
 
 /**

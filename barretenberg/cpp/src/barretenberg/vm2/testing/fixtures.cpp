@@ -178,6 +178,13 @@ ContractInstance random_contract_instance()
     return instance;
 }
 
+ContractInstance random_protocol_contract_instance()
+{
+    ContractInstance instance = random_contract_instance();
+    instance.current_contract_class_id = instance.original_contract_class_id;
+    return instance;
+}
+
 ContractClass random_contract_class(size_t bytecode_size)
 {
     return ContractClass{ .id = FF::random_element(),

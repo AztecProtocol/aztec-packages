@@ -24,7 +24,7 @@ const testAccounts = await getInitialTestAccountsData();
 const [aliceAddress, bobAddress] = await Promise.all(
   testAccounts.slice(0, 2).map(async (account) => {
     return (
-      await wallet.createSchnorrAccount(
+      await wallet.createSchnorrInitializerlessAccount(
         account.secret,
         account.salt,
         account.signingKey,
@@ -153,12 +153,22 @@ const { result: balance } = await token.methods
 console.log(`Alice's token balance: ${balance}`);
 // docs:end:simulate_function
 
+// The bridged Fee Juice claim only becomes consumable once the network's inbox lag (2 checkpoints)
+// has elapsed since the L1->L2 message was inserted. The token deploy and mint above produced two
+// blocks; mine one more here so the claim is available when we pay with it below.
+await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .send({ from: aliceAddress });
+
 // docs:start:bridge_fee_juice_claim
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 
 // claim is from the bridgeTokensPublic step above
 // Create a payment method that claims the bridged Fee Juice and uses it to pay
-const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(feeJuiceAccount.address, claim);
+const bridgePaymentMethod = new FeeJuicePaymentMethodWithClaim(
+  feeJuiceAccount.address,
+  claim,
+);
 
 // Use it to pay for any transaction; here we deploy the account in one step
 const deployMethodBridged = await feeJuiceAccount.getDeployMethod();
@@ -175,5 +185,10 @@ const metadata = await wallet.getContractMetadata(newAccount.address);
 console.log("Account deployed:", metadata.initializationStatus);
 // docs:end:verify_account_deployment
 
-const feeJuiceMetadata = await wallet.getContractMetadata(feeJuiceAccount.address);
-console.log("Fee Juice account deployed:", feeJuiceMetadata.initializationStatus);
+const feeJuiceMetadata = await wallet.getContractMetadata(
+  feeJuiceAccount.address,
+);
+console.log(
+  "Fee Juice account deployed:",
+  feeJuiceMetadata.initializationStatus,
+);

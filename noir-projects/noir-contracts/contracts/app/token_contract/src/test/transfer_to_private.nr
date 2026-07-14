@@ -59,6 +59,29 @@ unconstrained fn transfer_to_private_from_private_external_orchestration() {
     utils::check_private_balance(env, token_contract_address, owner, 0);
 }
 
+/// Completes multiple partial notes in a single message-discovery sync: the recipient does not sync until both
+/// completion logs have been emitted, so both pending partial notes are processed together.
+#[test]
+unconstrained fn transfer_to_private_external_orchestration_multiple_notes() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, token_contract_address, owner, recipient, amount) =
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
+
+    let partial_uint_note_a =
+        env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+    let partial_uint_note_b =
+        env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+
+    env.call_public(
+        owner,
+        Token::at(token_contract_address).finalize_transfer_to_private(amount - 3, partial_uint_note_a),
+    );
+    env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(3, partial_uint_note_b));
+
+    // Recipient's private balance should be equal to the sum of both finalized amounts
+    utils::check_private_balance(env, token_contract_address, recipient, amount);
+}
+
 #[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough

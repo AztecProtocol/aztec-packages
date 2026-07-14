@@ -369,8 +369,9 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
     Element msm_result = Curve::Group::point_at_infinity;
 
     for (uint32_t round = 0; round < num_rounds; ++round) {
-        // Build point schedule for this round
+        // Build point schedule for this round (≈ rewrite Stage1 digit-extract + Stage4 scatter).
         {
+            BB_BENCH_NAME("MSM::build_point_schedule");
             for (size_t i = 0; i < num_points; ++i) {
                 uint32_t idx = msm_data.scalar_indices[i];
                 uint32_t bucket_idx = get_scalar_slice(msm_data.scalars[idx], round, bits_per_slice);
@@ -378,17 +379,29 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
             }
         }
 
-        // Sort by bucket and count zero-bucket entries
-        size_t num_zero_bucket_entries =
-            sort_point_schedule_and_count_zero_buckets(&msm_data.point_schedule[0], num_points, bits_per_slice);
+        // Sort by bucket and count zero-bucket entries (≈ rewrite Stage2/Stage3 bucket offsets).
+        size_t num_zero_bucket_entries = 0;
+        {
+            BB_BENCH_NAME("MSM::sort_point_schedule");
+            num_zero_bucket_entries =
+                sort_point_schedule_and_count_zero_buckets(&msm_data.point_schedule[0], num_points, bits_per_slice);
+        }
         size_t round_size = num_points - num_zero_bucket_entries;
 
         // Accumulate points into buckets
         Element bucket_result = Curve::Group::point_at_infinity;
         if (round_size > 0) {
             std::span<uint64_t> schedule(&msm_data.point_schedule[num_zero_bucket_entries], round_size);
-            batch_accumulate_points_into_buckets(schedule, msm_data.points, affine_data, bucket_data);
-            bucket_result = accumulate_buckets(bucket_data);
+            {
+                // ≈ rewrite Stage6a: the dominant bucket-accumulation work.
+                BB_BENCH_NAME("MSM::batch_accumulate_into_buckets");
+                batch_accumulate_points_into_buckets(schedule, msm_data.points, affine_data, bucket_data);
+            }
+            {
+                // ≈ rewrite Stage6b + Stage7: reduce buckets into the round/window sum.
+                BB_BENCH_NAME("MSM::accumulate_buckets");
+                bucket_result = accumulate_buckets(bucket_data);
+            }
             bucket_data.bucket_exists.clear();
         }
 
@@ -647,32 +660,32 @@ template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
                                   bool handle_edge_cases,
-                                  bool dedup_hint) noexcept
+                                  size_t dedup_info) noexcept
 {
     if (use_legacy_msm()) {
         return legacy::pippenger<Curve>(scalars, points, handle_edge_cases);
     }
-    return pippenger_fast<Curve>(scalars, points, handle_edge_cases, dedup_hint);
+    return pippenger_fast<Curve>(scalars, points, handle_edge_cases, dedup_info);
 }
 
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points,
-                                         bool dedup_hint) noexcept
+                                         size_t dedup_info) noexcept
 {
     if (use_legacy_msm()) {
         return legacy::pippenger_unsafe<Curve>(scalars, points);
     }
-    return pippenger_unsafe_fast<Curve>(scalars, points, dedup_hint);
+    return pippenger_unsafe_fast<Curve>(scalars, points, dedup_info);
 }
 
 template <typename Curve>
 typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::AffineElement> points,
                                               PolynomialSpan<const typename Curve::ScalarField> scalars,
                                               bool handle_edge_cases,
-                                              bool dedup_hint) noexcept
+                                              size_t dedup_info) noexcept
 {
-    return AffineElement(pippenger<Curve>(scalars, points, handle_edge_cases, dedup_hint));
+    return AffineElement(pippenger<Curve>(scalars, points, handle_edge_cases, dedup_info));
 }
 
 template <typename Curve>
@@ -680,7 +693,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::span<const typename Curve::AffineElement> points,
     std::span<PolynomialSpan<typename Curve::ScalarField>> scalars,
     bool handle_edge_cases,
-    std::span<const uint8_t> dedup_hints) noexcept
+    std::span<const uint32_t> dedup_infos) noexcept
 {
     if (use_legacy_msm()) {
         // Adapt the rewrite's (single shared points + per-MSM PolynomialSpan) shape to the
@@ -698,24 +711,24 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         }
         return legacy::MSM<Curve>::batch_multi_scalar_mul(legacy_points, legacy_scalars, handle_edge_cases);
     }
-    return MSM_fast<Curve>::batch_multi_scalar_mul(points, scalars, handle_edge_cases, dedup_hints);
+    return MSM_fast<Curve>::batch_multi_scalar_mul(points, scalars, handle_edge_cases, dedup_infos);
 }
 
 template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                        std::span<const curve::BN254::AffineElement> points,
                                                        bool handle_edge_cases,
-                                                       bool dedup_hint) noexcept;
+                                                       size_t dedup_info) noexcept;
 template curve::Grumpkin::Element pippenger<curve::Grumpkin>(PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
                                                              std::span<const curve::Grumpkin::AffineElement> points,
                                                              bool handle_edge_cases,
-                                                             bool dedup_hint) noexcept;
+                                                             size_t dedup_info) noexcept;
 template curve::BN254::Element pippenger_unsafe<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                               std::span<const curve::BN254::AffineElement> points,
-                                                              bool dedup_hint) noexcept;
+                                                              size_t dedup_info) noexcept;
 template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    bool dedup_hint) noexcept;
+    size_t dedup_info) noexcept;
 template class MSM<curve::BN254>;
 template class MSM<curve::Grumpkin>;
 

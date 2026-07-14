@@ -13,7 +13,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 100_000;
 
 describe('AVM check-circuit – unhappy paths 3', () => {
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
@@ -23,7 +23,7 @@ describe('AVM check-circuit – unhappy paths 3', () => {
     tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
+      /*deployer=*/ AztecAddress.fromNumberUnsafe(420),
       AvmTestContractArtifact,
     );
   });
@@ -137,15 +137,15 @@ describe('AVM check-circuit – unhappy paths 3', () => {
             l2ToL1Msgs: [
               new ScopedL2ToL1Message(
                 new L2ToL1Message(EthAddress.fromNumber(0x1111), new Fr(0xdddd)),
-                AztecAddress.fromNumber(0x1111),
+                AztecAddress.fromNumberUnsafe(0x1111),
               ),
               new ScopedL2ToL1Message(
                 new L2ToL1Message(EthAddress.fromNumber(0x2222), new Fr(0xeeee)),
-                AztecAddress.fromNumber(0x2222),
+                AztecAddress.fromNumberUnsafe(0x2222),
               ),
               new ScopedL2ToL1Message(
                 new L2ToL1Message(EthAddress.fromNumber(0x3333), new Fr(0xffff)),
-                AztecAddress.fromNumber(0x3333),
+                AztecAddress.fromNumberUnsafe(0x3333),
               ),
             ],
           },
@@ -188,8 +188,7 @@ describe('AVM check-circuit – unhappy paths 3', () => {
     'a nested exceptional halt is recovered from in caller',
     async () => {
       // The contract requires >200k DA gas (it allocates da_gas_left - 200_000 to the nested call).
-      // Use a higher DA gas limit than the default since APPROXIMATE_MAX_DA_GAS_PER_BLOCK is ~196k.
-      // For more information, refer to yarn-project/stdlib/src/gas/gas_settings.ts
+      // Use a higher DA gas limit than the default since the per-block DA share is ~196k at 4 blocks/checkpoint.
       const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
       await tester.simProveVerifyAppLogic(
         { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },

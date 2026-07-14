@@ -1,7 +1,13 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 /**
- * A type which along with public key forms a preimage of a contract address. See the link below for more details
- * https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
+ * The contract-side preimage of an Aztec address, i.e. the commitment to a specific contract instance.
+ *
+ * A partial address commits to a contract's code and initialization
+ * (`hash(contract_class_id, salted_initialization_hash)`) but not to its keys. Combined with an account's `PublicKeys`,
+ * it fully determines the address: `address = (hash(public_keys_hash, partial_address) * G + Ivpk_m).x`. Two accounts
+ * therefore share an address only if they share both their public keys and their partial address.
+ *
+ * See `computePartialAddress` for the derivation.
  */
 export type PartialAddress = Fr;

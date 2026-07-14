@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <tuple>
 #include <utility>
 
@@ -326,7 +327,7 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
     return decode_msgpack(o);
 }
 
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_mega)
 {
     BB_ASSERT_LT(
         circuit.opcodes.size(), UINT32_MAX, "acir_format::circuit_serde_to_acir_format: too many opcodes in circuit.");
@@ -351,12 +352,18 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
     // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
     std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
 
+    // Linear AssertZeros that can be batched into one rows
+    // They are batched later via the function batched_eq_assert_zeros_into_constraints
+    std::vector<BatchedEqEntry> batched_eq_assert_zeros;
+
     for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
         const auto& gate = circuit.opcodes[i];
         update_max_witness_index_from_opcode(gate, af);
         std::visit(
             overloaded{
-                [&](const Acir::Opcode::AssertZero& arg) { assert_zero_to_quad_constraints(arg, af, i); },
+                [&](const Acir::Opcode::AssertZero& arg) {
+                    assert_zero_to_constraints(arg, af, i, batched_eq_assert_zeros, is_mega);
+                },
                 [&](const Acir::Opcode::BlackBoxFuncCall& arg) { add_blackbox_func_call_to_acir_format(arg, af, i); },
                 [&](const Acir::Opcode::MemoryInit& arg) {
                     auto block = memory_init_to_block_constraint(arg);
@@ -378,16 +385,24 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
             },
             gate.value);
     }
+    // Pair any buffered batched-eq AssertZeros (≤2-witness linear opcodes) into BATCHED_EQ rows.
+    batched_eq_assert_zeros_into_constraints(af, batched_eq_assert_zeros);
+
     // Add the block constraints to the AcirFormat struct
     for (const auto& [_, block] : block_id_to_block_constraint) {
         af.block_constraints.push_back(block.first);
         af.original_opcode_indices.block_constraints.push_back(block.second);
     }
 
+    BB_ASSERT_LT(af.max_witness_index,
+                 UINT32_MAX,
+                 "Max witness index above UINT32_MAX, this value is reserved for unset witnesses that will be replaced "
+                 "with the zero index.");
+
     return af;
 }
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, bool is_mega)
 {
     // We need to deserialize into Acir::Program first because the buffer returned by Noir has this structure
     auto program = deserialize_msgpack_compact<Acir::ProgramWithoutBrillig>(
@@ -406,7 +421,12 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
         });
     BB_ASSERT_EQ(program.functions.size(), 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
 
-    return circuit_serde_to_acir_format(program.functions[0]);
+    return circuit_serde_to_acir_format(program.functions[0], is_mega);
+}
+
+AcirFormat circuit_buf_to_mega_acir_format(std::vector<uint8_t>&& buf)
+{
+    return circuit_buf_to_acir_format(std::move(buf), true);
 }
 
 WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
@@ -565,12 +585,196 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     return result;
 }
 
-void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
+bool resolve_shared_wire_products(Acir::Expression const& arg, uint32_t& w_l, uint32_t& w_r, uint32_t& w_o)
 {
-    // Lambda to detect zero gates
+    // Two products: a * b, c * d
+    const uint32_t a = std::get<1>(arg.mul_terms[0]).value;
+    const uint32_t b = std::get<2>(arg.mul_terms[0]).value;
+    const uint32_t c = std::get<1>(arg.mul_terms[1]).value;
+    const uint32_t d = std::get<2>(arg.mul_terms[1]).value;
+
+    uint32_t shared_index = bb::stdlib::IS_CONSTANT;
+    size_t num_shared_indices = 0;
+
+    // Lambda to check whether the witness index matches one of the witness indices from the pair (c,d)
+    auto process_witness_index = [&](uint32_t w) {
+        if (w == c || w == d) {
+            shared_index = w;
+            ++num_shared_indices;
+        }
+    };
+
+    process_witness_index(a);
+    if (a != b) {
+        // If a != b, we need to check b as well
+        process_witness_index(b);
+    }
+
+    // The condition we are looking for is num_shared_indices == 1
+    // num_shared_indices == 0 means two disjoint products
+    // num_shared_indices == 2 is the same wire-pair, which should not happen
+    if (num_shared_indices != 1) {
+        return false;
+    }
+
+    BB_ASSERT_NEQ(
+        shared_index, bb::stdlib::IS_CONSTANT, "acir_format::resolve_shared_wire_products: no matched shared_index.");
+    w_l = shared_index;
+    w_r = (a == shared_index) ? b : a;
+    w_o = (c == shared_index) ? d : c;
+    return true;
+}
+
+bool is_bilinear(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms)
+{
+    if (arg.mul_terms.size() != 2) {
+        return false;
+    }
+    uint32_t w_l = bb::stdlib::IS_CONSTANT;
+    uint32_t w_r = bb::stdlib::IS_CONSTANT;
+    uint32_t w_o = bb::stdlib::IS_CONSTANT;
+    if (!resolve_shared_wire_products(arg, w_l, w_r, w_o)) {
+        return false;
+    }
+    // Linear terms must lie on the three product wires plus at most one extra witness, which becomes the
+    // linear-only fourth wire w_4.
+    bool extra_seen = false;
+    for (const auto& [witness, coeff] : linear_terms) {
+        if (witness == w_l || witness == w_r || witness == w_o) {
+            continue;
+        }
+        if (extra_seen) {
+            return false;
+        }
+        extra_seen = true;
+    }
+    return true;
+}
+
+bool is_batched_eq(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms)
+{
+    return arg.mul_terms.empty() && !linear_terms.empty() && linear_terms.size() <= 2;
+}
+
+BilinearConstraint build_bilinear_constraint(Acir::Expression const& arg,
+                                             const std::map<uint32_t, bb::fr>& linear_terms)
+{
+    uint32_t w_l = bb::stdlib::IS_CONSTANT;
+    uint32_t w_r = bb::stdlib::IS_CONSTANT;
+    uint32_t w_o = bb::stdlib::IS_CONSTANT;
+    bool resolved = resolve_shared_wire_products(arg, w_l, w_r, w_o);
+    BB_ASSERT(resolved, "acir_format::build_bilinear_constraint: the two products must share exactly one wire.");
+
+    // The fourth wire carries only a linear term; default to the IS_CONSTANT sentinel and bind it to the
+    // single linear witness outside {w_l, w_r, w_o} if one is present.
+    uint32_t w_4 = bb::stdlib::IS_CONSTANT;
+
+    fr q_l = fr::zero();
+    fr q_r = fr::zero();
+    fr q_o = fr::zero();
+    fr q_4 = fr::zero();
+    // The following loop is safe because linear_terms has distinct witnesses
+    for (const auto& [w, c] : linear_terms) {
+        if (w == w_l) {
+            q_l = c;
+        } else if (w == w_r) {
+            q_r = c;
+        } else if (w == w_o) {
+            q_o = c;
+        } else {
+            // Guaranteed by is_bilinear: at most one linear-only witness, which becomes the fourth wire.
+            BB_ASSERT(w_4 == bb::stdlib::IS_CONSTANT,
+                      "acir_format::build_bilinear_constraint: more than one linear-only witness.");
+            w_4 = w;
+            q_4 = c;
+        }
+    }
+
+    return BilinearConstraint{
+        .a = w_l,
+        .b = w_r,
+        .c = w_o,
+        .d = w_4,
+        .q_m = from_buffer_with_bound_checks(std::get<0>(arg.mul_terms[0])),
+        .q_l = q_l,
+        .q_r = q_r,
+        .q_o = q_o,
+        .q_4 = q_4,
+        .q_5 = from_buffer_with_bound_checks(std::get<0>(arg.mul_terms[1])),
+        .q_c = from_buffer_with_bound_checks(arg.q_c),
+    };
+}
+
+BatchedEqEntry build_batched_eq_entry(Acir::Expression const& arg,
+                                      const std::map<uint32_t, bb::fr>& linear_terms,
+                                      size_t opcode_index)
+{
+    BB_ASSERT(!linear_terms.empty() && linear_terms.size() <= 2, "BatchedEq gate requires at most two linear terms.");
+    BatchedEqEntry entry{
+        .w1 = bb::stdlib::IS_CONSTANT,
+        .w2 = bb::stdlib::IS_CONSTANT,
+        .c1 = fr::zero(),
+        .c2 = fr::zero(),
+        .q_c = from_buffer_with_bound_checks(arg.q_c),
+        .opcode_index = opcode_index,
+    };
+    auto it = linear_terms.begin();
+    entry.w1 = it->first;
+    entry.c1 = it->second;
+    if (++it != linear_terms.end()) {
+        entry.w2 = it->first;
+        entry.c2 = it->second;
+    }
+    return entry;
+}
+
+BatchedEqCheckConstraint build_batched_eq_check_constraint(const BatchedEqEntry& entry1,
+                                                           const std::optional<BatchedEqEntry>& entry2)
+{
+    bool entry2_has_value = entry2.has_value();
+    return BatchedEqCheckConstraint{
+        .a = entry1.w1,
+        .b = entry1.w2,
+        .c = entry2_has_value ? entry2->w1 : bb::stdlib::IS_CONSTANT,
+        .d = entry2_has_value ? entry2->w2 : bb::stdlib::IS_CONSTANT,
+        .q_l = entry1.c1,
+        .q_r = entry1.c2,
+        .q_o = entry2_has_value ? entry2->c1 : fr::zero(),
+        .q_4 = entry2_has_value ? entry2->c2 : fr::zero(),
+        .q_c = entry1.q_c,
+        .q_m = entry2_has_value ? entry2->q_c : fr::zero(),
+    };
+}
+
+void batched_eq_assert_zeros_into_constraints(AcirFormat& af, std::vector<BatchedEqEntry>& pending)
+{
+    for (size_t i = 0; i + 1 < pending.size(); i += 2) {
+        af.batched_eq_check_constraints.push_back(build_batched_eq_check_constraint(pending[i], pending[i + 1]));
+        af.original_opcode_indices.batched_eq_check_constraints.push_back(
+            { pending[i].opcode_index, pending[i + 1].opcode_index });
+    }
+    if (pending.size() % 2 == 1) {
+        af.batched_eq_check_constraints.push_back(build_batched_eq_check_constraint(pending.back(), std::nullopt));
+        af.original_opcode_indices.batched_eq_check_constraints.push_back({ pending.back().opcode_index, SIZE_MAX });
+    }
+    pending.clear();
+}
+
+void assert_zero_to_constraints(Acir::Opcode::AssertZero const& arg,
+                                AcirFormat& af,
+                                size_t opcode_index,
+                                std::vector<BatchedEqEntry>& batched_eq_assert_zeros,
+                                bool is_mega)
+{
+    // Lambda to detect zero gates in mul_quad
     auto is_zero_gate = [](const mul_quad_<fr>& gate) {
         return ((gate.mul_scaling == fr(0)) && (gate.a_scaling == fr(0)) && (gate.b_scaling == fr(0)) &&
                 (gate.c_scaling == fr(0)) && (gate.d_scaling == fr(0)) && (gate.const_scaling == fr(0)));
+    };
+
+    // Lambda to detect zero gates in batched_eq
+    auto is_zero_batched_eq_gate = [](const BatchedEqEntry& gate) {
+        return (gate.c1 == fr(0) && gate.c2 == fr(0) && gate.q_c == fr(0));
     };
 
     auto linear_terms = process_linear_terms(arg.value);
@@ -585,26 +789,51 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
                      "constant, which can never equal zero.");
     }
 
-    bool is_single_gate = is_single_arithmetic_gate(arg.value, linear_terms);
-    std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
+    // Classify the opcode, then route it to the matching handler. The bilinear / batched-eq gate is Mega-only, so
+    // classify_assert_zero only returns Bilinear/BatchedEq when is_mega is true.
+    AssertZeroGate gate = classify_assert_zero(arg.value, linear_terms, is_mega);
 
-    if (is_single_gate) {
-        BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::assert_zero_to_quad_constraints: expected a single gate.");
-        auto mul_quad = mul_quads[0];
-
-        af.quad_constraints.push_back(mul_quad);
+    switch (gate) {
+    case AssertZeroGate::Bilinear: {
+        if (!is_mega) {
+            throw_or_abort("acir_format::assert_zero_to_constraint: selected AssertZeroGate::Bilinear variant "
+                           "when using UltraCircuitBuilder.");
+        }
+        af.bilinear_constraints.push_back(build_bilinear_constraint(arg.value, linear_terms));
+        af.original_opcode_indices.bilinear_constraints.push_back(opcode_index);
+        break;
+    }
+    case AssertZeroGate::BatchedEq: {
+        if (!is_mega) {
+            throw_or_abort("acir_format::assert_zero_to_constraint: selected AssertZeroGate::BatchedEq variant "
+                           "when using UltraCircuitBuilder.");
+        }
+        batched_eq_assert_zeros.push_back(build_batched_eq_entry(arg.value, linear_terms, opcode_index));
+        BB_ASSERT(!is_zero_batched_eq_gate(batched_eq_assert_zeros.back()),
+                  "acir_format::asser_zero_to_constraints: produced a BatcheqEq zero gate");
+        break;
+    }
+    case AssertZeroGate::SingleArithmetic: {
+        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
+        BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::assert_zero_to_constraints: expected a single gate.");
+        BB_ASSERT(!is_zero_gate(mul_quads[0]),
+                  "acir_format::assert_zero_to_constraints: produced a SingleArithmetic zero gate.");
+        af.quad_constraints.push_back(mul_quads[0]);
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
-    } else {
-        BB_ASSERT_GT(mul_quads.size(),
-                     1U,
-                     "acir_format::assert_zero_to_quad_constraints: expected multiple gates but found one.");
+        break;
+    }
+    case AssertZeroGate::MultiArithmetic: {
+        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
+        BB_ASSERT_GT(
+            mul_quads.size(), 1U, "acir_format::assert_zero_to_constraints: expected multiple gates but found one.");
+        for (auto const& mul_quad : mul_quads) {
+            BB_ASSERT(!is_zero_gate(mul_quad),
+                      "acir_format::assert_zero_to_constraints: produced a MultiArithmetic zero gate.");
+        }
         af.big_quad_constraints.push_back(BigQuadConstraint(mul_quads));
         af.original_opcode_indices.big_quad_constraints.push_back(opcode_index);
+        break;
     }
-
-    for (auto const& mul_quad : mul_quads) {
-        BB_ASSERT(!is_zero_gate(mul_quad),
-                  "acir_format::assert_zero_to_quad_constraints: produced an arithmetic zero gate.");
     }
 }
 
@@ -754,7 +983,6 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                             break;
                         case OINK:
                         case HN:
-                        case HN_TAIL:
                         case HN_FINAL:
                             af.hn_recursion_constraints.push_back(c);
                             af.original_opcode_indices.hn_recursion_constraints.push_back(opcode_index);
@@ -835,9 +1063,7 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
 
 bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms)
 {
-    static constexpr size_t NUM_WIRES = 4; // Equal to the number of wires in the arithmetization
-
-    // If there are more than 4 distinct witnesses in the linear terms, then we need multiple arithmetic gates
+    // If there are more than NUM_WIRES distinct witnesses in the linear terms, then we need multiple arithmetic gates
     if (linear_terms.size() > NUM_WIRES) {
         return false;
     }
@@ -880,6 +1106,24 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
     }
 
     return linear_terms.size() <= NUM_WIRES;
+}
+
+AssertZeroGate classify_assert_zero(Acir::Expression const& arg,
+                                    const std::map<uint32_t, bb::fr>& linear_terms,
+                                    bool is_mega)
+{
+    // The bilinear / batched-eq gate is Mega-only; prefer it over the standard arithmetic path when
+    // the opcode fits.
+    if (is_mega) {
+        if (is_bilinear(arg, linear_terms)) {
+            return AssertZeroGate::Bilinear;
+        }
+        if (is_batched_eq(arg, linear_terms)) {
+            return AssertZeroGate::BatchedEq;
+        }
+    }
+    return is_single_arithmetic_gate(arg, linear_terms) ? AssertZeroGate::SingleArithmetic
+                                                        : AssertZeroGate::MultiArithmetic;
 }
 
 std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr)

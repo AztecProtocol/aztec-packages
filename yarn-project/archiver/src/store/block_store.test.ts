@@ -13,7 +13,6 @@ import {
   BlockHash,
   CommitteeAttestation,
   EthAddress,
-  GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
@@ -40,7 +39,6 @@ import {
   makeStateForBlock,
 } from '../test/mock_structs.js';
 import { BlockStore } from './block_store.js';
-import { L2TipsCache } from './l2_tips_cache.js';
 
 async function addProposedBlocks(
   blockStore: BlockStore,
@@ -100,7 +98,7 @@ describe('BlockStore', () => {
 
   describe('addCheckpoints', () => {
     it('returns success when adding checkpoints', async () => {
-      await expect(blockStore.addCheckpoints(publishedCheckpoints)).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints(publishedCheckpoints)).resolves.toEqual(publishedCheckpoints);
     });
 
     it('accepts duplicate checkpoints with matching archives and updates L1 info', async () => {
@@ -120,8 +118,10 @@ describe('BlockStore', () => {
         makeL1PublishedData(999),
         first3[2].attestations,
       );
-      // Also add checkpoint 4 (the next one) in the same batch
-      await blockStore.addCheckpoints([cp3WithNewL1, publishedCheckpoints[3]]);
+      // Also add checkpoint 4 (the next one) in the same batch; only checkpoint 4 is newly inserted.
+      await expect(blockStore.addCheckpoints([cp3WithNewL1, publishedCheckpoints[3]])).resolves.toEqual([
+        publishedCheckpoints[3],
+      ]);
 
       // Checkpoint 3's L1 info should be updated
       const afterData = await blockStore.getCheckpointData(CheckpointNumber(3));
@@ -137,8 +137,8 @@ describe('BlockStore', () => {
       const first3 = publishedCheckpoints.slice(0, 3);
       await blockStore.addCheckpoints(first3);
 
-      // Re-add the same 3 checkpoints — should succeed without error
-      await expect(blockStore.addCheckpoints(first3)).resolves.toBe(true);
+      // Re-add the same 3 checkpoints — should succeed without inserting anything new
+      await expect(blockStore.addCheckpoints(first3)).resolves.toEqual([]);
     });
 
     it('throws on duplicate checkpoints with mismatching archives', async () => {
@@ -286,7 +286,7 @@ describe('BlockStore', () => {
       );
       const publishedCheckpoint = makePublishedCheckpoint(checkpoint, 10);
 
-      await expect(blockStore.addCheckpoints([publishedCheckpoint])).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints([publishedCheckpoint])).resolves.toEqual([publishedCheckpoint]);
     });
 
     it('throws on duplicate checkpoint with different content', async () => {
@@ -316,7 +316,7 @@ describe('BlockStore', () => {
       );
       const publishedCheckpoint2 = makePublishedCheckpoint(checkpoint2, 10);
 
-      await expect(blockStore.addCheckpoints([publishedCheckpoint])).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints([publishedCheckpoint])).resolves.toEqual([publishedCheckpoint]);
       await expect(blockStore.addCheckpoints([publishedCheckpoint2])).rejects.toThrow(
         'already exists in store but with a different archive',
       );
@@ -354,7 +354,7 @@ describe('BlockStore', () => {
         blocksPerCheckpoint: 2,
       });
 
-      await expect(blockStore.addCheckpoints(checkpoints)).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints(checkpoints)).resolves.toEqual(checkpoints);
 
       // Verify blocks have correct checkpoint assignments
       const block1 = await blockStore.getBlock({ number: BlockNumber(1) });
@@ -1686,6 +1686,77 @@ describe('BlockStore', () => {
     });
   });
 
+  describe('getCheckpointsBySlot', () => {
+    // cp1: slot 5, blocks 1-2 | cp2: slot 8, blocks 3-5 | cp3: slot 12, block 6.
+    const addCheckpointsAtSlots = async () => {
+      const cp1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, startBlockNumber: 1, slotNumber: SlotNumber(5) }),
+        10,
+      );
+      const cp2 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(2), {
+          numBlocks: 3,
+          startBlockNumber: 3,
+          previousArchive: cp1.checkpoint.blocks.at(-1)!.archive,
+          slotNumber: SlotNumber(8),
+        }),
+        11,
+      );
+      const cp3 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(3), {
+          numBlocks: 1,
+          startBlockNumber: 6,
+          previousArchive: cp2.checkpoint.blocks.at(-1)!.archive,
+          slotNumber: SlotNumber(12),
+        }),
+        12,
+      );
+      await blockStore.addCheckpoints([cp1, cp2, cp3]);
+    };
+
+    const numbersBySlot = (slot: number, limit: number, reverse: boolean) =>
+      blockStore.getCheckpointsBySlot(SlotNumber(slot), limit, reverse).then(cps => cps.map(cp => cp.checkpointNumber));
+
+    it('returns empty array when no checkpoints exist', async () => {
+      expect(await numbersBySlot(10, 1, true)).toEqual([]);
+    });
+
+    it('returns the latest checkpoint at or before the slot when reverse (exact hit)', async () => {
+      await addCheckpointsAtSlots();
+      const [cp] = await blockStore.getCheckpointsBySlot(SlotNumber(8), 1, true);
+      expect(cp.checkpointNumber).toBe(2);
+      expect(cp.startBlock).toBe(3);
+      expect(cp.blockCount).toBe(3);
+    });
+
+    it('walks back to the nearest earlier checkpoint when the slot falls in a gap', async () => {
+      await addCheckpointsAtSlots();
+      // Slot 10 has no checkpoint; the nearest at or before is cp2 at slot 8.
+      expect(await numbersBySlot(10, 1, true)).toEqual([2]);
+    });
+
+    it('returns empty when reverse and the slot precedes the earliest checkpoint', async () => {
+      await addCheckpointsAtSlots();
+      expect(await numbersBySlot(4, 1, true)).toEqual([]);
+    });
+
+    it('returns multiple checkpoints nearest-first when reverse', async () => {
+      await addCheckpointsAtSlots();
+      expect(await numbersBySlot(12, 2, true)).toEqual([3, 2]);
+    });
+
+    it('returns the earliest checkpoint at or after the slot when forward', async () => {
+      await addCheckpointsAtSlots();
+      // Slot 6 has no checkpoint; the nearest at or after is cp2 at slot 8.
+      expect(await numbersBySlot(6, 1, false)).toEqual([2]);
+    });
+
+    it('returns multiple checkpoints ascending when forward', async () => {
+      await addCheckpointsAtSlots();
+      expect(await numbersBySlot(5, 3, false)).toEqual([1, 2, 3]);
+    });
+  });
+
   describe('getCheckpointedBlock', () => {
     beforeEach(async () => {
       await blockStore.addCheckpoints(publishedCheckpoints);
@@ -1989,6 +2060,7 @@ describe('BlockStore', () => {
         seed: 456n,
         attestors: [EthAddress.random()],
         attestations: [CommitteeAttestation.random()],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'insufficient-attestations',
       };
 
@@ -2007,6 +2079,7 @@ describe('BlockStore', () => {
         epoch: EpochNumber(789),
         seed: 101n,
         attestations: [CommitteeAttestation.random()],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'invalid-attestation',
         invalidIndex: 5,
       };
@@ -2027,6 +2100,7 @@ describe('BlockStore', () => {
         seed: 888n,
         attestors: [EthAddress.random()],
         attestations: [CommitteeAttestation.random()],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'insufficient-attestations',
       };
 
@@ -2046,6 +2120,7 @@ describe('BlockStore', () => {
         seed: 0n,
         attestors: [],
         attestations: [],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'insufficient-attestations',
       };
 
@@ -2083,7 +2158,7 @@ describe('BlockStore', () => {
       const publishedCheckpoint2 = makePublishedCheckpoint(checkpoint2, 10);
 
       // This should NOT throw - addCheckpoints uses .set() which is idempotent
-      await expect(blockStore.addCheckpoints([publishedCheckpoint2])).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints([publishedCheckpoint2])).resolves.toEqual([publishedCheckpoint2]);
 
       // Verify block exists and is consistent
       const storedBlock = await blockStore.getBlock({ number: BlockNumber(2) });
@@ -2627,26 +2702,19 @@ describe('BlockStore', () => {
     });
   });
 
-  describe('L2TipsCache proposedCheckpoint', () => {
-    it('returns proposedCheckpoint equal to checkpointed when no pending exists', async () => {
-      // Add checkpoint 1 with blocks 1-3
+  describe('getLastProposedCheckpoint', () => {
+    it('returns undefined when there is no pending checkpoint', async () => {
+      // Add checkpoint 1 with blocks 1-3; confirmation deletes any matching proposed entry.
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 3, startBlockNumber: 1 }),
         10,
       );
       await blockStore.addCheckpoints([checkpoint1]);
 
-      const l2TipsCache = new L2TipsCache(blockStore, GENESIS_BLOCK_HEADER_HASH);
-      const tips = await l2TipsCache.getL2Tips();
-
-      // proposedCheckpoint should always be defined
-      expect(tips.proposedCheckpoint).toBeDefined();
-      // With no proposed checkpoint, it should equal the checkpointed tip
-      expect(tips.proposedCheckpoint!.block.number).toBe(tips.checkpointed.block.number);
-      expect(tips.proposedCheckpoint!.checkpoint.number).toBe(tips.checkpointed.checkpoint.number);
+      expect(await blockStore.getLastProposedCheckpoint()).toBeUndefined();
     });
 
-    it('returns proposedCheckpoint ahead of checkpointed when pending is set', async () => {
+    it('returns the leading proposed checkpoint payload', async () => {
       // Add checkpoint 1
       const checkpoint1 = makePublishedCheckpoint(
         await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
@@ -2663,21 +2731,23 @@ describe('BlockStore', () => {
       await blockStore.addProposedBlock(block2, { force: true });
 
       // Set proposed checkpoint
+      const header = CheckpointHeader.empty();
       await blockStore.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
-        header: CheckpointHeader.empty(),
+        header,
         startBlock: BlockNumber(2),
         blockCount: 1,
         totalManaUsed: 100n,
         feeAssetPriceModifier: 50n,
       });
 
-      const l2TipsCache = new L2TipsCache(blockStore, GENESIS_BLOCK_HEADER_HASH);
-      const tips = await l2TipsCache.getL2Tips();
-
-      expect(tips.proposedCheckpoint).toBeDefined();
-      expect(tips.proposedCheckpoint!.block.number).toBeGreaterThan(tips.checkpointed.block.number);
-      expect(tips.proposedCheckpoint!.checkpoint.number).toBeGreaterThan(tips.checkpointed.checkpoint.number);
+      const proposedCheckpoint = await blockStore.getLastProposedCheckpoint();
+      expect(proposedCheckpoint).toBeDefined();
+      // Callers derive the tip from the payload: last block = startBlock + blockCount - 1.
+      expect(proposedCheckpoint!.checkpointNumber).toBe(CheckpointNumber(2));
+      expect(proposedCheckpoint!.startBlock).toBe(BlockNumber(2));
+      expect(proposedCheckpoint!.blockCount).toBe(1);
+      expect(proposedCheckpoint!.totalManaUsed).toBe(100n);
     });
   });
 

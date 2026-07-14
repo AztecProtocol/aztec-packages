@@ -518,7 +518,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     }
 
     /**
-     * Plookup bigfield subtractoin
+     * Plookup bigfield subtraction
      *
      * We have a special addition gate we can toggle, that will compute: (w_1 + w_4 - w_4_omega + q_arith = 0)
      * This is in addition to the regular addition gate
@@ -808,13 +808,17 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
     const uint1024_t left = uint1024_t(numerator_values);
     const uint1024_t right = uint1024_t(denominator.get_value());
     const uint1024_t modulus(target_basis.modulus);
-    // We don't want to trigger the uint assert
+    // Compute the division result natively in the target field: reduce both operands mod p, then multiply
+    // the numerator by the denominator's inverse (Montgomery mul + safegcd). This is far cheaper than the
+    // uint512 extended-Euclid invmod plus uint1024 modular reduction it replaces. A denominator that is a
+    // nonzero multiple of p reduces to zero and yields 0, matching the previous invmod behavior.
     uint512_t inverse_value(0);
-    if (right.lo != uint512_t(0)) {
-        inverse_value = right.lo.invmod(target_basis.modulus).lo;
+    const uint256_t denominator_reduced = (right % modulus).lo.lo;
+    if (denominator_reduced != 0) {
+        using NativeField = bb::field<T>;
+        const NativeField numerator_native(uint256_t((left % modulus).lo.lo));
+        inverse_value = uint512_t(uint256_t(numerator_native * NativeField(denominator_reduced).invert()));
     }
-    uint1024_t inverse_1024(inverse_value);
-    inverse_value = ((left * inverse_1024) % modulus).lo;
 
     const uint1024_t quotient_1024 =
         (uint1024_t(inverse_value) * right + unreduced_zero().get_value() - left) / modulus;

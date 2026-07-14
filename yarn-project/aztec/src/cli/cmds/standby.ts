@@ -6,12 +6,15 @@ import type { GenesisStateConfig } from '@aztec/ethereum/config';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { VersionCheck } from '@aztec/stdlib/update-checker';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import Koa from 'koa';
+
+import { isShuttingDown, softShutdown } from '../util.js';
 
 const ROLLUP_POLL_INTERVAL_S = 60;
 
@@ -23,7 +26,7 @@ const ROLLUP_POLL_INTERVAL_S = 60;
 export async function computeExpectedGenesisRoot(config: GenesisStateConfig, userLog: LogFn) {
   const testAccounts = config.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = config.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const prefundAddresses = (config.prefundAddresses ?? []).map(a => AztecAddress.fromString(a));
+  const prefundAddresses = (config.prefundAddresses ?? []).map(a => AztecAddress.fromStringUnsafe(a));
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts).concat(prefundAddresses);
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
@@ -35,7 +38,12 @@ export async function computeExpectedGenesisRoot(config: GenesisStateConfig, use
   return { genesisArchiveRoot, genesis };
 }
 
-async function checkRollupCompatibility(
+/**
+ * Compares the rollup's on-chain protocol constants (genesis archive root, VK tree root, protocol
+ * contracts hash) against the node's expected local values. Returns a list of human-readable mismatch
+ * descriptions, empty if the rollup is compatible.
+ */
+export async function checkRollupCompatibility(
   rollup: RollupContract,
   expected: { genesisArchiveRoot: Fr; vkTreeRoot: Fr; protocolContractsHash: Fr },
 ): Promise<string[]> {
@@ -129,4 +137,48 @@ export async function waitForCompatibleRollup(
   } finally {
     await new Promise<void>((resolve, reject) => standbyServer.close(err => (err ? reject(err) : resolve())));
   }
+}
+
+/**
+ * Polls the canonical rollup's protocol constants every 10 minutes and soft-shuts-down the node once they
+ * diverge from the node's expected local values (i.e. an incompatible rollup has become canonical on L1).
+ * The HTTP health server is left running so K8s probes keep passing on the wound-down pod. This is the
+ * inverse of {@link waitForCompatibleRollup}; it should only be set up for nodes following the canonical
+ * rollup. Reuses the {@link checkRollupCompatibility} diff and the generic VersionChecker poll primitive.
+ */
+export async function setupAutoShutdown(
+  config: { l1RpcUrls: string[]; l1ChainId: number },
+  registryAddress: EthAddress,
+  rollupVersion: number | 'canonical',
+  expected: { genesisArchiveRoot: Fr; vkTreeRoot: Fr; protocolContractsHash: Fr },
+  signalHandlers: Array<() => Promise<void>>,
+): Promise<void> {
+  const { VersionChecker } = await import('@aztec/stdlib/update-checker');
+
+  const logger = createLogger('auto_shutdown');
+  const publicClient = getPublicClient(config);
+  const registry = new RegistryContract(publicClient, registryAddress);
+
+  const check: VersionCheck = {
+    name: 'rollup',
+    currentVersion: 'compatible',
+    getLatestVersion: async () => {
+      const rollupAddress = await registry.getRollupAddress(rollupVersion);
+      const rollup = new RollupContract(publicClient, rollupAddress.toString());
+      const mismatches = await checkRollupCompatibility(rollup, expected);
+      return mismatches.length === 0 ? 'compatible' : `incompatible: ${mismatches.join('; ')}`;
+    },
+  };
+
+  const checker = new VersionChecker([check], 600_000, logger);
+  checker.on('newVersion', ({ latestVersion }) => {
+    if (isShuttingDown()) {
+      return;
+    }
+    logger.warn('Canonical rollup is no longer compatible; auto-shutting down node', { latestVersion });
+    // softShutdown never rejects (it awaits handlers via allSettled); fire-and-forget from the listener.
+    void softShutdown(logger.info.bind(logger), signalHandlers);
+  });
+  checker.start();
+  signalHandlers.push(() => checker.stop());
 }

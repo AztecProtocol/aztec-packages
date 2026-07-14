@@ -211,9 +211,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         // Test 1: Limb tag merging - getting tag merges from internal limbs
         {
             auto [a_native, a_ct] = get_random_witness(&builder);
-            a_ct.binary_basis_limbs[0].element.set_origin_tag(submitted_value_origin_tag);
-            a_ct.binary_basis_limbs[1].element.set_origin_tag(challenge_origin_tag);
-            a_ct.prime_basis_limb.set_origin_tag(next_challenge_tag);
+            a_ct.get_limb(0).element.set_origin_tag(submitted_value_origin_tag);
+            a_ct.get_limb(1).element.set_origin_tag(challenge_origin_tag);
+            a_ct.get_prime_basis_limb().set_origin_tag(next_challenge_tag);
             EXPECT_EQ(a_ct.get_origin_tag(), first_second_third_merged_tag);
         }
 
@@ -221,11 +221,11 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         {
             auto [a_native, a_ct] = get_random_witness(&builder);
             a_ct.set_origin_tag(submitted_value_origin_tag);
-            EXPECT_EQ(a_ct.binary_basis_limbs[0].element.get_origin_tag(), submitted_value_origin_tag);
-            EXPECT_EQ(a_ct.binary_basis_limbs[1].element.get_origin_tag(), submitted_value_origin_tag);
-            EXPECT_EQ(a_ct.binary_basis_limbs[2].element.get_origin_tag(), submitted_value_origin_tag);
-            EXPECT_EQ(a_ct.binary_basis_limbs[3].element.get_origin_tag(), submitted_value_origin_tag);
-            EXPECT_EQ(a_ct.prime_basis_limb.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.get_limb(0).element.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.get_limb(1).element.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.get_limb(2).element.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.get_limb(3).element.get_origin_tag(), submitted_value_origin_tag);
+            EXPECT_EQ(a_ct.get_prime_basis_limb().get_origin_tag(), submitted_value_origin_tag);
         }
 
         // Setup for operation tests
@@ -393,12 +393,12 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         expected_prime_limb += (limb_2_native * fq_ct::shift_1);
         expected_prime_limb += (limb_3_native * fq_ct::shift_2);
         expected_prime_limb += (limb_4_native * fq_ct::shift_3);
-        EXPECT_EQ(expected_prime_limb, result.prime_basis_limb.get_value());
+        EXPECT_EQ(expected_prime_limb, result.get_prime_basis_limb().get_value());
 
         // The other constructor takes in the prime limb as well (without any checks).
         fq_ct result_1 = fq_ct::unsafe_construct_from_limbs(
             limb_1_ct, limb_2_ct, limb_3_ct, limb_4_ct, witness_ct(&builder, fr::random_element()));
-        EXPECT_EQ(result.binary_basis_limbs[0].element.get_value(), result_1.binary_basis_limbs[0].element.get_value());
+        EXPECT_EQ(result.get_limb(0).element.get_value(), result_1.get_limb(0).element.get_value());
 
         bool result_check = CircuitChecker::check(builder);
         EXPECT_EQ(result_check, true);
@@ -425,11 +425,11 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         expected_prime_limb += (limb_2_native * fq_ct::shift_1);
         expected_prime_limb += (limb_3_native * fq_ct::shift_2);
         expected_prime_limb += (limb_4_native * fq_ct::shift_3);
-        EXPECT_EQ(expected_prime_limb, result.prime_basis_limb.get_value());
+        EXPECT_EQ(expected_prime_limb, result.get_prime_basis_limb().get_value());
 
         // All four limbs as 68-bit range constrained (fourth limb is set equal to limb_3)
         fq_ct result_1 = fq_ct::construct_from_limbs(limb_1_ct, limb_2_ct, limb_3_ct, limb_3_ct, /*can_overflow=*/true);
-        EXPECT_EQ(result.binary_basis_limbs[0].element.get_value(), result_1.binary_basis_limbs[0].element.get_value());
+        EXPECT_EQ(result.get_limb(0).element.get_value(), result_1.get_limb(0).element.get_value());
 
         bool result_check = CircuitChecker::check(builder);
         EXPECT_EQ(result_check, true);
@@ -457,7 +457,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         expected_prime_limb += (limb_2_native * fq_ct::shift_1);
         expected_prime_limb += (limb_3_native * fq_ct::shift_2);
         expected_prime_limb += (limb_4_native * fq_ct::shift_3);
-        EXPECT_EQ(expected_prime_limb, result.prime_basis_limb.get_value());
+        EXPECT_EQ(expected_prime_limb, result.get_prime_basis_limb().get_value());
 
         bool result_check = CircuitChecker::check(builder);
         EXPECT_EQ(result_check, false);
@@ -2067,7 +2067,8 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         fq_ct z(zero + two_to_68, zero);
         // assert invariant for every limb: actual value <= maximum value
         // Failed in the past for for StandardCircuitBuilder
-        for (auto zi : z.binary_basis_limbs) {
+        for (size_t i = 0; i < fq_ct::NUM_LIMBS; ++i) {
+            const auto& zi = z.get_limb(i);
             EXPECT_LE(uint256_t(zi.element.get_value()), zi.maximum_value);
         }
     }
@@ -2106,10 +2107,10 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
 
         fq_ct numerator = fq_ct::create_from_u512_as_witness(&builder, uint256_t(1) << (68 + 67));
-        numerator.binary_basis_limbs[0].maximum_value = 0;
-        numerator.binary_basis_limbs[1].maximum_value = uint256_t(1) << 67;
-        numerator.binary_basis_limbs[2].maximum_value = 0;
-        numerator.binary_basis_limbs[3].maximum_value = 0;
+        numerator.set_limb_max(0, 0);
+        numerator.set_limb_max(1, uint256_t(1) << 67);
+        numerator.set_limb_max(2, 0);
+        numerator.set_limb_max(3, 0);
 
         for (size_t i = 0; i < 9; i++) {
             numerator = numerator + numerator;
@@ -2144,26 +2145,26 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         uint256_t nlimb_prime = uint256_t("0x000000000000000000000000000000474da776b8ee19a56b08186bdcf01240d8");
 
         fq_ct w0 = fq_ct::from_witness(&builder, fq_native(0));
-        w0.binary_basis_limbs[0].element = witness_ct(&builder, dlimb0_value);
-        w0.binary_basis_limbs[1].element = witness_ct(&builder, dlimb1_value);
-        w0.binary_basis_limbs[2].element = witness_ct(&builder, dlimb2_value);
-        w0.binary_basis_limbs[3].element = witness_ct(&builder, dlimb3_value);
-        w0.binary_basis_limbs[0].maximum_value = dlimb0_max;
-        w0.binary_basis_limbs[1].maximum_value = dlimb1_max;
-        w0.binary_basis_limbs[2].maximum_value = dlimb2_max;
-        w0.binary_basis_limbs[3].maximum_value = dlimb3_max;
-        w0.prime_basis_limb = witness_ct(&builder, dlimb_prime);
+        stdlib::bigfield_test_access::set_limb_element(w0, 0, witness_ct(&builder, dlimb0_value));
+        stdlib::bigfield_test_access::set_limb_element(w0, 1, witness_ct(&builder, dlimb1_value));
+        stdlib::bigfield_test_access::set_limb_element(w0, 2, witness_ct(&builder, dlimb2_value));
+        stdlib::bigfield_test_access::set_limb_element(w0, 3, witness_ct(&builder, dlimb3_value));
+        w0.set_limb_max(0, dlimb0_max);
+        w0.set_limb_max(1, dlimb1_max);
+        w0.set_limb_max(2, dlimb2_max);
+        w0.set_limb_max(3, dlimb3_max);
+        stdlib::bigfield_test_access::set_prime_basis_limb(w0, witness_ct(&builder, dlimb_prime));
 
         fq_ct w1 = fq_ct::from_witness(&builder, fq_native(0));
-        w1.binary_basis_limbs[0].element = witness_ct(&builder, nlimb0_value);
-        w1.binary_basis_limbs[1].element = witness_ct(&builder, nlimb1_value);
-        w1.binary_basis_limbs[2].element = witness_ct(&builder, nlimb2_value);
-        w1.binary_basis_limbs[3].element = witness_ct(&builder, nlimb3_value);
-        w1.binary_basis_limbs[0].maximum_value = nlimb0_max;
-        w1.binary_basis_limbs[1].maximum_value = nlimb1_max;
-        w1.binary_basis_limbs[2].maximum_value = nlimb2_max;
-        w1.binary_basis_limbs[3].maximum_value = nlimb3_max;
-        w1.prime_basis_limb = witness_ct(&builder, nlimb_prime);
+        stdlib::bigfield_test_access::set_limb_element(w1, 0, witness_ct(&builder, nlimb0_value));
+        stdlib::bigfield_test_access::set_limb_element(w1, 1, witness_ct(&builder, nlimb1_value));
+        stdlib::bigfield_test_access::set_limb_element(w1, 2, witness_ct(&builder, nlimb2_value));
+        stdlib::bigfield_test_access::set_limb_element(w1, 3, witness_ct(&builder, nlimb3_value));
+        w1.set_limb_max(0, nlimb0_max);
+        w1.set_limb_max(1, nlimb1_max);
+        w1.set_limb_max(2, nlimb2_max);
+        w1.set_limb_max(3, nlimb3_max);
+        stdlib::bigfield_test_access::set_prime_basis_limb(w1, witness_ct(&builder, nlimb_prime));
 
         fq_ct w2 = w1 / w0;
         (void)w2;
@@ -2176,8 +2177,8 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint256_t(0));
         fq_ct alsozero = fq_ct::create_from_u512_as_witness(&builder, fq_ct::modulus_u512);
         for (size_t i = 0; i < 4; i++) {
-            zero.binary_basis_limbs[i].maximum_value = zero.binary_basis_limbs[i].element.get_value();
-            alsozero.binary_basis_limbs[i].maximum_value = alsozero.binary_basis_limbs[i].element.get_value();
+            zero.set_limb_max(i, uint256_t(zero.get_limb(i).element.get_value()));
+            alsozero.set_limb_max(i, uint256_t(alsozero.get_limb(i).element.get_value()));
         }
         zero.assert_is_not_equal(alsozero);
         bool result = CircuitChecker::check(builder);
@@ -2222,6 +2223,11 @@ TYPED_TEST(stdlib_bigfield, test_constructor)
 }
 TYPED_TEST(stdlib_bigfield, test_unsafe_construct_from_limbs)
 {
+#ifndef NDEBUG
+    // If in debug mode, the unsage constructor asserts that the prime limb is correct. We disable asserts to allow the
+    // test to go through.
+    BB_DISABLE_ASSERTS();
+#endif
     TestFixture::test_unsafe_construct_from_limbs();
 }
 TYPED_TEST(stdlib_bigfield, test_construct_from_limbs)

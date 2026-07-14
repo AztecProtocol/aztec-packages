@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 
@@ -42,7 +43,8 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecu
         using Base::Base;
     };
 
-    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+    static_assert(gemini_masking_layout_consistent<UltraZKRecursiveFlavor_>(),
+                  "UltraZKRecursiveFlavor gemini masking flag must match its entity layout");
 };
 
 } // namespace bb

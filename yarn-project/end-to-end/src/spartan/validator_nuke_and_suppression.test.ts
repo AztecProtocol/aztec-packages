@@ -27,6 +27,9 @@ import {
   waitForResourcesByName,
 } from './utils.js';
 
+// Tests validator network partition (suppression) and hard kill (nuke) with slashing on a live k8s
+// deployment. Injects Chaos Mesh network-failure and pod-kill faults, then asserts that the surviving
+// validators slash the offending validator and the chain continues to advance.
 describe('validator suppression and nuke with slashing assertions', () => {
   jest.setTimeout(2 * 60 * 60 * 1000); // 120 minutes
 

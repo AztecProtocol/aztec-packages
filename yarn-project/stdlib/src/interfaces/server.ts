@@ -9,7 +9,6 @@ export * from './checkpoint_response.js';
 export * from './l1_publish_info.js';
 export * from './block-builder.js';
 export * from './configs.js';
-export * from './epoch-prover.js';
 export * from './l2_logs_source.js';
 export * from './merkle_tree_operations.js';
 export * from './p2p-bootstrap.js';

@@ -10,7 +10,10 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -61,13 +64,15 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         allocate_wires();
         allocate_permutation_argument_polynomials();
         allocate_selectors(circuit);
-        allocate_table_lookup_polynomials(circuit);
+        if constexpr (Flavor::HasLogDerivLookup) {
+            allocate_table_lookup_polynomials(circuit);
+        }
         allocate_lagrange_polynomials();
 
-        if constexpr (IsMegaFlavor<Flavor>) {
+        if constexpr (Flavor::HasEccOpQueue) {
             allocate_ecc_op_polynomials(circuit);
         }
-        if constexpr (HasDataBus<Flavor>) {
+        if constexpr (Flavor::HasDataBus) {
             allocate_databus_polynomials(circuit);
         }
 
@@ -83,23 +88,25 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     vinfo("populating trace...");
     TraceToPolynomials<Flavor>::populate(circuit, polynomials);
 
-    if constexpr (IsMegaFlavor<Flavor>) {
+    if constexpr (Flavor::HasDataBus) {
         BB_BENCH_NAME("constructing databus polynomials");
         construct_databus_polynomials(circuit);
     }
 
     // Set the lagrange polynomials (lagrange_first at first active row after disabled region)
-    polynomials.lagrange_first.at(TRACE_OFFSET) = 1;
-    polynomials.lagrange_last.at(final_active_wire_idx) = 1;
+    polynomials.lagrange_first().at(TRACE_OFFSET) = 1;
+    polynomials.lagrange_last().at(final_active_wire_idx) = 1;
 
-    construct_lookup_polynomials(circuit);
+    if constexpr (Flavor::HasLogDerivLookup) {
+        construct_lookup_polynomials(circuit);
+    }
 
     // Public inputs
     metadata.num_public_inputs = circuit.blocks.pub_inputs.size();
     metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
     for (size_t i = 0; i < metadata.num_public_inputs; ++i) {
         size_t idx = i + metadata.pub_inputs_offset;
-        public_inputs.emplace_back(polynomials.w_r[idx]);
+        public_inputs.emplace_back(polynomials.w_r()[idx]);
     }
 
     // Copy IPA proof if present
@@ -164,17 +171,17 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_ar
         id = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Polynomial::DontZeroMemory::FLAG);
     }
 
-    polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Flavor::HasZK);
+    polynomials.z_perm() = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Flavor::HasZK);
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
 {
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
-    polynomials.lagrange_first = Polynomial(
+    polynomials.lagrange_first() = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/TRACE_OFFSET);
 
-    polynomials.lagrange_last = Polynomial(
+    polynomials.lagrange_last() = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/final_active_wire_idx);
 }
 
@@ -182,8 +189,10 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_selectors(cons
 {
     BB_BENCH_NAME("allocate_selectors");
 
-    // Define gate selectors over the block they are isolated to
-    for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
+    // Each gate selector is sized to its trace block; `Flavor::Generated::get_gate_blocks` yields
+    // those blocks in `polynomials.get_gate_selectors()` order.
+    for (auto [selector, block] :
+         zip_view(polynomials.get_gate_selectors(), Flavor::Generated::get_gate_blocks(circuit.blocks))) {
         selector = Polynomial(block.size(), dyadic_size(), block.trace_offset());
     }
 
@@ -193,7 +202,9 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_selectors(cons
     }
 }
 
-template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
+template <typename Flavor>
+void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
+    requires(Flavor::HasLogDerivLookup)
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
@@ -203,33 +214,36 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_p
 
     // Tables start at the lookup block's trace offset, which is always past the disabled region
     BB_ASSERT_GTE(table_offset, TRACE_OFFSET);
-    // Allocate polynomials containing the actual table data; offset to align with the lookup gate block
+    // Allocate polynomials containing the actual table data. Back only [TRACE_OFFSET, tables_end):
+    // rows below TRACE_OFFSET are the disabled region and read as zero, so there is no need to
+    // materialise them. This keeps the table columns small regardless of where the lookup block
+    // lands in the trace.
     BB_ASSERT_GTE(dyadic_size(), tables_end);
     for (auto& table_poly : polynomials.get_tables()) {
-        table_poly = Polynomial(tables_end, dyadic_size());
+        table_poly = Polynomial(tables_end - TRACE_OFFSET, dyadic_size(), TRACE_OFFSET);
     }
 
     // Read counts and tags: track which table entries have been read
-    polynomials.lookup_read_counts = Polynomial(tables_end, dyadic_size());
-    polynomials.lookup_read_tags = Polynomial(tables_end, dyadic_size());
+    polynomials.lookup_read_counts() = Polynomial(tables_end, dyadic_size());
+    polynomials.lookup_read_tags() = Polynomial(tables_end, dyadic_size());
 
     // Lookup inverses: used in the log-derivative lookup argument
     // Must cover both the lookup gate block (where reads occur) and the table data itself
     const size_t lookup_block_end = circuit.blocks.lookup.trace_end();
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
-    polynomials.lookup_inverses = Polynomial(lookup_inverses_end, dyadic_size());
+    polynomials.lookup_inverses() = Polynomial(lookup_inverses_end, dyadic_size());
 
     if constexpr (Flavor::HasZK) {
-        polynomials.lookup_read_counts.add_masking();
-        polynomials.lookup_read_tags.add_masking();
-        polynomials.lookup_inverses.add_masking();
+        polynomials.lookup_read_counts().add_masking();
+        polynomials.lookup_read_tags().add_masking();
+        polynomials.lookup_inverses().add_masking();
     }
 }
 
 template <typename Flavor>
 void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
-    requires IsMegaFlavor<Flavor>
+    requires Flavor::HasEccOpQueue
 {
     BB_BENCH_NAME("allocate_ecc_op_polynomials");
 
@@ -239,17 +253,17 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
     for (auto& wire : polynomials.get_ecc_op_wires()) {
         wire = Polynomial(ecc_op_end, dyadic_size());
     }
-    polynomials.lagrange_ecc_op = Polynomial(ecc_op_end, dyadic_size());
+    polynomials.lagrange_ecc_op() = Polynomial(ecc_op_end, dyadic_size());
 }
 
 template <typename Flavor>
 void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
-    requires HasDataBus<Flavor>
+    requires Flavor::HasDataBus
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
 
     // Databus data uses NUM_DISABLED_ROWS_IN_SUMCHECK as its offset rather than Flavor::TRACE_OFFSET so that
-    // commitments match across the IVC boundary (a non-ZK kernel's return_data is copy-constrained to a MegaZK
+    // commitments match across the IVC boundary (a non-ZK kernel's returndata is copy-constrained to a MegaZK
     // hiding kernel's kernel_calldata). MegaZK additionally requires this offset to clear the masking region
     // [1, NUM_DISABLED_ROWS_IN_SUMCHECK); non-ZK Mega mirrors the layout even though it has no masking.
     const auto offset_size = [](size_t content) -> size_t { return NUM_DISABLED_ROWS_IN_SUMCHECK + content; };
@@ -259,37 +273,50 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 
     size_t max_databus_column_size = 0;
 
-    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
-        const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
+    auto bus_data = polynomials.get_databus_entities();         // [bus0_values, bus0_counts, bus1_..., ...]
+    auto bus_inverses = polynomials.get_databus_inverses();     // [bus0_inv, bus1_inv, ...]
+    auto bus_indicators = polynomials.get_databus_indicators(); // [bus0_indicator, bus1_indicator, ...]
+    bb::constexpr_for<0, Flavor::NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        // Map the flavor's local bus index to the builder's `get_bus_vector` slot (kernel_calldata=0,
+        // first..fifth_app_calldata=1..5, return_data=6). For full MegaFlavor this is the identity;
+        // for other flavors (e.g. MegaAppFlavor with only `return_data`) the mapping shifts so the right
+        // builder bus is read.
+        constexpr size_t builder_bus_idx = Flavor::BUILDER_BUS_INDICES[bus_idx];
+        const size_t bus_size = circuit.get_bus_vector(builder_bus_idx).size();
         max_databus_column_size = std::max(max_databus_column_size, bus_size);
 
+        auto& values_poly = bus_data[2 * bus_idx];
+        auto& read_counts_poly = bus_data[(2 * bus_idx) + 1];
+        auto& inverse_poly = bus_inverses[bus_idx];
+        auto& indicator_poly = bus_indicators[bus_idx];
+
         // Values + read_counts: sized to the bus data shifted by TRACE_OFFSET.
-        auto entities = polynomials.template databus_entities_for_bus<bus_idx>();
-        for (auto& entity : entities) {
-            entity = Polynomial(offset_size(bus_size), dyadic_size());
-        }
+        values_poly = Polynomial(offset_size(bus_size), dyadic_size());
+        read_counts_poly = Polynomial(offset_size(bus_size), dyadic_size());
 
         // Inverse polynomial: sized to cover both the busread gate block and the shifted bus data.
-        auto inverse_ref = polynomials.template databus_inverse_for_bus<bus_idx>();
-        inverse_ref[0] = Polynomial(std::max(offset_size(bus_size), q_busread_end), dyadic_size());
+        inverse_poly = Polynomial(std::max(offset_size(bus_size), q_busread_end), dyadic_size());
+
+        // Indicator polynomial: 1 on the column's data rows (offset..offset+bus_size), 0 elsewhere.
+        indicator_poly = Polynomial(offset_size(bus_size), dyadic_size());
 
         if constexpr (Flavor::HasZK) {
             // Mask databus witness polynomials. The kernel_calldata values column (bus_idx == 0) is NOT
             // masked; its read_counts column is.
-            auto& values_poly = entities[0];
-            auto& read_counts_poly = entities[1];
             if constexpr (bus_idx != 0) {
                 values_poly.add_masking();
             }
             read_counts_poly.add_masking();
-            inverse_ref[0].add_masking();
+            inverse_poly.add_masking();
         }
     });
 
-    polynomials.databus_id = Polynomial(offset_size(max_databus_column_size), dyadic_size());
+    polynomials.databus_id() = Polynomial(offset_size(max_databus_column_size), dyadic_size());
 }
 
-template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
+template <typename Flavor>
+void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
+    requires(Flavor::HasLogDerivLookup)
 {
     {
         BB_BENCH_NAME("constructing lookup table polynomials");
@@ -297,7 +324,7 @@ template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polyno
     }
     {
         BB_BENCH_NAME("constructing lookup read counts");
-        construct_lookup_read_counts<Flavor>(polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit);
+        construct_lookup_read_counts<Flavor>(polynomials.lookup_read_counts(), polynomials.lookup_read_tags(), circuit);
     }
 }
 
@@ -306,17 +333,18 @@ template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polyno
  */
 template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
-    requires HasDataBus<Flavor>
+    requires Flavor::HasDataBus
 {
     // Databus offset of NUM_DISABLED_ROWS_IN_SUMCHECK is forced by cross-flavor commitment compatibility and
     // MegaZK masking; see allocate_databus_polynomials for the rationale.
     size_t max_bus_size = 0;
-    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
-        const auto& bus_vec = circuit.get_bus_vector(bus_idx);
+    auto bus_data = polynomials.get_databus_entities();
+    bb::constexpr_for<0, Flavor::NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        constexpr size_t builder_bus_idx = Flavor::BUILDER_BUS_INDICES[bus_idx];
+        const auto& bus_vec = circuit.get_bus_vector(builder_bus_idx);
         max_bus_size = std::max(max_bus_size, bus_vec.size());
-        auto entities = polynomials.template databus_entities_for_bus<bus_idx>();
-        auto& values_poly = entities[0];
-        auto& read_counts_poly = entities[1];
+        auto& values_poly = bus_data[2 * bus_idx];
+        auto& read_counts_poly = bus_data[(2 * bus_idx) + 1];
         for (size_t idx = 0; idx < bus_vec.size(); ++idx) {
             values_poly.at(NUM_DISABLED_ROWS_IN_SUMCHECK + idx) = circuit.get_variable(bus_vec[idx]);
             read_counts_poly.at(NUM_DISABLED_ROWS_IN_SUMCHECK + idx) = bus_vec.get_read_count(idx);
@@ -324,9 +352,20 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     });
 
     // Compute a simple identity polynomial for use in the databus lookup argument.
-    auto& databus_id = polynomials.databus_id;
+    auto& databus_id = polynomials.databus_id();
     for (size_t i = 0; i < max_bus_size; ++i) {
         databus_id.at(NUM_DISABLED_ROWS_IN_SUMCHECK + i) = i;
+    }
+
+    // Populate per-bus indicator polynomials: 1 on the bus's data rows, 0 elsewhere (default).
+    auto indicators = polynomials.get_databus_indicators();
+    for (size_t bus_idx = 0; bus_idx < Flavor::NUM_BUS_COLUMNS; ++bus_idx) {
+        const size_t builder_bus_idx = Flavor::BUILDER_BUS_INDICES[bus_idx];
+        const size_t bus_size = circuit.get_bus_vector(builder_bus_idx).size();
+        auto& indicator = indicators[bus_idx];
+        for (size_t i = 0; i < bus_size; ++i) {
+            indicator.at(NUM_DISABLED_ROWS_IN_SUMCHECK + i) = 1;
+        }
     }
 }
 
@@ -348,6 +387,10 @@ template <typename Flavor> void ProverInstance_<Flavor>::populate_memory_records
     for (auto& index : circuit.memory_write_records) {
         memory_write_records.emplace_back(index + ram_rom_offset);
     }
+    rom_logup_records.reserve(circuit.rom_logup_records.size());
+    for (auto& index : circuit.rom_logup_records) {
+        rom_logup_records.emplace_back(index + ram_rom_offset);
+    }
 }
 
 template class ProverInstance_<UltraFlavor>;
@@ -361,5 +404,7 @@ template class ProverInstance_<UltraKeccakZKFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
 template class ProverInstance_<MegaAvmFlavor>;
+template class ProverInstance_<MegaAppFlavor>;
+template class ProverInstance_<MegaKernelFlavor>;
 
 } // namespace bb

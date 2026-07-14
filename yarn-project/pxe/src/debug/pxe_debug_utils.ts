@@ -5,8 +5,8 @@ import type { NoteDao } from '@aztec/stdlib/note';
 import type { ContractOverrides } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizer } from '../block_synchronizer/block_synchronizer.js';
+import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import type { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
-import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { NotesFilter } from '../notes_filter.js';
 import type { AnchorBlockStore } from '../storage/index.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';

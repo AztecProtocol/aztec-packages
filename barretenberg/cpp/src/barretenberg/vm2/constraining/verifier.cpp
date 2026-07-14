@@ -5,6 +5,7 @@
 // =====================
 #include "barretenberg/vm2/constraining/verifier.hpp"
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -61,6 +62,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     RelationParameters<FF> relation_parameters;
 
+    if (proof.size() != static_cast<size_t>(AVM_V2_PROOF_LENGTH_IN_FIELDS)) {
+        vinfo("Proof length mismatch: got ",
+              proof.size(),
+              " fields, expected ",
+              static_cast<size_t>(AVM_V2_PROOF_LENGTH_IN_FIELDS));
+        return false;
+    }
+
     transcript->load_proof(proof);
 
     // ========== Execute preamble round ==========
@@ -82,7 +91,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // in the clear and on the committed columns.
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         // Validate public input column size
-        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]) {
             vinfo("Public input size mismatch");
             return false;
         }
@@ -159,7 +168,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // Get short batching challenges from transcript
     Challenges challenges;
-    auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
+    auto unshifted_challenges_vec = transcript->template get_short_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();

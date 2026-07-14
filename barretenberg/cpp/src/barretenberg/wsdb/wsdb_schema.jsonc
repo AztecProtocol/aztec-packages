@@ -383,7 +383,9 @@
         "paddedNoteHashes": "Fr[]",
         "paddedL1ToL2Messages": "Fr[]",
         "paddedNullifiers": "NullifierLeafValue[]",
-        "publicDataWrites": "PublicDataLeafValue[]"
+        "publicDataWrites": "PublicDataLeafValue[]",
+        "expectedArchiveRoot": "Fr?",
+        "expectedPreviousArchiveRoot": "Fr?"
       },
       "response": {
         "status": "WorldStateStatusFull"

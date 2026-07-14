@@ -101,8 +101,7 @@
     "semver": "^7.6.0",
     "sha3": "^2.1.4",
     "snappy": "^7.2.2",
-    "tslib": "^2.4.0",
-    "xxhash-wasm": "^1.1.0"
+    "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
