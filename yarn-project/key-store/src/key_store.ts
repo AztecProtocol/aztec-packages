@@ -30,6 +30,7 @@ export class KeyStore {
   public static readonly SCHEMA_VERSION = 1;
   #db: AztecAsyncKVStore;
   #keys: AztecAsyncMap<string, Buffer>;
+  #cachedAccounts: AztecAddress[] | undefined;
 
   constructor(database: AztecAsyncKVStore) {
     this.#db = database;
@@ -97,6 +98,8 @@ export class KeyStore {
       await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.tpkMHash.toBuffer());
     });
 
+    this.#cachedAccounts = undefined;
+
     // At last, we return the newly derived account address
     return completeAddress;
   }
@@ -106,10 +109,14 @@ export class KeyStore {
    * @returns A Promise that resolves to an array of account addresses.
    */
   public async getAccounts(): Promise<AztecAddress[]> {
+    if (this.#cachedAccounts) {
+      return this.#cachedAccounts;
+    }
     const allMapKeys = await toArray(this.#keys.keysAsync());
     // We return account addresses based on the map keys that end with '-ivsk_m'
     const accounts = allMapKeys.filter(key => key.endsWith('-ivsk_m')).map(key => key.split('-')[0]);
-    return accounts.map(account => AztecAddress.fromString(account));
+    this.#cachedAccounts = accounts.map(account => AztecAddress.fromString(account));
+    return this.#cachedAccounts;
   }
 
   /** Checks whether an account is registered in the key store. */

@@ -9,6 +9,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 export class SenderAddressBookStore {
   #store: AztecAsyncKVStore;
   #addressBook: AztecAsyncMap<string, true>;
+  #cachedSenders: AztecAddress[] | undefined;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
@@ -23,14 +24,19 @@ export class SenderAddressBookStore {
       }
 
       await this.#addressBook.set(address.toString(), true);
+      this.#cachedSenders = undefined;
 
       return true;
     });
   }
 
   getSenders(): Promise<AztecAddress[]> {
+    if (this.#cachedSenders) {
+      return Promise.resolve(this.#cachedSenders);
+    }
     return this.#store.transactionAsync(async () => {
-      return (await toArray(this.#addressBook.keysAsync())).map(AztecAddress.fromString);
+      this.#cachedSenders = (await toArray(this.#addressBook.keysAsync())).map(AztecAddress.fromString);
+      return this.#cachedSenders;
     });
   }
 
@@ -41,6 +47,7 @@ export class SenderAddressBookStore {
       }
 
       await this.#addressBook.delete(address.toString());
+      this.#cachedSenders = undefined;
 
       return true;
     });
