@@ -76,8 +76,8 @@ describe('onchain delivery', () => {
       // derives it client-side from the account secret.
       getSigningKey: () => Promise.resolve(deriveMasterMessageSigningSecretKey(recipientAccount.secret)),
       // Backup durability is a wallet concern with no onchain effect; its semantics are pinned in the wallet-sdk
-      // unit suite, so this cell passes a no-op store.
-      backup: { store: () => Promise.resolve() },
+      // unit suite, so this cell passes a no-op backup.
+      backup: () => Promise.resolve(),
     });
     return createInteractiveHandshakeResolver(responder);
   }

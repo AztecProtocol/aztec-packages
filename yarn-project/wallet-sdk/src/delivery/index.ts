@@ -5,6 +5,7 @@ export {
   type InteractiveHandshakeTransport,
   createInteractiveHandshakeResolver,
   createInteractiveHandshakeResponder,
+  restoreInteractiveHandshakes,
 } from './interactive_handshake.js';
 export { signInteractiveHandshake } from './signing.js';
 export {

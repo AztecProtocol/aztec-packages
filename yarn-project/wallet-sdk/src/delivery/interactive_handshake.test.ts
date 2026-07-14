@@ -19,6 +19,7 @@ import {
   type InteractiveHandshakeTransport,
   createInteractiveHandshakeResolver,
   createInteractiveHandshakeResponder,
+  restoreInteractiveHandshakes,
 } from './interactive_handshake.js';
 import { type InteractiveHandshakeCustomRequest, type RecipientSignature, recipientSignatureToFields } from './wire.js';
 
@@ -60,12 +61,10 @@ describe('interactive handshake delivery helpers', () => {
         getRegisteredAccounts: () => Promise.resolve([otherCompleteAddress, recipientCompleteAddress]),
       },
       getSigningKey,
-      backup: {
-        store: entry => {
-          calls.push('backup');
-          backupEntries.push(entry);
-          return Promise.resolve();
-        },
+      backup: entry => {
+        calls.push('backup');
+        backupEntries.push(entry);
+        return Promise.resolve();
       },
     });
   }
@@ -128,7 +127,7 @@ describe('interactive handshake delivery helpers', () => {
           getRegisteredAccounts: () => Promise.resolve([recipientCompleteAddress]),
         },
         getSigningKey,
-        backup: { store: () => Promise.reject(new Error('backup store unavailable')) },
+        backup: () => Promise.reject(new Error('backup store unavailable')),
       });
       await expect(responder(makeRequest())).rejects.toThrow('backup store unavailable');
       expect(getSigningKey).not.toHaveBeenCalled();
@@ -141,11 +140,9 @@ describe('interactive handshake delivery helpers', () => {
           getRegisteredAccounts: () => Promise.resolve([otherCompleteAddress]),
         },
         getSigningKey,
-        backup: {
-          store: entry => {
-            backupEntries.push(entry);
-            return Promise.resolve();
-          },
+        backup: entry => {
+          backupEntries.push(entry);
+          return Promise.resolve();
         },
       });
       await expect(responder(makeRequest())).rejects.toThrow('account not held by this wallet');
@@ -184,6 +181,39 @@ describe('interactive handshake delivery helpers', () => {
       const resolver = createInteractiveHandshakeResolver(transport);
       await expect(resolver(makeRequest({ kind: Fr.random() }))).rejects.toThrow('unexpected kind');
       expect(transport).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('restoreInteractiveHandshakes', () => {
+    it('re-registers, from the backup entry alone, exactly the source the live handshake registered', async () => {
+      // A live handshake registers its tagging secret source and persists a backup entry.
+      await makeResponder()(makeRequest());
+      const [[registeredSource]] = registerTaggingSecretSource.mock.calls;
+
+      // A fresh PXE after a wipe knows no tagging secret sources; recovery draws only on the persisted backup, with
+      // no signing key or registered-account state involved.
+      const reregistered = jest
+        .fn<(source: { kind: 'handshake'; recipient: AztecAddress; ephPk: Fr }) => Promise<void>>()
+        .mockResolvedValue();
+      await restoreInteractiveHandshakes({ registerTaggingSecretSource: reregistered }, backupEntries);
+
+      expect(reregistered.mock.calls).toEqual([[registeredSource]]);
+    });
+
+    it('re-registers every backed-up handshake, mapping each stored ephPkX back to the source ephPk', async () => {
+      const entries: InteractiveHandshakeBackupEntry[] = [
+        { recipient: recipientCompleteAddress.address, ephPkX: Fr.random() },
+        { recipient: otherCompleteAddress.address, ephPkX: Fr.random() },
+      ];
+      const reregistered = jest
+        .fn<(source: { kind: 'handshake'; recipient: AztecAddress; ephPk: Fr }) => Promise<void>>()
+        .mockResolvedValue();
+      await restoreInteractiveHandshakes({ registerTaggingSecretSource: reregistered }, entries);
+
+      expect(reregistered.mock.calls).toEqual([
+        [{ kind: 'handshake', recipient: recipientCompleteAddress.address, ephPk: entries[0].ephPkX }],
+        [{ kind: 'handshake', recipient: otherCompleteAddress.address, ephPk: entries[1].ephPkX }],
+      ]);
     });
   });
 });

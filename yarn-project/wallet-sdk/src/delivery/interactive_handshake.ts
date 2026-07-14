@@ -30,27 +30,12 @@ export type InteractiveHandshakeBackupEntry = {
 };
 
 /**
- * Durable store for interactive-handshake backup entries. Interactive handshakes are the one piece of PXE state that
- * cannot be rebuilt from the chain plus account keys: losing this copy orphans the channel on reinstall. Implementers
- * must back it with a store that survives PXE wipes; the responder releases the recipient's signature only after
- * `store` resolves.
+ * Durably persists an interactive-handshake backup entry, idempotently. Interactive handshakes are the one piece of
+ * PXE state that cannot be rebuilt from the chain plus account keys: losing this copy orphans the channel on
+ * reinstall, so implementers must back it with a store that survives PXE wipes. The responder releases the
+ * recipient's signature only after this resolves; a rejection aborts with no signature and therefore no channel.
  */
-export interface InteractiveHandshakeBackup {
-  /**
-   * Durably persists a handshake backup entry. Idempotent for the same entry.
-   * @param entry - The handshake identity to persist.
-   */
-  store(entry: InteractiveHandshakeBackupEntry): Promise<void>;
-}
-
-/** The handshake variant of PXE's {@link TaggingSecretSource}. */
-type HandshakeTaggingSecretSource = Extract<
-  TaggingSecretSource,
-  {
-    /** Discriminates the handshake variant. */
-    kind: 'handshake';
-  }
->;
+export type InteractiveHandshakeBackup = (entry: InteractiveHandshakeBackupEntry) => Promise<void>;
 
 /**
  * The PXE surface the interactive-handshake responder needs. `PXE` satisfies it as-is; tests and wallets that wrap
@@ -58,7 +43,7 @@ type HandshakeTaggingSecretSource = Extract<
  */
 export type InteractiveHandshakeResponderPXE = {
   /** Registers the handshake as a tagging secret source so scanning discovers the channel's messages. */
-  registerTaggingSecretSource(source: HandshakeTaggingSecretSource): Promise<void>;
+  registerTaggingSecretSource(source: TaggingSecretSource): Promise<void>;
   /** Returns the accounts registered on the PXE, used to resolve the recipient's complete address. */
   getRegisteredAccounts(): Promise<CompleteAddress[]>;
 };
@@ -115,9 +100,27 @@ export function createInteractiveHandshakeResponder(opts: {
     }
 
     await pxe.registerTaggingSecretSource({ kind: 'handshake', recipient: parsed.recipient, ephPk: parsed.ephPkX });
-    await backup.store({ recipient: parsed.recipient, ephPkX: parsed.ephPkX });
+    await backup({ recipient: parsed.recipient, ephPkX: parsed.ephPkX });
 
     const masterMessageSigningSecretKey = await getSigningKey(parsed.recipient);
     return signInteractiveHandshake(parsed, completeAddress, masterMessageSigningSecretKey);
   };
+}
+
+/**
+ * Re-registers interactive handshakes from their backup entries after PXE state has been lost (a reinstall or wipe).
+ * Each entry re-derives the channel's tagging secret source so scanning rediscovers its messages; no signature is
+ * produced or needed, since the channel already exists on-chain. Idempotent: re-registering a source the PXE already
+ * knows is a no-op.
+ *
+ * @param pxe - The recipient's PXE (or any structurally matching wrapper), typically freshly rebuilt.
+ * @param entries - The backup entries persisted by {@link createInteractiveHandshakeResponder}'s backup.
+ */
+export async function restoreInteractiveHandshakes(
+  pxe: Pick<InteractiveHandshakeResponderPXE, 'registerTaggingSecretSource'>,
+  entries: InteractiveHandshakeBackupEntry[],
+): Promise<void> {
+  for (const { recipient, ephPkX } of entries) {
+    await pxe.registerTaggingSecretSource({ kind: 'handshake', recipient, ephPk: ephPkX });
+  }
 }
