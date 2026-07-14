@@ -1,5 +1,4 @@
 export {
-  type InteractiveHandshakeBackup,
   type InteractiveHandshakeBackupEntry,
   type InteractiveHandshakeResponderPXE,
   type InteractiveHandshakeTransport,
