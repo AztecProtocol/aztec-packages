@@ -21,15 +21,6 @@ export class SchnorrSignature implements Signature {
   }
 
   /**
-   * Deserializes from a buffer.
-   * @param buffer - The 64-byte signature buffer.
-   * @returns A SchnorrSignature instance.
-   */
-  static fromBuffer(buffer: Buffer): SchnorrSignature {
-    return new SchnorrSignature(buffer);
-  }
-
-  /**
    * Deserializes from a hex string, as produced by `toString()`.
    * @param str - The signature as a hex string (with or without the 0x prefix).
    * @returns A SchnorrSignature instance.

@@ -46,10 +46,6 @@ describe('schnorr', () => {
       signature = await schnorr.constructSignature(Fr.random(), GrumpkinScalar.random());
     });
 
-    it('round-trips through a buffer', () => {
-      expect(SchnorrSignature.fromBuffer(signature.toBuffer())).toEqual(signature);
-    });
-
     it('round-trips through a hex string', () => {
       expect(SchnorrSignature.fromString(signature.toString())).toEqual(signature);
     });
@@ -58,8 +54,8 @@ describe('schnorr', () => {
       expect(JSON.parse(JSON.stringify(signature))).toEqual(signature.toString());
     });
 
-    it('rejects a buffer of the wrong length', () => {
-      expect(() => SchnorrSignature.fromBuffer(Buffer.alloc(63))).toThrow('Invalid signature buffer');
+    it('rejects a hex string of the wrong length', () => {
+      expect(() => SchnorrSignature.fromString(`0x${'00'.repeat(63)}`)).toThrow('Invalid signature buffer');
     });
   });
 });
