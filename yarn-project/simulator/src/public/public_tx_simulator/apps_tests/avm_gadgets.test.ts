@@ -8,11 +8,8 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('Public TX simulator apps tests: gadgets', () => {
-  describe.each([
-    { useCppSimulator: false, simulatorName: 'TS Simulator' },
-    { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-  ])('Public TX simulator apps tests: gadgets (via $simulatorName)', ({ useCppSimulator }) => {
-    const deployer = AztecAddress.fromNumber(42);
+  describe('Public TX simulator apps tests: gadgets (via Cpp Simulator)', () => {
+    const deployer = AztecAddress.fromNumberUnsafe(42);
 
     let worldStateService: NativeWorldStateService;
     let tester: PublicTxSimulationTester;
@@ -20,12 +17,7 @@ describe('Public TX simulator apps tests: gadgets', () => {
 
     beforeEach(async () => {
       worldStateService = await NativeWorldStateService.tmp();
-      tester = await PublicTxSimulationTester.create(
-        worldStateService,
-        defaultGlobals(),
-        /*metrics=*/ undefined,
-        useCppSimulator,
-      );
+      tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), /*metrics=*/ undefined);
       avmGadgetsTestContract = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         deployer,

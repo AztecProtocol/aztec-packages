@@ -1,0 +1,477 @@
+{
+  "service": "Wsdb",
+  "aliases": {
+    "MerkleTreeId": "u32",
+    "ForkId": "u64",
+    "BlockNumber": "u32",
+    "Fr": "bin32",
+    "LeafIndex": "u64",
+    "PublicDataSlot": "bin32",
+    "PublicDataValue": "bin32",
+    "Nullifier": "bin32",
+    "BlockHeaderHash": "bin32"
+  },
+  "types": {
+    "WorldStateRevision": {
+      "forkId": "ForkId",
+      "blockNumber": "BlockNumber",
+      "includeUncommitted": "bool"
+    },
+    "TreeStateReference": {
+      "treeId": "MerkleTreeId",
+      "root": "Fr",
+      "size": "LeafIndex"
+    },
+    "PublicDataLeafValue": {
+      "slot": "PublicDataSlot",
+      "value": "PublicDataValue"
+    },
+    "NullifierLeafValue": {
+      "nullifier": "Nullifier"
+    },
+    "IndexedPublicDataLeafValue": {
+      "leaf": "PublicDataLeafValue",
+      "nextIndex": "LeafIndex",
+      "nextKey": "Fr"
+    },
+    "IndexedNullifierLeafValue": {
+      "leaf": "NullifierLeafValue",
+      "nextIndex": "LeafIndex",
+      "nextKey": "Fr"
+    },
+    "SiblingPathAndIndex": {
+      "index": "LeafIndex",
+      "path": "Fr[]"
+    },
+    "BatchInsertionResultPublicData": {
+      "lowLeafWitnessData": "PublicDataLeafUpdateWitnessData[]",
+      "sortedLeaves": "SortedPublicDataLeaf[]",
+      "subtreePath": "Fr[]"
+    },
+    "PublicDataLeafUpdateWitnessData": {
+      "leaf": "IndexedPublicDataLeafValue",
+      "index": "LeafIndex",
+      "path": "Fr[]"
+    },
+    "SortedPublicDataLeaf": {
+      "leaf": "PublicDataLeafValue",
+      "index": "LeafIndex"
+    },
+    "BatchInsertionResultNullifier": {
+      "lowLeafWitnessData": "NullifierLeafUpdateWitnessData[]",
+      "sortedLeaves": "SortedNullifierLeaf[]",
+      "subtreePath": "Fr[]"
+    },
+    "NullifierLeafUpdateWitnessData": {
+      "leaf": "IndexedNullifierLeafValue",
+      "index": "LeafIndex",
+      "path": "Fr[]"
+    },
+    "SortedNullifierLeaf": {
+      "leaf": "NullifierLeafValue",
+      "index": "LeafIndex"
+    },
+    "SequentialInsertionResultPublicData": {
+      "lowLeafWitnessData": "PublicDataLeafUpdateWitnessData[]",
+      "insertionWitnessData": "PublicDataLeafUpdateWitnessData[]"
+    },
+    "SequentialInsertionResultNullifier": {
+      "lowLeafWitnessData": "NullifierLeafUpdateWitnessData[]",
+      "insertionWitnessData": "NullifierLeafUpdateWitnessData[]"
+    },
+    "WorldStateStatusFull": {
+      "summary": "WorldStateStatusSummary",
+      "dbStats": "WorldStateDBStats",
+      "meta": "WorldStateMeta"
+    },
+    "WorldStateStatusSummary": {
+      "unfinalizedBlockNumber": "u64",
+      "finalizedBlockNumber": "u64",
+      "oldestHistoricalBlock": "u64",
+      "treesAreSynched": "bool"
+    },
+    "WorldStateDBStats": {
+      "noteHashTreeStats": "TreeDBStats",
+      "messageTreeStats": "TreeDBStats",
+      "archiveTreeStats": "TreeDBStats",
+      "publicDataTreeStats": "TreeDBStats",
+      "nullifierTreeStats": "TreeDBStats"
+    },
+    "TreeDBStats": {
+      "mapSize": "u64",
+      "physicalFileSize": "u64",
+      "blocksDBStats": "DBStats",
+      "nodesDBStats": "DBStats",
+      "leafPreimagesDBStats": "DBStats",
+      "leafIndicesDBStats": "DBStats",
+      "blockIndicesDBStats": "DBStats"
+    },
+    "DBStats": {
+      "name": "string",
+      "numDataItems": "u64",
+      "totalUsedSize": "u64"
+    },
+    "WorldStateMeta": {
+      "noteHashTreeMeta": "TreeMeta",
+      "messageTreeMeta": "TreeMeta",
+      "archiveTreeMeta": "TreeMeta",
+      "publicDataTreeMeta": "TreeMeta",
+      "nullifierTreeMeta": "TreeMeta"
+    },
+    "TreeMeta": {
+      "name": "string",
+      "depth": "u32",
+      "size": "u64",
+      "committedSize": "u64",
+      "root": "Fr",
+      "initialSize": "u64",
+      "initialRoot": "Fr",
+      "oldestHistoricBlock": "u32",
+      "unfinalizedBlockHeight": "u32",
+      "finalizedBlockHeight": "u32"
+    }
+  },
+  "error": {
+    "message": "string"
+  },
+  "commands": {
+    "GetTreeInfo": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision"
+      },
+      "response": {
+        "treeId": "MerkleTreeId",
+        "root": "Fr",
+        "size": "LeafIndex",
+        "depth": "u32"
+      }
+    },
+    "GetStateReference": {
+      "request": {
+        "revision": "WorldStateRevision"
+      },
+      "response": {
+        "state": "TreeStateReference[]"
+      }
+    },
+    "GetInitialStateReference": {
+      "request": {},
+      "response": {
+        "state": "TreeStateReference[]"
+      }
+    },
+    "GetLeafValue": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "value": "Fr?"
+      }
+    },
+    "GetPublicDataLeafValue": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "value": "PublicDataLeafValue?"
+      }
+    },
+    "GetNullifierLeafValue": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "value": "NullifierLeafValue?"
+      }
+    },
+    "GetPublicDataLeafPreimage": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "preimage": "IndexedPublicDataLeafValue?"
+      }
+    },
+    "GetNullifierLeafPreimage": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "preimage": "IndexedNullifierLeafValue?"
+      }
+    },
+    "GetSiblingPath": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "leafIndex": "LeafIndex"
+      },
+      "response": {
+        "path": "Fr[]"
+      }
+    },
+    "GetBlockNumbersForLeafIndices": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "leafIndices": "LeafIndex[]"
+      },
+      "response": {
+        "blockNumbers": "BlockNumber?[]"
+      }
+    },
+    "FindLeafIndices": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "leaves": "Fr[]",
+        "startIndex": "LeafIndex"
+      },
+      "response": {
+        "indices": "LeafIndex?[]"
+      }
+    },
+    "FindPublicDataLeafIndices": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leaves": "PublicDataLeafValue[]",
+        "startIndex": "LeafIndex"
+      },
+      "response": {
+        "indices": "LeafIndex?[]"
+      }
+    },
+    "FindNullifierLeafIndices": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leaves": "NullifierLeafValue[]",
+        "startIndex": "LeafIndex"
+      },
+      "response": {
+        "indices": "LeafIndex?[]"
+      }
+    },
+    "FindLowLeaf": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "key": "Fr"
+      },
+      "response": {
+        "alreadyPresent": "bool",
+        "index": "LeafIndex"
+      }
+    },
+    "FindSiblingPaths": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "revision": "WorldStateRevision",
+        "leaves": "Fr[]"
+      },
+      "response": {
+        "paths": "SiblingPathAndIndex?[]"
+      }
+    },
+    "FindPublicDataSiblingPaths": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leaves": "PublicDataLeafValue[]"
+      },
+      "response": {
+        "paths": "SiblingPathAndIndex?[]"
+      }
+    },
+    "FindNullifierSiblingPaths": {
+      "request": {
+        "revision": "WorldStateRevision",
+        "leaves": "NullifierLeafValue[]"
+      },
+      "response": {
+        "paths": "SiblingPathAndIndex?[]"
+      }
+    },
+    "AppendLeaves": {
+      "request": {
+        "treeId": "MerkleTreeId",
+        "leaves": "Fr[]",
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "AppendPublicDataLeaves": {
+      "request": {
+        "leaves": "PublicDataLeafValue[]",
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "AppendNullifierLeaves": {
+      "request": {
+        "leaves": "NullifierLeafValue[]",
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "BatchInsertPublicData": {
+      "request": {
+        "leaves": "PublicDataLeafValue[]",
+        "subtreeDepth": "u32",
+        "forkId": "ForkId"
+      },
+      "response": {
+        "result": "BatchInsertionResultPublicData"
+      }
+    },
+    "BatchInsertNullifier": {
+      "request": {
+        "leaves": "NullifierLeafValue[]",
+        "subtreeDepth": "u32",
+        "forkId": "ForkId"
+      },
+      "response": {
+        "result": "BatchInsertionResultNullifier"
+      }
+    },
+    "SequentialInsertPublicData": {
+      "request": {
+        "leaves": "PublicDataLeafValue[]",
+        "forkId": "ForkId"
+      },
+      "response": {
+        "result": "SequentialInsertionResultPublicData"
+      }
+    },
+    "SequentialInsertNullifier": {
+      "request": {
+        "leaves": "NullifierLeafValue[]",
+        "forkId": "ForkId"
+      },
+      "response": {
+        "result": "SequentialInsertionResultNullifier"
+      }
+    },
+    "UpdateArchive": {
+      "request": {
+        "blockStateRef": "TreeStateReference[]",
+        "blockHeaderHash": "BlockHeaderHash",
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "Commit": {
+      "request": {},
+      "response": {
+        "status": "WorldStateStatusFull"
+      }
+    },
+    "Rollback": {
+      "request": {},
+      "response": {}
+    },
+    "SyncBlock": {
+      "request": {
+        "blockNumber": "BlockNumber",
+        "blockStateRef": "TreeStateReference[]",
+        "blockHeaderHash": "BlockHeaderHash",
+        "paddedNoteHashes": "Fr[]",
+        "paddedL1ToL2Messages": "Fr[]",
+        "paddedNullifiers": "NullifierLeafValue[]",
+        "publicDataWrites": "PublicDataLeafValue[]",
+        "expectedArchiveRoot": "Fr?",
+        "expectedPreviousArchiveRoot": "Fr?"
+      },
+      "response": {
+        "status": "WorldStateStatusFull"
+      }
+    },
+    "CreateFork": {
+      "request": {
+        "latest": "bool",
+        "blockNumber": "BlockNumber"
+      },
+      "response": {
+        "forkId": "ForkId"
+      }
+    },
+    "DeleteFork": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "FinalizeBlocks": {
+      "request": {
+        "toBlockNumber": "BlockNumber"
+      },
+      "response": {
+        "status": "WorldStateStatusSummary"
+      }
+    },
+    "UnwindBlocks": {
+      "request": {
+        "toBlockNumber": "BlockNumber"
+      },
+      "response": {
+        "status": "WorldStateStatusFull"
+      }
+    },
+    "RemoveHistoricalBlocks": {
+      "request": {
+        "toBlockNumber": "BlockNumber"
+      },
+      "response": {
+        "status": "WorldStateStatusFull"
+      }
+    },
+    "GetStatus": {
+      "request": {},
+      "response": {
+        "status": "WorldStateStatusSummary"
+      }
+    },
+    "CreateCheckpoint": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "CommitCheckpoint": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "RevertCheckpoint": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "CommitAllCheckpoints": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "RevertAllCheckpoints": {
+      "request": {
+        "forkId": "ForkId"
+      },
+      "response": {}
+    },
+    "CopyStores": {
+      "request": {
+        "dstPath": "string",
+        "compact": "bool?"
+      },
+      "response": {}
+    }
+  }
+}

@@ -9,6 +9,7 @@
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
@@ -52,6 +53,7 @@ template <typename Flavor_> class ProverInstance_ {
 
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
+    std::vector<uint32_t> rom_logup_records;
 
     size_t dyadic_size() const { return metadata.dyadic_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
@@ -96,18 +98,20 @@ template <typename Flavor_> class ProverInstance_ {
 
     void allocate_selectors(const Circuit&);
 
-    void allocate_table_lookup_polynomials(const Circuit&);
+    void allocate_table_lookup_polynomials(const Circuit&)
+        requires(Flavor::HasLogDerivLookup);
 
     void allocate_ecc_op_polynomials(const Circuit&)
-        requires IsMegaFlavor<Flavor>;
+        requires Flavor::HasEccOpQueue;
 
     void allocate_databus_polynomials(const Circuit&)
-        requires HasDataBus<Flavor>;
+        requires Flavor::HasDataBus;
 
     void construct_databus_polynomials(Circuit&)
-        requires HasDataBus<Flavor>;
+        requires Flavor::HasDataBus;
 
-    void construct_lookup_polynomials(Circuit& circuit);
+    void construct_lookup_polynomials(Circuit& circuit)
+        requires(Flavor::HasLogDerivLookup);
 
     void populate_memory_records(const Circuit& circuit);
 };

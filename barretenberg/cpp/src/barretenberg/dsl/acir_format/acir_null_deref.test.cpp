@@ -80,7 +80,7 @@ TEST_F(AcirNullDerefTest, AES128Encrypt_NullIV_DirectCircuit_Crashes)
     };
 
     // Dereferences nullptr at acir_to_constraint_buf.cpp:636: *arg.iv
-    EXPECT_DEATH(circuit_serde_to_acir_format(circuit), "");
+    EXPECT_DEATH(circuit_serde_to_acir_format(circuit, /*is_mega=*/false), "");
 }
 
 TEST_F(AcirNullDerefTest, Keccakf1600_NullInputs_DirectCircuit_Crashes)
@@ -100,7 +100,7 @@ TEST_F(AcirNullDerefTest, Keccakf1600_NullInputs_DirectCircuit_Crashes)
     };
 
     // Dereferences nullptr at acir_to_constraint_buf.cpp:716: *arg.inputs
-    EXPECT_DEATH(circuit_serde_to_acir_format(circuit), "");
+    EXPECT_DEATH(circuit_serde_to_acir_format(circuit, /*is_mega=*/false), "");
 }
 
 TEST_F(AcirNullDerefTest, Sha256Compression_NullInputs_DirectCircuit_Crashes)
@@ -121,7 +121,7 @@ TEST_F(AcirNullDerefTest, Sha256Compression_NullInputs_DirectCircuit_Crashes)
     };
 
     // Dereferences nullptr at acir_to_constraint_buf.cpp:644: *arg.inputs
-    EXPECT_DEATH(circuit_serde_to_acir_format(circuit), "");
+    EXPECT_DEATH(circuit_serde_to_acir_format(circuit, /*is_mega=*/false), "");
 }
 
 // ============================================================================
@@ -160,7 +160,8 @@ TEST_F(AcirNullDerefTest, AES128Encrypt_NullIV_FromBytes_ThrowsAfterFix)
     ASSERT_GE(nil_count, 2U) << "Buffer must contain at least 2 NIL (0xc0) bytes for null iv and key";
 
     // After fix: deserialization rejects NIL for required fields → throws instead of SIGSEGV
-    EXPECT_THROW_WITH_MESSAGE(circuit_buf_to_acir_format(std::move(buf)), "nil value for required field");
+    EXPECT_THROW_WITH_MESSAGE(circuit_buf_to_acir_format(std::move(buf), /*is_mega=*/false),
+                              "nil value for required field");
 }
 
 TEST_F(AcirNullDerefTest, NullSharedPtr_RejectedByMsgpackRoundtrip)

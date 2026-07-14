@@ -309,7 +309,7 @@ TEST(AddressDerivationConstrainingTest, NegativeIVKNotOnCurve)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<address_derivation_relation>(trace, address_derivation_relation::SR_IVK_ON_CURVE_CHECK),
-        "IVK_ON_CURVE_CHECK");
+        address_derivation_relation::get_subrelation_label(address_derivation_relation::SR_IVK_ON_CURVE_CHECK));
 }
 
 } // namespace

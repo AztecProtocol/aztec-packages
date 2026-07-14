@@ -12,7 +12,7 @@ pub contract PendingNoteHashes {
     use crate::filter::filter_notes_min_sum;
     use aztec::{
         macros::{functions::{external, internal}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol::{
             abis::function_selector::FunctionSelector,
@@ -45,7 +45,7 @@ pub contract PendingNoteHashes {
 
         // Insert note
         // docs:start:private_set_insert
-        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
+        owner_balance.insert(note).deliver(MessageDelivery::onchain_unconstrained());
         // docs:end:private_set_insert
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
@@ -91,6 +91,19 @@ pub contract PendingNoteHashes {
         let note = FieldNote { value: amount };
 
         // Insert note
+        owner_balance.insert(note).deliver(MessageDelivery::onchain_unconstrained());
+    }
+
+    // Nested/inner function to create and insert a note using constrained delivery. Constrained note logs are not
+    // linked to the note for squashing (recipients discover them by scanning the per-secret tag sequence, so a
+    // removed log would break the index chain), meaning the log survives even when the note itself is squashed.
+    #[external("private")]
+    fn insert_note_constrained(amount: Field, owner: AztecAddress, sender: AztecAddress) {
+        let owner_balance = self.storage.balances.at(owner);
+
+        let note = FieldNote { value: amount };
+
+        // Insert note
         owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
     }
 
@@ -106,7 +119,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote::unpack([amount.to_field()]);
 
         // Insert note
-        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
+        owner_balance.insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     // Nested/inner function to create and insert a note
@@ -120,10 +133,10 @@ pub contract PendingNoteHashes {
         // Insert note
         let message = owner_balance.insert(note);
 
-        message.deliver(MessageDelivery::onchain_constrained());
+        message.deliver(MessageDelivery::onchain_unconstrained());
 
         // Deliver note message again
-        message.deliver(MessageDelivery::onchain_constrained());
+        message.deliver(MessageDelivery::onchain_unconstrained());
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -315,7 +328,7 @@ pub contract PendingNoteHashes {
             let recipient_balance = self.storage.balances.at(recipient);
 
             let note = FieldNote { value: i as Field };
-            recipient_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
+            recipient_balance.insert(note).deliver(MessageDelivery::onchain_unconstrained());
         }
     }
 

@@ -17,6 +17,8 @@ include "precomputed.pil";
  *  2) sel_gt
  *  3) sel_memory
  *  4) sel_alu
+ *  5) sel_sha256
+ *
  *
  * Preconditions:
  * - 0 <= value < 2^128. Any value >= 2^128 is unsatisfiable because the 16-bit range checks
@@ -57,18 +59,18 @@ include "precomputed.pil";
  *
  * Interactions (this gadget as source -- lookups into precomputed tables):
  *
- * | Lookup Name          | Selector                  | LHS Tuple                               | RHS (precomputed)               |
- * |----------------------|---------------------------|-----------------------------------------|---------------------------------|
- * | #[DYN_RNG_CHK_POW_2] | sel                       | { dyn_rng_chk_bits, dyn_rng_chk_pow_2 } | sel_range_8 { idx, power_of_2 } |
- * | #[DYN_DIFF_IS_U16]   | sel                       | { dyn_diff }                            | sel_range_16 { idx }            |
- * | #[R0_IS_U16]         | sel_r0_16_bit_rng_lookup  | { u16_r0 }                              | sel_range_16 { idx }            |
- * | #[R1_IS_U16]         | sel_r1_16_bit_rng_lookup  | { u16_r1 }                              | sel_range_16 { idx }            |
- * | #[R2_IS_U16]         | sel_r2_16_bit_rng_lookup  | { u16_r2 }                              | sel_range_16 { idx }            |
- * | #[R3_IS_U16]         | sel_r3_16_bit_rng_lookup  | { u16_r3 }                              | sel_range_16 { idx }            |
- * | #[R4_IS_U16]         | sel_r4_16_bit_rng_lookup  | { u16_r4 }                              | sel_range_16 { idx }            |
- * | #[R5_IS_U16]         | sel_r5_16_bit_rng_lookup  | { u16_r5 }                              | sel_range_16 { idx }            |
- * | #[R6_IS_U16]         | sel_r6_16_bit_rng_lookup  | { u16_r6 }                              | sel_range_16 { idx }            |
- * | #[R7_IS_U16]         | sel                       | { u16_r7 }                              | sel_range_16 { idx }            |
+ * | Lookup Name          | Selector                  | LHS Tuple                               | RHS (precomputed)                 |
+ * |----------------------|---------------------------|-----------------------------------------|-----------------------------------|
+ * | #[DYN_RNG_CHK_POW_2] | sel                       | { dyn_rng_chk_bits, dyn_rng_chk_pow_2 } | sel_range_8 { idx, power_of_2 }   |
+ * | #[DYN_DIFF_IS_U16]   | sel                       | { dyn_diff }                            | sel_range_16_active { idx }       |
+ * | #[R0_IS_U16]         | sel_r0_16_bit_rng_lookup  | { u16_r0 }                              | sel_range_16_active { idx }       |
+ * | #[R1_IS_U16]         | sel_r1_16_bit_rng_lookup  | { u16_r1 }                              | sel_range_16_active { idx }       |
+ * | #[R2_IS_U16]         | sel_r2_16_bit_rng_lookup  | { u16_r2 }                              | sel_range_16_active { idx }       |
+ * | #[R3_IS_U16]         | sel_r3_16_bit_rng_lookup  | { u16_r3 }                              | sel_range_16_active { idx }       |
+ * | #[R4_IS_U16]         | sel_r4_16_bit_rng_lookup  | { u16_r4 }                              | sel_range_16_active { idx }       |
+ * | #[R5_IS_U16]         | sel_r5_16_bit_rng_lookup  | { u16_r5 }                              | sel_range_16_active { idx }       |
+ * | #[R6_IS_U16]         | sel_r6_16_bit_rng_lookup  | { u16_r6 }                              | sel_range_16_active { idx }       |
+ * | #[R7_IS_U16]         | sel                       | { u16_r7 }                              | sel_range_16_active { idx }       |
  *
  * Soundness argument summary:
  * 1) #[CHECK_RECOMPOSITION] forces value = sum of (u16_r_i * 2^(16*i)) + u16_r7 * 2^(16*k),
@@ -95,12 +97,14 @@ namespace range_check;
     pol commit sel_gt; // @boolean - destination for gt.pil #[GT_RANGE]
     pol commit sel_memory; // @boolean - destination for memory.pil #[RANGE_CHECK_WRITE_TAGGED_VALUE]
     pol commit sel_alu; // @boolean - destination for alu.pil range check lookups
+    pol commit sel_sha256; // @boolean - destination for sha256.pil range check lookups
     sel_keccak * (1 - sel_keccak) = 0;
     sel_gt * (1 - sel_gt) = 0;
     sel_memory * (1 - sel_memory) = 0;
     sel_alu * (1 - sel_alu) = 0;
+    sel_sha256 * (1 - sel_sha256) = 0;
     // If any of the above selectors is 1, then sel must be 1.
-    (sel_keccak + sel_gt + sel_memory + sel_alu) * (1 - sel) = 0;
+    (sel_keccak + sel_gt + sel_memory + sel_alu + sel_sha256) * (1 - sel) = 0;
 
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
@@ -270,7 +274,7 @@ namespace range_check;
     // The value of dyn_diff has to be between [0, 2^16)
     // To check we did not underflow we just range check it
     #[DYN_DIFF_IS_U16]
-    sel { dyn_diff } in precomputed.sel_range_16 { precomputed.idx };
+    sel { dyn_diff } in precomputed.sel_range_16_active { precomputed.idx };
 
     ////////////////////////////////////////////////
     // Cumulative Lookup Selectors and 16-bit Range Check Lookups
@@ -308,18 +312,18 @@ namespace range_check;
     sel_r6_16_bit_rng_lookup - CUM_LTE_128 = 0;
 
     #[R0_IS_U16]
-    sel_r0_16_bit_rng_lookup { u16_r0 } in precomputed.sel_range_16 { precomputed.idx };
+    sel_r0_16_bit_rng_lookup { u16_r0 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R1_IS_U16]
-    sel_r1_16_bit_rng_lookup { u16_r1 } in precomputed.sel_range_16 { precomputed.idx };
+    sel_r1_16_bit_rng_lookup { u16_r1 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R2_IS_U16]
-    sel_r2_16_bit_rng_lookup { u16_r2 } in precomputed.sel_range_16 { precomputed.idx };
+    sel_r2_16_bit_rng_lookup { u16_r2 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R3_IS_U16]
-    sel_r3_16_bit_rng_lookup { u16_r3 } in precomputed.sel_range_16 { precomputed.idx };
+    sel_r3_16_bit_rng_lookup { u16_r3 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R4_IS_U16]
-    sel_r4_16_bit_rng_lookup { u16_r4 } in precomputed.sel_range_16 { precomputed.idx };
+    sel_r4_16_bit_rng_lookup { u16_r4 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R5_IS_U16]
-    sel_r5_16_bit_rng_lookup { u16_r5 } in precomputed.sel_range_16 { precomputed.idx };
+    sel_r5_16_bit_rng_lookup { u16_r5 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R6_IS_U16]
-    sel_r6_16_bit_rng_lookup { u16_r6 } in precomputed.sel_range_16 { precomputed.idx };
+    sel_r6_16_bit_rng_lookup { u16_r6 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R7_IS_U16]
-    sel { u16_r7 } in precomputed.sel_range_16 { precomputed.idx };
+    sel { u16_r7 } in precomputed.sel_range_16_active { precomputed.idx };

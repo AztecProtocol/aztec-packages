@@ -2,46 +2,59 @@ include "precomputed.pil";
 include "constants_gen.pil";
 
 /**
- * The bitwise trace performs AND/OR/XOR operations on non-FF types. It does
- * this by decomposing the inputs into 8-bit chunks and looks up the resulting
- * chunk of the operation in the precomputed bitwise table. The final output is
- * the accumulation of these result chunks.
- * The precomputed bitwise table contains the results of all combinations of
- * bitwise operations for 8-bit values. These values are stored as a tuple of
- * <input_a, input_b, output_and, output_or, output_xor>.
+ * The bitwise trace performs AND/OR/XOR operations on non-FF types. It is a
+ * HORIZONTAL subtrace: a whole operation is computed on a SINGLE row.
+ *
+ * Each input (a, b) and the output (c) is decomposed into 16 little-endian byte
+ * limbs (the committed ia_byte_i, ib_byte_i and the derived IC_BYTE_i, for i = 0..15). For each limb we perform
+ * the byte-level bitwise operation via a lookup into the precomputed bitwise table
+ * (which stores AND/OR/XOR results for all 8-bit input pairs). The full values are
+ * recomposed from the limbs with hardcoded powers of two.
+ *
+ * Not every limb is needed for every type: a U8 op only uses limb 0, a U16 op uses
+ * limbs 0-1, U32 limbs 0-3, U64 limbs 0-7 and U128 all 16 limbs. To avoid paying for
+ * 16 lookups on small types, each limb's lookup is gated by a width selector:
+ *   - sel_compute   -> limb 0           (U1/U8 support; sel_compute == 1 when no tag error occurs)
+ *   - sel_u16       -> limb 1           (U16 support)
+ *   - sel_u32       -> limbs 2, 3       (U32 support)
+ *   - sel_u64       -> limbs 4, 5, 6, 7 (U64 support)
+ *   - sel_u128      -> limbs 8..15      (U128 support)
+ * These selectors are nested (sel_u128 => sel_u64 => sel_u32 => sel_u16 => sel_compute).
+ * If no tag error occurs, sel_compute == 1 and limb 0 is always active.
+ * The active byte length is decomposed as (gated by sel_compute):
+ *   tag_byte_len = 1 + sel_u16 + sel_u32 * 2 + sel_u64 * 4 + sel_u128 * 8
+ * and bound to the input tag via a lookup into precomputed.tag_byte_length. This,
+ * together with the booleanity of the selectors, uniquely determines the selectors.
+ *
+ * The recomposition of inputs and output from their bytes is masked according to the width selectors.
+ * Bytes which are not active for the given type are free variables but they are evaluated to zero
+ * in the recomposition due to the corresponding width selector being zero. See relations #[BITW_RECOMP_XXX].
+ *
  * ERROR HANDLING:
  * The possible errors for this subtrace relate to the AVM memory tag:
  * 1) Either of the inputs tags is of type FF
  * 2) The inputs do not have the same tag.
- * In either case, we do not attempt to perform the bitwise operation.
+ * In either case we do not attempt to perform the bitwise operation. On error rows
+ * sel_compute = 0, so all byte lookups, the tag-length lookup and the op_id dispatch
+ * are disabled, and the byte limbs are free.
  *
- * Error rows are single-row blocks (start=1, end=1, sel=1, err=1, ctr unconstrained).
- * Byte-level computation is gated by sel_compute = sel * (1 - err), so all
- * lookups and op_id dispatch are disabled on error rows. The error flag is
- * propagated back to the execution dispatch via the start-row lookup.
+ * Trace example for a AND b == c of type u32 (single row)
+ * a = 0x52488425, b = 0xC684486C, c = 0x42000024
+ * +-----+-------------+----------+----------+----------+----------+----------+----------+----------+
+ * | sel | ia          | ia_byte_0| ia_byte_1| ia_byte_2| ia_byte_3| IC_BYTE_0| ...      | sel_u32  |
+ * +-----+-------------+----------+----------+----------+----------+----------+----------+----------+
+ * |   1 | 0x52488425  |     0x25 |     0x84 |     0x48 |     0x52 |     0x24 | ...      |     1    |
+ * +-----+-------------+----------+----------+----------+----------+----------+----------+----------+
+ * (limbs 4..15 are zero; sel_compute = sel_u16 = sel_u32 = 1, sel_u64 = sel_u128 = 0)
  *
- * Trace example for a AND b == c of type u32
- * a = 0x52488425
- * b = 0xC684486C
- * c = 0x42000024
- * +-----+-----+-------+-----+------------+------------+------------+---------+---------+---------+
- * | ctr | sel | start | end |   acc_ia   |   acc_ib   |   acc_ic   | ia_byte | ib_byte | ic_byte |
- * +-----+-----+-------+-----+------------+------------+------------+---------+---------+---------+
- * |   4 |   1 |     1 |   0 | 0x52488425 | 0xC684486C | 0x42000024 |    0x25 |    0x6C |    0x24 |
- * |   3 |   1 |     0 |   0 |   0x524884 |   0xC68448 |   0x420000 |    0x84 |    0x48 |    0x00 |
- * |   2 |   1 |     0 |   0 |     0x5248 |     0xC684 |     0x4200 |    0x48 |    0x84 |    0x00 |
- * |   1 |   1 |     0 |   1 |       0x52 |       0xC6 |       0x42 |    0x52 |    0xC6 |    0x42 |
- * +-----+-----+-------+-----+------------+------------+------------+---------+---------+---------+
- *
- * Trace example for an ERROR case (tag mismatch: a is U16, b is U32)
- * The error case generates a single row with start=1, end=1, sel=1, err=1.
- * Since sel_compute=0, the byte operations lookup and counter decrement are disabled.
- * The accumulator init constraint (end=1) still applies, requiring acc_* = *_byte.
- * +-----+-----+-------+-----+-----+----------------------+--------+-------+-------+-------+
- * | ctr | sel | start | end | err | sel_tag_mismatch_err | acc_ia | tag_a | tag_b | tag_c |
- * +-----+-----+-------+-----+-----+----------------------+--------+-------+-------+-------+
- * |  0  |  1  |   1   |  1  |  1  |          1           | a_val  |   3   |   4   | 0(FF) |
- * +-----+-----+-------+-----+-----+----------------------+--------+-------+-------+-------+
+ * Trace examples for ERROR cases (row 1: tag mismatch a=U16, b=U32; row 2: input tag FF, a=b=FF)
+ * +-----+-----+-------------+-------+-------+-------+-------+--------+----------------------+----------------+
+ * | sel | err | sel_compute |  ia   |  ib   | tag_a | tag_b | tag_c  | sel_tag_mismatch_err | sel_tag_ff_err |
+ * +-----+-----+-------------+-------+-------+-------+-------+--------+----------------------+----------------+
+ * |  1  |  1  |      0      | a_val | b_val |   3   |   4   | 0 (FF) |          1           |       0        |
+ * |  1  |  1  |      0      | a_val | b_val |   0   |   0   | 0 (FF) |          0           |       1        |
+ * +-----+-----+-------------+-------+-------+-------+-------+--------+----------------------+----------------+
+ * (byte limbs are free since sel_compute = 0)
  *
  * ==============================
  * INVOCATION WITH ERROR HANDLING
@@ -54,42 +67,68 @@ include "constants_gen.pil";
  *    register[0], mem_tag_reg[0],
  *    register[1], mem_tag_reg[1],
  *    register[2], mem_tag_reg[2]
- * } in bitwise.start {
+ * } in bitwise.sel_bitwise_opcode {
  *    bitwise.op_id, bitwise.err,
- *    bitwise.acc_ia, bitwise.tag_a,
- *    bitwise.acc_ib, bitwise.tag_b,
- *    bitwise.acc_ic, bitwise.tag_c
+ *    bitwise.ia, bitwise.tag_a,
+ *    bitwise.ib, bitwise.tag_b,
+ *    bitwise.ic, bitwise.tag_c
  * };
+ *
  *
  * =================================
  * INVOCATION WITHOUT ERROR HANDLING
  * =================================
  *
  * Used by both `keccakf1600.pil` and `sha256.pil` sub-traces using their respective selectors:
- * `start_keccak` and `start_sha256`. It assumes that the bitwise operation is always performed
+ * `sel_keccak` and `sel_sha256`. It assumes that the bitwise operation is always performed
  * as tags of both inputs are known to be valid. Therefore, there is no error handling. However,
  * tracegen still needs to populate the trace to satisfy the constraints related to error handling.
  *
  * Usage is of the form:
  *
- * sel_XXX { a, b, c, xor_sel, tag_a }
+ * sel_XXX { a, b, c, xor_sel, tag, tag }
  * in
- * bitwise.start_XXX { bitwise.acc_ia, bitwise.acc_ib, bitwise.acc_ic, bitwise.op_id, bitwise.tag_a };
+ * bitwise.sel_XXX { bitwise.ia, bitwise.ib, bitwise.ic, bitwise.op_id, bitwise.tag_a, bitwise.tag_b };
  *
- * where start_XXX is either start_keccak or start_sha256.
+ * where sel_XXX is either sel_keccak or sel_sha256.
+ * The caller passes the same tag column twice on the source side (u32_tag for sha256,
+ * tag_u64 for keccak) so that the source tuple matches the (tag_a, tag_b) pair on the
+ * destination. This constrains the target row's tag_b to equal tag_a, preventing a malicious
+ * prover from aiming a valid-looking keccak/sha256 lookup at a bitwise error row (which
+ * would otherwise match because its tag_b is unconstrained on the source side).
  * Note that the order of the tuple columns might differ though. As long as the correct columns
- * are passed, the usage is sound.
+ * are passed, the usage is sound. Passing the tag twice is also a completeness requirement because
+ * tracegen toggles its granular selector onto whatever row they match (outer selector is sel.).
+ *
+ * --- SIMD-64 invocation (keccak only) ---
+ *
+ * keccak additionally batches two independent U64 operations into a single bitwise row through the
+ * `sel_simd_64` destination selector. The two operations are packed into the row's 16 byte limbs:
+ * lane 0 occupies the low 8 limbs and lane 1 occupies the high 8 limbs. Both inputs are therefore U128,
+ * so the width-selector machinery activates all 16 limbs and #[BITW_SIMD_ONLY_ON_U128] forces tag_a = U128.
+ *
+ * Usage is of the form:
+ *
+ * sel_XXX { op_id, a0, a1, b0, b1, c0, c1 }
+ * in
+ * bitwise.sel_simd_64 { bitwise.op_id, bitwise.ia, bitwise.ia_simd, bitwise.ib, bitwise.ib_simd, bitwise.ic, bitwise.ic_simd };
+ *
+ * where (a0, b0, c0) is lane 0 and (a1, b1, c1) is lane 1. Unlike the scalar form, NO tag is passed on
+ * the source side. The scalar lookups pass the tag twice to keep their lookup off bitwise error rows
+ * (whose tag_b is otherwise free), which is a completeness requirement because tracegen toggles its granular
+ * selector onto whatever row they match. The SIMD lookups don't need this: sel_simd_64 is set only by
+ * tracegen on genuine (err = 0) SIMD rows. The tag is redundant anyway: sel_simd_64 = 1 forces sel_u128 = 1 => tag_a =
+ * U128, and err = 0 forces tag_a = tag_b.
  *
  */
 
 namespace bitwise;
 
 ////////////////////////////////////////////////
-// Multi-row Computation Selectors (standard recipe)
+// Row selector
 ////////////////////////////////////////////////
 
-// Selector for active Bitwise block rows.
-// In the standard recipe, sel=1 for ALL rows in a block, including error rows.
+// Selector for active Bitwise rows. Each active row is one complete operation.
 pol commit sel; // @boolean
 sel * (1 - sel) = 0;
 
@@ -97,61 +136,55 @@ sel * (1 - sel) = 0;
 #[skippable_if]
 sel = 0;
 
-// Follows the recipe documented in:
-// https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+// Granular selectors used by external callers to decouple the inverses of the lookups into this trace.
+// They mark which active rows are claimed by those callers: the execution dispatch (sel_bitwise_opcode),
+// the keccak/sha256 scalar lookups (sel_keccak/sel_sha256), and the keccak SIMD-64 lookups (sel_simd_64).
+//
+// SIMD-64: a row that packs two independent U64 bitwise operations into the 16 byte limbs (lane 0 =
+// low 8 limbs, exposed via ia/ib/ic; lane 1 = high 8 limbs, exposed via
+// ia_simd/ib_simd/ic_simd). This is sound because AND/OR/XOR are bit-independent, so the
+// two 64-bit lanes never interact. Such rows are always U128 (tag_a = tag_b = U128), so the standard
+// width-selector machinery activates all 16 limbs (the #[BITW_SIMD_ONLY_ON_U128] guard below enforces
+// this). sel_simd_64 only changes how the value is read back, not how it is computed.
+//
+// sel_simd_64 is set directly by tracegen on every SIMD-64 row. The keccak SIMD lookups are
+// therefore declared as standard lookups into bitwise.sel_simd_64 with NO outer selector: their index
+// is built over the sel_simd_64 rows only.
+//
+// Completeness consequence: a SIMD lookup can only ever match a genuine SIMD row. The reverse can happen: a
+// non-SIMD U128 lookup (e.g. the execution dispatch, whose index spans all sel rows) may match a SIMD
+// row. Its tuple is (op_id, err, ia, ib, ic, tags) and does NOT include ia_simd/ib_simd/ic_simd, so the
+// SIMD row's lane 1 is irrelevant to the match: it suffices that the non-SIMD op is U128 with its high
+// 64 bits zero and its low 64 bits equal to the SIMD row's lane 0 (ia/ib/ic). This is fine:
+//   - the non-SIMD lookup only reads ia/ib/ic, which the match forces to equal the op's own U128
+//     operands/result (high = 0), so the value read back is correct.
+//   - the SIMD row stays a fully valid row and toggling sel_bitwise_opcode on it violates nothing (no
+//     relation forbids the two claims coexisting).
+pol commit sel_keccak; // @boolean
+pol commit sel_sha256; // @boolean
+pol commit sel_simd_64; // @boolean
+pol commit sel_bitwise_opcode; // @boolean
+sel_keccak * (1 - sel_keccak) = 0;
+sel_sha256 * (1 - sel_sha256) = 0;
+sel_simd_64 * (1 - sel_simd_64) = 0;
+sel_bitwise_opcode * (1 - sel_bitwise_opcode) = 0;
+// If any granular selector is 1, then the row must be active.
+(sel_keccak + sel_sha256 + sel_simd_64 + sel_bitwise_opcode) * (1 - sel) = 0;
 
-// NOTE on start selector:
-// start=1 on non-first rows within a block. This is safe because:
-// (1) The execution dispatch is a lookup INTO bitwise using bitwise.start as the destination
-//     selector. Extra start=1 rows are just unclaimed destinations -- harmless.
-// (2) Keccak/sha256 use separate selectors (start_keccak/start_sha256) which enforce that start=1.
-// (3) Setting start=1 on a middle row triggers #[INTEGRAL_TAG_LENGTH] lookup, which would fail
-//     because ctr at that row would not match the tag's byte length.
-// The start of the computation, used as a selector by a caller.
-pol commit start; // @boolean
-start * (1 - start) = 0;
+////////////////////////////////////////////////
+// Tag Checking / Error Handling
+////////////////////////////////////////////////
+// The checks that need to be performed are: (1) the tags are not FF, and (2) that the input tags are the same.
+// We can simplify (1) by just checking that tag_a != FF. It can be observed
+// that we don't need to also check that tag_b != FF since it follows from the tag check of (2)
 
-// The end of the computation.
-pol commit end; // @boolean
-end * (1 - end) = 0;
+// These are the tags {1,2,3,4,5,6} of the inputs (restricted to not be a field).
+pol commit tag_a;
+pol commit tag_b;
+pol commit tag_c; // This is the tag of the result
 
-pol LATCH_CONDITION = end + precomputed.first_row;
-
-// start=1 or end=1 implies sel=1.
-#[SEL_ON_START_OR_END]
-(start + end) * (1 - sel) = 0;
-
-// Trace is contiguous: once sel = 0, it cannot be set to 1, can only be set to 0 at LATCH_CONDITION
-#[TRACE_CONTINUITY]
-(1 - LATCH_CONDITION) * (sel - sel') = 0;
-
-// A new block of computation must start immediately after a latch.
-#[START_AFTER_LATCH]
-sel' * (start' - LATCH_CONDITION) = 0;
-
-pol NOT_END = sel - end;
-
-// This is used to decouple generation of inverses of lookups into this trace.
-pol commit start_keccak; // @boolean
-pol commit start_sha256; // @boolean
-start_keccak * (1 - start_keccak) = 0;
-start_sha256 * (1 - start_sha256) = 0;
-// If any of the above selectors is 1, then start must be 1.
-(start_keccak + start_sha256) * (1 - start) = 0;
-
-// Crucial constraint to prevent the vulnerability described in PR #19875 consisting
-// of maliciously setting start_keccak/start_sha256=1 on error rows (sel=1, err=1)
-// and forging arbitrary bitwise operation results.
-// keccak and sha256 only enforce that tag_a = U64/U32 respectively. An attacker is free to
-// set tag_b to any tag value and use the resulting tag mismatch error to return an invalid result
-#[BITW_NO_EXTERNAL_START_ON_ERROR]
-(start_keccak + start_sha256) * err = 0;
-
-// To support dynamically sized memory operands we use a counter against a lookup
-// This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
-// corresponding integer. i.e. TAG_LEN is between 1 (U1/U8) and 16 (U128).
-// Consistency can be achieved with a lookup table between the tag and precomputed.tag_byte_length
-pol commit ctr;
+// Selectors for bitwise operations, constrained from subtrace_operation_id from execution trace.
+pol commit op_id;
 
 // The error flags for this subtrace
 pol commit sel_tag_ff_err; // @boolean
@@ -162,115 +195,90 @@ sel_tag_mismatch_err * (1 - sel_tag_mismatch_err) = 0;
 // Consolidated error flag
 pol commit err; // @boolean (by definition)
 err = 1 - (1 - sel_tag_mismatch_err) * (1 - sel_tag_ff_err);
-#[END_ON_ERROR] // end = 1 if err = 1
-err * (end - 1) = 0;
-
-// Error can only manifest on start rows (where tag checks are evaluated).
-// Without this, a prover could set err=1 on the end row of a multi-row block,
-// disabling sel_compute and the byte lookup on that row, which leaves ic_byte
-// unconstrained and allows forging the bitwise result via the accumulator.
-#[ERR_ONLY_ON_START]
-(sel - start) * err = 0;
-
-// Gate for byte-level computation. Disabled on error rows (sel=1, err=1).
-// Must be committed because it is used as a lookup selector in #[BYTE_OPERATIONS].
-pol commit sel_compute; // @boolean by definition
-sel_compute = sel * (1 - err);
-
-////////////////////////////////////////////////
-// Tag Checking / Error Handling
-////////////////////////////////////////////////
-// The checks that need to be performed are: (1) the tags are not FF, and (2) that the input tags are the same.
-// We can simplify (1) by just checking that tag_a != FF. It can be observed
-// that we don't need to also check that tag_b != FF since it follows from the the tag check of (2)
-
-// These are the tags {1,2,3,4,5,6} of the inputs (restricted to not be a field).
-// @unconstrained-on-non-start: tag_a, tag_b, tag_c are only constrained when start=1
-// (via tag checking relations and the execution dispatch lookup). On non-start rows,
-// these columns are free. Tracegen sets them to 0 on non-start rows.
-pol commit tag_a;
-pol commit tag_b;
-pol commit tag_c; // This is the tag of the result
-// Sufficient to set tag_c == tag_a because we check that tag_a == tag_b
-// If there is an error, we relax this constraint as we want the flexibility to set the register in execution to FF(0)
-#[RES_TAG_SHOULD_MATCH_INPUT]
-(1 - err) * start * (tag_c - tag_a) = 0;
 
 // Check that tag_a is not FF
 pol commit tag_a_inv;
-// When start = 1: tag_a == 0 <==> sel_tag_ff_err = 1
+// When sel = 1: tag_a == 0 <==> sel_tag_ff_err = 1
 // For more consistency and clarity we have this helper even though constants.MEM_TAG_FF = 0;
 pol TAG_A_DIFF = tag_a - constants.MEM_TAG_FF;
 #[INPUT_TAG_CANNOT_BE_FF]
-start * (TAG_A_DIFF * (sel_tag_ff_err * (1 - tag_a_inv) + tag_a_inv) - 1 + sel_tag_ff_err) = 0;
+sel * (TAG_A_DIFF * (sel_tag_ff_err * (1 - tag_a_inv) + tag_a_inv) - 1 + sel_tag_ff_err) = 0;
 
 // Check that the input tags match each other
 pol TAG_AB_DIFF = tag_a - tag_b;
 pol commit tag_ab_diff_inv;
-// When start = 1:  TAG_AB_DIFF != 0 <==> sel_tag_mismatch_err = 1
+// When sel = 1:  TAG_AB_DIFF != 0 <==> sel_tag_mismatch_err = 1
 #[INPUT_TAGS_SHOULD_MATCH]
-start * (TAG_AB_DIFF * ((1 - sel_tag_mismatch_err) * (1 - tag_ab_diff_inv) + tag_ab_diff_inv) - sel_tag_mismatch_err) = 0;
+sel * (TAG_AB_DIFF * ((1 - sel_tag_mismatch_err) * (1 - tag_ab_diff_inv) + tag_ab_diff_inv) - sel_tag_mismatch_err) = 0;
+
+// Gate selector for the happy (no error) path.
+pol commit sel_compute; // @boolean by definition
+sel_compute = sel * (1 - err);
+
+// Sufficient to set tag_c == tag_a because we check that tag_a == tag_b.
+// If there is an error, we relax this constraint as we want the flexibility to set the register in execution to FF(0).
+#[RES_TAG_SHOULD_MATCH_INPUT]
+sel_compute * (tag_c - tag_a) = 0;
+
+// Crucial constraint to prevent the vulnerability (PR #19875) consisting of maliciously
+// setting sel_keccak/sel_sha256=1 on error rows (sel=1, err=1) and forging arbitrary bitwise
+// operation results. keccak and sha256 only enforce that tag_a = U64/U32 respectively; an
+// attacker could otherwise set tag_b to any tag value and use the tag mismatch error to return
+// an invalid result. Note that sha256/keccak now invoke non-simd bitwise lookups with both
+// input tags so this relation is not strictly required anymore for `sel_keccak` and `sel_sha256`.
+// To the contrary, for SIMD-64 rows it IS required (no tag is passed on the SIMD lookup): it forces
+// err = 0, which keeps sel_compute = 1 so ic/ic_simd stay constrained by the recomposition. Without
+// it a prover could set sel_simd_64 = 1 on an error row (sel_compute = 0 leaves ic/ic_simd free) and
+// forge both lanes. (It also gives tag_a == tag_b; #[BITW_SIMD_ONLY_ON_U128] gives == U128.)
+#[BITW_NO_EXTERNAL_ON_ERROR]
+(sel_keccak + sel_sha256 + sel_simd_64) * err = 0;
 
 ////////////////////////////////////////////////
-// Begin Executing Bitwise ops
+// Width selectors and tag byte length
 ////////////////////////////////////////////////
-// Byte recomposition column, the value in these columns are part of the equivalence
-// check to main wherever start is set to 1.
-pol commit acc_ia;
-pol commit acc_ib;
-pol commit acc_ic;
 
-// Little Endian bitwise decomposition of accumulators (which are processed top-down),
-// constrained to be U8 via the #[BYTE_OPERATIONS] lookup (gated by sel_compute).
-// @unconstrained-on-error: when sel_compute=0 (error rows), these columns are not range-checked to U8.
-// This is safe because the byte lookup is disabled and the values only appear in
-// #[BITW_INIT_*] (gated by end) to set acc_* values.
-pol commit ia_byte;
-pol commit ib_byte;
-pol commit ic_byte;
+// To capture the first byte limb, we use sel_compute as a width selector.
+pol commit sel_u16;  // @boolean
+pol commit sel_u32;  // @boolean
+pol commit sel_u64;  // @boolean
+pol commit sel_u128; // @boolean
+sel_u16 * (1 - sel_u16) = 0;
+sel_u32 * (1 - sel_u32) = 0;
+sel_u64 * (1 - sel_u64) = 0;
+sel_u128 * (1 - sel_u128) = 0;
 
-// Selectors for bitwise operations, constrained from subtrace_operation_id from execution trace
-pol commit op_id;
+// SIMD-64 packs two U64 lanes, so it is only meaningful on a U128 row (all 16 limbs active). This
+// also keeps the (sel_u128 - sel_simd_64) coefficient in the recomposition below well-defined.
+#[BITW_SIMD_ONLY_ON_U128]
+sel_simd_64 * (1 - sel_u128) = 0;
 
-// Op Id is restricted to be the same during the same computation (i.e. between starts)
-#[BITW_OP_ID_REL_CONTINUITY]
-NOT_END * (op_id' - op_id) = 0;
+// Byte length of the integral type, decomposed over the width selectors. Gated by sel_compute:
+// on error rows (and padding rows) the selectors and tag_byte_len are free and unused.
+pol commit tag_byte_len;
+#[BITW_TAG_LEN_DECOMPOSITION]
+sel_compute * (tag_byte_len - 1 - sel_u16 - sel_u32 * 2 - sel_u64 * 4 - sel_u128 * 8) = 0;
 
-#[BITW_CTR_DECREMENT]
-NOT_END * (ctr - 1 - ctr') = 0;
-
-// end == 1 <=> ctr == 1 (when computing, i.e. non-error rows)
-// Gated by sel_compute because ctr is unconstrained on error rows (err=1).
-pol commit ctr_min_one_inv;
-#[BITW_END_FOR_CTR_ONE]
-sel_compute * ((ctr - 1) * (end * (1 - ctr_min_one_inv) + ctr_min_one_inv) + end - 1) = 0;
-
-// Forces accumulator to initialize with ia_byte, ib_byte, and ic_byte (the MSB)
-#[BITW_INIT_A]
-end * (acc_ia - ia_byte) = 0;
-#[BITW_INIT_B]
-end * (acc_ib - ib_byte) = 0;
-#[BITW_INIT_C]
-end * (acc_ic - ic_byte) = 0;
-
-#[BITW_ACC_REL_A]
-NOT_END * (acc_ia - ia_byte - 256 * acc_ia') = 0;
-#[BITW_ACC_REL_B]
-NOT_END * (acc_ib - ib_byte - 256 * acc_ib') = 0;
-#[BITW_ACC_REL_C]
-NOT_END * (acc_ic - ic_byte - 256 * acc_ic') = 0;
-
-// If we encounter an error, we do not want to perform a lookup to retrieve ctr.
-pol commit sel_get_ctr; // @boolean
-sel_get_ctr = start * (1 - err);
-
-// Lookup to verify that ctr matches the expected byte length for the given tag.
-// Only active on non-error start rows
-#[INTEGRAL_TAG_LENGTH]
-sel_get_ctr { tag_a, ctr }
+// Lookup to bind the byte length (hence the width selectors) to the input tag. Only active on
+// non-error compute rows. Together with booleanity of the selectors and the decomposition above,
+// this uniquely determines the selectors (and forces their nesting).
+#[BITW_TAG_BYTE_LENGTH]
+sel_compute { tag_a, tag_byte_len }
 in
 precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_byte_length };
 
+////////////////////////////////////////////////
+// Byte decomposition
+////////////////////////////////////////////////
+// Little-endian byte limbs of the two inputs. On compute rows, active limbs are constrained to be
+// U8 via the #[BYTE_OPERATIONS_*] lookups; inactive high-order limbs are excluded from the
+// recomposition by their (zero) width selector. On error rows the limbs are free.
+// The output byte limbs are not committed: they are the IC_BYTE_* aliases defined further below.
+pol commit ia_byte[16];
+pol commit ib_byte[16];
+
+////////////////////////////////////////////////
+// Op id dispatch
+////////////////////////////////////////////////
 pol commit sel_and;
 pol commit sel_or;
 pol commit sel_xor;
@@ -287,23 +295,164 @@ sel_compute * op_id = sel_and * constants.AVM_BITWISE_AND_OP_ID
             + sel_or * constants.AVM_BITWISE_OR_OP_ID
             + sel_xor * constants.AVM_BITWISE_XOR_OP_ID;
 
-// @unconstrained-on-error: when sel_compute=0 (error rows), these columns are not range-checked.
-pol commit output_and;
-pol commit output_or;
-pol commit output_xor;
+////////////////////////////////////////////////
+// Per-limb byte operations
+////////////////////////////////////////////////
+// Each lookup constrains (ia_byte_i, ib_byte_i) to be a valid U8 pair and output_and/or/xor_i to
+// be the correct byte-level results. The lookup for limb i is gated by the width selector that
+// makes limb i active for the corresponding type. On inactive limbs the lookup is disabled and the
+// limbs are zeroed above.
+pol commit output_and[16];
+pol commit output_or[16];
+pol commit output_xor[16];
 
-// We fetch all the byte operations in one lookup for efficiency purposes.
-// This lookup constrains ia_byte, ib_byte to be U8 and output_and/or/xor to be the correct
-// byte-level results for the given inputs. Only active when sel_compute=1 (non-error computation rows).
-#[BYTE_OPERATIONS]
-sel_compute {
-     ia_byte, ib_byte,
-     output_and, output_or, output_xor
-} in precomputed.sel_range_16 {
-     precomputed.bitwise_input_a, precomputed.bitwise_input_b,
-     precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor
-};
+// First byte limb is always present if `sel_compute == 1`.
+#[BYTE_OPERATIONS_0]
+sel_compute { ia_byte[0], ib_byte[0], output_and[0], output_or[0], output_xor[0] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
 
-// Dispatch the relevant output value to the output.
-ic_byte = sel_and * output_and + sel_or * output_or + sel_xor * output_xor;
+#[BYTE_OPERATIONS_1]
+sel_u16 { ia_byte[1], ib_byte[1], output_and[1], output_or[1], output_xor[1] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
 
+#[BYTE_OPERATIONS_2]
+sel_u32 { ia_byte[2], ib_byte[2], output_and[2], output_or[2], output_xor[2] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_3]
+sel_u32 { ia_byte[3], ib_byte[3], output_and[3], output_or[3], output_xor[3] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_4]
+sel_u64 { ia_byte[4], ib_byte[4], output_and[4], output_or[4], output_xor[4] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_5]
+sel_u64 { ia_byte[5], ib_byte[5], output_and[5], output_or[5], output_xor[5] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_6]
+sel_u64 { ia_byte[6], ib_byte[6], output_and[6], output_or[6], output_xor[6] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_7]
+sel_u64 { ia_byte[7], ib_byte[7], output_and[7], output_or[7], output_xor[7] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_8]
+sel_u128 { ia_byte[8], ib_byte[8], output_and[8], output_or[8], output_xor[8] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_9]
+sel_u128 { ia_byte[9], ib_byte[9], output_and[9], output_or[9], output_xor[9] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_10]
+sel_u128 { ia_byte[10], ib_byte[10], output_and[10], output_or[10], output_xor[10] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_11]
+sel_u128 { ia_byte[11], ib_byte[11], output_and[11], output_or[11], output_xor[11] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_12]
+sel_u128 { ia_byte[12], ib_byte[12], output_and[12], output_or[12], output_xor[12] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_13]
+sel_u128 { ia_byte[13], ib_byte[13], output_and[13], output_or[13], output_xor[13] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_14]
+sel_u128 { ia_byte[14], ib_byte[14], output_and[14], output_or[14], output_xor[14] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+#[BYTE_OPERATIONS_15]
+sel_u128 { ia_byte[15], ib_byte[15], output_and[15], output_or[15], output_xor[15] }
+in precomputed.sel_bitwise { precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output_and, precomputed.bitwise_output_or, precomputed.bitwise_output_xor };
+
+// Output byte of each limb: the result of the selected operation. These are aliases (intermediate
+// polynomials), not committed columns, since they are fully determined by the op selectors and the
+// per-limb lookup outputs. On error rows sel_and/or/xor = 0, so every IC_BYTE_* is 0.
+pol IC_BYTE_0  = sel_and * output_and[0]  + sel_or * output_or[0]  + sel_xor * output_xor[0];
+pol IC_BYTE_1  = sel_and * output_and[1]  + sel_or * output_or[1]  + sel_xor * output_xor[1];
+pol IC_BYTE_2  = sel_and * output_and[2]  + sel_or * output_or[2]  + sel_xor * output_xor[2];
+pol IC_BYTE_3  = sel_and * output_and[3]  + sel_or * output_or[3]  + sel_xor * output_xor[3];
+pol IC_BYTE_4  = sel_and * output_and[4]  + sel_or * output_or[4]  + sel_xor * output_xor[4];
+pol IC_BYTE_5  = sel_and * output_and[5]  + sel_or * output_or[5]  + sel_xor * output_xor[5];
+pol IC_BYTE_6  = sel_and * output_and[6]  + sel_or * output_or[6]  + sel_xor * output_xor[6];
+pol IC_BYTE_7  = sel_and * output_and[7]  + sel_or * output_or[7]  + sel_xor * output_xor[7];
+pol IC_BYTE_8  = sel_and * output_and[8]  + sel_or * output_or[8]  + sel_xor * output_xor[8];
+pol IC_BYTE_9  = sel_and * output_and[9]  + sel_or * output_or[9]  + sel_xor * output_xor[9];
+pol IC_BYTE_10 = sel_and * output_and[10] + sel_or * output_or[10] + sel_xor * output_xor[10];
+pol IC_BYTE_11 = sel_and * output_and[11] + sel_or * output_or[11] + sel_xor * output_xor[11];
+pol IC_BYTE_12 = sel_and * output_and[12] + sel_or * output_or[12] + sel_xor * output_xor[12];
+pol IC_BYTE_13 = sel_and * output_and[13] + sel_or * output_or[13] + sel_xor * output_xor[13];
+pol IC_BYTE_14 = sel_and * output_and[14] + sel_or * output_or[14] + sel_xor * output_xor[14];
+pol IC_BYTE_15 = sel_and * output_and[15] + sel_or * output_or[15] + sel_xor * output_xor[15];
+
+////////////////////////////////////////////////
+// Recomposition
+////////////////////////////////////////////////
+// Full recomposed values, part of the equivalence check to callers.
+pol commit ia;
+pol commit ib;
+pol commit ic;
+
+// High-lane values for SIMD-64 rows: the second packed U64 operation. On non-SIMD rows these are 0.
+pol commit ia_simd;
+pol commit ib_simd;
+pol commit ic_simd;
+
+// Recomposition of the full values from the byte limbs. Each limb is gated by the width selector
+// that makes it active for the type, so inactive high-order limbs are excluded from the sum.
+// First byte limb is always present if `sel_compute == 1`.
+//
+// On a SIMD-64 row (sel_simd_64 = sel_u128 = 1) the top-half term is suppressed by the
+// (sel_u128 - sel_simd_64) = 0 coefficient, so ia/ib/ic hold only lane 0 (the low 8 limbs = a U64);
+// the high 8 limbs (lane 1) are recomposed separately into ia_simd/ib_simd/ic_simd below.
+//
+// Each byte is implicitly ranged-constrained to be a valid U8 by the BYTE_OPERATIONS_* lookups because the
+// precomputed columns `bitwise_input_a`, `bitwise_input_b` contain only valid U8 pairs.
+#[BITW_RECOMP_A]
+sel_compute * (ia
+       - ia_byte[0]
+       - sel_u16  *  ia_byte[1] * 2**8
+       - sel_u32  * (ia_byte[2] * 2**16  + ia_byte[3]  * 2**24)
+       - sel_u64  * (ia_byte[4] * 2**32  + ia_byte[5]  * 2**40  + ia_byte[6]  * 2**48  + ia_byte[7]  * 2**56)
+       - (sel_u128 - sel_simd_64) * (ia_byte[8] * 2**64  + ia_byte[9]  * 2**72  + ia_byte[10] * 2**80  + ia_byte[11] * 2**88
+                   + ia_byte[12] * 2**96 + ia_byte[13] * 2**104 + ia_byte[14] * 2**112 + ia_byte[15] * 2**120)) = 0;
+
+#[BITW_RECOMP_B]
+sel_compute * (ib
+       - ib_byte[0]
+       - sel_u16  *  ib_byte[1] * 2**8
+       - sel_u32  * (ib_byte[2] * 2**16  + ib_byte[3]  * 2**24)
+       - sel_u64  * (ib_byte[4] * 2**32  + ib_byte[5]  * 2**40  + ib_byte[6]  * 2**48  + ib_byte[7]  * 2**56)
+       - (sel_u128 - sel_simd_64) * (ib_byte[8] * 2**64  + ib_byte[9]  * 2**72  + ib_byte[10] * 2**80  + ib_byte[11] * 2**88
+                   + ib_byte[12] * 2**96 + ib_byte[13] * 2**104 + ib_byte[14] * 2**112 + ib_byte[15] * 2**120)) = 0;
+
+#[BITW_RECOMP_C]
+sel_compute * (ic
+       - IC_BYTE_0
+       - sel_u16  *  IC_BYTE_1 * 2**8
+       - sel_u32  * (IC_BYTE_2 * 2**16  + IC_BYTE_3  * 2**24)
+       - sel_u64  * (IC_BYTE_4 * 2**32  + IC_BYTE_5  * 2**40  + IC_BYTE_6  * 2**48  + IC_BYTE_7  * 2**56)
+       - (sel_u128 - sel_simd_64) * (IC_BYTE_8 * 2**64  + IC_BYTE_9  * 2**72  + IC_BYTE_10 * 2**80  + IC_BYTE_11 * 2**88
+                   + IC_BYTE_12 * 2**96 + IC_BYTE_13 * 2**104 + IC_BYTE_14 * 2**112 + IC_BYTE_15 * 2**120)) = 0;
+
+// SIMD-64 high lane (lane 1): the high 8 limbs recomposed as a standalone U64. Zero on non-SIMD rows.
+#[BITW_RECOMP_A_SIMD]
+sel_compute * (ia_simd
+       - sel_simd_64 * (ia_byte[8] + ia_byte[9] * 2**8 + ia_byte[10] * 2**16 + ia_byte[11] * 2**24
+                      + ia_byte[12] * 2**32 + ia_byte[13] * 2**40 + ia_byte[14] * 2**48 + ia_byte[15] * 2**56)) = 0;
+
+#[BITW_RECOMP_B_SIMD]
+sel_compute * (ib_simd
+       - sel_simd_64 * (ib_byte[8] + ib_byte[9] * 2**8 + ib_byte[10] * 2**16 + ib_byte[11] * 2**24
+                      + ib_byte[12] * 2**32 + ib_byte[13] * 2**40 + ib_byte[14] * 2**48 + ib_byte[15] * 2**56)) = 0;
+
+#[BITW_RECOMP_C_SIMD]
+sel_compute * (ic_simd
+       - sel_simd_64 * (IC_BYTE_8 + IC_BYTE_9 * 2**8 + IC_BYTE_10 * 2**16 + IC_BYTE_11 * 2**24
+                      + IC_BYTE_12 * 2**32 + IC_BYTE_13 * 2**40 + IC_BYTE_14 * 2**48 + IC_BYTE_15 * 2**56)) = 0;

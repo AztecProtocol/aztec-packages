@@ -133,15 +133,11 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              perm_addressing_indirect_from_memory_2_settings,
              perm_addressing_indirect_from_memory_3_settings,
              perm_addressing_indirect_from_memory_4_settings,
-             perm_addressing_indirect_from_memory_5_settings,
-             perm_addressing_indirect_from_memory_6_settings,
              // Registers.
              perm_registers_mem_op_0_settings,
              perm_registers_mem_op_1_settings,
              perm_registers_mem_op_2_settings,
              perm_registers_mem_op_3_settings,
-             perm_registers_mem_op_4_settings,
-             perm_registers_mem_op_5_settings,
              // Data Copy.
              perm_data_copy_mem_read_settings,
              perm_data_copy_mem_write_settings,
@@ -178,9 +174,12 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              perm_to_radix_mem_write_mem_settings
              // Others.
              >(Column::memory_sel)
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_0_settings>()
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_1_settings>()
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_2_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_0_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_1_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_2_settings>(
+            Column::precomputed_sel_range_16)
         .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_tag_max_bits_settings>()
         .add<InteractionType::LookupGeneric, lookup_memory_range_check_write_tagged_value_settings>(
             Column::range_check_sel);

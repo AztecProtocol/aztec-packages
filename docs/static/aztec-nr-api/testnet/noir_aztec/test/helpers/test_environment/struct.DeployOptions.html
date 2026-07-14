@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct DeployOptions documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">DeployOptions</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct DeployOptions</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+<li><a href="#with_salt">with_salt</a></li>
+<li><a href="#with_secret">with_secret</a></li>
+</ul>
+<h2>In module test_environment</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.CallPrivateOptions.html">CallPrivateOptions</a></div></li>
+<li><a href="struct.CallPublicOptions.html">CallPublicOptions</a></div></li>
+<li><a href="struct.DeployOptions.html">DeployOptions</a></div></li>
+<li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
+<li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
+<li><a href="struct.TestEnvironment.html">TestEnvironment</a></div></li>
+<li><a href="struct.TestEnvironmentOptions.html">TestEnvironmentOptions</a></div></li>
+<li><a href="struct.ViewPrivateOptions.html">ViewPrivateOptions</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">test_environment</a></div>
+<h1>Struct <span id="struct" class="struct">DeployOptions</span></h1>
+<pre><code>pub struct DeployOptions
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>Configuration values for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#deploy_opts"><code>TestEnvironment::deploy_opts</code></a>. Meant to be used by calling <code>new</code> and then chaining
+methods setting each value, e.g.:</p>
+<pre><code>env.deploy_opts(DeployOptions::new().with_salt(<span class="number">42</span>).with_secret(<span class="number">100</span>), <span class="string">"MyContract"</span>).without_initializer();</code></pre></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.DeployOptions.html" class="struct">DeployOptions</a></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a new <code>DeployOptions</code> with default values, i.e. the same as if using the <code>deploy</code> method instead of
+<code>deploy_opts</code>. Use the <code>with_salt</code> and <code>with_secret</code> methods to set the desired configuration values.</p>
+</div>
+</div><code id="with_salt" class="code-header">pub fn <a href="#with_salt"><span class="fn">with_salt</span></a>(&mut self, salt: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Sets the deployment salt. The salt affects the resulting contract address: the same contract deployed with
+different salts will have different addresses.</p>
+</div>
+</div><code id="with_secret" class="code-header">pub fn <a href="#with_secret"><span class="fn">with_secret</span></a>(&mut self, secret: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Sets the secret used for key derivation. The secret affects the contract's public keys and therefore its
+address: the same contract deployed with different secrets will have different addresses.</p>
+</div>
+</div></div></main>
+</span>
+</body>
+</html>

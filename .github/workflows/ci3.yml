@@ -7,6 +7,8 @@ name: CI3
 on:
   workflow_dispatch:
   push:
+    branches:
+      - next
     tags:
       - "v*"
   pull_request:
@@ -14,8 +16,11 @@ on:
   merge_group: {}
 
 concurrency:
-  # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
-  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.run_id) || github.event.merge_group.head_ref || github.ref_name }}
+  # merge-train PRs: one run per commit — distinct commits run concurrently (each is a real
+  # train state to test), but duplicate events for the same commit (synchronize + the bot's
+  # label re-applies) collapse. Keying on head.sha instead of run_id is what collapses them;
+  # run_id is unique per run and never collapsed anything. Everything else: one run per branch.
+  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.event.pull_request.head.sha) || github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -115,6 +120,9 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          # Internal GCP Artifact Registry the private repo's release pushes the docker image to (see
+          # bootstrap.sh::private_release). Empty in the public repo, where releases publish normally.
+          INTERNAL_DOCKER_REGISTRY: ${{ vars.INTERNAL_DOCKER_REGISTRY }}
           MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
@@ -158,7 +166,7 @@ jobs:
           fi
 
       - name: Upload benchmarks
-        if: env.SHOULD_UPLOAD_BENCHMARKS == '1'
+        if: env.BENCH_UPLOAD == '1'
         uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with: &ci_benchmark_args
           name: Aztec Benchmarks
@@ -208,7 +216,7 @@ jobs:
       fail-fast: false
       matrix:
         test_set: ["1", "2"]
-    # We run on current nightly tags only, or when the ci-network-scenario label is present in a PR.
+    # We run on the current v5-next nightly tag (private repo only), or when the ci-network-scenario label is present in a PR.
     needs: [ci, validate-nightly-tag]
     if: |
       always()
@@ -216,7 +224,11 @@ jobs:
       && github.event.pull_request.head.repo.fork != true
       && github.event.pull_request.draft == false
       && (
-        needs.validate-nightly-tag.outputs.is_current == 'true'
+        (
+          needs.validate-nightly-tag.outputs.is_current == 'true'
+          && github.repository == 'AztecProtocol/aztec-packages-private'
+          && startsWith(github.ref_name, 'v5.')
+        )
         || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
       )
     steps:

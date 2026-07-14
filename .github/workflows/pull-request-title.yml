@@ -28,6 +28,7 @@ jobs:
           types: |
             fix
             feat
+            perf
             chore
             refactor
             docs
@@ -42,6 +43,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           sparse-checkout: .github/pull_request_template.md
           sparse-checkout-cone-mode: false
       - name: Check PR description

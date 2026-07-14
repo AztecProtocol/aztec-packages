@@ -17,7 +17,7 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
     using FF = FF_;
     using Base = ECCVMTranscriptRelationImpl<FF>;
 
-    // This relation covers the first 27 transcript subrelations (indices 0..26). The final 5 subrelations
+    // This relation covers the first 26 transcript subrelations (indices 0..25). The final 5 subrelations
     // (OFFSET_GENERATOR_X/Y, MSM_INFINITY_*) are gated entirely by `msm_transition` and live in the separate
     // ECCVMTranscriptMsmTransitionShortRelation, which the prover skips on the (overwhelming majority of) rows where
     // msm_transition == 0. The base enum was ordered to place those 5 contiguously at the end so this split preserves
@@ -27,7 +27,7 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
     // stay at length 8 so they can share promoted Accumulator-typed intermediates (result_is_lhs/rhs/inf,
     // opcode_is_zero). Other subrelations only share length-2 short views with the core block and can shrink to
     // their true degree+1.
-    static constexpr size_t NUM_MAIN_SUBRELATIONS = Base::OFFSET_GENERATOR_X; // 27 (everything before the split)
+    static constexpr size_t NUM_MAIN_SUBRELATIONS = Base::OFFSET_GENERATOR_X; // 26 (everything before the split)
     static constexpr std::array<size_t, NUM_MAIN_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS{
         3, // Z1_ZERO_CHECK (deg 2)
         3, // Z2_ZERO_CHECK (deg 2)
@@ -55,11 +55,10 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
         3, // INFINITY_BASE_PY (deg 2)
         3, // INFINITY_ACC_X (deg 2)
         3, // INFINITY_ACC_Y (deg 2)
-        3, // ACCUMULATOR_NOT_EMPTY_INIT (deg 2)
     };
     static_assert(NUM_MAIN_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
-    // Skip rows on which every one of the 27 main subrelations contributes the identically-zero polynomial.
+    // Skip rows on which every one of the 26 main subrelations contributes the identically-zero polynomial.
     //
     // Predicate: skip iff the sum of these wires is_zero(): transcript_op, transcript_msm_transition,
     // transcript_msm_count, transcript_accumulator_not_empty, transcript_accumulator_x, transcript_accumulator_y,
@@ -69,7 +68,7 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
     // row-disabled rows the wires are randomised, so the sum is nonzero w.h.p. and those rows are never skipped (same
     // reasoning as the existing ECCVM skips).
     //
-    // EVERY boundary lagrange that gates a subrelation is included: lagrange_first gates ACCUMULATOR_NOT_EMPTY_INIT;
+    // EVERY boundary lagrange that gates or disables a subrelation is included: lagrange_first gates is_not_first_row;
     // lagrange_second gates HIDING_ROW_EQ and HIDING_ROW_RESET and the is_not_hiding_row factor in the eq and on-curve
     // checks; lagrange_third gates BOUNDARY_ACCUMULATOR_EMPTY and BOUNDARY_MSM_COUNT_AND_PC; lagrange_last gates the pc
     // term of BOUNDARY_MSM_COUNT_AND_PC. Omitting lagrange_third was the bug in a prior naive port: it wrongly skipped
@@ -85,7 +84,7 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
     //     q_eq, q_reset, msm_transition, any_add_is_active (q_add plus msm_transition), msm_count, or is_not_first_row,
     //     all 0 here. OPCODE_WELL_FORMED equals (8 q_add plus 4 q_mul plus 2 q_eq plus q_reset) minus op, which is 0.
     //   - Boundary-lagrange-gated subrelations (BOUNDARY_ACCUMULATOR_EMPTY, BOUNDARY_MSM_COUNT_AND_PC, HIDING_ROW_EQ,
-    //     HIDING_ROW_RESET, ACCUMULATOR_NOT_EMPTY_INIT): the gating lagrange is 0.
+    //     HIDING_ROW_RESET): the gating lagrange is 0.
     //   - INFINITY_ACC_X and INFINITY_ACC_Y equal is_accumulator_empty times an accumulator coordinate, which is 0
     //     since the coordinate is 0. INFINITY_BASE_PX, INFINITY_BASE_PY and the two z-zero checks vanish because honest
     //     padding sets base_x, base_y, z1, z2 all to 0.

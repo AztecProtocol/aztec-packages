@@ -23,7 +23,11 @@ class API {
         bool slow_low_memory{ false };          // use file backed memory for polynomials
         std::string storage_budget;             // storage budget for file backed memory (e.g. "500m", "2g")
         std::string vk_policy{ "default" };     // policy for handling VKs during IVC accumulation
-        bool use_zk_flavor{ false };            // chonk-only: compute VK against MegaZKFlavor (vs MegaFlavor)
+        // chonk-only: which Mega flavor to derive the VK against — "app" (MegaAppFlavor),
+        // "kernel" (MegaKernelFlavor), or "hiding" (MegaZKFlavor for the hiding kernel). Required
+        // for `bb write_vk --scheme chonk`; the caller (e.g. noir-protocol-circuits/bootstrap.sh)
+        // must know the kind because it determines the VK shape.
+        std::string circuit_kind{ "" };
 
         bool optimized_solidity_verifier{ false }; // should we use the optimized sol verifier? (temp)
 
@@ -45,7 +49,7 @@ class API {
                << "  slow_low_memory " << flags.slow_low_memory << "\n"
                << "  storage_budget " << flags.storage_budget << "\n"
                << "  vk_policy " << flags.vk_policy << "\n"
-               << "  use_zk_flavor " << flags.use_zk_flavor << "\n"
+               << "  circuit_kind " << flags.circuit_kind << "\n"
                << "  output_format " << flags.output_format << "\n"
                << "]" << std::endl;
             return os;

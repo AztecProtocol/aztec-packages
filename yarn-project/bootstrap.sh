@@ -122,18 +122,16 @@ function compile_all {
   # Ensure the pinned version sqlite3mc-wasm upstream artifacts are present before any package builds.
   ./sqlite3mc-wasm/scripts/vendor.sh ensure
 
-  compile_project ::: constants foundation stdlib blob-lib builder ethereum l1-artifacts
+  compile_project ::: constants foundation stdlib blob-lib builder ethereum
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
     aztec.js \
     cli \
-    ethereum \
     slasher \
     stdlib \
     ivc-integration \
-    l1-artifacts \
     noir-contracts.js \
     noir-test-contracts.js \
     noir-protocol-circuits-types \
@@ -263,13 +261,6 @@ function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
 
-  # Strip platform-specific solc binary from l1-artifacts before npm publish.
-  # Replace solc="./solc-X.Y.Z" with solc_version="X.Y.Z" so forge auto-downloads
-  # the correct binary via SVM on the end-user's machine.
-  local l1_artifacts="l1-artifacts/l1-contracts"
-  rm -f "$l1_artifacts"/solc-*
-  sed -i 's|^solc = "\./solc-\(.*\)"|solc_version = "\1"|' "$l1_artifacts/foundry.toml"
-
   local package_list=()
   for package in $packages; do
     (cd $package && retry "deploy_npm $1")
@@ -298,7 +289,10 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-lite")
-    files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/)' || true)
+    # Preserve gitignored fixture dirs that are populated by sibling builds and
+    # consumed concurrently by parallel test commands. Wiping them mid-test
+    # yanks files out from under readers (see chonk_inputs.sh download path).
+    files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/|^tmp/|^end-to-end/example-app-ivc-inputs-out/|^end-to-end/ultrahonk-bench-inputs/|^end-to-end/dumped-avm-circuit-inputs/)' || true)
     if [ -n "$files" ]; then
       echo "$files" | xargs rm -rf
     fi

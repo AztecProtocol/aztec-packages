@@ -39,7 +39,6 @@
     "ivc-integration",
     "key-store",
     "kv-store",
-    "l1-artifacts",
     "native",
     "node-keystore",
     "node-lib",
@@ -85,7 +84,13 @@
     "typescript": "^5.3.3"
   },
   "resolutions": {
-    "@aztec/bb.js": "portal:../barretenberg/ts",
+    "@aztec/bb.js": "portal:../barretenberg/ts/bb.js",
+    "@aztec/ipc-runtime": "portal:../ipc-runtime/ts",
+    "@aztec/wsdb": "portal:../wsdb/ts",
+    "@aztec/wsdb-darwin-arm64": "portal:../wsdb/ts/packages/wsdb-darwin-arm64",
+    "@aztec/wsdb-darwin-x64": "portal:../wsdb/ts/packages/wsdb-darwin-x64",
+    "@aztec/wsdb-linux-arm64": "portal:../wsdb/ts/packages/wsdb-linux-arm64",
+    "@aztec/wsdb-linux-x64": "portal:../wsdb/ts/packages/wsdb-linux-x64",
     "@aztec/noir-acvm_js": "portal:../noir/packages/acvm_js",
     "@aztec/noir-types": "portal:../noir/packages/types",
     "@aztec/noir-noirc_abi": "portal:../noir/packages/noirc_abi",

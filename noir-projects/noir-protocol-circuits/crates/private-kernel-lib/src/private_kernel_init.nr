@@ -25,18 +25,6 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     // Whether this tx only makes private calls. `false` if at least one public call will be made throughout the tx.
     // This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
     pub is_private_only: bool,
-    // A hint indicating what the first nullifier of the transaction will be.
-    // If no private call emits a nullifier, this should be set to the protocol nullifier. (For how the protocol
-    // nullifier is computed, see: types/src/hash.nr > create_protocol_nullifier)
-    // If this value equals the protocol nullifier, the Init circuit inserts the protocol nullifier at index 0.
-    // This hint is used in the Reset circuit to compute nonces for the note hashes (to prevent Faerie-Gold attacks). It
-    // is necessary to avoid cases where a Reset circuit silos note hashes before the first nullifier has been emitted.
-    // This value remains constant throughout private execution and is verified in the Tail(-to-Public) circuit.
-    //
-    // Note: Since this value is used as the nonce generator, it is not recommended to set it to a **revertible**
-    // nullifier. The PXE uses the first nullifier to recover note hash preimages. If the original first nullifier is
-    // reverted, access to the note contents would be lost.
-    pub first_nullifier_hint: Field,
     // A hint indicating what the `min_revertible_side_effect_counter` will be.
     // The revertible counter separates non-revertible side effects (which persist even if the tx reverts) from
     // revertible ones.
@@ -53,12 +41,11 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
 /// This circuit:
 /// - Validates the initial private call data (proof verification, contract address validation, etc.)
 /// - Verifies the call matches the `tx_request` provided by the user
-/// - Creates the protocol nullifier from the `tx_request` hash if the `first_nullifier_hint` indicates that it should
-///   be injected
+/// - Creates the protocol nullifier from the `tx_request` hash and injects it as the first nullifier
 /// - Establishes the `tx_context` (chain ID, version, protocol contracts, etc.)
 /// - Initializes the accumulated data arrays for note hashes, nullifiers, read requests, and other side effects from
 ///   the private call
-/// - Sets up the hints `is_private_only`, `claimed_first_nullifier`, `claimed_revertible_counter` for the transaction
+/// - Sets up the hints `is_private_only`, `claimed_revertible_counter` for the transaction
 ///
 /// The output feeds into subsequent Private Kernel Inner circuits if there are more private calls,
 /// into Private Kernel Reset if any resettable data array becomes too large and cannot accept more items,
@@ -70,7 +57,6 @@ pub fn execute(inputs: PrivateKernelInitCircuitPrivateInputs) -> PrivateKernelCi
     PrivateCallDataValidator::new(inputs.private_call).validate_as_first_call(
         inputs.tx_request,
         inputs.protocol_contracts,
-        inputs.first_nullifier_hint,
         inputs.revertible_counter_hint,
     );
 

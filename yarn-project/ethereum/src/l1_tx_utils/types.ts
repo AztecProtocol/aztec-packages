@@ -1,4 +1,5 @@
 import type { BlobKzgInstance } from '@aztec/blob-lib/types';
+import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 
@@ -55,6 +56,12 @@ export type L1TxState = {
   cancelTxHashes: Hex[];
   gasLimit: bigint;
   gasPrice: GasPrice;
+  /**
+   * Prices used for each attempt (initial send followed by each speed-up), in order. Always set on
+   * newly sent txs; optional because states restored from the state store predate the field.
+   * In-memory only — not persisted by the state store.
+   */
+  gasPriceHistory?: GasPrice[];
   txConfigOverrides: L1TxConfig;
   request: L1TxRequest;
   status: TxUtilsState;
@@ -81,5 +88,30 @@ export class DroppedTransactionError extends Error {
   constructor(nonce: number, account: string) {
     super(`Transaction with nonce ${nonce} from account ${account} was dropped from the mempool`);
     this.name = 'DroppedTransactionError';
+  }
+}
+
+/** Snapshot of what a timed-out L1 tx tried to pay, taken when the timeout is raised. */
+export type TimedOutTxState = {
+  /** Prices used across the initial send and each speed-up, in order (undefined only for restored states). */
+  gasPriceHistory?: GasPrice[];
+  /** The last price the tx was sent at before timing out. */
+  finalGasPrice: GasPrice;
+  /** Number of send attempts (initial + speed-ups). */
+  attempts: number;
+  nonce: number;
+  gasLimit: bigint;
+};
+
+/**
+ * Thrown by sendAndMonitorTransaction when a tx times out. Subclasses TimeoutError so existing
+ * `instanceof TimeoutError` checks keep working, while carrying the gas-price ladder for diagnostics.
+ */
+export class L1TxTimeoutError extends TimeoutError {
+  constructor(
+    message: string,
+    public readonly txState: TimedOutTxState,
+  ) {
+    super(message);
   }
 }

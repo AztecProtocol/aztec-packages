@@ -17,7 +17,7 @@ global SYNC_COUNTER_SLOT: Field = sha256_to_field("SYNC_COUNTER".as_bytes());
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::my_custom_sync))]
 contract CustomSyncState {
     use aztec::macros::{functions::{external, initializer}, storage::storage};
-    use aztec::messages::message_delivery::MessageDelivery;
+    use aztec::messages::delivery::MessageDelivery;
     use aztec::protocol::address::AztecAddress;
     use aztec::state_vars::{Owned, PrivateImmutable};
     use field_note::FieldNote;

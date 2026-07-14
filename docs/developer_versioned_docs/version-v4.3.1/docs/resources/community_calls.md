@@ -21,7 +21,7 @@ Every week you can join office hours and ecosystem calls to get unblocked, learn
 ## Aztec & Noir Developer Office Hours
 
 - **When:** Thursdays · 14:00 - 15:00 UTC
-- **Where:** [Google Meet](https://meet.google.com/sdd-rdsr-shu)
+- **Where:** [Google Meet](https://meet.google.com/vev-waao-mab)
 - **For:** Developers building with Aztec.nr smart contracts or writing and debugging Noir. Bring your questions about syntax, tooling, patterns, or protocol-level topics. Share a project you're working on, or just hang out with the Aztec Labs Dev Rel team and other devs.
 
 ---

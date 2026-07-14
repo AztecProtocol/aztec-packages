@@ -7,7 +7,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { FunctionsOf } from '@aztec/foundation/types';
-import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
+import type { ArchiverEmitter, BlockHash, L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
@@ -20,6 +20,10 @@ import { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from '../modules/l1_synchronizer.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import { L2TipsCache } from '../store/l2_tips_cache.js';
+
+type NoopL1ArchiverConfigOverrides = Partial<{
+  skipOrphanProposedBlockPruning: boolean;
+}>;
 
 /** Noop L1 synchronizer for testing without L1 connectivity. */
 class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
@@ -39,8 +43,8 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
   testEthereumNodeSynced(): Promise<void> {
     return Promise.resolve();
   }
-  syncFromL1(_initialSyncComplete: boolean): Promise<void> {
-    return Promise.resolve();
+  syncFromL1(_initialSyncComplete: boolean): Promise<L2Block[]> {
+    return Promise.resolve([]);
   }
 }
 
@@ -58,6 +62,7 @@ export class NoopL1Archiver extends Archiver {
     initialBlockHash: BlockHash,
     l2TipsCache: L2TipsCache,
     dateProvider: DateProvider = new DateProvider(),
+    configOverrides: NoopL1ArchiverConfigOverrides = {},
   ) {
     // Create mocks for L1 clients
     const publicClient = mock<ViemPublicClient>();
@@ -93,8 +98,11 @@ export class NoopL1Archiver extends Archiver {
         maxAllowedEthClientDriftSeconds: 300,
         ethereumAllowNoDebugHosts: true, // Skip trace validation
         skipHistoricalLogsCheck: true, // Skip historical logs validation
-        orphanProposedBlockPruneGraceSeconds: 2,
-        enableOrphanProposedBlockPruning: true,
+        checkpointProposalSyncGrace: 4,
+        orphanPruneNoProposalTolerance: 1,
+        skipOrphanProposedBlockPruning: true,
+        blockDuration: 2,
+        ...configOverrides,
       },
       blobClient,
       instrumentation,
@@ -128,6 +136,7 @@ export async function createNoopL1Archiver(
   telemetry: TelemetryClient = getTelemetryClient(),
   initialHeader: BlockHeader,
   dateProvider?: DateProvider,
+  configOverrides?: NoopL1ArchiverConfigOverrides,
 ): Promise<NoopL1Archiver> {
   const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStores.db.estimateSize());
   // Mirror the production factory: precompute the dynamic genesis block hash from the injected
@@ -144,5 +153,6 @@ export async function createNoopL1Archiver(
     initialBlockHash,
     l2TipsCache,
     dateProvider,
+    configOverrides,
   );
 }

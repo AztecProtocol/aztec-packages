@@ -56,9 +56,6 @@
       "path": "../kv-store"
     },
     {
-      "path": "../l1-artifacts"
-    },
-    {
       "path": "../node-keystore"
     },
     {
@@ -119,5 +116,6 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules", "**/node_modules", "**/.*/", "src/shared/timing_env.mjs"]
 }

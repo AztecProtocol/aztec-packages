@@ -49,6 +49,9 @@ const config = setupEnvironment(process.env);
 const { NAMESPACE } = config;
 const debugLogger = createLogger('e2e:spartan-test:gating-passive');
 
+// Passive network gating test against a live k8s deployment. Applies Chaos Mesh network shaping and a
+// boot-node failure, starts a transfer bot, and evaluates Grafana/Prometheus alert rules to ensure
+// sequencer attestation timing and archiver sync rates stay within acceptable bounds.
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 

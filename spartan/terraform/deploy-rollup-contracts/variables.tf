@@ -248,6 +248,12 @@ variable "NETWORK" {
   nullable    = true
 }
 
+variable "ALLOW_OVERRIDING_NETWORK_CONFIG" {
+  description = "Allow consensus-critical env vars to diverge from the generated network defaults for NETWORK"
+  type        = string
+  nullable    = true
+}
+
 variable "VERIFY_CONTRACTS" {
   description = "Verify contracts on Etherscan"
   type        = bool

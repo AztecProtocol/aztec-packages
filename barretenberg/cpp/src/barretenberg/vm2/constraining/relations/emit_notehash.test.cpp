@@ -84,32 +84,32 @@ TEST(EmitNoteHashConstrainingTest, LimitReached)
     // Negative test: sel_reached_max_note_hashes must be 1
     trace.set(C::execution_sel_reached_max_note_hashes, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_notehash>(trace, emit_notehash::SR_MAX_NOTE_HASHES_REACHED),
-                              "MAX_NOTE_HASHES_REACHED");
+                              emit_notehash::get_subrelation_label(emit_notehash::SR_MAX_NOTE_HASHES_REACHED));
     trace.set(C::execution_sel_reached_max_note_hashes, 0, 1);
 
     // Negative test: sel_opcode_error must be on
     trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_notehash>(trace, emit_notehash::SR_OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC),
-        "OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC");
+        emit_notehash::get_subrelation_label(emit_notehash::SR_OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC));
     trace.set(C::execution_sel_opcode_error, 0, 1);
 
     // Negative test: note hash tree root must be the same
     trace.set(C::execution_note_hash_tree_root, 0, 28);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED),
-        "EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED");
+        emit_notehash::get_subrelation_label(emit_notehash::SR_EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: tree size must be the same
     trace.set(C::execution_note_hash_tree_size, 0, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_TREE_SIZE_INCREASE),
-                              "EMIT_NOTEHASH_TREE_SIZE_INCREASE");
+                              emit_notehash::get_subrelation_label(emit_notehash::SR_EMIT_NOTEHASH_TREE_SIZE_INCREASE));
 
     // Negative test: num note hashes emitted must be the same
     trace.set(C::execution_num_note_hashes_emitted, 0, prev_num_note_hashes_emitted + 1);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE),
-        "EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE");
+        emit_notehash::get_subrelation_label(emit_notehash::SR_EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE));
 }
 
 TEST(EmitNoteHashConstrainingTest, Interactions)

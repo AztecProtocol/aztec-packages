@@ -130,6 +130,16 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_
                 gate_variables.emplace_back(vc2_witness);
             }
             gate_variables.emplace_back(record_witness);
+        } else if (q_1.is_zero() && q_3.is_zero() && q_m.is_zero() &&
+                   ((q_2 == FF::one() && q_4.is_zero()) || (q_4 == FF::one() && q_2.is_zero()))) {
+            // ROM-LogUp gate: (w_1, w_2, w_3, w_4) = (index, value, multiplicity-or-zero, inverse). The
+            // multiplicity (table rows) and inverse are internal and excused via update_used_witnesses; here we
+            // connect the index and value so the ACIR-visible witnesses join the ROM component. Table entries
+            // set q_2, read accesses set q_4.
+            gate_variables.emplace_back(index_witness);
+            if (vc1_witness != circuit_builder.zero_idx()) {
+                gate_variables.emplace_back(vc1_witness);
+            }
         }
         gate_variables = to_real(gate_variables);
         process_gate_variables(gate_variables, gate_index, memory_block);
@@ -290,6 +300,25 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
                 auto databus_cc = extract_gate_variables(gate_idx, blk, DATABUS, GateKind::BusRead);
                 if (!databus_cc.empty() && connect_variables) {
                     connect_all_variables_in_vector(databus_cc);
+                }
+
+                // Bilinear / batched-eq gate (shares the arithmetic block; q_arith and
+                // q_bilinear_batched_eq are mutually exclusive). BILINEAR mode is one equation over the four
+                // wires, so they form a single connected group; BATCHED_EQ mode holds two independent
+                // equalities, so each half is connected separately.
+                auto bilinear_cc = extract_gate_variables(gate_idx, blk, BILINEAR, GateKind::BilinearBatchedEq);
+                if (!bilinear_cc.empty() && connect_variables) {
+                    connect_all_variables_in_vector(bilinear_cc);
+                }
+                auto batched_eq_half_1_cc =
+                    extract_gate_variables(gate_idx, blk, BATCHED_EQ_HALF_1, GateKind::BilinearBatchedEq);
+                if (!batched_eq_half_1_cc.empty() && connect_variables) {
+                    connect_all_variables_in_vector(batched_eq_half_1_cc);
+                }
+                auto batched_eq_half_2_cc =
+                    extract_gate_variables(gate_idx, blk, BATCHED_EQ_HALF_2, GateKind::BilinearBatchedEq);
+                if (!batched_eq_half_2_cc.empty() && connect_variables) {
+                    connect_all_variables_in_vector(batched_eq_half_2_cc);
                 }
 
                 auto eccop_cc = get_eccop_part_connected_component(gate_idx, blk);

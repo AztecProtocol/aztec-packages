@@ -1,3 +1,18 @@
+locals {
+  network_deployer_roles = toset([
+    "roles/container.admin",
+    "roles/storage.admin",
+    "roles/secretmanager.admin",
+    "roles/compute.loadBalancerAdmin",
+    "roles/dns.admin"
+  ])
+
+  ci_observer_roles = toset([
+    "roles/logging.viewer",
+    "roles/monitoring.viewer"
+  ])
+}
+
 # Create the service account
 resource "google_service_account" "gke_sa" {
   account_id   = "aztec-gke-nodes-sa"
@@ -29,47 +44,31 @@ resource "google_service_account" "helm_sa" {
 
 # Add IAM roles to the Helm service account
 resource "google_project_iam_member" "helm_sa_roles" {
-  for_each = toset([
-    "roles/container.admin",
-    "roles/storage.admin",
-    "roles/secretmanager.admin",
-    "roles/compute.loadBalancerAdmin",
-    "roles/dns.admin"
-  ])
-  project = var.project
-  role    = each.key
-  member  = "serviceAccount:${google_service_account.helm_sa.email}"
+  for_each = local.network_deployer_roles
+  project  = var.project
+  role     = each.key
+  member   = "serviceAccount:${google_service_account.helm_sa.email}"
 }
 
 # Create a service account for CI
 resource "google_service_account" "ci" {
   account_id   = var.ci_service_account_id
   display_name = "CI Service Account"
-  description  = "Service account for CI jobs that publish Docker images"
+  description  = "Service account for CI jobs that publish internal artifacts and deploy networks"
 }
 
-resource "google_project_iam_member" "ci_network_deploy_project_roles" {
-  for_each = toset([
-    "roles/container.developer",
-    "roles/secretmanager.secretAccessor",
-    "roles/compute.loadBalancerAdmin"
-  ])
-  project = var.project
-  role    = each.key
-  member  = "serviceAccount:${google_service_account.ci.email}"
+resource "google_project_iam_member" "ci_network_deployer_roles" {
+  for_each = local.network_deployer_roles
+  project  = var.project
+  role     = each.key
+  member   = "serviceAccount:${google_service_account.ci.email}"
 }
 
-resource "google_storage_bucket_iam_member" "ci_terraform_state_object_user" {
-  bucket = "aztec-terraform"
-  role   = "roles/storage.objectUser"
-  member = "serviceAccount:${google_service_account.ci.email}"
-}
-
-resource "google_dns_managed_zone_iam_member" "ci_rpc_dns_admin" {
-  project      = var.project
-  managed_zone = "rpc-aztec-labs-com"
-  role         = "roles/dns.admin"
-  member       = "serviceAccount:${google_service_account.ci.email}"
+resource "google_project_iam_member" "ci_observer_roles" {
+  for_each = local.ci_observer_roles
+  project  = var.project
+  role     = each.key
+  member   = "serviceAccount:${google_service_account.ci.email}"
 }
 
 resource "google_service_account" "npm_registry_reader" {
@@ -108,4 +107,41 @@ data "google_iam_policy" "all_users_storage_read" {
       "allUsers",
     ]
   }
+}
+
+# CI service account for the aztec-labs-eng/treasury-infra repo (propose-watcher images)
+resource "google_service_account" "treasury_infra_ci" {
+  account_id   = "treasury-infra-ci"
+  display_name = "treasury-infra GitHub Actions CI"
+  description  = "Pushes images from aztec-labs-eng/treasury-infra GitHub Actions via WIF"
+}
+
+# Workload Identity pool for GitHub Actions OIDC tokens
+resource "google_iam_workload_identity_pool" "github" {
+  workload_identity_pool_id = "github"
+  display_name              = "GitHub Actions"
+}
+
+# Trust GitHub-issued tokens, restricted to the treasury-infra repository
+resource "google_iam_workload_identity_pool_provider" "treasury_infra" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "treasury-infra"
+  display_name                       = "treasury-infra repo"
+
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.repository" = "assertion.repository"
+  }
+  attribute_condition = "assertion.repository == \"aztec-labs-eng/treasury-infra\""
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+# Allow workflows from that repository to impersonate the CI service account
+resource "google_service_account_iam_member" "treasury_infra_ci_wif" {
+  service_account_id = google_service_account.treasury_infra_ci.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/aztec-labs-eng/treasury-infra"
 }

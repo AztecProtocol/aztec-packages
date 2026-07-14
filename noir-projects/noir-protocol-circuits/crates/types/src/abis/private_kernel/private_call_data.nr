@@ -4,13 +4,13 @@ use crate::{
     constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_HN, PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::MembershipWitness,
-    proof::verification_key::ChonkVerificationKey,
+    proof::verification_key::MegaAppVerificationKey,
     public_keys::PublicKeys,
 };
 
 pub struct PrivateCallData {
     pub public_inputs: PrivateCircuitPublicInputs,
-    pub vk: ChonkVerificationKey,
+    pub vk: MegaAppVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
 }
 
@@ -53,7 +53,7 @@ pub struct PrivateVerificationKeyHints {
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {
-    pub vk: ChonkVerificationKey,
+    pub vk: MegaAppVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
 }
 

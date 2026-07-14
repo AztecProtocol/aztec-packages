@@ -60,7 +60,8 @@ function check_orphaned_urls {
   # diff. The committed snapshot only grows the protected set for future PRs;
   # the check a PR must satisfy is the base-branch version it cannot edit.
   local snapshot=snapshots/published-urls.txt
-  local base_ref="${GITHUB_BASE_REF:-next}"
+  local base_ref="${GITHUB_BASE_REF:-${MERGE_GROUP_BASE_REF:-next}}"
+  base_ref="${base_ref#refs/heads/}"
   local tmp
   tmp=$(mktemp)
   # shellcheck disable=SC2064
@@ -71,10 +72,11 @@ function check_orphaned_urls {
   # happens for the PR that first introduces the snapshot). Treating an
   # unreachable base as a fallback would silently reopen the bypass.
   local base_obj=""
-  if git rev-parse --verify -q "origin/${base_ref}" >/dev/null; then
-    base_obj="origin/${base_ref}"
-  elif git fetch -q origin "$base_ref" 2>/dev/null; then
-    base_obj="FETCH_HEAD"
+  if git rev-parse --verify -q "refs/remotes/origin/${base_ref}" >/dev/null; then
+    base_obj="refs/remotes/origin/${base_ref}"
+  elif git fetch -q --depth=1 origin "refs/heads/${base_ref}:refs/remotes/origin/${base_ref}" 2>/dev/null &&
+    git rev-parse --verify -q "refs/remotes/origin/${base_ref}" >/dev/null; then
+    base_obj="refs/remotes/origin/${base_ref}"
   fi
 
   local baseline

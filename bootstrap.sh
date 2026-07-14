@@ -435,6 +435,18 @@ function build_and_test {
       start_txes
       make noir-projects-txe-tests
 
+      # Benches (full builds only). Uploadable runs (BENCH_UPLOAD=1 — the first instance of
+      # a run) bench on a dedicated fixed-hardware box for stable numbers: launched here,
+      # logged like the test engine, waited on below, and the sole uploader. Everything
+      # else benches inline as ordinary tests — a breakage check only, no upload.
+      if [ "$1" == full ]; then
+        if [ "${BENCH_UPLOAD:-0}" == 1 ]; then
+          setsid color_prefix "bench" "denoise './ci.sh bench'" & bench_pid=$!
+        else
+          bench_cmds >> $test_cmds_file
+        fi
+      fi
+
       # Signal tests complete, handled by parallel -E STOP.
       echo STOP >> $test_cmds_file
     fi
@@ -447,12 +459,20 @@ function build_and_test {
 
   stop_txes
 
+  # Benches (full builds only). Inline benches above are a breakage check only — the
+  # dedicated box is the sole uploader. Wait on it here: fatal, matching the old inline
+  # `bench`, since a benchmark that fails to build/run is a real breakage.
+  if [ "$1" == full ] && [ -n "${bench_pid:-}" ]; then
+    echo "Waiting for dedicated bench run..."
+    wait "$bench_pid"
+  fi
+
   return 0
 }
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/{noir-protocol-circuits,noir-contracts} l1-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
@@ -468,6 +488,16 @@ function bench_merge {
 
 }
 
+# Merge all component bench-out/*.bench.json into one and upload it to the
+# bench-<treehash> cache key, which the GA "Upload benchmarks" step then publishes.
+# Used both by `bench` (dedicated box) and by the inline benches-as-tests path.
+function bench_publish {
+  rm -rf bench-out
+  mkdir -p bench-out
+  bench_merge
+  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+}
+
 function bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
@@ -476,12 +506,7 @@ function bench {
   echo_header "bench all"
   bench_cmds > $bench_cmds_file
   denoise "bench_engine $bench_cmds_file"
-
-  rm -rf bench-out
-  mkdir -p bench-out
-  bench_merge
-  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-
+  bench_publish
 }
 
 ### RELEASING ##########################################################################################################
@@ -530,12 +555,25 @@ function release {
   echo_header "release all"
   set -x
 
+  # A private release publishes only to our internal GCP Artifact Registry (the docker image and our
+  # npm packages) — see private_release. ci3_labels_to_env.sh sets PRIVATE_RELEASE for every release in
+  # the private repo; we ALSO backstop on the repo name here so the public release flow (DockerHub,
+  # npmjs, crates.io, github) can never run in the private fork, even if that env var is missing or this
+  # is invoked outside ci3.yml.
+  if [ "${PRIVATE_RELEASE:-0}" = 1 ] ||
+     [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
+    private_release
+    return
+  fi
+
   # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
 
   projects=(
     barretenberg/cpp
+    ipc-runtime
+    wsdb
     barretenberg/ts
     barretenberg/rust
     noir
@@ -560,6 +598,86 @@ function release {
 
 function release_dryrun {
   DRY_RUN=1 release
+}
+
+function private_release {
+  # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
+  # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
+  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, wsdb, yarn-project -> the
+  # INTERNAL_NPM_REGISTRY npm repo). We run the release step for real on exactly those components and do
+  # not invoke the others — the remaining release sources publish public artifacts (github releases,
+  # crates.io, the aztec-up/playground S3 installers) and are not interrelated with these.
+  echo_header "private release"
+
+  # Default to the private staging Artifact Registry; override via the INTERNAL_*_REGISTRY env vars.
+  # Exported so the child project bootstraps and gcp_artifact_login inherit them.
+  export INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-us-west1-docker.pkg.dev/testnet-440309/aztec}
+  export INTERNAL_NPM_REGISTRY=${INTERNAL_NPM_REGISTRY:-https://us-west1-npm.pkg.dev/testnet-440309/aztec-npm}
+
+  # Activate the CI service account (gcp_artifact_login registers the docker credential helper and
+  # activates the SA globally) and mint a short-lived access token for npm auth against the AR npm repo.
+  ci3/gcp_artifact_login
+  set +x  # Never echo the access token.
+  export NPM_TOKEN=$(gcloud auth print-access-token)
+  # Route our scope to the internal npm registry; public deps still resolve from the default registry
+  # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish is
+  # @aztec-scoped — the noir packages are renamed @noir-lang/* -> @aztec/noir-* on release. Exported so
+  # deploy_npm and that smoke-test share one config.
+  local npmrc reg
+  reg="${INTERNAL_NPM_REGISTRY%/}/"
+  npmrc=$(mktemp)
+  (umask 077; {
+    echo "@aztec:registry=$reg"
+    echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
+  } > "$npmrc")
+  export NPM_CONFIG_GLOBALCONFIG="$npmrc"
+  set -x
+
+  # Mirror external @aztec-scoped fork dependencies (e.g. the vendored "viem": "npm:@aztec/viem@x")
+  # from public npm into our internal registry. Because we scope ALL of @aztec to the internal registry,
+  # these forks — which we don't build/publish ourselves — must also live there, or installs of our
+  # published packages 404 (this is what yarn-project's release smoke-test exercises). amd64 only; the
+  # registry is shared across arches.
+  if [ "$(arch)" != arm64 ]; then
+    local spec name ver td
+    for spec in $(grep -rhoE 'npm:@aztec/[a-zA-Z0-9_.-]+@[0-9][^"]*' yarn-project --include=package.json \
+                  | sed 's/^npm://' | sort -u); do
+      name="${spec%@*}"; ver="${spec##*@}"
+      if npm view "${name}@${ver}" version >/dev/null 2>&1; then
+        echo "Mirror: ${spec} already present in internal registry; skipping."
+        continue
+      fi
+      echo "Mirror: copying ${spec} from public npm to internal registry."
+      td=$(mktemp -d)
+      # Override the @aztec scope registry for the fetch (our .npmrc points @aztec at the internal
+      # registry, which doesn't have the fork yet); publish then uses the inherited @aztec->internal config.
+      npm pack "${spec}" --@aztec:registry=https://registry.npmjs.org/ --pack-destination "$td" --quiet
+      npm publish "$td"/*.tgz
+      rm -rf "$td"
+    done
+  fi
+
+  # Publish @aztec/l1-artifacts to the internal registry. 13 yarn-project packages depend on it at the
+  # release version, so it must exist before yarn-project's release smoke-test installs them. We call
+  # only the npm publish, not l1-contracts' full `release` — that also git-mirrors tags to the public
+  # AztecProtocol/l1-contracts repo, which the private flow must not do. amd64 only (npm packages are
+  # platform-independent; mirrors the publish guard below).
+  if [ $(arch) != arm64 ]; then
+    l1-contracts/bootstrap.sh release_l1_artifacts_npm
+  fi
+
+  # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on
+  # the registry before yarn-project's release smoke-tests installing the @aztec packages that depend on
+  # them. @aztec/world-state has a runtime dependency on @aztec/wsdb, and the ipc-codegen-generated
+  # @aztec/wsdb in turn has a runtime dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
+  # npm packages are platform-independent, so only the docker image is published on arm64.
+  local publish=(barretenberg/ts noir ipc-runtime wsdb yarn-project release-image)
+  if [ $(arch) == arm64 ]; then
+    publish=(release-image)
+  fi
+  for project in "${publish[@]}"; do
+    $project/bootstrap.sh release
+  done
 }
 
 function release_compat_e2e {
@@ -750,13 +868,22 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_FULL=1
     build_and_test full
-    bench
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
     build_and_test full
+    ;;
+  "ci-bench")
+    # Run on a dedicated, fixed, on-demand instance (launched by the build
+    # instance via './ci.sh bench') for stable benchmark numbers. The build is a
+    # near-instant cache pull, as the launching build instance already populated
+    # the cache for this commit. No test engine; bench uploads bench-<treehash>.
+    export CI=1
+    export CI_FULL=1
+    prep
+    make bench
     bench
     ;;
   "ci-chonk-input-update")
@@ -764,6 +891,7 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_FULL=0
     prep
+    barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh chonk_input_update
     ;;
   "ci-grind-test")
@@ -936,6 +1064,36 @@ case "$cmd" in
     bench_merge
     cache_upload spartan-bench-10tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
+  "ci-network-inclusion-sweep")
+    # Args: <env_file> <namespace> [docker_image]
+    # Runs one inclusion-sweep point (TARGET_TPS) on the given network.
+    # The v4 run JSON (tagged BENCH_SWEEP_ID) is uploaded to GCS inside
+    # bench_inclusion_point; deploy/teardown of each point's namespace is done by
+    # the workflow, so this is normally called with SKIP_NETWORK_DEPLOY=1.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    export NAMESPACE="$namespace"
+    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
+      # If no docker image provided, build and push to aztecdev
+      if [ -z "$docker_image" ]; then
+        release-image/bootstrap.sh push_pr
+        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+      fi
+      export AZTEC_DOCKER_IMAGE="$docker_image"
+      spartan/bootstrap.sh network_deploy "${env_file}"
+    else
+      echo "SKIP_NETWORK_DEPLOY=1, running inclusion-sweep point (${TARGET_TPS:-10} TPS) against existing network '$namespace'."
+    fi
+    # Run one inclusion-sweep point (TARGET_TPS / BENCH_SWEEP_ID from env).
+    spartan/bootstrap.sh bench_inclusion_point "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-bench-inclusion-${TARGET_TPS:-10}tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>
     # Tears down a deployed network.
@@ -997,6 +1155,23 @@ case "$cmd" in
       unset COMMIT_HASH root
     fi
     ./bootstrap.sh build release
+    ./bootstrap.sh release
+    ;;
+
+  "ci-private-release")
+    # Local/dev entrypoint for the PRIVATE_RELEASE flow (see private_release): dry-run every project
+    # except release-image, then publish release-image for real to the internal GCP Artifact Registry.
+    # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
+    # Build first so the release-image (and the artifacts the dry-runs pack) exist; set SKIP_BUILD=1 to
+    # reuse an existing build. Requires INTERNAL_DOCKER_REGISTRY + GCP creds (GCP_SA_KEY or
+    # GOOGLE_APPLICATION_CREDENTIALS) in the environment.
+    export CI=${CI:-1}
+    export PRIVATE_RELEASE=1
+    export REF_NAME=${REF_NAME:-v0.0.1-commit.$(git rev-parse --short HEAD)}
+    # Local convenience: default GCP creds to ~/sa.json (the CI service-account key) when present.
+    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+      export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
+    [ "${SKIP_BUILD:-0}" = 1 ] || ./bootstrap.sh build release
     ./bootstrap.sh release
     ;;
 

@@ -19,7 +19,7 @@ pub fn random_fr() -> Fr {
 
 /// Timer for performance measurements
 ///
-/// Parallels the Timer class in barretenberg/ts/src/benchmark/timer.ts
+/// Parallels the Timer class in barretenberg/ts/bb.js/src/benchmark/timer.ts
 pub struct Timer {
     start: Instant,
 }

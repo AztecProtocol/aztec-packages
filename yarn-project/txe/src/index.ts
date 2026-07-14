@@ -21,9 +21,11 @@ import {
 } from './utils/encoding.js';
 import { TXEArtifactResolver } from './utils/txe_artifact_resolver.js';
 
-// Protocol contracts TXE registers in its contract store. Only AuthRegistry is needed for the
-// current test suites; add a contract here if a lookup against a `0x000…00X` address fails.
-export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = [];
+export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = [
+  'ContractClassRegistry',
+  'ContractInstanceRegistry',
+  'FeeJuice',
+];
 
 const sessions = new Map<number, TXESession>();
 
@@ -35,7 +37,7 @@ export type TXEForeignCallInput = {
   inputs: ForeignCallArgs;
 };
 
-export const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
+export const TXEForeignCallInputSchema: z.ZodType<TXEForeignCallInput> = zodFor<TXEForeignCallInput>()(
   z.object({
     // Nargo generates session_id as a u64, which may exceed Number.MAX_SAFE_INTEGER.
     // Zod 4's `.int()` enforces the safe-integer bound, so we drop it here and only require

@@ -96,6 +96,11 @@ export class OpenTelemetryClient implements TelemetryClient {
   private meters: Map<string, WrappedMeter> = new Map<string, WrappedMeter>();
   private tracers: Map<string, Tracer> = new Map<string, Tracer>();
 
+  /** Memoized shutdown promise. The telemetry client is shared between the aztec-node and an embedded prover-node,
+   * so stop() can be invoked more than once; the providers throw "shutdown may only be called once" and
+   * "invalid attempt to force flush after shutdown" if that happens. Guarding here makes stop()/flush() idempotent. */
+  private stopPromise: Promise<void> | undefined;
+
   protected constructor(
     private resource: IResource,
     private meterProvider: MeterProvider,
@@ -169,6 +174,10 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public async flush() {
+    // Flushing after the providers have been shut down throws "invalid attempt to force flush after shutdown".
+    if (this.stopPromise) {
+      return;
+    }
     await Promise.all([
       this.meterProvider.forceFlush(),
       this.loggerProvider?.forceFlush(),
@@ -176,7 +185,11 @@ export class OpenTelemetryClient implements TelemetryClient {
     ]);
   }
 
-  public async stop() {
+  public stop() {
+    return (this.stopPromise ??= this.doStop());
+  }
+
+  private async doStop() {
     this.nodejsMetricsMonitor?.stop();
 
     const flushAndShutdown = async (provider?: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
@@ -239,6 +252,23 @@ export class OpenTelemetryClient implements TelemetryClient {
           instrumentUnit: 's',
           aggregation: new ExplicitBucketHistogramAggregation(
             [1, 2, 4, 6, 10, 15, 30, 60, 90, 120, 180, 240, 300, 480, 600, 900, 1200],
+            true,
+          ),
+        }),
+        // Pending-to-mined delay routinely exceeds the 1-minute ceiling of the generic `ms`
+        // view below under load, so it would saturate at 60s. Give this one metric wider
+        // buckets (1s to 10min). This must precede the generic `ms` view: when multiple views
+        // match an instrument, the SDK keeps the first-registered compatible storage, so the
+        // first view in this list wins the bucket boundaries.
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentName: 'aztec.mempool.tx_mined_delay',
+          instrumentUnit: 'ms',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [
+              1_000, 2_500, 5_000, 7_500, 10_000, 15_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 300_000,
+              600_000,
+            ],
             true,
           ),
         }),

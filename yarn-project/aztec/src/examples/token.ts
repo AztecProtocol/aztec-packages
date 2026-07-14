@@ -21,10 +21,10 @@ async function main() {
 
   const wallet = await EmbeddedWallet.create(node);
 
-  // During local network setup we deploy a few accounts. Below we add them to our wallet.
+  // During local network setup we create a few initializerless accounts. Below we add them to our wallet.
   const [aliceInitialAccountData, bobInitialAccountData] = await getInitialTestAccountsData();
-  await wallet.createSchnorrAccount(aliceInitialAccountData.secret, aliceInitialAccountData.salt);
-  await wallet.createSchnorrAccount(bobInitialAccountData.secret, bobInitialAccountData.salt);
+  await wallet.createSchnorrInitializerlessAccount(aliceInitialAccountData.secret, aliceInitialAccountData.salt);
+  await wallet.createSchnorrInitializerlessAccount(bobInitialAccountData.secret, bobInitialAccountData.salt);
 
   const alice = aliceInitialAccountData.address;
   const bob = bobInitialAccountData.address;

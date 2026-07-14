@@ -43,7 +43,7 @@ Wait for output showing deployed contract addresses. To get the **Registry Addre
 
 ```bash
 curl -s http://localhost:8080 -X POST -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' | jq '.result.l1ContractAddresses'
+  -d '{"jsonrpc":"2.0","method":"aztec_getNodeInfo","params":[],"id":1}' | jq '.result.l1ContractAddresses'
 ```
 
 Note the `registryAddress` from the output.
@@ -79,7 +79,6 @@ cp ~/.svm/0.8.30/solc-0.8.30 ./solc-0.8.30
 # Copy the HonkVerifier to the generated directory (required for build)
 mkdir -p generated
 cp src/HonkVerifier.sol generated/HonkVerifier.sol
-echo '{}' > generated/default.json
 
 # Remove zkpassport-dependent files (not needed for rollup deployment)
 rm -f src/mock/StakingAssetHandler.sol

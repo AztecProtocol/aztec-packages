@@ -32,7 +32,7 @@ pub contract Test {
             traits::{Hash, Packable, Serialize},
         },
         // Event related
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         // History and inclusion proofs
         history::note::assert_note_existed_by,
         // Key management
@@ -132,7 +132,7 @@ pub contract Test {
     #[external("private")]
     fn call_create_note(value: u128, owner: AztecAddress, storage_slot: Field, make_tx_hybrid: bool) {
         let note = UintNote { value };
-        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_constrained());
+        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_unconstrained());
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call();
@@ -381,7 +381,7 @@ pub contract Test {
 
     #[external("private")]
     fn assert_header_private(header_hash: Field) {
-        assert(self.context.anchor_block_header.hash() == header_hash, "Invalid header hash");
+        assert(self.context.get_anchor_block_header().hash() == header_hash, "Invalid header hash");
     }
 
     // TODO(4840): add AVM opcodes for getting header (members)

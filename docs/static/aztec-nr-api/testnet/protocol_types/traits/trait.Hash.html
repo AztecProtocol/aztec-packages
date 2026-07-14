@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Trait Hash documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Hash</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait Hash</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#hash">hash</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Hash-for-AppPayload">AppPayload</a></li>
+<li><a href="#impl-Hash-for-BlockHeader">BlockHeader</a></li>
+<li><a href="#impl-Hash-for-CheckpointHeader">CheckpointHeader</a></li>
+<li><a href="#impl-Hash-for-ContractClassFunctionLeafPreimage">ContractClassFunctionLeafPreimage</a></li>
+<li><a href="#impl-Hash-for-ContractInstance">ContractInstance</a></li>
+<li><a href="#impl-Hash-for-DelayedPublicMutableValues<T, INITIAL_DELAY>">DelayedPublicMutableValues<T, INITIAL_DELAY></a></li>
+<li><a href="#impl-Hash-for-IvpkM">IvpkM</a></li>
+<li><a href="#impl-Hash-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
+<li><a href="#impl-Hash-for-PrivateToPublicKernelCircuitPublicInputs">PrivateToPublicKernelCircuitPublicInputs</a></li>
+<li><a href="#impl-Hash-for-PrivateToRollupKernelCircuitPublicInputs">PrivateToRollupKernelCircuitPublicInputs</a></li>
+<li><a href="#impl-Hash-for-PublicDataTreeLeafPreimage">PublicDataTreeLeafPreimage</a></li>
+<li><a href="#impl-Hash-for-TxRequest">TxRequest</a></li>
+</ul>
+<h2>In module traits</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.Empty.html">Empty</a></div></li>
+<li><a href="trait.FromField.html">FromField</a></div></li>
+<li><a href="trait.Hash.html">Hash</a></div></li>
+<li><a href="trait.Packable.html">Packable</a></div></li>
+<li><a href="trait.ToField.html">ToField</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">traits</a></div>
+<h1>Trait <span id="trait" class="trait">Hash</span></h1>
+<pre><code>pub trait Hash {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#hash"><span class="fn">hash</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a>;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="hash" class="code-header">pub fn <a href="#hash"><span class="fn">hash</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-Hash-for-AppPayload"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../noir_aztec/authwit/entrypoint/app/struct.AppPayload.html" class="struct">AppPayload</a></code></h3>
+
+<h3 id="impl-Hash-for-BlockHeader"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
+
+<h3 id="impl-Hash-for-CheckpointHeader"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
+
+<h3 id="impl-Hash-for-ContractClassFunctionLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/abis/contract_class_function_leaf_preimage/struct.ContractClassFunctionLeafPreimage.html" class="struct">ContractClassFunctionLeafPreimage</a></code></h3>
+
+<h3 id="impl-Hash-for-ContractInstance"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/contract_instance/struct.ContractInstance.html" class="struct">ContractInstance</a></code></h3>
+
+<h3 id="impl-Hash-for-DelayedPublicMutableValues<T, INITIAL_DELAY>"><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, INITIAL_DELAY&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
+
+<h3 id="impl-Hash-for-IvpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/public_keys/struct.IvpkM.html" class="struct">IvpkM</a></code></h3>
+
+<h3 id="impl-Hash-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
+
+<h3 id="impl-Hash-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Hash-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Hash-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<h3 id="impl-Hash-for-TxRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
+
+</main>
+</span>
+</body>
+</html>

@@ -62,6 +62,14 @@ Go to `counter_contract/src/main.nr`, and replace the boilerplate code with this
 
 This defines a contract called `Counter`.
 
+:::note Clear the scaffold's placeholder test
+The scaffolded `counter_test/src/lib.nr` imports the default contract name (`Main`) we just renamed to `Counter`, so it now fails to compile. Tests aren't used in this tutorial, so replace its contents with a single-line stub to keep `aztec compile` clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
+:::
+
 ## Imports
 
 We need to define some imports.
@@ -79,7 +87,7 @@ pub contract Counter {
 - `macros::{functions::{external, initializer}, storage::storage}`
   Imports the macros needed to define function types (`external`, `initializer`) and the `storage` macro for declaring contract storage structures.
 
-- `messages::message_delivery::MessageDelivery`
+- `messages::delivery::MessageDelivery`
   Imports `MessageDelivery` for specifying how note delivery should be handled (e.g., constrained onchain delivery).
 
 - `oracle::logging::debug_log_format`

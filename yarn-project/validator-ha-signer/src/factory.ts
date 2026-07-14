@@ -1,6 +1,7 @@
 /**
  * Factory functions for creating validator HA signers
  */
+import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { LocalSignerConfig, ValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
@@ -31,7 +32,7 @@ import { ValidatorHASigner } from './validator_ha_signer.js';
  *   databaseUrl: process.env.DATABASE_URL,
  *   nodeId: 'validator-node-1',
  *   pollingIntervalMs: 100,
- *   signingTimeoutMs: 3000,
+ *   peerSigningTimeoutMs: 3000,
  * });
  * signer.start(); // Start background cleanup
  *
@@ -79,6 +80,16 @@ export async function createHASigner(
     pool = deps.pool;
   }
 
+  // pg re-emits idle-client errors (e.g. a Postgres restart severing an idle connection) on the
+  // pool. Without an 'error' listener, Node escalates these to an uncaughtException and crashes the
+  // process - taking down every HA replica sharing the DB at once. pg destroys and replaces the
+  // errored client itself, so logging is the only action needed. Log just message/code, never the
+  // raw error object (it can carry connection metadata).
+  const log = createLogger('validator-ha-signer:factory');
+  pool.on('error', (err: NodeJS.ErrnoException) => {
+    log.warn('Postgres pool error on idle client', { message: err.message, code: err.code });
+  });
+
   // Create database instance
   const db = new PostgresSlashingProtectionDatabase(pool);
 
@@ -101,9 +112,10 @@ export async function createHASigner(
  * high-availability (multi-node) setup. It prevents a proposer from sending two
  * proposals for the same slot if the node crashes and restarts mid-proposal.
  *
- * When `config.dataDirectory` is set, the protection database is persisted to disk
- * and survives crashes/restarts. When unset, an ephemeral in-memory store is
- * used which protects within a single run but not across restarts.
+ * `config.dataDirectory` is required so the protection database is persisted to disk and survives
+ * crashes/restarts. Booting without it throws, since an ephemeral store silently drops all
+ * double-signing protection across restarts. Set `config.allowEphemeralSigningProtection` to opt
+ * into the ephemeral store anyway (dev/test networks only) — a loud warning is logged in that case.
  *
  * @param config - Local signer config
  * @param deps - Optional dependencies (telemetry, date provider).
@@ -118,6 +130,22 @@ export async function createLocalSignerWithProtection(
 }> {
   const telemetryClient = deps?.telemetryClient ?? getTelemetryClient();
   const dateProvider = deps?.dateProvider ?? new DateProvider();
+
+  const log = createLogger('validator-ha-signer:factory');
+
+  if (!config.dataDirectory) {
+    if (!config.allowEphemeralSigningProtection) {
+      throw new Error(
+        'Local signing protection requires a persistent data directory, but none was configured. ' +
+          'Set DATA_DIRECTORY so double-signing protection survives restarts, or explicitly opt into an ' +
+          'ephemeral store (dev/test only) with VALIDATOR_ALLOW_EPHEMERAL_SIGNING_PROTECTION=true.',
+      );
+    }
+    log.warn(
+      'Local signing protection is running with an EPHEMERAL store: no data directory is configured. ' +
+        'Double-signing protection will NOT survive a restart. This is unsafe for production validators.',
+    );
+  }
 
   const kvStore = await createStore(
     'signing-protection',
@@ -137,6 +165,7 @@ export async function createLocalSignerWithProtection(
           config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
         ),
       schemaVersionMismatchPolicy: 'throw',
+      versionFileReadFailurePolicy: 'throw',
     },
   );
 
@@ -175,7 +204,7 @@ export function createSignerFromSharedDb(
   db: SlashingProtectionDatabase,
   config: Pick<
     ValidatorHASignerConfig,
-    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'rollupAddress'
+    'nodeId' | 'pollingIntervalMs' | 'peerSigningTimeoutMs' | 'maxStuckDutiesAgeMs' | 'rollupAddress'
   >,
   deps?: CreateLocalSignerWithProtectionDeps,
 ): { signer: ValidatorHASigner; db: SlashingProtectionDatabase } {

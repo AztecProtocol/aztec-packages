@@ -57,10 +57,10 @@ void send_l2_to_l1_msgImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // SEND_L2_TO_L1_MSG_CONDITION
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)) *
-                   ((FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_discard))) -
-                    static_cast<View>(in.get(C::execution_sel_write_l2_to_l1_msg)));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_write_l2_to_l1_msg)) -
+                    static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_discard))));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {

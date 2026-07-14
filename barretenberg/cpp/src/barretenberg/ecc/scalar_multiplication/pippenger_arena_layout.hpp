@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "barretenberg/ecc/fields/vector_field.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 #include <algorithm>
@@ -39,28 +40,37 @@ namespace bb::scalar_multiplication::round_parallel_detail {
 // the actual Zone P / Zone W / Zone S allocator for representative inputs and
 // asserts the result fits in `compute_arena_bytes_for_msm`'s promise. Its body
 // lives in `scalar_multiplication.test.cpp`, which means the helpers it needs
-// (`choose_window_bits`, `build_var_window_schedule`, `ChunkOutput`,
-// `DEDUP_MAX_*`, `VAR_WINDOW_MAX_WINDOWS`, `compute_arena_bytes_for_msm`) need
+// (`choose_window_bits`, `build_window_schedule`, `ChunkOutput`,
+// `DEDUP_MAX_*`, `MAX_SCHEDULE_WINDOWS`, `compute_arena_bytes_for_msm`) need
 // header-visible declarations.
 // ============================================================================
 
-// Per-window count cap shared by `VariableWindowSchedule` arrays and the live
+// Per-window count cap shared by `WindowSchedule` arrays and the live
 // allocator's `window_sums_storage` slot.
-inline constexpr size_t VAR_WINDOW_MAX_WINDOWS = 128;
+inline constexpr size_t MAX_SCHEDULE_WINDOWS = 128;
 
 // Dedup pre-pass caps. DEDUP_MAX_CLUSTERS bounds `extra_points` at ≤ 1 MB;
 // DEDUP_MAX_MEMBERS bounds the per-worker `cluster_members` slab.
 inline constexpr size_t DEDUP_MAX_CLUSTERS = 16384;
 inline constexpr size_t DEDUP_MAX_MEMBERS = 32768;
 
-// Uniform window schedule produced by `build_var_window_schedule`. Holds the
-// per-window `c` value and bucket count for downstream sizing/dispatch.
-struct VariableWindowSchedule {
+// Uniform window schedule produced by `build_window_schedule`. Holds the per-window `c` value
+// (`window_bits_per_window`) and its bit offset (`bit_base`) for downstream sizing/dispatch. The
+// per-window bucket count is not stored: the schedule is uniform, so the widest window's bucket
+// count is always `(1 << (window_bits - 1)) + 1`, computed directly where needed.
+struct WindowSchedule {
     size_t num_windows = 0;
-    std::array<uint8_t, VAR_WINDOW_MAX_WINDOWS> window_bits_per_window{}; // window_bits_w for each w
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> bit_base{};              // B_w = Σ_{k<w} c_k, B_0 = 0
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> num_buckets{};           // 2^(window_bits_w - 1) + 1
+    std::array<uint8_t, MAX_SCHEDULE_WINDOWS> window_bits_per_window{}; // window_bits_w for each w
+    std::array<uint16_t, MAX_SCHEDULE_WINDOWS> bit_base{};              // B_w = Σ_{k<w} c_k, B_0 = 0
 };
+
+// Bytes of the per-MSM `window_sums` accumulator slot (Stage 7): one group Element per schedule
+// window. Single source of truth for the arena sizer's `fixed_overhead`, the live allocator's
+// `fixed_overhead`, and the canonical Zone P layout walk, so the three cannot drift.
+template <typename Curve> [[nodiscard]] constexpr size_t window_sums_storage_bytes() noexcept
+{
+    return sizeof(typename Curve::Element) * MAX_SCHEDULE_WINDOWS;
+}
 
 // Per-chunk recursive-affine bucket-reduce output (Stage 6b output cell).
 template <typename Curve> struct ChunkOutput {
@@ -71,8 +81,7 @@ template <typename Curve> struct ChunkOutput {
     uint8_t empty = 1;
 };
 
-// Pick the optimal window size `c`. Native uses a cost model
-// `rounds * (n + 15 * buckets)`; WASM uses a closed-form `target_load` formula.
+// Pick the optimal window size `c` for the MSM schedule.
 [[nodiscard]] inline uint32_t choose_window_bits(size_t num_points,
                                                  size_t num_bits,
                                                  size_t n_input,
@@ -81,37 +90,23 @@ template <typename Curve> struct ChunkOutput {
     constexpr uint32_t MAX_C = 20;
     uint32_t best = 2;
 
-#ifdef __wasm__
-    static_cast<void>(num_bits);
-    const size_t target_load = (n_input > 4096) ? (num_logical_threads * 2 / 3) : (num_logical_threads / 3);
-    if (target_load == 0 || num_points <= target_load) {
-        best = 2;
-    } else {
-        const size_t ratio = num_points / target_load;
-        const uint32_t lg = static_cast<uint32_t>(numeric::get_msb(ratio));
-        best = lg + 1;
-        if (best < 2) {
-            best = 2;
-        } else if (best >= MAX_C) {
-            best = MAX_C - 1;
-        }
-    }
-#else
     static_cast<void>(n_input);
     static_cast<void>(num_logical_threads);
+    // Choose c minimizing the modeled cost rounds * (A*n + B*buckets); B/A = 3 weights a bucket as
+    // ~3x a point (empirically calibrated).
+    static constexpr uint64_t BAC_A = 4;
+    static constexpr uint64_t BAC_B = 12;
     uint64_t best_cost = static_cast<uint64_t>(-1);
     for (uint32_t window_bits = 2; window_bits < MAX_C; ++window_bits) {
         const uint64_t rounds = (num_bits + 2 + window_bits - 1) / window_bits;
         const uint64_t buckets = (uint64_t{ 1 } << (window_bits - 1)) + 1;
         const uint64_t n = num_points;
-        constexpr uint64_t BUCKET_ACC_COST = 15;
-        const uint64_t cost = rounds * (n + (buckets * BUCKET_ACC_COST));
+        const uint64_t cost = rounds * ((BAC_A * n) + (BAC_B * buckets));
         if (cost < best_cost) {
             best_cost = cost;
             best = window_bits;
         }
     }
-#endif
 
     return best;
 }
@@ -119,18 +114,17 @@ template <typename Curve> struct ChunkOutput {
 // Build a uniform window schedule for the given bit budget and chosen `c`. Every window
 // is `window_bits` wide except the final one, which takes the remaining bits. The +2 on
 // the bit budget accommodates the carry-less top bit of the Constantine recoder.
-inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t window_bits) noexcept
+inline WindowSchedule build_window_schedule(size_t num_bits, size_t window_bits) noexcept
 {
-    VariableWindowSchedule sched{};
+    WindowSchedule sched{};
 
     size_t bits_remaining = num_bits + 2;
     size_t bit_offset = 0;
     size_t w = 0;
-    while (bits_remaining > 0 && w < VAR_WINDOW_MAX_WINDOWS) {
+    while (bits_remaining > 0 && w < MAX_SCHEDULE_WINDOWS) {
         const size_t window_bits_w = std::min<size_t>(window_bits, bits_remaining);
         sched.bit_base[w] = static_cast<uint16_t>(bit_offset);
         sched.window_bits_per_window[w] = static_cast<uint8_t>(window_bits_w);
-        sched.num_buckets[w] = static_cast<uint16_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
         bit_offset += window_bits_w;
         bits_remaining -= window_bits_w;
         ++w;
@@ -143,6 +137,10 @@ inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t 
 // affine-arithmetic group ops (used by Stage 6a/6b). Sizes per-worker
 // `points_to_add`, `inversion_scratch`, and `pair_dest` arrays.
 inline constexpr size_t BATCH_CAPACITY = 256;
+
+// Lookahead distance (in schedule entries) for the Stage 6a software prefetch of the
+// data-dependent point gather. 16 recovers 4-10% of MSM wall at n >= 2^18, neutral below.
+inline constexpr size_t GATHER_PREFETCH_DIST = 16;
 
 // Phase A's chunked tree-reduce limit. Capped so the per-worker scratch slab
 // (chunk_pts + chunk_ids) stays under ~128 KB.
@@ -172,10 +170,20 @@ template <typename Curve> struct PerWorkerArenaLayout {
     // Caps shared between sizer and allocator. Centralised here so the two
     // sites can't diverge.
     static constexpr size_t PHASE_A_DIRTY_SLOTS_CAP = 4096; // HT_SIZE
-    static constexpr size_t PHASE_A_BUCKET_REP_CAP = 256;   // loose cap
-    static constexpr size_t PHASE_A_STAGED_CAP = 1024;      // loose cap
+    // Per-bucket dedup working-set caps. Loose upper bounds on the distinct duplicate values
+    // (reps) and total non-rep members staged per bucket; sized to cover the densest observed
+    // chonk-wire mega-buckets (~700 distinct long values, ~3-4 members each). When exceeded the
+    // worker leaves the overflow un-deduped (still correct), so these only bound work, not output.
+    static constexpr size_t PHASE_A_BUCKET_REP_CAP = 1024;
+    static constexpr size_t PHASE_A_STAGED_CAP = 4096;
     static constexpr size_t PHASE_A_CHUNK_CAP = DEDUP_MAX_CHUNK_MEMBERS;
     static constexpr size_t WORKER_SLAB_ALIGN = alignof(AffineElement);
+
+    // The packed batch-affine drain holds 8 VectorField runs in the fixed ThreadScratch region:
+    // lhs.x, lhs.y, rhs.x, rhs.y (the two input point sets) plus dx, dy, xsum, inv (the add's working
+    // buffers; out shares lhs's backing). The sizer walk below and the allocator in
+    // scalar_multiplication_fast.cpp must agree on this count, so it is centralised here.
+    static constexpr size_t PACKED_DRAIN_VECTORFIELD_RUNS = 8;
 
     // Computed byte sizes (filled by constructor's layout walk).
     size_t ts_fixed_layout = 0;           // ThreadScratch wpb-independent fields, with align slop
@@ -198,12 +206,17 @@ template <typename Curve> struct PerWorkerArenaLayout {
         auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
         auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
 
-        // ThreadScratch fixed (curr_pts / curr_buckets / points_to_add /
-        // inversion_scratch / pair_dest / overflow_slots / overflow_pts).
+        // ThreadScratch fixed (curr_pts / curr_buckets / 8 packed batch-affine VectorField runs /
+        // pair_dest / overflow_slots / overflow_pts).
         layout_add(ts_fixed_layout, sizeof(AffineElement) * chunk_capacity, alignof(AffineElement));
         layout_add(ts_fixed_layout, sizeof(uint32_t) * chunk_capacity, alignof(uint32_t));
-        layout_add(ts_fixed_layout, sizeof(AffineElement) * 2 * BATCH_CAPACITY, alignof(AffineElement));
-        layout_add(ts_fixed_layout, sizeof(BaseField) * BATCH_CAPACITY, alignof(BaseField));
+        // Packed batch-affine drain: PACKED_DRAIN_VECTORFIELD_RUNS runs, mirroring the ts_fixed_alloc
+        // walk in scalar_multiplication_fast.cpp one-for-one.
+        using VecField = bb::VectorField<typename BaseField::Params>;
+        const size_t pack_cap = (BATCH_CAPACITY / VecField::SIZE) + 1;
+        for (size_t k = 0; k < PACKED_DRAIN_VECTORFIELD_RUNS; ++k) {
+            layout_add(ts_fixed_layout, sizeof(VecField) * pack_cap, alignof(VecField));
+        }
         layout_add(ts_fixed_layout, sizeof(uint32_t) * BATCH_CAPACITY, alignof(uint32_t));
         layout_add(ts_fixed_layout, sizeof(uint32_t) * global_max_overflow_per_window, alignof(uint32_t));
         layout_add(ts_fixed_layout, sizeof(AffineElement) * global_max_overflow_per_window, alignof(AffineElement));
@@ -230,7 +243,11 @@ template <typename Curve> struct PerWorkerArenaLayout {
         if (windows_per_batch != 0) {
             const size_t dense_total = windows_per_batch * dense_stride_est;
             const size_t dense_pair_max = dense_total / 2;
-            layout_add(per_worker_per_wpb_layout, sizeof(AffineElement) * dense_total, alignof(AffineElement));
+            // dense_buckets is a column (SoA) view: two BaseField coordinate arrays, not one
+            // AffineElement array. Same total bytes (AffineElement == 2 * BaseField), but the live
+            // allocator bumps them as two separate spans, so the sizer must too.
+            layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_total, alignof(BaseField));
+            layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_total, alignof(BaseField));
             layout_add(per_worker_per_wpb_layout, sizeof(uint8_t) * dense_total, alignof(uint8_t));
             layout_add(per_worker_per_wpb_layout,
                        sizeof(std::pair<uint32_t, uint32_t>) * dense_pair_max,

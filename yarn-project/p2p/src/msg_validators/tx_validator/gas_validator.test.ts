@@ -1,6 +1,6 @@
 import {
-  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
+  MAX_TX_DA_GAS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
@@ -11,7 +11,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { FALLBACK_TEARDOWN_DA_GAS_LIMIT, Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
 import {
@@ -27,6 +27,9 @@ import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { GasLimitsValidator, GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
 import { patchNonRevertibleFn, patchRevertibleFn } from './test_utils.js';
+
+const DEFAULT_GAS_LIMITS = new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS);
+const TEARDOWN_DA_GAS = 98_304;
 
 describe('GasTxValidator', () => {
   // Vars for validator.
@@ -48,7 +51,10 @@ describe('GasTxValidator', () => {
 
     tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
     tx.data.feePayer = await AztecAddress.random();
-    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: gasFees.clone() });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({
+      gasLimits: DEFAULT_GAS_LIMITS,
+      maxFeesPerGas: gasFees.clone(),
+    });
     payer = tx.data.feePayer;
     expectedBalanceSlot = await computeFeePayerBalanceStorageSlot(payer);
     feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();
@@ -118,7 +124,10 @@ describe('GasTxValidator', () => {
     });
     assert(!privateTx.data.forPublic);
     privateTx.data.feePayer = payer;
-    privateTx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: gasFees.clone() });
+    privateTx.data.constants.txContext.gasSettings = GasSettings.fallback({
+      gasLimits: DEFAULT_GAS_LIMITS,
+      maxFeesPerGas: gasFees.clone(),
+    });
     return privateTx;
   };
 
@@ -189,9 +198,9 @@ describe('GasTxValidator', () => {
 
     it('rejects public tx if L2 gas limit is too high', async () => {
       tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-        gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+        gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: gasFees.clone(),
-        teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+        teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
       });
       await expectInvalid(tx, TX_ERROR_GAS_LIMIT_TOO_HIGH);
     });
@@ -199,21 +208,21 @@ describe('GasTxValidator', () => {
     it('rejects private tx if L2 gas limit is too high', async () => {
       const privateTx = await makePrivateTx();
       privateTx.data.constants.txContext.gasSettings = GasSettings.fallback({
-        gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+        gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1),
         maxFeesPerGas: gasFees.clone(),
-        teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+        teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
       });
       await expectInvalid(privateTx, TX_ERROR_GAS_LIMIT_TOO_HIGH);
     });
 
-    describe('block gas limits (rollupManaLimit, maxBlockL2Gas, maxBlockDAGas)', () => {
-      it('rejects tx exceeding rollupManaLimit (L2)', async () => {
-        const rollupManaLimit = 1_000_000;
-        const validator = new GasLimitsValidator({ rollupManaLimit });
+    describe('network admission limits (maxTxL2Gas, maxTxDAGas)', () => {
+      it('rejects tx exceeding maxTxL2Gas', async () => {
+        const maxTxL2Gas = 1_000_000;
+        const validator = new GasLimitsValidator({ maxTxL2Gas });
         tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, rollupManaLimit + 1),
+          gasLimits: new Gas(MAX_TX_DA_GAS, maxTxL2Gas + 1),
           maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
@@ -221,53 +230,37 @@ describe('GasTxValidator', () => {
         });
       });
 
-      it('rejects tx exceeding maxBlockL2Gas', async () => {
-        const maxBlockL2Gas = 1_000_000;
-        const validator = new GasLimitsValidator({ maxBlockL2Gas });
+      it('accepts tx at exactly maxTxL2Gas', async () => {
+        const maxTxL2Gas = 1_000_000;
+        const validator = new GasLimitsValidator({ maxTxL2Gas });
         tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, maxBlockL2Gas + 1),
+          gasLimits: new Gas(MAX_TX_DA_GAS, maxTxL2Gas),
           maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
-        });
-        await expect(validator.validateTx(tx)).resolves.toEqual({
-          result: 'invalid',
-          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
-        });
-      });
-
-      it('uses the minimum of all L2 limits', async () => {
-        const rollupManaLimit = 2_000_000;
-        const maxBlockL2Gas = 1_000_000;
-        const validator = new GasLimitsValidator({ rollupManaLimit, maxBlockL2Gas });
-        // Between maxBlockL2Gas and rollupManaLimit — should be rejected (min wins)
-        tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, 1_500_000),
-          maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
-        });
-        await expect(validator.validateTx(tx)).resolves.toEqual({
-          result: 'invalid',
-          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
-        });
-      });
-
-      it('accepts tx at exactly the effective L2 limit', async () => {
-        const maxBlockL2Gas = 1_000_000;
-        const validator = new GasLimitsValidator({ maxBlockL2Gas });
-        tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, maxBlockL2Gas),
-          maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
       });
 
-      it('falls back to MAX_PROCESSABLE_L2_GAS when no additional L2 limits are set', async () => {
+      it('clamps maxTxL2Gas to the per-tx protocol maximum', async () => {
+        // Passing a higher network limit cannot raise the ceiling above MAX_PROCESSABLE_L2_GAS.
+        const validator = new GasLimitsValidator({ maxTxL2Gas: MAX_PROCESSABLE_L2_GAS + 1_000 });
+        tx.data.constants.txContext.gasSettings = GasSettings.fallback({
+          gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1),
+          maxFeesPerGas: gasFees.clone(),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
+        });
+        await expect(validator.validateTx(tx)).resolves.toEqual({
+          result: 'invalid',
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
+        });
+      });
+
+      it('falls back to MAX_PROCESSABLE_L2_GAS when no L2 limit is set', async () => {
         const validator = new GasLimitsValidator();
         tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS + 1),
+          gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1),
           maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
@@ -275,13 +268,13 @@ describe('GasTxValidator', () => {
         });
       });
 
-      it('rejects tx exceeding maxBlockDAGas', async () => {
-        const maxBlockDAGas = 100_000;
-        const validator = new GasLimitsValidator({ maxBlockDAGas });
+      it('rejects tx exceeding maxTxDAGas', async () => {
+        const maxTxDAGas = 100_000;
+        const validator = new GasLimitsValidator({ maxTxDAGas });
         tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(maxBlockDAGas + 1, PUBLIC_TX_L2_GAS_OVERHEAD),
+          gasLimits: new Gas(maxTxDAGas + 1, PUBLIC_TX_L2_GAS_OVERHEAD),
           maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
@@ -289,23 +282,23 @@ describe('GasTxValidator', () => {
         });
       });
 
-      it('accepts tx at exactly the effective DA limit', async () => {
-        const maxBlockDAGas = 100_000;
-        const validator = new GasLimitsValidator({ maxBlockDAGas });
+      it('accepts tx at exactly maxTxDAGas', async () => {
+        const maxTxDAGas = 100_000;
+        const validator = new GasLimitsValidator({ maxTxDAGas });
         tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(maxBlockDAGas, PUBLIC_TX_L2_GAS_OVERHEAD),
+          gasLimits: new Gas(maxTxDAGas, PUBLIC_TX_L2_GAS_OVERHEAD),
           maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
       });
 
-      it('falls back to MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT when no DA limit is set', async () => {
+      it('caps DA at the max tx blob size when no DA limit is set', async () => {
         const validator = new GasLimitsValidator();
         tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT + 1, PUBLIC_TX_L2_GAS_OVERHEAD),
+          gasLimits: new Gas(MAX_TX_DA_GAS + 1, PUBLIC_TX_L2_GAS_OVERHEAD),
           maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
@@ -313,15 +306,25 @@ describe('GasTxValidator', () => {
         });
       });
 
-      it('forwards limits through GasTxValidator', async () => {
-        const maxBlockL2Gas = 1_000_000;
+      it('accepts a tx at exactly the max tx blob size DA limit when no DA limit is set', async () => {
+        const validator = new GasLimitsValidator();
+        tx.data.constants.txContext.gasSettings = GasSettings.fallback({
+          gasLimits: new Gas(MAX_TX_DA_GAS, PUBLIC_TX_L2_GAS_OVERHEAD),
+          maxFeesPerGas: gasFees.clone(),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
+        });
+        await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
+      });
+
+      it('forwards L2 limits through GasTxValidator', async () => {
+        const maxTxL2Gas = 1_000_000;
         const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, gasFees, undefined, {
-          maxBlockL2Gas,
+          maxTxL2Gas,
         });
         tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, maxBlockL2Gas + 1),
+          gasLimits: new Gas(MAX_TX_DA_GAS, maxTxL2Gas + 1),
           maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
@@ -330,14 +333,14 @@ describe('GasTxValidator', () => {
       });
 
       it('forwards DA limits through GasTxValidator', async () => {
-        const maxBlockDAGas = 100_000;
+        const maxTxDAGas = 100_000;
         const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, gasFees, undefined, {
-          maxBlockDAGas,
+          maxTxDAGas,
         });
         tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-          gasLimits: new Gas(maxBlockDAGas + 1, PUBLIC_TX_L2_GAS_OVERHEAD),
+          gasLimits: new Gas(maxTxDAGas + 1, PUBLIC_TX_L2_GAS_OVERHEAD),
           maxFeesPerGas: gasFees.clone(),
-          teardownGasLimits: new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, 1),
+          teardownGasLimits: new Gas(TEARDOWN_DA_GAS, 1),
         });
         await expect(validator.validateTx(tx)).resolves.toEqual({
           result: 'invalid',
@@ -363,7 +366,10 @@ describe('MaxFeePerGasValidator', () => {
     const gasFees = new GasFees(10, 20);
     const validator = new MaxFeePerGasValidator<Tx>(gasFees);
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 20) });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({
+      gasLimits: DEFAULT_GAS_LIMITS,
+      maxFeesPerGas: new GasFees(10, 20),
+    });
     await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
   });
 
@@ -371,7 +377,10 @@ describe('MaxFeePerGasValidator', () => {
     const gasFees = new GasFees(10, 20);
     const validator = new MaxFeePerGasValidator<Tx>(gasFees);
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(9, 20) });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({
+      gasLimits: DEFAULT_GAS_LIMITS,
+      maxFeesPerGas: new GasFees(9, 20),
+    });
     await expect(validator.validateTx(tx)).resolves.toEqual({
       result: 'invalid',
       reason: [expect.stringContaining(TX_ERROR_INSUFFICIENT_FEE_PER_GAS)],
@@ -382,7 +391,10 @@ describe('MaxFeePerGasValidator', () => {
     const gasFees = new GasFees(10, 20);
     const validator = new MaxFeePerGasValidator<Tx>(gasFees);
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 19) });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({
+      gasLimits: DEFAULT_GAS_LIMITS,
+      maxFeesPerGas: new GasFees(10, 19),
+    });
     await expect(validator.validateTx(tx)).resolves.toEqual({
       result: 'invalid',
       reason: [expect.stringContaining(TX_ERROR_INSUFFICIENT_FEE_PER_GAS)],

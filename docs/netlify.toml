@@ -7,6 +7,10 @@
   command = "yarn build"
   functions = "netlify/functions"
 
+# The markdown content-negotiation edge function declares its own `path` via the
+# inline `config` export in netlify/edge-functions/markdown-negotiation.js, so it
+# does not need a [[edge_functions]] entry here (declaring both runs it twice).
+
 # Install nargo only for preview deploys (not needed for production)
 [context.deploy-preview]
   command = "./scripts/netlify-preview-build.sh"
@@ -933,7 +937,7 @@
 [[redirects]]
     # PXE: cross-contract utility call denied by execution hook
     from = "/errors/11"
-    to = "/developers/docs/aztec-nr/debugging#cross-contract-utility-call-denied"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts#cross-contract-authorization"
 
 [[redirects]]
     # Incompatible oracle version between test and test environment
@@ -944,3 +948,8 @@
     # Unexpected error: how to report issues
     from = "/errors/13"
     to = "/developers/docs/aztec-nr/debugging#reporting-issues"
+
+[[redirects]]
+    # Aztec-nr: contract errors
+    from = "/errors/14"
+    to = "/developers/docs/aztec-nr/debugging#contract-errors"

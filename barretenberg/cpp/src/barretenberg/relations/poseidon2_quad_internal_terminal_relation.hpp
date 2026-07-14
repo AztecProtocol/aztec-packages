@@ -9,8 +9,8 @@ namespace bb {
  * @brief Terminal variant of the K=4 compressed internal-round relation.
  *
  * @details Same four-round closed-form computation as `Poseidon2QuadInternalRelationImpl`, but
- * the successor is the standard-encoded bridge row rather than another compressed row. The four
- * subrelations directly match (out_0, out_1, out_2, out_3) against
+ * the successor is the standard-encoded first final-external row rather than another compressed
+ * row. The four subrelations directly match (out_0, out_1, out_2, out_3) against
  * (w_l_shift, w_r_shift, w_o_shift, w_4_shift).
  *
  * This ties the compressed chain's output state (state[0..3] after 56 internal rounds) to
@@ -29,7 +29,7 @@ template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_quad_internal_terminal.is_zero();
+        return in[AllEntities::EntityId::q_poseidon2_quad_internal_terminal].is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -41,36 +41,38 @@ template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoeffAcc = typename Accumulator::CoefficientAccumulator;
 
-        const auto w_l = CoeffAcc(in.w_l);
-        const auto w_r = CoeffAcc(in.w_r);
-        const auto w_o = CoeffAcc(in.w_o);
-        const auto w_4 = CoeffAcc(in.w_4);
+        const auto w_l = CoeffAcc(in[AllEntities::EntityId::w_l]);
+        const auto w_r = CoeffAcc(in[AllEntities::EntityId::w_r]);
+        const auto w_o = CoeffAcc(in[AllEntities::EntityId::w_o]);
+        const auto w_4 = CoeffAcc(in[AllEntities::EntityId::w_4]);
 
-        const auto w_l_shift = CoeffAcc(in.w_l_shift);
-        const auto w_r_shift = CoeffAcc(in.w_r_shift);
-        const auto w_o_shift = CoeffAcc(in.w_o_shift);
-        const auto w_4_shift = CoeffAcc(in.w_4_shift);
+        const auto w_l_shift = CoeffAcc(in[AllEntities::EntityId::w_l_shift]);
+        const auto w_r_shift = CoeffAcc(in[AllEntities::EntityId::w_r_shift]);
+        const auto w_o_shift = CoeffAcc(in[AllEntities::EntityId::w_o_shift]);
+        const auto w_4_shift = CoeffAcc(in[AllEntities::EntityId::w_4_shift]);
 
-        const auto q_l = CoeffAcc(in.q_l);
-        const auto q_r = CoeffAcc(in.q_r);
-        const auto q_o = CoeffAcc(in.q_o);
-        const auto q_4 = CoeffAcc(in.q_4);
+        const auto q_l = CoeffAcc(in[AllEntities::EntityId::q_l]);
+        const auto q_r = CoeffAcc(in[AllEntities::EntityId::q_r]);
+        const auto q_o = CoeffAcc(in[AllEntities::EntityId::q_o]);
+        const auto q_4 = CoeffAcc(in[AllEntities::EntityId::q_4]);
 
-        const auto q_sel = CoeffAcc(in.q_poseidon2_quad_internal_terminal);
+        const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_quad_internal_terminal]);
 
-        auto pow5 = [](const Accumulator& x) -> Accumulator {
-            auto sq = x.sqr();
-            auto quart = sq.sqr();
-            return quart * x;
+        // Square the degree-1 pow5 input in the coefficient basis before promoting -- see
+        // UnivariateCoefficientBasis::sqr.
+        auto pow5 = [](const auto& x_m) -> Accumulator {
+            const Accumulator x(x_m);
+            const Accumulator sq(x_m.sqr());
+            return sq.sqr() * x;
         };
 
         // S-boxes for the four rounds.
-        auto u_0 = pow5(Accumulator(w_l + q_l));
-        auto u_1 = pow5(Accumulator(w_r + q_r));
-        auto u_2 = pow5(Accumulator(w_o + q_o));
-        auto u_3 = pow5(Accumulator(w_4 + q_4));
+        auto u_0 = pow5(w_l + q_l);
+        auto u_1 = pow5(w_r + q_r);
+        auto u_2 = pow5(w_o + q_o);
+        auto u_3 = pow5(w_4 + q_4);
 
-        // Closed-form output rows, with shifted bridge-row terms folded into the wire part.
+        // Closed-form output rows, with shifted successor-row terms folded into the wire part.
         const auto& C = QuadParams::tables.closed_form;
         auto wp_0 = w_r * C[0][0] + w_o * C[0][1] + w_4 * C[0][2] - w_l_shift;
         auto wp_1 = w_r * C[1][0] + w_o * C[1][1] + w_4 * C[1][2] - w_r_shift;

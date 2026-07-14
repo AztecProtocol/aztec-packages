@@ -18,47 +18,48 @@ import {
 
 import { formatEther, formatUnits } from 'viem';
 
+import type { CheckpointStore } from './checkpoint-store.js';
+import type { SessionManager } from './session-manager.js';
+
 export class ProverNodeJobMetrics {
-  proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
   provingJobCheckpoints: Gauge;
   provingJobBlocks: Gauge;
   provingJobTransactions: Gauge;
 
   private blobProcessingDuration: Gauge;
-  private chonkVerifierDuration: Gauge;
   private blockProcessingDuration: Histogram;
   private checkpointProcessingDuration: Histogram;
-  private allCheckpointsProcessingDuration: Gauge;
+  private checkpointProvingDuration: Histogram;
+  private checkpointBlocks: Histogram;
+  private checkpointTransactions: Histogram;
+
+  /** Observable gauges for live state. Registered via `observeState(...)` once the
+   *  CheckpointStore and SessionManager are available. */
+  private activeCheckpoints: ObservableGauge | undefined;
+  private activeEpochSessions: ObservableGauge | undefined;
+  private stateObserver: ((observer: BatchObservableResult) => void) | undefined;
+  private stateObservedMetrics: ObservableGauge[] = [];
 
   constructor(
     private meter: Meter,
     public readonly tracer: Tracer,
     private logger = createLogger('prover-node:publisher:metrics'),
   ) {
-    this.proverEpochExecutionDuration = this.meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION);
     this.provingJobDuration = this.meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION);
     this.provingJobCheckpoints = this.meter.createGauge(Metrics.PROVER_NODE_JOB_CHECKPOINTS);
     this.provingJobBlocks = this.meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS);
     this.provingJobTransactions = this.meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS);
 
     this.blobProcessingDuration = this.meter.createGauge(Metrics.PROVER_NODE_BLOB_PROCESSING_LAST_DURATION);
-    this.chonkVerifierDuration = this.meter.createGauge(Metrics.PROVER_NODE_CHONK_VERIFIER_LAST_DURATION);
     this.blockProcessingDuration = this.meter.createHistogram(Metrics.PROVER_NODE_BLOCK_PROCESSING_DURATION);
     this.checkpointProcessingDuration = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_PROCESSING_DURATION);
-    this.allCheckpointsProcessingDuration = this.meter.createGauge(
-      Metrics.PROVER_NODE_ALL_CHECKPOINTS_PROCESSING_LAST_DURATION,
-    );
+    this.checkpointProvingDuration = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_PROVING_DURATION);
+    this.checkpointBlocks = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_BLOCKS);
+    this.checkpointTransactions = this.meter.createHistogram(Metrics.PROVER_NODE_CHECKPOINT_TRANSACTIONS);
   }
 
-  public recordProvingJob(
-    executionTimeMs: number,
-    totalTimeMs: number,
-    numCheckpoints: number,
-    numBlocks: number,
-    numTxs: number,
-  ) {
-    this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
+  public recordProvingJob(totalTimeMs: number, numCheckpoints: number, numBlocks: number, numTxs: number) {
     this.provingJobDuration.record(totalTimeMs / 1000);
     this.provingJobCheckpoints.record(Math.floor(numCheckpoints));
     this.provingJobBlocks.record(Math.floor(numBlocks));
@@ -69,20 +70,61 @@ export class ProverNodeJobMetrics {
     this.blobProcessingDuration.record(Math.ceil(durationMs));
   }
 
-  public recordChonkVerifier(durationMs: number) {
-    this.chonkVerifierDuration.record(Math.ceil(durationMs));
-  }
-
   public recordBlockProcessing(durationMs: number) {
     this.blockProcessingDuration.record(Math.ceil(durationMs));
   }
 
-  public recordCheckpointProcessing(durationMs: number) {
+  public recordCheckpointProcessing(durationMs: number, numBlocks: number, numTxs: number) {
     this.checkpointProcessingDuration.record(Math.ceil(durationMs));
+    this.checkpointBlocks.record(Math.floor(numBlocks));
+    this.checkpointTransactions.record(Math.floor(numTxs));
   }
 
-  public recordAllCheckpointsProcessing(durationMs: number) {
-    this.allCheckpointsProcessingDuration.record(Math.ceil(durationMs));
+  public recordCheckpointProving(durationMs: number) {
+    this.checkpointProvingDuration.record(Math.ceil(durationMs));
+  }
+
+  /**
+   * Registers observable gauges for the prover-node's live state: how many canonical
+   * checkpoint provers are in the store, and how many epoch sessions are live (broken
+   * down by kind). Idempotent — repeated calls re-arm with the latest references.
+   *
+   * Call this once the `SessionManager` has been constructed (i.e. inside `ProverNode.start()`).
+   */
+  public observeState(checkpointStore: CheckpointStore, sessionManager: SessionManager): void {
+    this.stopObservingState();
+    this.activeCheckpoints = this.meter.createObservableGauge(Metrics.PROVER_NODE_ACTIVE_CHECKPOINTS);
+    this.activeEpochSessions = this.meter.createObservableGauge(Metrics.PROVER_NODE_ACTIVE_EPOCH_SESSIONS);
+    this.stateObserver = (observer: BatchObservableResult) => {
+      observer.observe(this.activeCheckpoints!, checkpointStore.listCanonical().length);
+      let full = 0;
+      let partial = 0;
+      for (const session of sessionManager.allSessions()) {
+        if (session.isTerminal()) {
+          continue;
+        }
+        if (session.getKind() === 'full') {
+          full++;
+        } else {
+          partial++;
+        }
+      }
+      observer.observe(this.activeEpochSessions!, full, { [Attributes.EPOCH_SESSION_KIND]: 'full' });
+      observer.observe(this.activeEpochSessions!, partial, { [Attributes.EPOCH_SESSION_KIND]: 'partial' });
+    };
+    this.stateObservedMetrics = [this.activeCheckpoints, this.activeEpochSessions];
+    this.meter.addBatchObservableCallback(this.stateObserver, this.stateObservedMetrics);
+  }
+
+  /** Tears down the observable callback registered by `observeState`. Idempotent. */
+  public stopObservingState(): void {
+    if (this.stateObserver) {
+      this.meter.removeBatchObservableCallback(this.stateObserver, this.stateObservedMetrics);
+      this.stateObserver = undefined;
+      this.stateObservedMetrics = [];
+      this.activeCheckpoints = undefined;
+      this.activeEpochSessions = undefined;
+    }
   }
 }
 

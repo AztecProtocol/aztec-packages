@@ -81,7 +81,9 @@ TEST(L1ToL2MessageExistsConstrainingTest, OutOfRange)
 
     // Negative test: exists must be false
     trace.set(C::execution_register_2_, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<l1_to_l2_message_exists>(trace), "L1_TO_L2_MSG_EXISTS_OUT_OF_RANGE_FALSE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<l1_to_l2_message_exists>(trace),
+                              l1_to_l2_message_exists::get_subrelation_label(
+                                  l1_to_l2_message_exists::SR_L1_TO_L2_MSG_EXISTS_OUT_OF_RANGE_FALSE));
 }
 
 TEST(L1ToL2MessageExistsConstrainingTest, NegativeInvalidOutputTag)
@@ -97,7 +99,7 @@ TEST(L1ToL2MessageExistsConstrainingTest, NegativeInvalidOutputTag)
     } });
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<l1_to_l2_message_exists>(trace, l1_to_l2_message_exists::SR_L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG),
-        "L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG");
+        l1_to_l2_message_exists::get_subrelation_label(l1_to_l2_message_exists::SR_L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG));
 }
 
 TEST(L1ToL2MessageExistsConstrainingTest, NegativeL1ToL2MessageExistsSuccess)
@@ -108,7 +110,7 @@ TEST(L1ToL2MessageExistsConstrainingTest, NegativeL1ToL2MessageExistsSuccess)
     } });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
-                              "INFALLIBLE_OPCODES_SUCCESS");
+                              execution::get_subrelation_label(execution::SR_INFALLIBLE_OPCODES_SUCCESS));
 }
 
 TEST(L1ToL2MessageExistsConstrainingTest, Interactions)

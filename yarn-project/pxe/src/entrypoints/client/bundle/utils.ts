@@ -1,8 +1,10 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/indexeddb';
+import { createStore } from '@aztec/kv-store/sqlite-opfs';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -35,7 +37,7 @@ export async function createPXE(
     ...l1ContractAddresses,
   } as PXEConfig;
 
-  const storeLogger = loggers.store ?? createLogger('pxe:data:idb', { actor });
+  const storeLogger = loggers.store ?? createLogger('pxe:data', { actor });
 
   const store =
     options.store ?? (await createStore('pxe_data', configWithContracts, PXE_DATA_SCHEMA_VERSION, storeLogger));
@@ -51,12 +53,17 @@ export async function createPXE(
   }
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const preloadedContractsProvider = options.preloadedContractsProvider ?? {
-    getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()],
+    getPreloadedContracts: async () => [
+      await getStandardMultiCallEntrypoint(),
+      await getStandardAuthRegistry(),
+      await getStandardHandshakeRegistry(),
+    ],
   };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
     node: aztecNode,
+    nodeDebug: options.nodeDebug,
     store,
     proofCreator: prover,
     simulator,

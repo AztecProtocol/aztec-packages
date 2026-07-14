@@ -6,32 +6,40 @@ import {
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import {
   AddressStore,
+  AnchoredContractData,
   CapsuleService,
   CapsuleStore,
   type ContractStore,
   type ExecutionHooks,
+  FactService,
+  FactStore,
   NoteStore,
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
   RecipientTaggingStore,
-  SenderAddressBookStore,
   SenderTaggingStore,
+  TaggingSecretSourcesStore,
+  type TaggingSecretStrategy,
   composeHooks,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
+  CONTRACT_INSTANCE,
   ExecutionNoteCache,
   ExecutionTaggingIndexCache,
   HashedValuesCache,
   type IMiscOracle,
-  Oracle,
+  type Option,
   PrivateExecutionOracle,
+  TransientArrayService,
   UtilityExecutionOracle,
+  buildACIRCallback,
   executePrivateFunction,
   generateSimulatedProvingResult,
 } from '@aztec/pxe/simulator';
@@ -45,10 +53,10 @@ import {
   witnessMapToFields,
 } from '@aztec/simulator/client';
 import {
-  CppPublicTxSimulator,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
+  PublicTxSimulator,
 } from '@aztec/simulator/server';
 import { type ContractArtifact, EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -63,7 +71,9 @@ import {
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
-import { hashPublicKey } from '@aztec/stdlib/keys';
+import { deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
+import type { PrivateLog } from '@aztec/stdlib/logs';
+import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -105,13 +115,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private accountStore: TXEAccountStore,
     private senderTaggingStore: SenderTaggingStore,
     private recipientTaggingStore: RecipientTaggingStore,
-    private senderAddressBookStore: SenderAddressBookStore,
+    private taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private capsuleStore: CapsuleStore,
+    private factStore: FactStore,
     private privateEventStore: PrivateEventStore,
     private nextBlockTimestamp: bigint,
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
+    private taggingSecretStrategy: TaggingSecretStrategy | undefined,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -173,7 +185,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects() {
+  async getLastTxEffects(): Promise<{ txHash: TxHash; noteHashes: Fr[]; nullifiers: Fr[]; privateLogs: PrivateLog[] }> {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
@@ -208,7 +220,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       contractAddress,
       null,
       async (call, execScopes) => {
-        await this.executeUtilityCall(call, execScopes, jobId);
+        await this.executeUtilityCall(call, { scopes: execScopes, jobId });
       },
       blockHeader,
       jobId,
@@ -250,7 +262,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   private deploymentNullifier(address: AztecAddress): Promise<Fr> {
-    return siloNullifier(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
+    return siloNullifier(AztecAddress.fromNumberUnsafe(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
   }
 
   async deploy(
@@ -285,14 +297,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
 
-    return [
-      instance.salt,
-      instance.deployer.toField(),
-      instance.currentContractClassId,
-      instance.initializationHash,
-      instance.immutablesHash,
-      ...instance.publicKeys.toFields(),
-    ];
+    return CONTRACT_INSTANCE.serialization!.fn(instance).flat();
   }
 
   /**
@@ -320,7 +325,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     await this.contractStore.addContractInstance(instance);
     await this.contractStore.addContractArtifact(artifact);
 
-    const completeAddress = await this.keyStore.addAccount(secret, partialAddress);
+    const completeAddress = await this.keyStore.addAccount(await deriveKeys(secret), partialAddress);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
     await this.addressStore.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
@@ -330,7 +335,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   async createAccount(secret: Fr) {
     // This is a foot gun !
-    const completeAddress = await this.keyStore.addAccount(secret, secret);
+    const completeAddress = await this.keyStore.addAccount(await deriveKeys(secret), secret);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
     await this.addressStore.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
@@ -351,7 +356,31 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
-  async mineBlock(options: { nullifiers?: Fr[] } = {}) {
+  setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void {
+    this.taggingSecretStrategy = strategy.value;
+  }
+
+  async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
+    // Messages are appended to the tree, so the next free slot is simply the current tree size.
+    const { size } = await this.stateMachine.synchronizer
+      .getCommitted()
+      .getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+    const leafIndex = new Fr(size);
+
+    const message = new L1ToL2Message(
+      new L1Actor(sender, this.chainId.toNumber()),
+      new L2Actor(recipient, this.version.toNumber()),
+      content,
+      secretHash,
+      leafIndex,
+    );
+
+    await this.mineBlock({ l1ToL2Messages: [message.hash()] });
+
+    return leafIndex;
+  }
+
+  async mineBlock(options: { nullifiers?: Fr[]; l1ToL2Messages?: Fr[] } = {}) {
     const blockNumber = await this.getNextBlockNumber();
 
     const txEffect = TxEffect.empty();
@@ -359,7 +388,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
-    await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees);
+    await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees, options.l1ToL2Messages ?? []);
 
     const globals = makeGlobalVariables(undefined, {
       blockNumber,
@@ -373,7 +402,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     this.logger.info(`Created block ${blockNumber} with timestamp ${block.header.globalVariables.timestamp}`);
 
-    await this.stateMachine.handleL2Block(block);
+    await this.stateMachine.handleL2Block(block, options.l1ToL2Messages ?? []);
   }
 
   async privateCallNewFlow(
@@ -388,11 +417,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     authorizedUtilityCallTargets: AztecAddress[],
     gasSettings: GasSettings,
   ) {
-    this.logger.verbose(
-      `Executing external function ${await this.contractStore.getDebugFunctionName(targetContractAddress, functionSelector)}@${targetContractAddress} isStaticCall=${isStaticCall}`,
+    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.stateMachine.contractClassService,
+      blockHeader,
     );
 
-    const artifact = await this.contractStore.getFunctionArtifact(targetContractAddress, functionSelector);
+    this.logger.verbose(
+      `Executing external function ${await anchoredContractData.getDebugFunctionName(targetContractAddress, functionSelector)}@${targetContractAddress} isStaticCall=${isStaticCall}`,
+    );
+
+    const artifact = await anchoredContractData.getFunctionArtifact(targetContractAddress, functionSelector);
     if (!artifact) {
       const message = functionSelector.equals(await FunctionSelector.fromSignature('verify_private_authwit(Field)'))
         ? 'Found no account contract artifact for a private authwit check - use `create_contract_account` instead of `create_light_account` for authwit support.'
@@ -404,10 +440,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     // Sync notes before executing private function to discover notes from previous transactions
     const utilityExecutor = async (call: FunctionCall, execScopes: AztecAddress[]) => {
-      await this.executeUtilityCall(call, execScopes, jobId);
+      await this.executeUtilityCall(call, { scopes: execScopes, jobId });
     };
 
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
     await this.stateMachine.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
@@ -435,9 +470,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const simulator = new WASMSimulator();
 
+    const transientArrayService = new TransientArrayService();
+    const taggingSecretStrategy = this.taggingSecretStrategy;
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
+      txRequestSalt: Fr.ZERO,
       callContext,
       anchorBlockHeader: blockHeader,
       utilityExecutor,
@@ -446,15 +484,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       executionCache: HashedValuesCache.create([new HashedValues(args, argsHash)]),
       noteCache,
       taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: this.stateMachine.node,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId,
@@ -465,14 +504,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       // contract would perform, including setting senderForTags.
       senderForTags: from,
       simulator,
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       hooks: composeHooks({
         authorizeUtilityCall: this.buildAuthorizeUtilityCallHook(
           isStaticCall ? 'private view' : 'private',
           authorizedUtilityCallTargets,
         ),
+        // Only configure the hook when a strategy was explicitly set, so that otherwise the default tagging secret
+        // strategy is exercised.
+        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
       }),
+      transientArrayService,
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -500,7 +543,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         }),
       );
 
-      noteCache.finish();
       const nonceGenerator = noteCache.getNonceGenerator();
       result = new PrivateExecutionResult(executionResult, nonceGenerator, publicFunctionsCalldata);
     } catch (err) {
@@ -512,7 +554,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     // We pass the non-zero minRevertibleSideEffectCounter to make sure the side effects are split correctly.
     const { publicInputs } = await generateSimulatedProvingResult(
       result,
-      (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
+      (addr, sel) => anchoredContractData.getDebugFunctionName(addr, sel),
       this.stateMachine.node,
       minRevertibleSideEffectCounter,
     );
@@ -543,7 +585,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
+      new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
       new TestDateProvider(),
       undefined,
       createLogger('simulator:public-processor', bindings),
@@ -571,7 +613,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     } else if (!processedTx.revertCode.isOK()) {
       if (processedTx.revertReason) {
         try {
-          await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
+          await enrichPublicSimulationError(
+            processedTx.revertReason,
+            this.contractStore,
+            this.stateMachine.contractClassService,
+            await this.stateMachine.anchorBlockStore.getBlockHeader(),
+            this.logger,
+          );
           // eslint-disable-next-line no-empty
         } catch {}
         throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
@@ -622,15 +670,20 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     isStaticCall: boolean,
     gasSettings: GasSettings,
   ) {
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.stateMachine.contractClassService,
+      anchorBlockHeader,
+    );
+
     this.logger.verbose(
-      `Executing public function ${await this.contractStore.getDebugFunctionName(targetContractAddress, FunctionSelector.fromField(calldata[0]))}@${targetContractAddress} isStaticCall=${isStaticCall}`,
+      `Executing public function ${await anchoredContractData.getDebugFunctionName(targetContractAddress, FunctionSelector.fromField(calldata[0]))}@${targetContractAddress} isStaticCall=${isStaticCall}`,
     );
 
     const blockNumber = await this.getNextBlockNumber();
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
-
-    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
     const calldataHash = await computeCalldataHash(calldata);
     const calldataHashedValues = new HashedValues(calldata, calldataHash);
@@ -657,7 +710,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings2);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings2);
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
@@ -724,7 +777,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     } else if (!processedTx.revertCode.isOK()) {
       if (processedTx.revertReason) {
         try {
-          await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
+          await enrichPublicSimulationError(
+            processedTx.revertReason,
+            this.contractStore,
+            this.stateMachine.contractClassService,
+            anchorBlockHeader,
+            this.logger,
+          );
           // eslint-disable-next-line no-empty
         } catch {}
         throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
@@ -766,24 +825,31 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async executeUtilityFunction(
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
     jobId: string,
     authorizedUtilityCallTargets: AztecAddress[],
   ) {
-    const artifact = await this.contractStore.getFunctionArtifact(targetContractAddress, functionSelector);
+    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.stateMachine.contractClassService,
+      blockHeader,
+    );
+
+    const artifact = await anchoredContractData.getFunctionArtifact(targetContractAddress, functionSelector);
     if (!artifact) {
       throw new Error(`Cannot call ${functionSelector} as there is no artifact found at ${targetContractAddress}.`);
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
     await this.stateMachine.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
       async (call, execScopes) => {
-        await this.executeUtilityCall(call, execScopes, jobId);
+        await this.executeUtilityCall(call, { scopes: execScopes, jobId });
       },
       blockHeader,
       jobId,
@@ -801,16 +867,34 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       returnTypes: [],
     });
 
-    return this.executeUtilityCall(call, await this.keyStore.getAccounts(), jobId, authorizedUtilityCallTargets);
+    return this.executeUtilityCall(call, {
+      from,
+      scopes: await this.keyStore.getAccounts(),
+      jobId,
+      authorizedUtilityCallTargets,
+    });
   }
 
   private async executeUtilityCall(
     call: FunctionCall,
-    scopes: AztecAddress[],
-    jobId: string,
-    authorizedUtilityCallTargets: AztecAddress[] = [],
+    {
+      from = AztecAddress.NULL_MSG_SENDER,
+      scopes,
+      jobId,
+      authorizedUtilityCallTargets = [],
+    }: { from?: AztecAddress; scopes: AztecAddress[]; jobId: string; authorizedUtilityCallTargets?: AztecAddress[] },
   ): Promise<Fr[]> {
-    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.stateMachine.contractClassService,
+      anchorBlockHeader,
+    );
+
+    const entryPointArtifact = await anchoredContractData.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+    if (!entryPointArtifact) {
+      throw new Error(`Cannot run function ${call.selector} on ${call.to}: the contract is not registered.`);
+    }
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
@@ -821,26 +905,31 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
 
     try {
-      const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
       const simulator = new WASMSimulator();
       const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-        await this.executeUtilityCall(syncCall, execScopes, jobId);
+        await this.executeUtilityCall(syncCall, { scopes: execScopes, jobId });
       };
       const oracle = new UtilityExecutionOracle({
-        contractAddress: call.to,
+        callContext: CallContext.from({
+          msgSender: from,
+          contractAddress: call.to,
+          functionSelector: call.selector,
+          isStaticCall: true,
+        }),
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,
-        contractStore: this.contractStore,
+        anchoredContractData,
         noteStore: this.noteStore,
         keyStore: this.keyStore,
         addressStore: this.addressStore,
         aztecNode: this.stateMachine.node,
         recipientTaggingStore: this.recipientTaggingStore,
-        senderAddressBookStore: this.senderAddressBookStore,
+        taggingSecretSourcesStore: this.taggingSecretSourcesStore,
         capsuleService: new CapsuleService(this.capsuleStore, scopes),
+        factService: new FactService(this.factStore, scopes),
         privateEventStore: this.privateEventStore,
-        messageContextService: this.stateMachine.messageContextService,
+        txResolver: this.stateMachine.txResolver,
         contractSyncService: this.stateMachine.contractSyncService,
         l2TipsStore: this.stateMachine.l2TipsProvider,
         jobId,
@@ -850,9 +939,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
         }),
         utilityExecutor,
+        // Execution-tree root (top-level utility run or contract sync): own store; nested frames inherit it.
+        transientArrayService: new TransientArrayService(),
       });
       const acirExecutionResult = await simulator
-        .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+        .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, buildACIRCallback(oracle))
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(
@@ -873,9 +964,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>] {
+  close(): [bigint, Map<string, AuthWitness>, TaggingSecretStrategy | undefined] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits];
+    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {

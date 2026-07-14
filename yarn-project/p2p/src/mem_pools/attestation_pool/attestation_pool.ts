@@ -43,6 +43,7 @@ export type AttestationPoolApi = Pick<
   | 'getProposalsForSlot'
   | 'tryAddCheckpointProposal'
   | 'getCheckpointProposal'
+  | 'hasCheckpointProposalForSlot'
   | 'addOwnCheckpointAttestations'
   | 'tryAddCheckpointAttestation'
   | 'deleteOlderThan'
@@ -403,6 +404,11 @@ export class AttestationPool {
     return undefined;
   }
 
+  /** Returns whether any checkpoint proposal is retained for the given slot. */
+  public async hasCheckpointProposalForSlot(slot: SlotNumber): Promise<boolean> {
+    return (await this.getCheckpointProposal(slot)) !== undefined;
+  }
+
   /**
    * Adds own checkpoint attestations to the pool.
    * Skips per-signer cap and equivocation tracking; the caller is trusted.
@@ -428,7 +434,8 @@ export class AttestationPool {
         const ownKey = this.getSlotSignerKey(slotNumber, address);
         const payloadHash = attestation.getPayloadHash();
 
-        await this.attestationPerSlotAndSigner.set(ownKey, attestation.toBuffer());
+        // Store the signature in canonical (v ∈ {27, 28}) form; see tryAddCheckpointAttestation.
+        await this.attestationPerSlotAndSigner.set(ownKey, attestation.withNormalizedSignature().toBuffer());
         this.metrics.trackMempoolItemAdded(ownKey);
 
         // Track our own payload hash so that an equivocating attestation from another
@@ -608,7 +615,10 @@ export class AttestationPool {
       // equivocations are detected via the multimap but their bytes are not retained.
       const alreadyHasStored = await this.attestationPerSlotAndSigner.hasAsync(slotSignerKey);
       if (!alreadyHasStored) {
-        await this.attestationPerSlotAndSigner.set(slotSignerKey, attestation.toBuffer());
+        // Store the signature in canonical (v ∈ {27, 28}) form. `sender` recovered above, so the
+        // signature is non-empty and safe to normalize; this keeps a yParity-encoded (v = 0/1) variant
+        // from a malicious peer or an in-flight byte mutation out of the L1 bundle downstream.
+        await this.attestationPerSlotAndSigner.set(slotSignerKey, attestation.withNormalizedSignature().toBuffer());
         this.metrics.trackMempoolItemAdded(slotSignerKey);
       }
 

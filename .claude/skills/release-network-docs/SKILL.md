@@ -45,7 +45,7 @@ Fetch node info from the provided RPC URL:
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"method":"node_getNodeInfo"}' <RPC_URL> | jq .result
+  -d '{"method":"aztec_getNodeInfo"}' <RPC_URL> | jq .result
 ```
 
 Parse the response to extract:
@@ -87,7 +87,7 @@ git tag -l "v<nodeVersion>"
 ### Step 3: Identify and Resolve Missing Contract Addresses
 
 The `networks.md` L1 table includes contracts that are **not** returned by
-`node_getNodeInfo`. Resolve these addresses in three tiers:
+`aztec_getNodeInfo`. Resolve these addresses in three tiers:
 
 #### Tier 1: Query on-chain from known contracts
 
@@ -144,13 +144,14 @@ in each table:
 
 - **L1 Contract Addresses table**: update all addresses from the RPC response,
   on-chain queries, and any additional addresses provided by the user.
+
   - Mainnet: use `https://etherscan.io/address/0xADDR` link format
   - Testnet: use `https://sepolia.etherscan.io/address/0xADDR` link format
   - For contracts that are not deployed on this network, use `N/A`
 
 - **L2 Contract Addresses table**: update if any canonical protocol contract
   addresses changed (check the `protocolContractAddresses` from the RPC
-  response). SponsoredFPC is always "Not deployed" on mainnet and testnet.
+  response). SponsoredFPC is always "Not deployed" on mainnet.
 
 Also grep for any old addresses that may appear elsewhere in the docs:
 

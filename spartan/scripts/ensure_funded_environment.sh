@@ -47,22 +47,24 @@ echo ""
 source ${spartan}/scripts/source_network_env.sh
 source_network_env "${ENVIRONMENT_NAME}"
 
-# Ensure required variables are set
-if [ -z "${ETHEREUM_RPC_URLS:-}" ] || [ "${ETHEREUM_RPC_URLS}" == "REPLACE_WITH_GCP_SECRET" ]; then
-    echo "Error: ETHEREUM_RPC_URLS not properly set in environment file"
-    exit 1
-fi
-
 if [ -z "${LABS_INFRA_MNEMONIC:-}" ] || [ "${LABS_INFRA_MNEMONIC}" == "REPLACE_WITH_GCP_SECRET" ]; then
     echo "Error: LABS_INFRA_MNEMONIC not properly set in environment file"
     exit 1
 fi
 
-# Extract first RPC URL from JSON array
-ETHEREUM_HOST=$(echo "${ETHEREUM_RPC_URLS}" | jq -r '.[0]')
+if [ -n "${EXTERNAL_ETHEREUM_HOST:-}" ]; then
+    ETHEREUM_HOST="${EXTERNAL_ETHEREUM_HOST}"
+else
+    if [ -z "${ETHEREUM_RPC_URLS:-}" ] || [ "${ETHEREUM_RPC_URLS}" == "REPLACE_WITH_GCP_SECRET" ]; then
+        echo "Error: EXTERNAL_ETHEREUM_HOST is not set and ETHEREUM_RPC_URLS is not properly set in environment file"
+        exit 1
+    fi
 
-if [ -z "$ETHEREUM_HOST" ] || [ "$ETHEREUM_HOST" == "null" ]; then
-    echo "Error: Could not extract RPC URL from ETHEREUM_RPC_URLS"
+    ETHEREUM_HOST=$(echo "${ETHEREUM_RPC_URLS}" | jq -r '.[0]')
+fi
+
+if [ -z "$ETHEREUM_HOST" ] || [ "$ETHEREUM_HOST" == "null" ] || [ "$ETHEREUM_HOST" == "REPLACE_WITH_GCP_SECRET" ]; then
+    echo "Error: EXTERNAL_ETHEREUM_HOST is empty and could not extract RPC URL from ETHEREUM_RPC_URLS"
     exit 1
 fi
 

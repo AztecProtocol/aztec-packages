@@ -12,14 +12,23 @@ Get started on your local environment using a local network. If you'd rather dep
 
 The local network is a local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The local network makes it faster and easier to develop and test your Aztec applications.
 
+The local network always owns the local chain it starts. It deploys its own Aztec protocol contracts to the local Ethereum node and is not a mode for connecting to an existing Aztec network.
+
 What's included in the local network:
 
 - Local Ethereum network (Anvil)
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
+- On-demand block production via the automine sequencer
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
 
 This guide will teach you how to install the Aztec local network, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
+
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+To see the whole flow before you start, watch this one-minute walkthrough (find more on the [video lessons](./docs/resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="_jgHNdNgFOg" title="Get Started on Aztec in Under 60 Seconds" />
 
 ## Prerequisites
 

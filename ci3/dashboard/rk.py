@@ -198,9 +198,8 @@ def root() -> str:
         f"\n"
         f"Benchmarks:\n"
         f"\n{YELLOW}"
-        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=master', 'master')}\n"
-        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=staging', 'staging')}\n"
         f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=next', 'next')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=prs', 'prs')}\n"
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
         f"{RESET}"
         f"\n"
@@ -556,6 +555,26 @@ def trigger_grind():
     # Dashboard server needs local repo checkout at REPO_PATH
     repo_path = os.environ.get('REPO_PATH')
     if repo_path:
+        # Refresh the launcher checkout to current origin/next before launching.
+        # REPO_PATH only supplies the orchestration scripts (ci.sh/bootstrap_ec2);
+        # the grind target commit is checked out on the remote box. The launcher
+        # must stay current so grind uses the same transport (SSM) as the rest of
+        # CI -- a drifted checkout silently falls back to the retired SSH path and
+        # every instance times out waiting for SSH.
+        refresh = subprocess.run(
+            ['git', '-C', repo_path, 'fetch', '--quiet', 'origin', 'next'],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
+        if refresh.returncode == 0:
+            refresh = subprocess.run(
+                ['git', '-C', repo_path, 'checkout', '--quiet', '--force', 'origin/next'],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            )
+        if refresh.returncode != 0:
+            r.setex(run_id, 86400,
+                    f'Failed to refresh launcher checkout at {repo_path}:\n{refresh.stdout}\n'.encode())
+            return redirect(f'/{run_id}')
+
         subprocess.Popen(
             ['bash', '-c', f'cd {repo_path} && RUN_ID={run_id} CPUS={cpus} ./ci.sh grind-test {shlex.quote(full_cmd)} {grind_time} {jobs_pct} {memsuspend_pct} {commit}'],
             stdout=subprocess.DEVNULL,

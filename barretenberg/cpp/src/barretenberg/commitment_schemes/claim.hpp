@@ -67,7 +67,8 @@ template <typename Curve> class OpeningClaim {
 
     static constexpr bool IS_GRUMPKIN =
         std::is_same_v<Curve, curve::Grumpkin> || std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>;
-    // Size of public inputs representation of an opening claim over Grumpkin: 2 * 4 + 2 = 10
+    // Size of public inputs representation of an opening claim over Grumpkin: challenge (2) + evaluation (2) +
+    // commitment (2) = 6
     static constexpr size_t PUBLIC_INPUTS_SIZE = IS_GRUMPKIN ? GRUMPKIN_OPENING_CLAIM_SIZE : INVALID_PUBLIC_INPUTS_SIZE;
 
     /**
@@ -146,11 +147,11 @@ template <typename Curve> class OpeningClaim {
 /**
  * @brief An accumulator consisting of the Shplonk evaluation challenge and vectors of commitments and scalars.
  *
- * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG or IPA.
+ * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG.
  *
  * @note This structure always represents a zero evaluation claim.
  *
- * @tparam Curve: BN254 or Grumpkin.
+ * @tparam Curve: BN254.
  */
 template <typename Curve> struct BatchOpeningClaim {
 
@@ -161,4 +162,5 @@ template <typename Curve> struct BatchOpeningClaim {
     std::vector<Scalar> scalars;
     Scalar evaluation_point;
 };
+
 } // namespace bb

@@ -4,6 +4,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
@@ -165,6 +166,14 @@ class GoblinMockCircuits {
         }
         MegaCircuitBuilder builder{ goblin.op_queue };
         GoblinMockCircuits::construct_simple_circuit(builder);
+        // The final subtable plays the role of the hiding kernel, whose merge subtable has a fixed size that the
+        // merge verifier hard-codes the shift size from. Pad with ecc ops up to that size, leaving room for the
+        // trailing ZK random ops.
+        const size_t target_size = bb::HIDING_KERNEL_ULTRA_OPS - TranslatorCircuitBuilder::NUM_RANDOM_OPS_END;
+        BB_ASSERT_LTE(goblin.op_queue->get_current_subtable_size(), target_size);
+        while (goblin.op_queue->get_current_subtable_size() < target_size) {
+            builder.queue_ecc_add_accum(Point::random_element(&engine));
+        }
         // Add random ops at END for Translator ZK
         randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
     }

@@ -15,7 +15,7 @@ pub contract AvmTest {
     use aztec::context::gas::GasOpts;
     use aztec::macros::{functions::{external, view}, storage::storage};
     use aztec::oracle::get_contract_instance::{
-        get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
+        get_contract_instance_current_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_immutables_hash_avm, get_contract_instance_initialization_hash_avm,
     };
     use aztec::protocol::abis::function_selector::FunctionSelector;
@@ -417,7 +417,7 @@ pub contract AvmTest {
     #[external("public")]
     fn test_get_contract_instance(address: AztecAddress) {
         let deployer = get_contract_instance_deployer_avm(address);
-        let class_id = get_contract_instance_class_id_avm(address);
+        let class_id = get_contract_instance_current_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
         let immutables_hash = get_contract_instance_immutables_hash_avm(address);
 
@@ -459,7 +459,7 @@ pub contract AvmTest {
         expected_immutables_hash: Field,
     ) {
         let deployer = get_contract_instance_deployer_avm(address);
-        let class_id = get_contract_instance_class_id_avm(address);
+        let class_id = get_contract_instance_current_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
         let immutables_hash = get_contract_instance_immutables_hash_avm(address);
 
@@ -476,7 +476,7 @@ pub contract AvmTest {
 
         // Get a Protocol Contract and it should exist
         aztec::oracle::logging::debug_log("Get Contract Instance Protocol Contract Instance");
-        let fee_juice_class_id = get_contract_instance_class_id_avm(FEE_JUICE_ADDRESS);
+        let fee_juice_class_id = get_contract_instance_current_class_id_avm(FEE_JUICE_ADDRESS);
         assert(fee_juice_class_id.is_some(), "Protocol Contract instance not found when getting CLASS_ID!");
     }
 
@@ -651,6 +651,16 @@ pub contract AvmTest {
     fn n_storage_writes(num: u32) {
         for i in 0..num {
             self.storage.map.at(AztecAddress::from_field(i as Field)).write(i);
+        }
+    }
+
+    // Writes the same storage slot `num` times. Because every write targets the same slot they are
+    // squashed and do not count against the per-tx public-data-write limit, so a large `num` keeps
+    // the public data tree being written continuously until the call runs out of gas.
+    #[external("public")]
+    fn n_storage_writes_to_same_slot(num: u32) {
+        for i in 0..num {
+            self.storage.single.write(i as Field);
         }
     }
 

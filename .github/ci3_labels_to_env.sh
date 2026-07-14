@@ -116,7 +116,7 @@ function main {
       if [ -n "$pr_number" ]; then
         local head_branch
         head_branch=$(GH_TOKEN="$GITHUB_TOKEN" gh pr view "$pr_number" --json headRefName -q '.headRefName' 2>/dev/null || true)
-        if [ "$head_branch" == "merge-train/spartan" ] || [ "$head_branch" == "merge-train/spartan-v5" ]; then
+        if [ "$head_branch" == "merge-train/spartan-v5" ]; then
           ci_mode="merge-queue-heavy"
         elif [ "$head_branch" == "merge-train/ci" ]; then
           ci_mode="merge-queue-ci"
@@ -127,6 +127,9 @@ function main {
     echo "WARNING: Skipping main CI because Chonk input refresh was requested; the update step will run after this step succeeds." >&2
     ci_mode="skip"
   elif has_label "ci-release-pr"; then
+    # Release-PR mode creates and pushes a release tag for this PR's head (ci3.sh::handle_release_pr).
+    # In the private repo that tag triggers a private release via the safety gate below — this is the
+    # manual way to cut a private release from a PR, alongside the nightly tag cron.
     ci_mode="release-pr"
   elif has_label "ci-full"; then
     ci_mode="full"
@@ -141,6 +144,9 @@ function main {
   elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
     ci_mode="barretenberg"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+    # A pushed semver tag is a release; REF_NAME is the tag (see ci3/source_refname). In the private
+    # repo this is the nightly path (nightly-release-tag*.yml push v<ver>-nightly.<date> tags on next and
+    # v5-next); the private-repo safety gate below routes it to the internal Artifact Registry.
     ci_mode="release"
   else
     ci_mode="fast"
@@ -149,9 +155,24 @@ function main {
   echo "CI_MODE=$ci_mode" >> $GITHUB_ENV
   echo "CI mode: $ci_mode"
 
-  # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)
+  # Private-repo safety gate. The release flow can publish to DockerHub/npmjs/crates.io/github; that
+  # MUST NEVER run in the private fork. So whenever this repo would release — for ANY trigger (a pushed
+  # nightly tag, a ci-release-pr tag, anything future) — force the private path: publish only the docker
+  # image and npm packages to our internal Artifact Registry (bootstrap.sh::private_release). Keyed on
+  # the repo name (case-insensitive) so it can't be reached in the public repo.
+  if [ "$ci_mode" = "release" ] &&
+     [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
+    echo "PRIVATE_RELEASE=1" >> $GITHUB_ENV
+    echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
+  fi
+
+  # Benching modes run their benches on a dedicated, fixed-hardware box (stable numbers)
+  # and publish the result; ci-fast never benches. For grind runs (merge-queue-heavy fires
+  # ~10 instances) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the
+  # rest to 0 so they bench inline as a breakage check without racing the upload. The
+  # destination (bench/next vs bench/prs) is BENCH_BRANCH below.
   if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
-    echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
+    echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   fi
 
   # Determine the branch label for benchmark publishing.

@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 contract BoxReact {
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable},
     };

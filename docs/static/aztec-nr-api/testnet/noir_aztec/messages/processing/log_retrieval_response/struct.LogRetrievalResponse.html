@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct LogRetrievalResponse documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">LogRetrievalResponse</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct LogRetrievalResponse</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.block_hash">block_hash</a></li>
+<li><a href="#structfield.block_number">block_number</a></li>
+<li><a href="#structfield.block_timestamp">block_timestamp</a></li>
+<li><a href="#structfield.first_nullifier_in_tx">first_nullifier_in_tx</a></li>
+<li><a href="#structfield.log_payload">log_payload</a></li>
+<li><a href="#structfield.tx_hash">tx_hash</a></li>
+<li><a href="#structfield.unique_note_hashes_in_tx">unique_note_hashes_in_tx</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-LogRetrievalResponse">Deserialize</a></li>
+<li><a href="#impl-Eq-for-LogRetrievalResponse">Eq</a></li>
+</ul>
+<h2>In module log_retrieval_response</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.LogRetrievalResponse.html">LogRetrievalResponse</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION.html">MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">processing</a>::<a href="index.html">log_retrieval_response</a></div>
+<h1>Struct <span id="struct" class="struct">LogRetrievalResponse</span></h1>
+<pre><code>pub struct LogRetrievalResponse {
+    pub log_payload: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
+    pub tx_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub unique_note_hashes_in_tx: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 64&gt;,
+    pub first_nullifier_in_tx: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub block_number: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub block_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>,
+    pub block_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<div class="comments">
+<p>A response to a <code>LogRetrievalRequest</code>, containing the payload of a log (i.e. the content minus the tag, called
+plaintext for public logs and ciphertext for private), plus contextual information about the transaction in which
+the log was emitted. This is the data required in order to discover notes that are being delivered in a log.</p>
+</div>
+<h2>Fields</h2>
+<div id="structfield.log_payload" class="struct-field"><code class="code-header">log_payload: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.tx_hash" class="struct-field"><code class="code-header">tx_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.unique_note_hashes_in_tx" class="struct-field"><code class="code-header">unique_note_hashes_in_tx: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 64&gt;</code></div>
+<div class="padded-description"><div class="comments">
+<p>The array of new note hashes created by <code>tx_hash</code></p>
+</div>
+</div><div id="structfield.first_nullifier_in_tx" class="struct-field"><code class="code-header">first_nullifier_in_tx: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The first nullifier created by <code>tx_hash</code></p>
+</div>
+</div><div id="structfield.block_number" class="struct-field"><code class="code-header">block_number: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The number of the block in which <code>tx_hash</code> was included</p>
+</div>
+</div><div id="structfield.block_timestamp" class="struct-field"><code class="code-header">block_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The timestamp of the block in which <code>tx_hash</code> was included</p>
+</div>
+</div><div id="structfield.block_hash" class="struct-field"><code class="code-header">block_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The hash of the block in which <code>tx_hash</code> was included</p>
+</div>
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-LogRetrievalResponse"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../noir_aztec/messages/processing/log_retrieval_response/struct.LogRetrievalResponse.html" class="struct">LogRetrievalResponse</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 86]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Eq-for-LogRetrievalResponse"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../noir_aztec/messages/processing/log_retrieval_response/struct.LogRetrievalResponse.html" class="struct">LogRetrievalResponse</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

@@ -148,7 +148,7 @@ fn compute_public_initialization_nullifier(address: AztecAddress) -> Field {
     )
 }
 
-// Used by `create_assert_correct_initializer_args` (you won't find it through searching)
+// Called by code injected by the macros in `macros/internals_functions_generation/external/public.nr`.
 pub fn assert_initialization_matches_address_preimage_public(context: PublicContext) {
     let address = context.this_address();
     let deployer = get_contract_instance_deployer_avm(address).unwrap();
@@ -161,7 +161,7 @@ pub fn assert_initialization_matches_address_preimage_public(context: PublicCont
     );
 }
 
-// Used by `create_assert_correct_initializer_args` (you won't find it through searching)
+// Called by code injected by the macros in `macros/internals_functions_generation/external/private.nr`.
 pub fn assert_initialization_matches_address_preimage_private(context: PrivateContext) {
     let address = context.this_address();
     let instance = get_contract_instance(address);

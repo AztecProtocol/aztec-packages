@@ -210,7 +210,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     EmitPublicLog emit_public_log_component(execution_id_manager, greater_than, emit_public_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
-    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
+    Sha256 sha256(execution_id_manager, bitwise, greater_than, range_check, sha256_compression_emitter);
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
@@ -576,21 +576,17 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
         raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, cancellation_token);
 }
 
-TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
+TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection_internal(
     simulation::ContractDBInterface& raw_contract_db,
-    const world_state::WorldStateRevision& world_state_revision,
-    world_state::WorldState& ws,
+    simulation::LowLevelMerkleDBInterface& raw_merkle_db,
     const PublicSimulatorConfig& config,
     const Tx& tx,
     const GlobalVariables& global_variables,
     const ProtocolContracts& protocol_contracts,
     CancellationTokenPtr cancellation_token)
 {
-    // If you are not collecting hints, don't use this method.
-    BB_ASSERT(config.collect_hints && "Use simulate_fast_with_existing_ws instead");
-
-    // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
-    PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
+    (void)cancellation_token; // Not yet used in this path.
+    BB_ASSERT(config.collect_hints && "Use simulate_fast_internal instead");
 
     auto starting_tree_roots = raw_merkle_db.get_tree_roots();
     HintingContractsDB hinting_contract_db(raw_contract_db);
@@ -609,9 +605,27 @@ TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
 
     tx_result.hints = std::move(collected_hints);
 
-    // Need to std::move to avoid copying (due to structured bindings).
-    // This was fixed in C++23 via http://wg21.link/P2266R3.
     return std::move(tx_result);
+}
+
+TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
+    simulation::ContractDBInterface& raw_contract_db,
+    const world_state::WorldStateRevision& world_state_revision,
+    world_state::WorldState& ws,
+    const PublicSimulatorConfig& config,
+    const Tx& tx,
+    const GlobalVariables& global_variables,
+    const ProtocolContracts& protocol_contracts,
+    CancellationTokenPtr cancellation_token)
+{
+    // If you are not collecting hints, don't use this method.
+    BB_ASSERT(config.collect_hints && "Use simulate_fast_with_existing_ws instead");
+
+    // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
+    PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
+
+    return simulate_for_hint_collection_internal(
+        raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, cancellation_token);
 }
 
 EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)

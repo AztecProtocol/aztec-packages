@@ -7,7 +7,7 @@ pub contract Child {
 
     use aztec::{
         macros::{functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
         state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
@@ -52,7 +52,7 @@ pub contract Child {
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = FieldNote { value: new_value };
 
-        self.storage.private_values.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.private_values.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
         new_value
     }
 

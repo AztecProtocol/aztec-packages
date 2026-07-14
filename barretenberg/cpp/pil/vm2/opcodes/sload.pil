@@ -31,11 +31,13 @@ namespace execution;
 
     #[STORAGE_READ]
     sel_execute_sload {
+        precomputed.zero, // write = 0 (read)
         register[0], // Slot
         register[1], // Contract address from memory
         register[2], // Value (output)
         prev_public_data_tree_root // From context
     } in public_data_check.sel {
+        public_data_check.write,
         public_data_check.slot,
         public_data_check.address,
         public_data_check.value,

@@ -167,10 +167,12 @@ function run_bb_cli_bench {
     }
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
-    # Add --bench_out_hierarchical flag for wasm builds to capture hierarchical op counts and timings
-    # Note: --memory_profile_out is native-only (getrusage not available in wasm)
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
-      echo "bb wasm failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
+    # No --bench_out_hierarchical or --memory_profile_out here: BB_BENCH instrumentation is compiled out
+    # of wasm builds (ENABLE_WASM_BENCH is OFF in the wasm-threads preset to keep the shipped wasm fast),
+    # and --memory_profile_out is native-only (getrusage not available in wasm).
+    # Only wall-clock time and peak memory are measured for wasm.
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" || {
+      echo "bb wasm failed with args: $@"
       print_chonk_flow_reuse_hint "$runtime" "$flow_folder"
       exit 1
     }
@@ -262,7 +264,8 @@ chonk_flow "$runtime_arg" "$resolved_chonk_flow_folder"
 runtime="$runtime_arg"
 flow_name="$(basename "$resolved_chonk_flow_folder")"
 
-if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
+# Breakdown and memory profile only exist for native runs (BB_BENCH is compiled out of wasm builds).
+if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
   echo_header "Uploading Barretenberg benchmark breakdowns for $flow_name"
 
   current_sha=$(git rev-parse HEAD)

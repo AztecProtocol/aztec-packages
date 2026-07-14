@@ -15,7 +15,6 @@ This guide walks you through deploying your first contract on the Aztec testnet.
 |---------|-------------|---------|
 | **Environment** | Local machine | Decentralized network on Sepolia |
 | **Fees** | Free (test accounts prefunded) | Sponsored FPC available |
-| **Block times** | Instant | ~36 seconds |
 | **Proving** | Optional | Required |
 | **Accounts** | Test accounts pre-deployed | Must create and deploy your own |
 
@@ -52,8 +51,8 @@ This installs:
 Set the required environment variables:
 
 ```bash
-export NODE_URL=https://rpc.testnet.aztec-labs.com
-export SPONSORED_FPC_ADDRESS=0x254082b62f9108d044b8998f212bb145619d91bfcd049461d74babb840181257
+export NODE_URL=https://v5.testnet.rpc.aztec-labs.com
+export SPONSORED_FPC_ADDRESS=0x0628377e98bca5913dc86765ad0758f7b7aa83eac49079c6fba125807b393fe1
 ```
 
 ### Step 2: Register the Sponsored FPC

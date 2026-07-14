@@ -12,20 +12,16 @@ import { NativeWorldStateService } from '@aztec/world-state';
 
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
-import { CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
-import { CppVsTsPublicTxSimulator } from '../../public_tx_simulator/cpp_vs_ts_public_tx_simulator.js';
+import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
-describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public Processor app tests: TokenContract ($simulatorName)', ({ useCppSimulator }) => {
+describe('Public Processor app tests: TokenContract', () => {
   const logger = createLogger('public-processor-apps-tests-token');
 
   const NUM_TRANSFERS = 10;
-  const admin = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(111);
+  const admin = AztecAddress.fromNumberUnsafe(42);
+  const sender = AztecAddress.fromNumberUnsafe(111);
 
   let token: ContractInstanceWithAddress;
   let worldStateService: NativeWorldStateService;
@@ -50,11 +46,7 @@ describe.each([
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    // TS mode: use CppVsTs to compare TS and C++ results
-    // C++ mode: use only C++ (pure Cpp simulator)
-    const simulator = useCppSimulator
-      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config)
-      : new CppVsTsPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
 
     processor = new PublicProcessor(
       globals,
@@ -113,7 +105,7 @@ describe.each([
 
     const transferTxs = [];
     for (let i = 0; i < NUM_TRANSFERS; i++) {
-      const receiver = AztecAddress.fromNumber(200 + i); // different receiver each time
+      const receiver = AztecAddress.fromNumberUnsafe(200 + i); // different receiver each time
       transferTxs.push(
         await tester.createTx(
           /*sender=*/ sender,

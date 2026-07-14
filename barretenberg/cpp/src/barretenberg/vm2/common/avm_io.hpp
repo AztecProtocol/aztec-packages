@@ -13,6 +13,7 @@
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
@@ -71,14 +72,14 @@ struct PublicInputs {
 
         std::vector<std::vector<FF_>> cols(AVM_NUM_PUBLIC_INPUT_COLUMNS);
 
+        // Columns are concatenated back-to-back with per-column lengths (not a uniform stride).
+        size_t offset = 0;
         for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
-            typename std::vector<FF_>::const_iterator start =
-                input.begin() +
-                static_cast<typename std::vector<FF_>::difference_type>(i * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-            typename std::vector<FF_>::const_iterator end =
-                input.begin() +
-                static_cast<typename std::vector<FF_>::difference_type>((i + 1) * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+            const size_t col_length = AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i];
+            auto start = input.begin() + static_cast<typename std::vector<FF_>::difference_type>(offset);
+            auto end = start + static_cast<typename std::vector<FF_>::difference_type>(col_length);
             cols[i] = std::vector<FF_>(start, end);
+            offset += col_length;
         }
 
         return cols;

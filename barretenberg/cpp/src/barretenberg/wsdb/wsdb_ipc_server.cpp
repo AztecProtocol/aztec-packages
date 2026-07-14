@@ -1,29 +1,26 @@
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
-#include "barretenberg/wsdb/wsdb_execute.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_server.hpp"
+#include "barretenberg/wsdb/wsdb_handlers.hpp"
+#include "barretenberg/wsdb/wsdb_request.hpp"
+#include "barretenberg/wsdb/wsdb_scheduler.hpp"
+#include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/serve_helper.hpp"
+#include "ipc_runtime/signal_handlers.hpp"
 
-#include <csignal>
+#include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
-#include <thread>
-#include <unistd.h>
 #include <unordered_map>
 #include <vector>
-
-#ifdef __linux__
-#include <sys/prctl.h>
-#elif defined(__APPLE__)
-#include <sys/event.h>
-#endif
-
-// Use nlohmann/json if available, otherwise minimal parsing
-#include <sstream>
 
 namespace bb::wsdb {
 
@@ -31,48 +28,13 @@ using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 
 // ---------------------------------------------------------------------------
-// Platform-specific parent death monitoring
-// (Same pattern as api_msgpack.cpp)
-// ---------------------------------------------------------------------------
-
-static void setup_parent_death_monitoring()
-{
-#ifdef __linux__
-    if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
-        std::cerr << "Warning: Could not set parent death signal" << '\n';
-    }
-#elif defined(__APPLE__)
-    pid_t parent_pid = getppid();
-    std::thread([parent_pid]() {
-        int kq = kqueue();
-        if (kq == -1) {
-            std::cerr << "Warning: Could not create kqueue for parent monitoring" << '\n';
-            return;
-        }
-        struct kevent change;
-        EV_SET(&change, parent_pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT, 0, nullptr);
-        if (kevent(kq, &change, 1, nullptr, 0, nullptr) == -1) {
-            std::cerr << "Warning: Could not monitor parent process" << '\n';
-            close(kq);
-            return;
-        }
-        struct kevent event;
-        kevent(kq, nullptr, 0, &event, 1, nullptr);
-        std::cerr << "Parent process exited, shutting down..." << '\n';
-        close(kq);
-        std::exit(0);
-    }).detach();
-#endif
-}
-
-// ---------------------------------------------------------------------------
 // Simple JSON-like parsing for config maps
 // Parses "{0:1024,1:2048,...}" into unordered_map<uint32_t, uint64_t>
 // ---------------------------------------------------------------------------
 
-static std::unordered_map<MerkleTreeId, uint64_t> parse_tree_uint64_map(const std::string& json)
+static std::unordered_map<world_state::MerkleTreeId, uint64_t> parse_tree_uint64_map(const std::string& json)
 {
-    std::unordered_map<MerkleTreeId, uint64_t> result;
+    std::unordered_map<world_state::MerkleTreeId, uint64_t> result;
     if (json.empty()) {
         return result;
     }
@@ -87,7 +49,7 @@ static std::unordered_map<MerkleTreeId, uint64_t> parse_tree_uint64_map(const st
     while (std::getline(ss, pair, ',')) {
         auto colon_pos = pair.find(':');
         if (colon_pos != std::string::npos) {
-            auto key = static_cast<MerkleTreeId>(std::stoi(pair.substr(0, colon_pos)));
+            auto key = static_cast<world_state::MerkleTreeId>(std::stoi(pair.substr(0, colon_pos)));
             auto value = static_cast<uint64_t>(std::stoull(pair.substr(colon_pos + 1)));
             result[key] = value;
         }
@@ -95,9 +57,9 @@ static std::unordered_map<MerkleTreeId, uint64_t> parse_tree_uint64_map(const st
     return result;
 }
 
-static std::unordered_map<MerkleTreeId, uint32_t> parse_tree_uint32_map(const std::string& json)
+static std::unordered_map<world_state::MerkleTreeId, uint32_t> parse_tree_uint32_map(const std::string& json)
 {
-    std::unordered_map<MerkleTreeId, uint32_t> result;
+    std::unordered_map<world_state::MerkleTreeId, uint32_t> result;
     if (json.empty()) {
         return result;
     }
@@ -108,9 +70,9 @@ static std::unordered_map<MerkleTreeId, uint32_t> parse_tree_uint32_map(const st
     return result;
 }
 
-static std::unordered_map<MerkleTreeId, index_t> parse_tree_index_map(const std::string& json)
+static std::unordered_map<world_state::MerkleTreeId, index_t> parse_tree_index_map(const std::string& json)
 {
-    std::unordered_map<MerkleTreeId, index_t> result;
+    std::unordered_map<world_state::MerkleTreeId, index_t> result;
     if (json.empty()) {
         return result;
     }
@@ -190,12 +152,12 @@ int execute_wsdb_server(const std::string& input_path,
     auto tree_height = parse_tree_uint32_map(tree_heights_json);
     auto tree_prefill = parse_tree_index_map(tree_prefill_json);
 
-    std::unordered_map<MerkleTreeId, uint64_t> map_size{
-        { MerkleTreeId::ARCHIVE, DEFAULT_MAP_SIZE },
-        { MerkleTreeId::NULLIFIER_TREE, DEFAULT_MAP_SIZE },
-        { MerkleTreeId::NOTE_HASH_TREE, DEFAULT_MAP_SIZE },
-        { MerkleTreeId::PUBLIC_DATA_TREE, DEFAULT_MAP_SIZE },
-        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE, DEFAULT_MAP_SIZE },
+    std::unordered_map<world_state::MerkleTreeId, uint64_t> map_size{
+        { world_state::MerkleTreeId::ARCHIVE, DEFAULT_MAP_SIZE },
+        { world_state::MerkleTreeId::NULLIFIER_TREE, DEFAULT_MAP_SIZE },
+        { world_state::MerkleTreeId::NOTE_HASH_TREE, DEFAULT_MAP_SIZE },
+        { world_state::MerkleTreeId::PUBLIC_DATA_TREE, DEFAULT_MAP_SIZE },
+        { world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE, DEFAULT_MAP_SIZE },
     };
     if (!map_sizes_json.empty()) {
         auto parsed = parse_tree_uint64_map(map_sizes_json);
@@ -224,47 +186,24 @@ int execute_wsdb_server(const std::string& input_path,
 
     WsdbRequest request{ .world_state = *ws };
 
-    // Create IPC server based on path suffix
-    std::unique_ptr<ipc::IpcServer> server;
-
-    if (input_path.size() >= 4 && input_path.substr(input_path.size() - 4) == ".shm") {
-        std::string base_name = input_path.substr(0, input_path.size() - 4);
-        constexpr size_t MAX_SHM_CLIENTS = 2; // TS backend (client 0) + AVM binary (client 1)
-        server = ipc::IpcServer::create_mpsc_shm(base_name, MAX_SHM_CLIENTS, request_ring_size, response_ring_size);
-        std::cerr << "MPSC shared memory server at " << base_name << " (max " << MAX_SHM_CLIENTS << " clients)\n";
-    } else if (input_path.size() >= 5 && input_path.substr(input_path.size() - 5) == ".sock") {
-        server = ipc::IpcServer::create_socket(input_path, 1);
-        std::cerr << "Socket server at " << input_path << '\n';
-    } else {
-        std::cerr << "Error: --input path must end with .sock or .shm" << '\n';
+    // Pick UDS vs MPSC-SHM by path suffix; install the runtime's default
+    // lifecycle signal handlers (SIGTERM/SIGINT → request_shutdown, SIGBUS/SIGSEGV
+    // → close+exit, plus parent-death monitoring via prctl/kqueue).
+    ipc::ServerOptions opts;
+    // TS backend (client 0) + the AVM simulator pool (one connection per
+    // bb-avm-sim process). Sized to cover a default-size pool with headroom so
+    // SHM isn't capped to a single AVM client. (UDS, the default transport, is
+    // unaffected — it admits connections via the listen backlog.)
+    opts.max_shm_clients = 8;
+    opts.shm_request_ring_size = request_ring_size;
+    opts.shm_response_ring_size = response_ring_size;
+    auto server = ipc::make_server(input_path, opts);
+    if (!server) {
+        std::cerr << "Error: --input path must end with .sock or .shm: " << input_path << '\n';
         return 1;
     }
-
-    // Set up signal handlers
-    static ipc::IpcServer* global_server = server.get();
-
-    auto graceful_shutdown_handler = [](int signal) {
-        std::cerr << "\nReceived signal " << signal << ", shutting down gracefully..." << '\n';
-        if (global_server) {
-            global_server->request_shutdown();
-        }
-    };
-
-    auto fatal_error_handler = [](int signal) {
-        const char* signal_name = (signal == SIGBUS) ? "SIGBUS" : (signal == SIGSEGV) ? "SIGSEGV" : "UNKNOWN";
-        std::cerr << "\nFatal error: received " << signal_name << '\n';
-        if (global_server) {
-            global_server->close();
-        }
-        std::exit(1);
-    };
-
-    (void)std::signal(SIGTERM, graceful_shutdown_handler);
-    (void)std::signal(SIGINT, graceful_shutdown_handler);
-    (void)std::signal(SIGBUS, fatal_error_handler);
-    (void)std::signal(SIGSEGV, fatal_error_handler);
-
-    setup_parent_death_monitoring();
+    std::cerr << "aztec-wsdb listening on " << input_path << '\n';
+    ipc::install_default_signal_handlers(*server);
 
     if (!server->listen()) {
         std::cerr << "Error: Could not start IPC server" << '\n';
@@ -273,72 +212,34 @@ int execute_wsdb_server(const std::string& input_path,
 
     std::cerr << "aztec-wsdb IPC server ready" << '\n';
 
-    // Run server with wsdb command handler
-    server->run([&request](int client_id, std::span<const uint8_t> raw_request) -> std::vector<uint8_t> {
-        try {
-            // Deserialize msgpack command
-            // Format: [["CommandName", {payload}]] - a 1-element tuple containing the NamedUnion
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
-            auto obj = unpacked.get();
+    // Dispatch pool: services requests concurrently so parallel reads aren't
+    // serialized through the single reactor thread. It is deliberately DISTINCT
+    // from WorldState's own intra-op pool (the `threads` arg above): mutating
+    // handlers enqueue subtasks onto that pool and wait() on them, so dispatching
+    // those handlers onto the SAME pool could deadlock (bb::ThreadPool is
+    // blocking and non-work-stealing).
+    //
+    // Sized from the caller-provided `threads` budget (the same value used for
+    // the WorldState pool), NOT std::thread::hardware_concurrency() — the latter
+    // ignores cgroup CPU limits and reports the host core count (e.g. 192 in a
+    // 2-CPU CI container), which would spawn a huge pool per wsdb process and
+    // exhaust the per-UID thread limit (pthread_create EAGAIN).
+    uint32_t dispatch_threads = std::max<uint32_t>(2, threads);
+    bb::ThreadPool dispatch_pool(dispatch_threads);
 
-            // Expect array of size 1 (tuple wrapping)
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-                std::cerr << "Error: Expected array of size 1 from client " << client_id << '\n';
-                return {};
-            }
+    // Server-side ordering: the database, not the client, guarantees per-fork
+    // read/write consistency. Each handler hands its work to this scheduler via
+    // schedule_read / schedule_write (which run reads concurrently and serialize
+    // writes per fork — see WsdbScheduler), so the context carries it.
+    auto scheduler = std::make_shared<WsdbScheduler>(dispatch_pool, *server);
+    request.scheduler = scheduler.get();
 
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& command_obj = obj.via.array.ptr[0];
-
-            // Check for shutdown before converting
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (command_obj.type == msgpack::type::ARRAY && command_obj.via.array.size == 2 &&
-                command_obj.via.array.ptr[0].type == msgpack::type::STR) {
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-                std::string_view command_name(command_obj.via.array.ptr[0].via.str.ptr,
-                                              command_obj.via.array.ptr[0].via.str.size);
-                bool is_shutdown = (command_name == "WsdbShutdown");
-
-                // Convert and execute
-                WsdbCommand command;
-                command_obj.convert(command);
-                auto response = wsdb(request, std::move(command));
-
-                // Serialize response
-                msgpack::sbuffer response_buffer;
-                msgpack::pack(response_buffer, response);
-                std::vector<uint8_t> result(response_buffer.data(), response_buffer.data() + response_buffer.size());
-
-                if (is_shutdown) {
-                    throw ipc::ShutdownRequested(std::move(result));
-                }
-
-                return result;
-            }
-
-            // Fallback: try converting directly
-            WsdbCommand command;
-            command_obj.convert(command);
-            auto response = wsdb(request, std::move(command));
-
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-            return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
-
-        } catch (const ipc::ShutdownRequested&) {
-            throw;
-        } catch (const std::exception& e) {
-            std::cerr << "Error processing request from client " << client_id << ": " << e.what() << '\n';
-            std::cerr.flush();
-
-            WsdbErrorResponse error_response{ .message = std::string(e.what()) };
-            WsdbCommandResponse response = error_response;
-
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-            return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
-        }
+    // Async dispatch: the reactor reads each request and hands it to the
+    // generated handler with a respond callback; the handler decodes, schedules
+    // its work, and responds when done (possibly from a pool thread).
+    auto handler = make_wsdb_handler(request);
+    server->run_reactor([&handler](int /*client_id*/, std::span<const uint8_t> raw, ipc::IpcServer::Respond respond) {
+        handler(raw, std::move(respond));
     });
 
     server->close();

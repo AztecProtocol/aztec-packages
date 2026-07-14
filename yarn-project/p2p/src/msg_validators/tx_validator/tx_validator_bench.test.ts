@@ -105,7 +105,7 @@ describe('TxValidator: Benchmarks', () => {
     ccLogFields = ContractClassLogFields.random();
     const logHash = await ccLogFields.hash();
     const scopedLogHash = LogHash.from({ value: logHash, length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }).scope(
-      AztecAddress.fromNumber(1),
+      AztecAddress.fromNumberUnsafe(1),
     );
     ccLogTx.contractClassLogFields.push(ccLogFields);
     ccLogTx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0] = scopedLogHash;
@@ -150,7 +150,7 @@ describe('TxValidator: Benchmarks', () => {
       prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
       genesisTimestamp: 0n,
     };
-    worldStateService = await NativeWorldStateService.tmp(undefined, true, genesis);
+    worldStateService = await NativeWorldStateService.tmp(true, genesis);
     const merkleTree = worldStateService.getCommitted();
 
     const nullifierSource: NullifierSource = {
@@ -172,7 +172,7 @@ describe('TxValidator: Benchmarks', () => {
     phasesPrivateTx = await mockTxForRollup(10);
 
     // PhasesTxValidator - public tx with allowed setup
-    const allowedAddress = AztecAddress.fromNumber(999);
+    const allowedAddress = AztecAddress.fromNumberUnsafe(999);
     const allowedSelector = makeSelector(1);
     phasesPublicTx = await mockTx(11, { numberOfNonRevertiblePublicCallRequests: 1 });
     await patchNonRevertibleFn(phasesPublicTx, 0, { address: allowedAddress, selector: allowedSelector });
@@ -368,7 +368,7 @@ describe('TxValidator: Benchmarks', () => {
 
       // Create world state with fee payer balance only (initial tree size limits prefilled data)
       const feePayerLeafSlot = await computeFeePayerBalanceLeafSlot(gasTx.data.feePayer);
-      localWs = await NativeWorldStateService.tmp(undefined, true, {
+      localWs = await NativeWorldStateService.tmp(true, {
         prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
         genesisTimestamp: 0n,
       });

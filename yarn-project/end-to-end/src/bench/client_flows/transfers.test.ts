@@ -4,7 +4,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { jest } from '@jest/globals';
 
@@ -19,6 +19,8 @@ const AMOUNT_PER_NOTE = 1_000_000;
 
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
+// Token transfer round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles private
+// token transfer flows at varying note-recursion depths for multiple account/fee-method combinations.
 describe('Transfer benchmark', () => {
   const t = new ClientFlowsBenchmark('transfers');
   // The wallet used by the admin to interact
@@ -32,7 +34,7 @@ describe('Transfer benchmark', () => {
   // BananaCoin Token contract, just used to pay fees in this scenario
   let bananaCoinInstance: ContractInstanceWithAddress;
   // CandyBarCoin Token contract, which we want to transfer
-  let candyBarCoin: TokenContract;
+  let candyBarCoin: TestTokenContract;
   let candyBarCoinInstance: ContractInstanceWithAddress;
   // Sponsored FPC contract
   let sponsoredFPCInstance: ContractInstanceWithAddress;
@@ -82,7 +84,7 @@ describe('Transfer benchmark', () => {
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
-        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TestTokenContract.artifact);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(candyBarCoinInstance);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
@@ -113,7 +115,7 @@ describe('Transfer benchmark', () => {
 
           afterEach(async () => {
             // Send back the change to restart the test without redeploying the accounts
-            const asset = TokenContract.at(candyBarCoin.address, userWallet);
+            const asset = TestTokenContract.at(candyBarCoin.address, userWallet);
             await asset.methods
               .transfer(adminAddress, expectedChange)
               .send({ from: benchysAddress, wait: { timeout: 120 } });
@@ -129,7 +131,7 @@ describe('Transfer benchmark', () => {
               fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };
 
-            const asset = TokenContract.at(t.candyBarCoin.address, userWallet);
+            const asset = TestTokenContract.at(t.candyBarCoin.address, userWallet);
 
             const transferInteraction = asset.methods.transfer(adminAddress, amountToSend);
 

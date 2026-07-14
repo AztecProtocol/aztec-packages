@@ -37,15 +37,6 @@ fn validate_propagated_from_previous_kernel_is_private_only_mismatch_fails() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "mismatch claimed_first_nullifier")]
-fn validate_propagated_from_previous_kernel_claimed_first_nullifier_mismatch_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.output.claimed_first_nullifier = 4567;
-
-    builder.validate_as_inner_call();
-}
-
 #[test(should_fail_with = "mismatch claimed_revertible_counter")]
 fn validate_propagated_from_previous_kernel_claimed_revertible_counter_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();

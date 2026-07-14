@@ -72,34 +72,6 @@ fn previous_note_hashes_beyond_claimed_length() {
     // note hashes, which don't match the siloed note hashes computed from the extra note hashes in the previous kernel.
 }
 
-#[test(should_fail_with = "The contract_address of a siloed note hash should be set to 0")]
-fn non_zero_contract_address_in_output() {
-    let mut builder = TestBuilder::new();
-
-    builder.previous_kernel.append_note_hashes(2);
-    builder.output.append_siloed_note_hashes(2);
-
-    // Copy the contract address of the note hash to the output.
-    let mut note_hash = builder.output.note_hashes.get(1);
-    note_hash.contract_address = builder.previous_kernel.note_hashes.get(1).contract_address;
-    builder.output.note_hashes.set(1, note_hash);
-
-    builder.validate_siloing();
-}
-
-#[test(should_fail_with = "Note hashes have been siloed in a previous reset")]
-fn first_note_hash_is_siloed() {
-    let mut builder = TestBuilder::new();
-
-    // Add a siloed note hash to the previous kernel.
-    builder.previous_kernel.append_siloed_note_hashes(1);
-    builder.previous_kernel.append_note_hashes(2);
-
-    builder.output.append_siloed_note_hashes(3);
-
-    builder.validate_siloing();
-}
-
 #[test]
 fn with_padded_note_hashes() {
     let mut builder = TestBuilder::new();
@@ -121,7 +93,7 @@ fn with_padded_note_hashes() {
     builder.validate_siloing();
 }
 
-#[test(should_fail_with = "CappedSize not large enough to cover all valid items in original_array")]
+#[test(should_fail_with = "CappedSize not large enough to cover all items in result_array")]
 fn more_non_empty_note_hashes_than_capped_size() {
     let mut builder = TestBuilder::new();
 

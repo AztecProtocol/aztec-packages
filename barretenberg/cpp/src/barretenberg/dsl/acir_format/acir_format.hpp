@@ -26,6 +26,7 @@
 #include "range_constraint.hpp"
 #include "recursion_constraint.hpp"
 #include "sha256_constraint.hpp"
+#include <array>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -59,6 +60,8 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> chonk_recursion_constraints;
     std::vector<size_t> quad_constraints;
     std::vector<size_t> big_quad_constraints;
+    std::vector<size_t> bilinear_constraints;
+    std::vector<std::array<size_t, 2>> batched_eq_check_constraints;
     // Multiple opcode indices per block:
     std::vector<std::vector<size_t>> block_constraints;
 
@@ -103,6 +106,8 @@ struct AcirFormat {
     std::vector<RecursionConstraint> chonk_recursion_constraints;
     std::vector<QuadConstraint> quad_constraints;
     std::vector<BigQuadConstraint> big_quad_constraints;
+    std::vector<BilinearConstraint> bilinear_constraints;
+    std::vector<BatchedEqCheckConstraint> batched_eq_check_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -136,7 +141,7 @@ struct AcirProgram {
  */
 struct ProgramMetadata {
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
-    std::shared_ptr<bb::IVCBase> ivc = nullptr;
+    std::shared_ptr<bb::Chonk> ivc = nullptr;
 
     bool has_ipa_claim =
         false; // Boolean describing whether the circuit should propagate an IPA claim or not. If `True`, the circuit

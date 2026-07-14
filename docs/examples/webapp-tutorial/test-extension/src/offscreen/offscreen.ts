@@ -136,7 +136,7 @@ async function ensurePXE(nodeUrl: string = NODE_URL): Promise<{ pxe: PXE; node: 
     try {
       const node = createAztecNodeClient(nodeUrl);
       const config = getPXEConfig();
-      config.l1Contracts = await node.getL1ContractAddresses();
+      config.rollupAddress = (await node.getL1ContractAddresses()).rollupAddress;
       const isLocal = nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
       config.proverEnabled = !isLocal;
 
@@ -242,10 +242,10 @@ async function getWallet() {
      * payment method to avoid calling sponsor_unconditionally() twice, which
      * would trigger "Cannot enter the revertible phase twice".
      */
-    protected async completeFeeOptions(from: any, feePayer?: any, gasSettings?: any) {
-      const base = await super.completeFeeOptions(from, feePayer, gasSettings);
+    protected async completeFeeOptions(config: any) {
+      const base = await super.completeFeeOptions(config);
       // If the payload already includes a fee payer, don't inject another one
-      if (feePayer) {
+      if (config.feePayer) {
         return {
           ...base,
           accountFeePaymentMethodOptions: EXTERNAL_FEE_PAYMENT,
@@ -256,7 +256,7 @@ async function getWallet() {
       return {
         ...base,
         walletFeePaymentMethod: new SponsoredFeePaymentMethod(address),
-        accountFeePaymentMethodOptions: EXTERNAL_FEE_PAYMENT,
+        accountFeePaymentMethodOptions: config.from ? EXTERNAL_FEE_PAYMENT : base.accountFeePaymentMethodOptions,
       };
     }
     // docs:end:complete-fee-options
@@ -306,7 +306,11 @@ async function getWallet() {
 
       // Step 2: Simulate with the stub account swapped in via PXE overrides
       log.info('[offscreen] Step 2: Simulating tx with stub account...');
-      const feeOptions = await this.completeFeeOptions(from, executionPayload.feePayer, feeGasSettings);
+      const feeOptions = await this.completeFeeOptions({
+        from,
+        feePayer: executionPayload.feePayer,
+        gasSettings: feeGasSettings,
+      });
       const chainInfo = await this.getChainInfo();
       const txRequest = await stubAccount.createTxExecutionRequest(
         executionPayload,

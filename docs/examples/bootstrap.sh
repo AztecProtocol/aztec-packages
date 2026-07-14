@@ -153,22 +153,125 @@ function validate-webapp-tutorial {
     rm -rf node_modules .yarn .yarnrc.yml
     : > yarn.lock
 
-    # Replace #include_aztec_version with link: paths to local yarn-project packages
+    # Replace #include_aztec_version with link: paths to local workspace
+    # packages. link: does not install workspace transitive deps, so add the
+    # local @aztec dependency closure that published npm packages would bring in.
     echo_stderr "Linking local @aztec packages..."
-    node -e "
+    REPO_ROOT="$REPO_ROOT" YP="$YP" node <<'NODE'
       const fs = require('fs');
+      const path = require('path');
+
+      const repoRoot = process.env.REPO_ROOT;
+      const yp = process.env.YP;
       const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-      const yp = '$YP';
+      const packageDirs = new Map();
+
+      function addPackageDir(dir) {
+        const pkgPath = path.join(dir, 'package.json');
+        if (!fs.existsSync(pkgPath)) return;
+        const manifest = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (manifest.name?.startsWith('@aztec/')) {
+          packageDirs.set(manifest.name, dir);
+        }
+      }
+
+      for (const base of [yp, path.join(repoRoot, 'barretenberg/ts'), path.join(repoRoot, 'noir/packages')]) {
+        if (!fs.existsSync(base)) continue;
+        addPackageDir(base);
+        for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+          if (entry.isDirectory()) addPackageDir(path.join(base, entry.name));
+        }
+      }
+
+      // Also pick up @aztec packages that the monorepo declares as local portals
+      // in yarn-project's root resolutions but that live outside the scanned dirs
+      // above (e.g. the generated native service packages @aztec/wsdb and
+      // @aztec/bb-avm-sim, and @aztec/ipc-runtime). These are workspace-local
+      // and unpublished, so the closure walk must link them rather than fall back
+      // to an npm lookup that 404s.
+      const rootManifest = JSON.parse(fs.readFileSync(path.join(yp, 'package.json'), 'utf8'));
+      for (const [name, ver] of Object.entries(rootManifest.resolutions || {})) {
+        if (!name.startsWith('@aztec/')) continue;
+        const m = /^(portal:|file:)(.*)$/.exec(String(ver));
+        if (m) addPackageDir(path.resolve(yp, m[2]));
+      }
+
+      function setLinkedDependency(name, dir) {
+        let replaced = false;
+        for (const section of ['dependencies', 'devDependencies']) {
+          if (pkg[section]?.[name]) {
+            pkg[section][name] = 'link:' + dir;
+            replaced = true;
+          }
+        }
+        if (!replaced) {
+          pkg.dependencies ??= {};
+          pkg.dependencies[name] = 'link:' + dir;
+        }
+      }
+
+      function addNpmDependency(name, ver) {
+        if (pkg.dependencies?.[name] || pkg.devDependencies?.[name]) return;
+        ver = String(ver);
+        if (ver.startsWith('workspace:') || ver.startsWith('portal:') || ver.startsWith('file:')) return;
+        pkg.dependencies ??= {};
+        pkg.dependencies[name] = ver;
+      }
+
+      function registerLocalDependency(ownerDir, dep, ver) {
+        if (!dep.startsWith('@aztec/')) return false;
+        ver = String(ver);
+
+        if (ver.startsWith('workspace:')) {
+          return packageDirs.has(dep);
+        }
+
+        if (ver.startsWith('portal:') || ver.startsWith('file:')) {
+          addPackageDir(path.resolve(ownerDir, ver.replace(/^(portal:|file:)/, '')));
+          return packageDirs.has(dep);
+        }
+
+        return false;
+      }
+
+      const queue = [];
+      const queued = new Set();
       for (const section of ['dependencies', 'devDependencies']) {
         for (const [name, ver] of Object.entries(pkg[section] || {})) {
           if (ver === '#include_aztec_version' && name.startsWith('@aztec/')) {
-            const dir = name.replace('@aztec/', '');
-            pkg[section][name] = 'link:' + yp + '/' + dir;
+            queue.push(name);
+            queued.add(name);
           }
         }
       }
+
+      for (let i = 0; i < queue.length; i++) {
+        const name = queue[i];
+        const dir = packageDirs.get(name);
+        if (!dir) {
+          throw new Error(`Could not find local package for ${name}`);
+        }
+        setLinkedDependency(name, dir);
+
+        const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+        for (const section of ['dependencies', 'peerDependencies']) {
+          for (const [dep, ver] of Object.entries(manifest[section] || {})) {
+            // Link any @aztec dep we have a local dir for — either resolved by
+            // version (workspace:/portal:/file:) or discovered as a local portal
+            // in the root resolutions above. Otherwise it's a published npm dep.
+            const localByDir = dep.startsWith('@aztec/') && packageDirs.has(dep);
+            if (!queued.has(dep) && (registerLocalDependency(dir, dep, ver) || localByDir)) {
+              queue.push(dep);
+              queued.add(dep);
+            } else if (section === 'dependencies') {
+              addNpmDependency(dep, ver);
+            }
+          }
+        }
+      }
+
       fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-    "
+NODE
 
     # Fresh yarn setup for linking
     yarn config set nodeLinker node-modules 2>/dev/null || true
@@ -330,9 +433,11 @@ function run_step {
   local step_func=$2
   local output exit_code
 
-  # Disable errexit for command substitution to properly capture exit code
+  # Disable errexit only around the assignment so we can capture the exit code.
+  # Re-enable it inside the command substitution; otherwise step functions can
+  # continue after a failing command and report success.
   set +e
-  output=$($step_func 2>&1)
+  output=$(set -e; "$step_func" 2>&1)
   exit_code=$?
   set -e
   echo "$output"
@@ -341,7 +446,7 @@ function run_step {
   if [[ $exit_code -ne 0 ]]; then
     echo "WARNING: $step_name failed (exit code $exit_code), retrying..."
     set +e
-    output=$($step_func 2>&1)
+    output=$(set -e; "$step_func" 2>&1)
     exit_code=$?
     set -e
     echo "$output"

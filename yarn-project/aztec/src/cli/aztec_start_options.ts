@@ -109,7 +109,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'NETWORK',
     },
 
-    configToFlag('--enable-version-check', sharedNodeConfigMappings.enableVersionCheck),
+    configToFlag('--enable-auto-shutdown', sharedNodeConfigMappings.enableAutoShutdown),
 
     configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
     configToFlag('--snapshots-urls', sharedNodeConfigMappings.snapshotsUrls),

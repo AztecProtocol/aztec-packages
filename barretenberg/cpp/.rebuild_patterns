@@ -1,6 +1,10 @@
 ^barretenberg/cpp/.*\.(cpp|cc|cxx|c\+\+|h|hpp|hxx|h\+\+|c|h|inl|inc|ipp|tpp|cmake)$
 ^barretenberg/cpp/.*CMakeLists\.txt$
 ^barretenberg/cpp/.*Dockerfile.*$
+^barretenberg/cpp/src/barretenberg/avm/avm_schema\.json$
+^barretenberg/cpp/src/barretenberg/cdb/cdb_schema\.json$
 ^barretenberg/cpp/scripts/
 ^barretenberg/cpp/bootstrap.sh
 ^barretenberg/cpp/CMakePresets.json
+^ipc-codegen/src/.*\.ts$
+^ipc-codegen/templates/cpp/

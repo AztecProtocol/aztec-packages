@@ -123,7 +123,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     std::memcpy(buf.data(), data, std::min(size, MIN_INPUT));
 
     // window_bits ∈ [1, 19] — `choose_window_bits` returns [2,19]; the final
-    // window emitted by `build_var_window_schedule` can additionally be 1 bit
+    // window emitted by `build_window_schedule` can additionally be 1 bit
     // (e.g. wb=3 over 256 bits = 85*3+1). Outside this range the encoder has
     // no well-defined behavior in production.
     const size_t window_bits = 1 + (buf[0] % 19);

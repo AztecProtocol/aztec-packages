@@ -20,6 +20,7 @@ import type {
   TxPoolV2Events,
 } from './interfaces.js';
 import type { TxState } from './tx_metadata.js';
+import type { MinedTxInfo } from './tx_pool_v2_impl.js';
 import { TxPoolV2Impl } from './tx_pool_v2_impl.js';
 
 /**
@@ -56,17 +57,22 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     // Create callbacks that the impl uses to notify us about events and metrics
     const callbacks = {
       onTxsAdded: (txs: Tx[], opts: { source?: string }) => {
-        this.#metrics?.transactionsAdded(txs);
         this.emit('txs-added', { txs, ...opts });
       },
       onTxsRemoved: (txHashes: string[] | bigint[]) => {
-        this.#metrics?.transactionsRemoved(txHashes);
         // Convert to TxHash objects for the event
         const hashes = txHashes.map(h => (typeof h === 'string' ? TxHash.fromString(h) : TxHash.fromBigInt(h)));
         this.emit('txs-removed', { txHashes: hashes });
       },
-      onTxsMined: (txHashes: string[]) => {
-        this.#metrics?.transactionsRemoved(txHashes);
+      onTxsMined: (minedTxs: MinedTxInfo[]) => {
+        // Pending-to-mined delay is derived from the tx's persisted receivedAt at the mined
+        // transition (see TxPoolV2Impl.handleMinedBlock), not the add/remove timestamp map —
+        // so eviction no longer pollutes MEMPOOL_TX_MINED_DELAY.
+        for (const { minedDelayMs } of minedTxs) {
+          if (minedDelayMs !== undefined) {
+            this.#metrics?.recordMinedDelay(minedDelayMs);
+          }
+        }
       },
     };
 
@@ -110,6 +116,10 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => this.#impl.prepareForSlot(slotNumber));
   }
 
+  unprotectTxs(txHashes: TxHash[], slotNumber: SlotNumber): Promise<void> {
+    return this.#queue.put(() => this.#impl.unprotectTxs(txHashes, slotNumber));
+  }
+
   handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
     return this.#queue.put(() => this.#impl.handlePrunedBlocks(latestBlock, options));
   }
@@ -124,12 +134,12 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   // === Queries ===
 
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return this.#queue.put(() => this.#impl.getTxByHash(txHash));
+  getTxByHash(txHash: TxHash, opts?: { includeProof?: boolean }): Promise<Tx | undefined> {
+    return this.#queue.put(() => this.#impl.getTxByHash(txHash, opts));
   }
 
-  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.#queue.put(() => this.#impl.getTxsByHash(txHashes));
+  getTxsByHash(txHashes: TxHash[], opts?: { includeProof?: boolean }): Promise<(Tx | undefined)[]> {
+    return this.#queue.put(() => this.#impl.getTxsByHash(txHashes, opts));
   }
 
   hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
@@ -150,6 +160,10 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   getPendingTxCount(): Promise<number> {
     return this.#queue.put(() => Promise.resolve(this.#impl.getPendingTxCount()));
+  }
+
+  hasEligiblePendingTxs(minCount: number): Promise<boolean> {
+    return this.#queue.put(() => Promise.resolve(this.#impl.hasEligiblePendingTxs(minCount)));
   }
 
   getMinedTxHashes(): Promise<[TxHash, L2BlockId][]> {

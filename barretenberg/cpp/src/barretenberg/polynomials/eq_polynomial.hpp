@@ -120,6 +120,8 @@ template <typename FF> class ProverEqPolynomial {
     {
         std::vector<FF> result;
         std::vector<FF> denominators;
+        denominators.reserve(challenges.size());
+        result.reserve(challenges.size());
         for (const auto& challenge : challenges) {
             denominators.push_back((FF(1) - challenge));
         }

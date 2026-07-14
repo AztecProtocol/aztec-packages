@@ -13,11 +13,12 @@ import {
   type SlashingProposerContract,
   buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
-import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
+import { type L1FeeAnalysisResult, L1FeeAnalyzer, captureWindowBlockFees } from '@aztec/ethereum/l1-fee-analysis';
 import {
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
+  L1TxTimeoutError,
   type L1TxUtils,
   MAX_L1_TX_LIMIT,
   type TransactionStats,
@@ -117,6 +118,7 @@ type L1ProcessArgs = {
 export const Actions = [
   'invalidate-by-invalid-attestation',
   'invalidate-by-insufficient-attestations',
+  'prune',
   'propose',
   'governance-signal',
   'vote-offenses',
@@ -177,6 +179,8 @@ export class SequencerPublisher {
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
   protected aztecSlotDuration: bigint;
+  private readonly previousL1BlockWaitTimeoutMs: number;
+  private readonly previousL1BlockWaitPollIntervalMs: number;
 
   /** Date provider for wall-clock time. */
   private readonly dateProvider: DateProvider;
@@ -205,7 +209,13 @@ export class SequencerPublisher {
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
-    private config: Pick<SequencerPublisherConfig, 'fishermanMode' | 'l1TxFailedStore'> &
+    private config: Pick<
+      SequencerPublisherConfig,
+      | 'fishermanMode'
+      | 'l1TxFailedStore'
+      | 'sequencerPublisherPreviousL1BlockWaitTimeoutMs'
+      | 'sequencerPublisherPreviousL1BlockWaitPollIntervalMs'
+    > &
       Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
@@ -225,6 +235,8 @@ export class SequencerPublisher {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
+    this.previousL1BlockWaitTimeoutMs = config.sequencerPublisherPreviousL1BlockWaitTimeoutMs;
+    this.previousL1BlockWaitPollIntervalMs = config.sequencerPublisherPreviousL1BlockWaitPollIntervalMs;
     this.dateProvider = deps.dateProvider;
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
@@ -276,25 +288,97 @@ export class SequencerPublisher {
   }
 
   /**
-   * Backs up a failed L1 transaction to the configured store for debugging.
-   * Does nothing if no store is configured.
+   * Logs the gas-pricing data of a failed L1 transaction at warn — so underpricing is diagnosable
+   * from logs even with no failed-tx store configured — and backs the record up to the store when
+   * one is. When captureFeeSummary is true, also records the fee data of the already-mined L1
+   * blocks in the target slot's inclusion window.
    */
-  private backupFailedTx(failedTx: Omit<FailedL1Tx, 'timestamp'>): void {
-    if (!this.failedTxStore) {
-      return;
-    }
-
+  private backupFailedTx(
+    failedTx: Omit<FailedL1Tx, 'timestamp'>,
+    opts?: { captureFeeSummary?: boolean; targetSlot?: SlotNumber; sharedFeeSummary?: FailedL1Tx['gasInfo'] },
+  ): void {
     const tx: FailedL1Tx = {
       ...failedTx,
       timestamp: Date.now(),
     };
 
     // Fire and forget - don't block on backup
-    void this.failedTxStore
-      .then(store => store?.saveFailedTx(tx))
-      .catch(err => {
+    void (async () => {
+      try {
+        // Prefer a pre-captured summary (shared across a batch of failures in the same slot) so we
+        // don't re-read the fee window per record. A capture error must not lose the record itself.
+        const feeSummary =
+          opts?.sharedFeeSummary ??
+          (opts?.captureFeeSummary
+            ? await this.captureFeeEnvironment(opts.targetSlot).catch(() => undefined)
+            : undefined);
+        if (feeSummary) {
+          tx.gasInfo = { ...tx.gasInfo, ...feeSummary };
+        }
+        if (tx.gasInfo) {
+          this.log.warn(`Gas pricing data for failed L1 tx (${tx.failureType})`, {
+            failureType: tx.failureType,
+            actions: tx.context.actions,
+            slot: tx.context.slot,
+            ...tx.gasInfo,
+            ...tx.timing,
+          });
+        }
+        const store = await this.failedTxStore;
+        if (store) {
+          await store.saveFailedTx(tx);
+        }
+      } catch (err) {
         this.log.warn(`Failed to backup failed L1 tx to store`, err);
-      });
+      }
+    })();
+  }
+
+  /**
+   * Captures per-block fee data for the L1 blocks in the target slot's inclusion window (the blocks the
+   * tx could have landed in) for underpricing diagnostics. Reads only already-mined blocks, so it never
+   * waits on the chain. Safe to call off the critical path: the underlying capture never throws, and this
+   * returns undefined when there is no target slot or the window is not yet mined (e.g. an early send
+   * failure), in which case the record simply carries no window data.
+   */
+  private async captureFeeEnvironment(targetL2Slot: SlotNumber | undefined): Promise<FailedL1Tx['gasInfo']> {
+    if (targetL2Slot === undefined) {
+      return undefined;
+    }
+    const l1Constants = this.epochCache.getL1Constants();
+    // The inclusion window is [start of slot N, start of slot N+1): all L1 blocks that can include a tx
+    // for this L2 slot. getTimestampForSlot returns seconds, matching block.timestamp.
+    const windowStartS = getTimestampForSlot(targetL2Slot, l1Constants);
+    const windowEndS = getTimestampForSlot(SlotNumber(Number(targetL2Slot) + 1), l1Constants);
+    const windowBlocks = await captureWindowBlockFees(this.l1TxUtils.client, windowStartS, windowEndS);
+    if (windowBlocks.length === 0) {
+      return undefined;
+    }
+    return { windowBlocks };
+  }
+
+  /** Computes timing info relative to the L2 slot deadline. */
+  private computeTimingInfo(targetL2Slot: SlotNumber | undefined): FailedL1Tx['timing'] {
+    if (targetL2Slot === undefined) {
+      return undefined;
+    }
+    const l1Constants = this.epochCache.getL1Constants();
+    const slotDeadlineS = getTimestampForSlot(SlotNumber(Number(targetL2Slot) + 1), l1Constants);
+    const slotDeadlineMs = Number(slotDeadlineS) * 1000;
+    return {
+      targetL2Slot: Number(targetL2Slot),
+      slotDeadlineTimestampS: slotDeadlineS,
+      msUntilSlotDeadline: slotDeadlineMs - this.dateProvider.now(),
+    };
+  }
+
+  /**
+   * Builds an id for a synthetic failure record (send-error/timeout) that has no on-chain tx hash.
+   * Includes the failure time so each attempt — including retries of the same slot — is stored as its
+   * own record rather than overwriting the previous one.
+   */
+  private failureRecordId(actions: string[], targetSlot: SlotNumber | undefined): Hex {
+    return keccak256(toHex(`${actions.join(',')}:${targetSlot ?? ''}:${Date.now()}`));
   }
 
   public getRollupContract(): RollupContract {
@@ -458,7 +542,9 @@ export class SequencerPublisher {
 
       if (bundleResult.kind === 'aborted') {
         this.logDroppedInSim(bundleResult.droppedRequests);
-        void this.backupDroppedInSim(bundleResult.droppedRequests);
+        void this.backupDroppedInSim(bundleResult.droppedRequests, currentL2Slot).catch(err =>
+          this.log.error(`Failed to backup requests dropped in simulation`, err),
+        );
         return undefined;
       }
 
@@ -482,7 +568,7 @@ export class SequencerPublisher {
         requests: requests.map(request => request.action),
         txConfig,
       });
-      const result = await this.forwardWithPublisherRotation(requests, txConfig, blobConfig);
+      const result = await this.forwardWithPublisherRotation(requests, txConfig, blobConfig, currentL2Slot);
       if (result === undefined) {
         return undefined;
       }
@@ -498,6 +584,44 @@ export class SequencerPublisher {
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
+      if (err instanceof TimeoutError) {
+        const timeoutState = err instanceof L1TxTimeoutError ? err.txState : undefined;
+        void (async () => {
+          // The RPC is likely degraded right after a timeout, so back up without the block number
+          // rather than leaking an unhandled rejection.
+          const l1BlockNumber = await this.l1TxUtils.getBlockNumber().catch(() => 0n);
+          this.backupFailedTx(
+            {
+              id: this.failureRecordId(
+                validRequests.map(r => r.action),
+                currentL2Slot,
+              ),
+              failureType: 'timeout',
+              request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
+              l1BlockNumber,
+              error: { message: viemError.message, name: 'TimeoutError' },
+              context: {
+                actions: validRequests.map(r => r.action),
+                requests: validRequests
+                  .filter(r => r.request.to !== null)
+                  .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
+                sender: this.getSenderAddress().toString(),
+                slot: Number(currentL2Slot),
+              },
+              timing: this.computeTimingInfo(currentL2Slot),
+              gasInfo: timeoutState
+                ? {
+                    sentGasPriceLadder: timeoutState.gasPriceHistory,
+                    attempts: timeoutState.attempts,
+                    gasLimit: timeoutState.gasLimit,
+                    nonce: timeoutState.nonce,
+                  }
+                : undefined,
+            },
+            { captureFeeSummary: true, targetSlot: currentL2Slot },
+          );
+        })();
+      }
       return undefined;
     } finally {
       try {
@@ -525,23 +649,37 @@ export class SequencerPublisher {
   }
 
   /** Backs up entries dropped by bundle simulation, one record per dropped action. */
-  private async backupDroppedInSim(dropped: DroppedRequest[]): Promise<void> {
+  private async backupDroppedInSim(dropped: DroppedRequest[], targetSlot?: SlotNumber): Promise<void> {
     if (dropped.length === 0) {
       return;
     }
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-    for (const { request: req } of dropped) {
-      this.backupFailedTx({
-        id: keccak256(req.request.data!),
-        failureType: 'simulation',
-        request: { to: req.request.to! as Hex, data: req.request.data! },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: 'Bundle entry dropped: action reverted in sim' },
-        context: {
-          actions: [req.action],
-          sender: this.getSenderAddress().toString(),
-        },
-      });
+    // Invoked as `void backupDroppedInSim(...)` on the publish path, so it must not throw.
+    try {
+      const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+      // Every dropped entry failed in the same slot against the same L1 fee conditions, so capture
+      // the fee environment once and share it rather than re-reading the window per entry.
+      const sharedFeeSummary = await this.captureFeeEnvironment(targetSlot).catch(() => undefined);
+      const timing = this.computeTimingInfo(targetSlot);
+      for (const { request: req } of dropped) {
+        this.backupFailedTx(
+          {
+            id: keccak256(req.request.data!),
+            failureType: 'simulation',
+            request: { to: req.request.to! as Hex, data: req.request.data! },
+            l1BlockNumber,
+            error: { message: 'Bundle entry dropped: action reverted in sim' },
+            context: {
+              actions: [req.action],
+              sender: this.getSenderAddress().toString(),
+              slot: targetSlot !== undefined ? Number(targetSlot) : undefined,
+            },
+            timing,
+          },
+          { sharedFeeSummary },
+        );
+      }
+    } catch (err) {
+      this.log.warn(`Failed to back up dropped-in-sim entries`, err);
     }
   }
 
@@ -554,6 +692,7 @@ export class SequencerPublisher {
     validRequests: RequestWithExpiry[],
     txConfig: RequestWithExpiry['gasConfig'],
     blobConfig: L1BlobInputs | undefined,
+    targetSlot?: SlotNumber,
   ) {
     if (!txConfig?.gasLimit) {
       throw new Error('gasLimit is required for bundled transactions');
@@ -590,11 +729,13 @@ export class SequencerPublisher {
           this.log.error('Forwarder transaction reverted on-chain; not rotating publisher', err, {
             transactionHash: err.receipt.transactionHash,
           });
+          this.backupRevertFailure(validRequests, err, currentPublisher, targetSlot);
           return undefined;
         }
         const viemError = formatViemError(err);
         if (!this.getNextPublisher) {
           this.log.error('Failed to publish bundled transactions', viemError);
+          this.backupSendFailure(validRequests, viemError, currentPublisher, targetSlot);
           return undefined;
         }
         this.log.warn(
@@ -608,6 +749,7 @@ export class SequencerPublisher {
             viemError,
             { triedAddresses: triedAddresses.map(a => a.toString()) },
           );
+          this.backupSendFailure(validRequests, viemError, currentPublisher, targetSlot);
           return undefined;
         }
         currentPublisher = nextPublisher;
@@ -615,33 +757,152 @@ export class SequencerPublisher {
     }
   }
 
+  /** Backs up an on-chain revert failure to the failed tx store. */
+  private backupRevertFailure(
+    requests: RequestWithExpiry[],
+    err: MulticallForwarderRevertedError,
+    publisher: L1TxUtils,
+    targetSlot?: SlotNumber,
+  ): void {
+    this.backupFailedTx(
+      {
+        id: err.receipt.transactionHash,
+        failureType: 'revert',
+        request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
+        l1BlockNumber: err.receipt.blockNumber,
+        receipt: {
+          transactionHash: err.receipt.transactionHash,
+          blockNumber: err.receipt.blockNumber,
+          gasUsed: err.receipt.gasUsed,
+          status: 'reverted',
+        },
+        error: { message: err.message, name: err.name },
+        context: {
+          actions: requests.map(r => r.action),
+          requests: requests
+            .filter(r => r.request.to !== null)
+            .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
+          sender: publisher.getSenderAddress().toString(),
+          slot: targetSlot !== undefined ? Number(targetSlot) : undefined,
+        },
+        gasInfo: err.txState
+          ? {
+              sentGasPrice: err.txState.gasPrice,
+              gasLimit: err.txState.gasLimit,
+              nonce: err.txState.nonce,
+            }
+          : undefined,
+        timing: this.computeTimingInfo(targetSlot),
+      },
+      { captureFeeSummary: true, targetSlot },
+    );
+  }
+
+  /** Backs up a send failure (tx never reached chain) to the failed tx store. */
+  private backupSendFailure(
+    requests: RequestWithExpiry[],
+    error: FormattedViemError | Error,
+    publisher: L1TxUtils,
+    targetSlot?: SlotNumber,
+  ): void {
+    // If we can't get the block number, still back up without it.
+    void this.l1TxUtils
+      .getBlockNumber()
+      .catch(() => 0n)
+      .then(l1BlockNumber => {
+        this.backupFailedTx(
+          {
+            id: this.failureRecordId(
+              requests.map(r => r.action),
+              targetSlot,
+            ),
+            failureType: 'send-error',
+            request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
+            l1BlockNumber,
+            error: {
+              message: error.message,
+              name: 'name' in error ? error.name : undefined,
+            },
+            context: {
+              actions: requests.map(r => r.action),
+              requests: requests
+                .filter(r => r.request.to !== null)
+                .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
+              sender: publisher.getSenderAddress().toString(),
+              slot: targetSlot !== undefined ? Number(targetSlot) : undefined,
+            },
+            timing: this.computeTimingInfo(targetSlot),
+          },
+          { captureFeeSummary: true, targetSlot },
+        );
+      });
+  }
+
   /*
    * Schedules sending all enqueued requests at (or after) the start of the given L2 slot.
-   * Sleeps until one L1 slot before the L2 slot boundary so the tx has a chance of being
-   * picked up by the first L1 block of the L2 slot.
-   * NB: there is a known correctness risk — being included in the L1 block right before the
-   * L2 slot starts would revert propose with HeaderLib__InvalidSlotNumber.
-   * Uses InterruptibleSleep so it can be cancelled via interrupt().
    */
   public async sendRequestsAt(targetSlot: SlotNumber): Promise<SendRequestsResult | undefined> {
-    const l1Constants = this.epochCache.getL1Constants();
-    // Start of the target L2 slot, in ms (getTimestampForSlot returns seconds).
-    const startOfTargetSlotMs = Number(getTimestampForSlot(targetSlot, l1Constants)) * 1000;
-    // Aim to be in the mempool one L1 slot before the L2 slot starts, so we have a chance of
-    // being picked up by the first L1 block of the L2 slot.
-    const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
-    const sleepMs = submitAfterMs - this.dateProvider.now();
-    if (sleepMs > 0) {
-      this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
-        targetSlot,
-        submitAfterMs,
-      });
-      await this.interruptibleSleep.sleep(sleepMs);
-    }
+    await this.waitForTargetSlot(targetSlot);
     if (this.interrupted) {
       return undefined;
     }
+
     return this.sendRequests(targetSlot);
+  }
+
+  /**
+   * Sleeps until one L1 slot before the L2 slot boundary, and then waits for that L1 block
+   * to be mined, so we don't risk being included in it. If that block never gets mined after
+   * a timeout, we assume it got skipped on L1, so we send the tx anyway.
+   */
+  private async waitForTargetSlot(targetSlot: SlotNumber): Promise<void> {
+    const l1Constants = this.epochCache.getL1Constants();
+    const nowInSeconds = this.dateProvider.nowInSeconds();
+    const startOfTargetSlotTs = getTimestampForSlot(targetSlot, l1Constants);
+    const previousL1BlockTs = startOfTargetSlotTs - this.ethereumSlotDuration;
+    const waitDeadlineTs = previousL1BlockTs + BigInt(this.previousL1BlockWaitTimeoutMs / 1000);
+    const logCtx = { targetSlot, startOfTargetSlotTs, nowInSeconds, previousL1BlockTs, waitDeadlineTs };
+
+    // Check if we are already past time
+    if (nowInSeconds >= startOfTargetSlotTs) {
+      this.log.verbose(`Target slot ${targetSlot} already started, sending requests immediately`, logCtx);
+      return;
+    }
+
+    // Otherwise we wait
+    this.log.debug(`Waiting for slot ${targetSlot} before sending requests`, logCtx);
+
+    // Wait until previous L1 block timestamp first
+    const sleepMs = (Number(previousL1BlockTs) - nowInSeconds) * 1000;
+    if (sleepMs > 0 && !this.interrupted) {
+      this.log.trace(`Sleeping ${sleepMs}ms before waiting for previous L1 block`, logCtx);
+      await this.interruptibleSleep.sleep(sleepMs);
+    }
+
+    // Then loop until we see the previous L1 block, so we know that we cannot be included in it.
+    // We time out after a while, once we are sure that that block is skipped in L1.
+    while (!this.interrupted) {
+      try {
+        const nowInSeconds = this.dateProvider.nowInSeconds();
+        logCtx.nowInSeconds = nowInSeconds;
+
+        if (nowInSeconds >= waitDeadlineTs) {
+          this.log.warn(`Timed out waiting for previous L1 block before sending requests, proceeding`, logCtx);
+          return;
+        }
+
+        const latestBlockTs = await this.l1TxUtils.getBlock().then(b => b.timestamp);
+        if (latestBlockTs >= previousL1BlockTs) {
+          this.log.debug(`Previous L1 block mined, proceeding to send requests`, { ...logCtx, latestBlockTs });
+          return;
+        }
+        this.log.trace(`Previous L1 block not mined yet, continuing to wait`, { ...logCtx, latestBlockTs });
+      } catch (err) {
+        this.log.error(`Error while waiting for previous L1 block before sending requests; retrying`, err, logCtx);
+      } finally {
+        await this.interruptibleSleep.sleep(this.previousL1BlockWaitPollIntervalMs);
+      }
+    }
   }
 
   private callbackBundledTransactions(
@@ -838,18 +1099,22 @@ export class SequencerPublisher {
 
       // Otherwise, throw. We cannot build the next checkpoint if we cannot invalidate the previous one.
       this.log.error(`Simulation for invalidate checkpoint ${checkpointNumber} failed`, viemError, logData);
-      this.backupFailedTx({
-        id: keccak256(request.data!),
-        failureType: 'simulation',
-        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: viemError.message, name: viemError.name },
-        context: {
-          actions: [`invalidate-${reason}`],
-          checkpointNumber,
-          sender: this.getSenderAddress().toString(),
+      this.backupFailedTx(
+        {
+          id: keccak256(request.data!),
+          failureType: 'simulation',
+          request: { to: request.to!, data: request.data!, value: request.value },
+          l1BlockNumber,
+          error: { message: viemError.message, name: viemError.name },
+          context: {
+            actions: [`invalidate-${reason}`],
+            checkpointNumber,
+            sender: this.getSenderAddress().toString(),
+          },
+          timing: this.computeTimingInfo(this.getCurrentL2Slot()),
         },
-      });
+        { captureFeeSummary: true, targetSlot: this.getCurrentL2Slot() },
+      );
       throw new Error(`Failed to simulate invalidate checkpoint ${checkpointNumber}`, { cause: viemError });
     }
   }
@@ -863,7 +1128,11 @@ export class SequencerPublisher {
     const logData = { ...checkpoint, reason };
     this.log.debug(`Building invalidate checkpoint ${checkpoint.checkpointNumber} request`, logData);
 
-    const attestationsAndSigners = CommitteeAttestationsAndSigners.packAttestations(validationResult.attestations);
+    // Use the exact packed tuple posted to L1 verbatim. A repack via `packAttestations` is not a
+    // byte-faithful inverse of `fromPacked` (a canonicalized yParity byte or an all-zero signature slot
+    // round-trips differently), so it would diverge from the stored `attestationsHash` and revert the
+    // invalidation.
+    const attestationsAndSigners = validationResult.verbatimAttestations;
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
@@ -1009,6 +1278,47 @@ export class SequencerPublisher {
       this.govProposerContract,
       signerAddress,
       signer,
+    );
+  }
+
+  /**
+   * Enqueues a `prune()` transaction if the rollup is prunable at the given slot's L1 timestamp.
+   * `prune()` is permissionless and idempotent — if the chain is no longer prunable by send time the
+   * bundle simulation usually drops the entry; on a node without `eth_simulateV1` the bundle is sent
+   * as-is and the prune reverts `Rollup__NothingToPrune` inside `aggregate3(allowFailure: true)`
+   * (a failed action, never a whole-tx revert). Used by the failed-sync fallback so a stuck pending
+   * chain (e.g. bad data blocking sync) can be wound back to recover.
+   * @returns true if a prune request was enqueued, false otherwise.
+   */
+  public async enqueuePruneIfPrunable(slotNumber: SlotNumber): Promise<boolean> {
+    if (this.lastActions['prune'] === slotNumber) {
+      this.log.debug(`Skipping duplicate prune for slot ${slotNumber}`, { slotNumber });
+      return false;
+    }
+    // Use the SAME timestamp the bundle simulator overrides block.timestamp with at send time
+    // (sequencer-bundle-simulator.ts) so this upfront check and the send-time sim agree. Slot-start
+    // and last-L1-slot both fall within the same L2 slot (and epoch, which is what `canPruneAtTime`
+    // derives), so they agree today; matching the simulator keeps it robust if the contract ever uses
+    // the timestamp more granularly.
+    const ts = getLastL1SlotTimestampForL2Slot(slotNumber, this.epochCache.getL1Constants());
+    const canPrune = await this.rollupContract.canPruneAtTime(ts).catch(err => {
+      this.log.error(`Failed to check canPruneAtTime for slot ${slotNumber}`, err, { slotNumber });
+      return false;
+    });
+    if (!canPrune) {
+      this.log.debug(`Rollup not prunable at slot ${slotNumber}`, { slotNumber });
+      return false;
+    }
+    const request: L1TxRequest = {
+      to: this.rollupContract.address,
+      data: encodeFunctionData({ abi: RollupAbi, functionName: 'prune', args: [] }),
+    };
+    this.log.info(`Enqueuing rollup prune for slot ${slotNumber}`, { slotNumber });
+    return this.enqueueRequest(
+      'prune',
+      request,
+      { address: this.rollupContract.address, abi: RollupAbi, eventName: 'PrunedPending' },
+      slotNumber,
     );
   }
 
@@ -1250,18 +1560,22 @@ export class SequencerPublisher {
             args: [blobInput],
           });
           const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-          this.backupFailedTx({
-            id: keccak256(validateBlobsData),
-            failureType: 'simulation',
-            request: { to: this.rollupContract.address as Hex, data: validateBlobsData },
-            blobData: encodedData.blobs.map(b => toHex(b.data)) as Hex[],
-            l1BlockNumber: l1BlockNumber.toString(),
-            error: { message: viemError.message, name: viemError.name },
-            context: {
-              actions: ['validate-blobs'],
-              sender: this.getSenderAddress().toString(),
+          this.backupFailedTx(
+            {
+              id: keccak256(validateBlobsData),
+              failureType: 'simulation',
+              request: { to: this.rollupContract.address as Hex, data: validateBlobsData },
+              blobData: encodedData.blobs.map(b => toHex(b.data)) as Hex[],
+              l1BlockNumber,
+              error: { message: viemError.message, name: viemError.name },
+              context: {
+                actions: ['validate-blobs'],
+                sender: this.getSenderAddress().toString(),
+              },
+              timing: this.computeTimingInfo(this.getCurrentL2Slot()),
             },
-          });
+            { captureFeeSummary: true, targetSlot: this.getCurrentL2Slot() },
+          );
           throw new Error('Failed to validate blobs');
         });
     }

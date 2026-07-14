@@ -8,6 +8,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/verifier_commitments.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
@@ -83,7 +84,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using VerifierCommitments = typename VerifierCommitmentsConstructor<Flavor>::Commitments;
     using Transcript = typename Flavor::Transcript;
     using Instance = VerifierInstance_<Flavor>;
 
@@ -201,19 +202,19 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     }
 
     /**
-     * @brief Get kernel calldata commitment (MegaFlavor only)
+     * @brief Get kernel_calldata commitment (flavors that include databus only)
      */
-    const Commitment& get_kernel_calldata_commitment() const
-        requires IsMegaFlavor<Flavor>
+    const Commitment& get_calldata_commitment() const
+        requires(Flavor::HasDataBus)
     {
-        return verifier_instance->witness_commitments.kernel_calldata;
+        return verifier_instance->witness_commitments.kernel_calldata();
     }
 
     /**
-     * @brief Get ECC op wire commitments as an array (MegaFlavor only)
+     * @brief Get ECC op wire commitments as an array (flavors that own an ECC op queue).
      */
     auto get_ecc_op_wires() const
-        requires IsMegaFlavor<Flavor>
+        requires(Flavor::HasEccOpQueue)
     {
         return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
     }

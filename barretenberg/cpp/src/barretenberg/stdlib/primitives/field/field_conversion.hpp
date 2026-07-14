@@ -34,14 +34,13 @@ template <typename Field> class StdlibCodec {
     using grumpkin_commitment = cycle_group<Builder>;
 
     /**
-     * @brief  A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Assumes that
-     * `challenge` is "short".
+     * @brief  A stdlib Transcript method needed to convert a short `fr` challenge limb to a `bigfield` one.
      *
      * @tparam T fr or fq
      * @param challenge a 127-bit limb of a full challenge
      * @return T
      */
-    template <typename T> static T convert_challenge(const fr& challenge)
+    template <typename T> static T convert_short_challenge(const fr& challenge)
     {
         if constexpr (std::is_same_v<T, fr>) {
             return challenge;
@@ -60,6 +59,26 @@ template <typename Field> class StdlibCodec {
         }
     }
 
+    /**
+     * @brief Convert a full-width challenge to a target type (fr or fq).
+     * @details For `fq` the full challenge is decomposed into the low/high halves expected by the
+     * `bigfield(low_bits, high_bits)` constructor (which range-constrains the limbs), and the decomposition is
+     * bound back to the challenge so the resulting cycle scalar equals the squeezed challenge. This is exact and
+     * canonical: the challenge value is `< r < q`, so it is always a valid `fq` element. Mirrors the native
+     * `FrCodec::convert_full_challenge`, which reinterprets the same value as `fq`.
+     */
+    template <typename T> static T convert_full_challenge(const fr& challenge)
+    {
+        if constexpr (std::is_same_v<T, fr>) {
+            return challenge;
+        } else if constexpr (std::is_same_v<T, fq>) {
+            // Decompose at the bigfield's lower-two-limb boundary; split_unique binds the halves to the challenge.
+            static constexpr size_t LOW_BITS = 2 * T::NUM_LIMB_BITS;
+            const auto [low_bits, high_bits] = split_unique(challenge, LOW_BITS);
+            return T(low_bits, high_bits);
+        }
+    }
+
     static std::vector<fr> convert_goblin_fr_to_bn254_frs(const goblin_field<Builder>& input)
     {
         return { input.limbs[0], input.limbs[1] };
@@ -71,8 +90,8 @@ template <typename Field> class StdlibCodec {
 
         static constexpr bb::fr shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
         std::vector<fr> result(2);
-        result[0] = input.binary_basis_limbs[0].element + (input.binary_basis_limbs[1].element * shift);
-        result[1] = input.binary_basis_limbs[2].element + (input.binary_basis_limbs[3].element * shift);
+        result[0] = input.get_limb(0).element + (input.get_limb(1).element * shift);
+        result[1] = input.get_limb(2).element + (input.get_limb(3).element * shift);
         return result;
     }
 
@@ -258,7 +277,7 @@ template <typename Field> class StdlibCodec {
 
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());
             std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y());
-            std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+            std::vector<field_ct> fr_vec = std::move(fr_vec_x);
             fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
             return fr_vec;
         } else {

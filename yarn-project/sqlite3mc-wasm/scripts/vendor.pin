@@ -7,6 +7,6 @@
 #   3. Commit this file + the updated vendor/jswasm/SHA256SUMS together
 #
 # Format: shell-sourceable, no quoting needed for these values.
-MC_VERSION=2.2.4
-SQLITE_VERSION=3.50.4
-SHA256=e73514200d76286d7d4a239589589b4f64d24ac4f4f7b2760e1f07b14ac5f6a5
+MC_VERSION=2.3.5
+SQLITE_VERSION=3.53.2
+SHA256=3d0d5ebe4c54a9a22012410726ecef711e4e3e15ec11dffddf09488c72a10670

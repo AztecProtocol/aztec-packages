@@ -35,7 +35,7 @@ describe('world-state integration', () => {
   beforeAll(async () => {
     log = createLogger('world-state:test:integration');
     rollupAddress = EthAddress.random();
-    const db = await NativeWorldStateService.tmp(rollupAddress);
+    await using db = await NativeWorldStateService.tmp();
     const fork = await db.fork(BlockNumber(0));
     log.info(`Generating ${MAX_CHECKPOINT_COUNT} mock checkpoints`);
     checkpoints = await timesAsync(MAX_CHECKPOINT_COUNT, i =>
@@ -280,6 +280,7 @@ describe('world-state integration', () => {
         synchronizer.handleBlockStreamEvent({
           type: 'chain-finalized',
           block: { number: backwardsFinalized, hash: '' },
+          checkpoint: { number: CheckpointNumber(1), hash: new Fr(1).toString() },
         }),
       ).resolves.not.toThrow();
 

@@ -132,9 +132,9 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         if (short_scalars) {
 
             auto unshifted_challenges =
-                prover_transcript->template get_challenges<NativeFr>(unshifted_batching_challenge_labels);
+                prover_transcript->template get_short_challenges<NativeFr>(unshifted_batching_challenge_labels);
             auto shifted_challenges =
-                prover_transcript->template get_challenges<NativeFr>(shifted_batching_challenge_labels);
+                prover_transcript->template get_short_challenges<NativeFr>(shifted_batching_challenge_labels);
 
             squashed_unshifted += mock_claims.polynomial_batcher.unshifted[0];
             for (size_t i = 0; i < unshifted_challenges.size(); ++i) {
@@ -209,11 +209,11 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
                 // bits.
                 unshifted_challenges[0] = Fr(1);
                 // Get `num_polys - 1` short challenges to batch all unshifted commitments
-                auto tail = stdlib_verifier_transcript->template get_challenges<Fr>(unshifted_labels);
+                auto tail = stdlib_verifier_transcript->template get_short_challenges<Fr>(unshifted_labels);
                 std::copy(tail.begin(), tail.end(), unshifted_challenges.begin() + 1);
 
                 // Get `num_shifted` short challenges to batch all shifted commitments
-                auto shifted_challenges = stdlib_verifier_transcript->template get_challenges<Fr>(shifted_labels);
+                auto shifted_challenges = stdlib_verifier_transcript->template get_short_challenges<Fr>(shifted_labels);
 
                 return std::pair{ std::move(unshifted_challenges), std::move(shifted_challenges) };
             };

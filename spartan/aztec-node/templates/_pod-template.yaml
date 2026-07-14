@@ -7,8 +7,16 @@ metadata:
     {{- include "chart.selectorLabels" . | nindent 4 }}
     app: node
   annotations:
-    {{- /* Recreate the pods on every upgrade in order to refresh configmaps and secrets */}}
-    rollme: {{ randAlphaNum 5 | quote }}
+    checksum/scripts: {{ include (print $.Template.BasePath "/scripts.configmap.yaml") . | sha256sum | quote }}
+    {{- if .Values.node.secret.envEnabled }}
+    checksum/env-secret: {{ include (print $.Template.BasePath "/env.secret.yaml") . | sha256sum | quote }}
+    {{- end }}
+    {{- if .Values.node.configMap.envEnabled }}
+    checksum/env-config: {{ toJson .Values | sha256sum | quote }}
+    {{- end }}
+    {{- with .Values.node.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- if .Values.serviceAccount.create }}
   serviceAccountName: {{ include "chart.serviceAccountName" . }}
@@ -119,6 +127,21 @@ spec:
         timeoutSeconds: {{ .Values.node.startupProbe.timeoutSeconds }}
         initialDelaySeconds: {{ .Values.node.startupProbe.initialDelaySeconds }}
         failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
+      {{- if .Values.node.readinessProbe.enabled }}
+      readinessProbe:
+        {{- if .Values.node.readinessProbe.exec }}
+        exec:
+{{ toYaml .Values.node.readinessProbe.exec | indent 10 }}
+        {{- else if .Values.node.readinessProbe.httpGet }}
+        httpGet:
+{{ toYaml .Values.node.readinessProbe.httpGet | indent 10 }}
+        {{- end }}
+        periodSeconds: {{ .Values.node.readinessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.node.readinessProbe.timeoutSeconds }}
+        initialDelaySeconds: {{ .Values.node.readinessProbe.initialDelaySeconds }}
+        failureThreshold: {{ .Values.node.readinessProbe.failureThreshold }}
+        successThreshold: {{ .Values.node.readinessProbe.successThreshold }}
+      {{- end }}
       volumeMounts:
         - name: shared
           mountPath: /shared
@@ -144,6 +167,20 @@ spec:
         {{- if .Values.node.secret.envEnabled }}
         - secretRef:
             name: {{ include "chart.fullname" . }}-env
+        {{- end }}
+        {{- range .Values.node.envFrom.configMaps }}
+        - configMapRef:
+            name: {{ tpl .name $ | quote }}
+            {{- if hasKey . "optional" }}
+            optional: {{ .optional }}
+            {{- end }}
+        {{- end }}
+        {{- range .Values.node.envFrom.secrets }}
+        - secretRef:
+            name: {{ tpl .name $ | quote }}
+            {{- if hasKey . "optional" }}
+            optional: {{ .optional }}
+            {{- end }}
         {{- end }}
       env:
         - name: POD_IP
@@ -182,6 +219,18 @@ spec:
         - name: NETWORK
           value: "{{ .Values.global.aztecNetwork }}"
         {{- end }}
+        {{- if .Values.global.allowOverridingNetworkConfig }}
+        - name: ALLOW_OVERRIDING_NETWORK_CONFIG
+          value: "{{ .Values.global.allowOverridingNetworkConfig }}"
+        {{- end }}
+        {{- if .Values.global.aztecSlotDuration }}
+        - name: AZTEC_SLOT_DURATION
+          value: "{{ .Values.global.aztecSlotDuration }}"
+        {{- end }}
+        {{- if .Values.global.aztecEpochDuration }}
+        - name: AZTEC_EPOCH_DURATION
+          value: "{{ .Values.global.aztecEpochDuration }}"
+        {{- end }}
         - name: NODE_OPTIONS
           value: {{ join " " .Values.node.nodeJsOptions | quote }}
         - name: AZTEC_PORT
@@ -209,6 +258,8 @@ spec:
           value: "{{ .Values.node.proverRealProofs }}"
         - name: SENTINEL_ENABLED
           value: "{{ .Values.node.sentinel.enabled }}"
+        - name: OFFENSE_COLLECTION_ENABLED
+          value: "{{ .Values.node.offenseCollection.enabled }}"
         {{- if .Values.node.slash.validatorsAlways }}
         - name: SLASH_VALIDATORS_ALWAYS
           value: {{ join "," .Values.node.slash.validatorsAlways | quote }}
@@ -325,7 +376,7 @@ spec:
         - name: PROVER_ID
           value: {{ .Values.node.coinbase | quote }}
         {{- end }}
-        {{- range $key, $value := .Values.node.env }}
+        {{- range $key, $value := mergeOverwrite (dict) .Values.global.aztecEnv .Values.node.env }}
         - name: {{ $key }}
           value: {{ $value | quote }}
         {{- end }}

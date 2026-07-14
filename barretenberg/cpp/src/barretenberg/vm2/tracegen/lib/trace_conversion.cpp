@@ -1,17 +1,19 @@
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
-#include <unordered_map>
-#include <unordered_set>
+#include <array>
+#include <cstddef>
+#include <utility>
 
-#include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/common/set.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
 
 bool is_shift(ColumnAndShifts c)
 {
-    static std::unordered_set<ColumnAndShifts> shifted_columns = []() {
-        std::unordered_set<ColumnAndShifts> shifted_columns;
+    static unordered_flat_set<ColumnAndShifts> shifted_columns = []() {
+        unordered_flat_set<ColumnAndShifts> shifted_columns;
         for (const auto& col : SHIFTED_COLUMNS_ARRAY) {
             shifted_columns.insert(col);
         }
@@ -22,8 +24,8 @@ bool is_shift(ColumnAndShifts c)
 
 std::optional<ColumnAndShifts> shift_column(Column c)
 {
-    static std::unordered_map<Column, ColumnAndShifts> shifts = []() {
-        std::unordered_map<Column, ColumnAndShifts> shifts;
+    static unordered_flat_map<Column, ColumnAndShifts> shifts = []() {
+        unordered_flat_map<Column, ColumnAndShifts> shifts;
         for (size_t i = 0; i < TO_BE_SHIFTED_COLUMNS_ARRAY.size(); ++i) {
             shifts[TO_BE_SHIFTED_COLUMNS_ARRAY[i]] = SHIFTED_COLUMNS_ARRAY[i];
         }
@@ -36,8 +38,8 @@ std::optional<ColumnAndShifts> shift_column(Column c)
 
 std::optional<Column> unshift_column(ColumnAndShifts c)
 {
-    static std::unordered_map<ColumnAndShifts, Column> unshifts = []() {
-        std::unordered_map<ColumnAndShifts, Column> unshifts;
+    static unordered_flat_map<ColumnAndShifts, Column> unshifts = []() {
+        unordered_flat_map<ColumnAndShifts, Column> unshifts;
         for (size_t i = 0; i < TO_BE_SHIFTED_COLUMNS_ARRAY.size(); ++i) {
             unshifts[SHIFTED_COLUMNS_ARRAY[i]] = TO_BE_SHIFTED_COLUMNS_ARRAY[i];
         }
@@ -52,7 +54,7 @@ AvmFullRow get_full_row(const TraceContainer& trace, uint32_t row)
 {
     AvmFullRow full_row;
     // Write unshifted columns.
-    for (size_t col = 0; col < trace.num_columns(); ++col) {
+    for (size_t col = 0; col < TraceContainer::num_columns(); ++col) {
         full_row.get(static_cast<ColumnAndShifts>(col)) = trace.get(static_cast<Column>(col), row);
     }
     // Write the shifted values.

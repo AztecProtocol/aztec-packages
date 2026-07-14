@@ -21,7 +21,7 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 5. **Recreation & Wakeup** (`merge-train-recreate.yml`): Triggered when a PR is closed (merged). If the merged PR's head branch starts with `merge-train/`, recreates the branch from the base branch (usually `next`). Then runs `scripts/merge-train/wakeup-prs.sh` to add the `ci-wakeup-pr-after-merge` label to all open PRs targeting the branch that have passed CI and have automerge enabled. This triggers a CI re-run (typically a no-op via tree-hash cache) so those PRs can proceed through the merge queue. The label is immediately removed by a step in `ci3.yml` so it can be re-applied on subsequent merges.
 
-6. **Failure Notification** (`merge-queue-dequeue-notify.yml`): Triggered when a PR is dequeued from the merge queue. If the PR's head branch starts with `merge-train/` and the PR was NOT merged, sends a Slack notification via `ci3/merge_train_failure_slack_notify`.
+6. **Failure Notification** (`merge-queue-dequeue-notify.yml`): Triggered when a PR is dequeued from the merge queue. If the PR's head branch starts with `merge-train/` and the PR was NOT merged, sends a Slack notification via `ci3/merge_train_failure_slack_notify`. That script also kicks off a ClaudeBox session to investigate/fix the dequeued PR (`ci3/slack_notify_with_claudebox_kickoff`), passing `--repo "$GITHUB_REPOSITORY"` so the session runs in the mode matching the repo the train lives on. When the train is on a private mirror (`…-private`), `claudebox.yml` selects private mode; otherwise it stays public. Without that repo hint a private-train fix session lands in public mode and cannot read the PR or open the fix.
 
 ## CI Integration Details
 
@@ -29,7 +29,7 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 Merge-train branches influence CI mode:
 - `merge_group` events or `ci-merge-queue` label → `merge-queue` mode
-- If the merge-group event is for `merge-train/spartan` or `merge-train/spartan-v5` → upgraded to `merge-queue-heavy` mode (10 parallel grind runs instead of 4)
+- If the merge-group event is for `merge-train/spartan-v5` → upgraded to `merge-queue-heavy` mode (10 parallel grind runs instead of 4)
 - Target branch `merge-train/docs` → `ci-docs` mode
 - Target branch `merge-train/barretenberg` → `ci-barretenberg` mode
 

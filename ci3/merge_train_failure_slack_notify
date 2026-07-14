@@ -49,17 +49,19 @@ set -x
 
 if [[ "$MODE" == "dequeued" ]]; then
   "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \
-    "$(printf 'PR was removed from the merge queue: <%s|View PR>\n%s by %s (🤖)' "$PR_URL" "$commit_title" "$commit_author")" \
+    "$(printf 'PR was removed from the %s merge queue: <%s|View PR>\n%s by %s (🤖)' "$REF_NAME" "$PR_URL" "$commit_title" "$commit_author")" \
     "PR was dequeued from merge queue for $REF_NAME: $PR_URL — $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
-    --target-ref "origin/$REF_NAME"
+    --target-ref "origin/$REF_NAME" \
+    --repo "${GITHUB_REPOSITORY:-}"
 
 elif [[ "$MODE" == "merged" ]]; then
-  "$TOPDIR/ci3/slack_notify" "PR merged: <$PR_URL|$commit_title> by $commit_author" "$channel"
+  "$TOPDIR/ci3/slack_notify" "PR merged into $REF_NAME: <$PR_URL|$commit_title> by $commit_author" "$channel"
 
 else
   "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \
-    "$(printf 'There was a failure in the merge-train: http://ci.aztec-labs.com/%s\n%s by %s (🤖)' "$ci_log_id" "$commit_title" "$commit_author")" \
+    "$(printf 'There was a failure in %s: http://ci.aztec-labs.com/%s\n%s by %s (🤖)' "$REF_NAME" "$ci_log_id" "$commit_title" "$commit_author")" \
     "CI failure in merge-train branch $REF_NAME. Log: http://ci.aztec-labs.com/$ci_log_id — $commit_title by $commit_author. Investigate the failure, fix it, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
     --link "http://ci.aztec-labs.com/$ci_log_id" \
-    --target-ref "origin/$REF_NAME"
+    --target-ref "origin/$REF_NAME" \
+    --repo "${GITHUB_REPOSITORY:-}"
 fi

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct TXECallContext documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">TXECallContext</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct TXECallContext</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.anchor_block_timestamp">anchor_block_timestamp</a></li>
+<li><a href="#structfield.tx_hash">tx_hash</a></li>
+</ul>
+<h2>In module txe_oracles</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.TXECallContext.html">TXECallContext</a></div></li>
+<li><a href="struct.TxEffects.html">TxEffects</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.TxNoteHashes.html">TxNoteHashes</a></div></li>
+<li><a href="type.TxNullifiers.html">TxNullifiers</a></div></li>
+<li><a href="type.TxPrivateLog.html">TxPrivateLog</a></div></li>
+<li><a href="type.TxPrivateLogs.html">TxPrivateLogs</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.add_account.html">add_account</a></div></li>
+<li><a href="fn.add_authwit.html">add_authwit</a></div></li>
+<li><a href="fn.advance_blocks_by.html">advance_blocks_by</a></div></li>
+<li><a href="fn.advance_timestamp_by.html">advance_timestamp_by</a></div></li>
+<li><a href="fn.assert_compatible_txe_oracle_version.html">assert_compatible_txe_oracle_version</a></div></li>
+<li><a href="fn.create_account.html">create_account</a></div></li>
+<li><a href="fn.deploy.html">deploy</a></div></li>
+<li><a href="fn.deploy_oracle.html">deploy_oracle</a></div></li>
+<li><a href="fn.execute_utility_function.html">execute_utility_function</a></div></li>
+<li><a href="fn.get_default_address.html">get_default_address</a></div></li>
+<li><a href="fn.get_last_block_timestamp.html">get_last_block_timestamp</a></div></li>
+<li><a href="fn.get_last_call_context.html">get_last_call_context</a></div></li>
+<li><a href="fn.get_last_call_offchain_effects.html">get_last_call_offchain_effects</a></div></li>
+<li><a href="fn.get_last_tx_effects.html">get_last_tx_effects</a></div></li>
+<li><a href="fn.get_next_block_number.html">get_next_block_number</a></div></li>
+<li><a href="fn.get_next_block_timestamp.html">get_next_block_timestamp</a></div></li>
+<li><a href="fn.private_call_new_flow.html">private_call_new_flow</a></div></li>
+<li><a href="fn.public_call_new_flow.html">public_call_new_flow</a></div></li>
+<li><a href="fn.send_l1_to_l2_message.html">send_l1_to_l2_message</a></div></li>
+<li><a href="fn.set_private_txe_context.html">set_private_txe_context</a></div></li>
+<li><a href="fn.set_public_txe_context.html">set_public_txe_context</a></div></li>
+<li><a href="fn.set_tagging_secret_strategies.html">set_tagging_secret_strategies</a></div></li>
+<li><a href="fn.set_top_level_txe_context.html">set_top_level_txe_context</a></div></li>
+<li><a href="fn.set_utility_txe_context.html">set_utility_txe_context</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.TXE_ORACLE_VERSION_MAJOR.html">TXE_ORACLE_VERSION_MAJOR</a></div></li>
+<li><a href="global.TXE_ORACLE_VERSION_MINOR.html">TXE_ORACLE_VERSION_MINOR</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">txe_oracles</a></div>
+<h1>Struct <span id="struct" class="struct">TXECallContext</span></h1>
+<pre><code>pub struct TXECallContext {
+    pub tx_hash: <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>&gt;,
+    pub anchor_block_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a>,
+}
+</code></pre>
+<div class="comments">
+<p>The context of the last top-level call into TXE, as captured by the call executor. Refreshed on
+every top-level call.</p>
+</div>
+<h2>Fields</h2>
+<div id="structfield.tx_hash" class="struct-field"><code class="code-header">tx_hash: <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code></div>
+<div class="padded-description"><div class="comments">
+<p>Tx hash of the top-level call, or <code>None</code> if the call was tx-less (<code>execute_utility</code>, context
+setters, etc.).</p>
+</div>
+</div><div id="structfield.anchor_block_timestamp" class="struct-field"><code class="code-header">anchor_block_timestamp: <a href="../../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>Anchor block timestamp captured at the <em>start</em> of the call. Note: this is not the timestamp
+of the block where a transaction produced by this call is included, which does not exist at
+the moment TXE runs the call.</p>
+</div>
+</div></main>
+</span>
+</body>
+</html>

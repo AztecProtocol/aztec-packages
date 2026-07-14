@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct TransientValue documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">TransientValue</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct TransientValue</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#at">at</a></li>
+<li><a href="#delete">delete</a></li>
+<li><a href="#read">read</a></li>
+<li><a href="#store">store</a></li>
+</ul>
+<h2>In module transient</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.TransientOracles.html">TransientOracles</a></div></li>
+<li><a href="struct.TransientValue.html">TransientValue</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.TransientArray.html">TransientArray</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">transient</a></div>
+<h1>Struct <span id="struct" class="struct">TransientValue</span></h1>
+<pre><code>pub struct TransientValue&lt;T&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>A single value that lives for the duration of a single top-level PXE call.</p>
+<p>Shared across all call frames of the same contract (private and utility alike) within one top-level PXE call.
+A contract can only ever access its own transient values; other contracts called within the same top-level PXE call
+cannot see them.</p>
+<p>Values share the slot space with <a href="../../noir_aztec/transient/type.TransientArray.html"><code>TransientArray</code></a>s: a value and an array at the same slot alias each other, so
+use distinct slots.</p></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/transient/struct.TransientValue.html" class="struct">TransientValue</a>&lt;T&gt;</code></h3>
+
+<div class="padded-methods"><code id="at" class="code-header">pub unconstrained fn <a href="#at"><span class="fn">at</span></a>(slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns a handle to the value at the given slot, which may already hold data stored by an earlier frame.</p>
+</div>
+</div><code id="store" class="code-header">pub unconstrained fn <a href="#store"><span class="fn">store</span></a>(self, value: T)
+<div class="where-clause">where
+    T: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Stores a value at the given slot.</p>
+</div>
+</div><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the value previously stored at the slot with <a href="../../noir_aztec/transient/struct.TransientValue.html#store"><code>TransientValue::store</code></a>, or <code>Option::none()</code> if the
+slot holds no value.</p></div>
+</div><code id="delete" class="code-header">pub unconstrained fn <a href="#delete"><span class="fn">delete</span></a>(self)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Deletes the stored value. Does nothing if the slot holds no value.</p>
+</div>
+</div></div></main>
+</span>
+</body>
+</html>

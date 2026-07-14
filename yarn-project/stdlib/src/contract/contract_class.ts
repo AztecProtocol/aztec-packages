@@ -1,4 +1,5 @@
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
+import { CircuitKind } from '@aztec/bb.js';
+import { vkAsFields } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
@@ -60,5 +61,5 @@ export async function computeVerificationKeyHash(f: FunctionArtifact) {
   if (!f.verificationKey) {
     throw new Error(`Private function ${f.name} must have a verification key`);
   }
-  return hashVK(await vkAsFieldsMegaHonk(Buffer.from(f.verificationKey, 'base64')));
+  return hashVK(await vkAsFields(Buffer.from(f.verificationKey, 'base64'), CircuitKind.App));
 }

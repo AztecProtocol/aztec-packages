@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct ProofData documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ProofData</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ProofData</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.proof">proof</a></li>
+<li><a href="#structfield.public_inputs">public_inputs</a></li>
+<li><a href="#structfield.vk_data">vk_data</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#verify">verify</a></li>
+<li><a href="#verify_proof">verify_proof</a></li>
+<li><a href="#verify_proof">verify_proof</a></li>
+<li><a href="#verify_proof">verify_proof</a></li>
+<li><a href="#verify_proof_in_root">verify_proof_in_root</a></li>
+</ul>
+<h2>In module proof_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ProofData.html">ProofData</a></div></li>
+<li><a href="struct.ProofDataForFixedVk.html">ProofDataForFixedVk</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.AvmV2ProofData.html">AvmV2ProofData</a></div></li>
+<li><a href="type.ChonkProofData.html">ChonkProofData</a></div></li>
+<li><a href="type.RollupHonkProofData.html">RollupHonkProofData</a></div></li>
+<li><a href="type.UltraHonkProofData.html">UltraHonkProofData</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">proof</a>::<a href="index.html">proof_data</a></div>
+<h1>Struct <span id="struct" class="struct">ProofData</span></h1>
+<pre><code>pub struct ProofData&lt;T, let ProofLen: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let VkLen: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
+    pub public_inputs: T,
+    pub proof: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; ProofLen],
+    pub vk_data: <a href="../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;VkLen&gt;,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.public_inputs" class="struct-field"><code class="code-header">public_inputs: T</code></div>
+<div class="padded-description"></div><div id="structfield.proof" class="struct-field"><code class="code-header">proof: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; ProofLen]</code></div>
+<div class="padded-description"></div><div id="structfield.vk_data" class="struct-field"><code class="code-header">vk_data: <a href="../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;VkLen&gt;</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/proof/proof_data/struct.ProofData.html" class="struct">ProofData</a>&lt;T, 410, 115&gt;</code></h3>
+
+<div class="padded-methods"><code id="verify_proof" class="code-header">pub fn <a href="#verify_proof"><span class="fn">verify_proof</span></a>(self)
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+</div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/proof/proof_data/struct.ProofData.html" class="struct">ProofData</a>&lt;T, 1270, 115&gt;</code></h3>
+
+<div class="padded-methods"><code id="verify_proof" class="code-header">pub fn <a href="#verify_proof"><span class="fn">verify_proof</span></a>(self)
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+</div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/proof/proof_data/struct.ProofData.html" class="struct">ProofData</a>&lt;T, 480, 115&gt;</code></h3>
+
+<div class="padded-methods"><code id="verify_proof" class="code-header">pub fn <a href="#verify_proof"><span class="fn">verify_proof</span></a>(self)
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+<code id="verify_proof_in_root" class="code-header">pub fn <a href="#verify_proof_in_root"><span class="fn">verify_proof_in_root</span></a>(self)
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+</div><h3><code class="code-header">impl&lt;let ProofLen: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T, let VkLen: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../protocol_types/proof/proof_data/struct.ProofData.html" class="struct">ProofData</a>&lt;T, ProofLen, VkLen&gt;</code></h3>
+
+<div class="padded-methods"><code id="verify" class="code-header">pub fn <a href="#verify"><span class="fn">verify</span></a>(self, proof_type: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Verifies the proof against the verification key and public inputs.
+The vk hash is also checked in the backend to match the key.</p>
+</div>
+</div></div></main>
+</span>
+</body>
+</html>

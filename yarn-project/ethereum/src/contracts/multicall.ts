@@ -14,7 +14,7 @@ import {
   multicall3Abi,
 } from 'viem';
 
-import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
+import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxState, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { tryDecodeRevertReason } from '../utils.js';
 
@@ -26,7 +26,10 @@ export const MULTI_CALL_3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11'
  * treat it as a fatal on-chain failure rather than retrying on a different publisher.
  */
 export class MulticallForwarderRevertedError extends Error {
-  constructor(public readonly receipt: TransactionReceipt) {
+  constructor(
+    public readonly receipt: TransactionReceipt,
+    public readonly txState?: L1TxState,
+  ) {
     super(`Multicall3 forwarder tx reverted: ${receipt.transactionHash}`);
     this.name = 'MulticallForwarderRevertedError';
   }
@@ -209,7 +212,7 @@ export class Multicall3 {
       args: [args],
     });
 
-    const { receipt } = await l1TxUtils.sendAndMonitorTransaction(
+    const { receipt, state } = await l1TxUtils.sendAndMonitorTransaction(
       {
         to: MULTI_CALL_3_ADDRESS,
         data: encodedForwarderData,
@@ -223,11 +226,11 @@ export class Multicall3 {
     // allowFailure to true for all calls, so a reverted status here would indicate a problem with
     // the Multicall3 contract itself or the forwarder transaction (such as an out-of-gas).
     if (receipt.status !== 'success') {
-      throw new MulticallForwarderRevertedError(receipt);
+      throw new MulticallForwarderRevertedError(receipt, state);
     }
 
     const stats = await l1TxUtils.getTransactionStats(receipt.transactionHash);
-    return { receipt, stats, multicallData: encodedForwarderData };
+    return { receipt, stats, multicallData: encodedForwarderData, state };
   }
 
   /** Batch multiple value transfers into a single aggregate3Value call on Multicall3. */

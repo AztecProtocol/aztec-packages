@@ -212,7 +212,6 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
-        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -226,12 +225,13 @@ describe('Validator factory functions', () => {
         DoubleSpendTxValidator.name,
         DataTxValidator.name,
         ContractInstanceTxValidator.name,
+        GasLimitsValidator.name,
         GasTxValidator.name,
         TxProofValidator.name,
       ]);
     });
 
-    it('excludes gas validator when fee enforcement is skipped', () => {
+    it('excludes the fee validator but keeps gas-limits validation when fee enforcement is skipped', () => {
       const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, proofVerifier, {
         l1ChainId: 1,
         rollupVersion: 2,
@@ -241,13 +241,33 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
-        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
       const names = getValidatorNames(aggregate);
+      // Declared gas-limit admission is not fee enforcement, so it stays even with fees skipped.
+      expect(names).toContain(GasLimitsValidator.name);
       expect(names).not.toContain(GasTxValidator.name);
       expect(names).toContain(TxProofValidator.name);
+    });
+
+    it('excludes the gas-limits admission validator during simulation', () => {
+      // Gas estimation submits intentionally-inflated forEstimation limits, so the admission limit must not
+      // reject the estimation tx; the wallet clamps the real tx afterward.
+      const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
+        l1ChainId: 1,
+        rollupVersion: 2,
+        setupAllowList: [],
+        gasFees: new GasFees(1, 1),
+        skipFeeEnforcement: true,
+        isSimulation: true,
+        timestamp: 100n,
+        blockNumber: BlockNumber(5),
+        txsPermitted: true,
+      });
+
+      const aggregate = validator as AggregateTxValidator<unknown>;
+      expect(getValidatorNames(aggregate)).not.toContain(GasLimitsValidator.name);
     });
 
     it('excludes proof validator when no verifier is provided', () => {
@@ -259,7 +279,6 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
-        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -308,7 +327,7 @@ describe('Validator factory functions', () => {
         synchronizer,
         100n,
         BlockNumber(5),
-        { rollupManaLimit: Number.MAX_SAFE_INTEGER },
+        {},
         new GasFees(1, 1),
       );
 
@@ -328,7 +347,7 @@ describe('Validator factory functions', () => {
         synchronizer,
         100n,
         BlockNumber(5),
-        { rollupManaLimit: Number.MAX_SAFE_INTEGER },
+        {},
         new GasFees(1, 1),
       );
 

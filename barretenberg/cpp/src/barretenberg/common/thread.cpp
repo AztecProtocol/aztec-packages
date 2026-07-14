@@ -4,6 +4,7 @@
 #include <barretenberg/env/hardware_concurrency.hpp>
 #include <cstdlib>
 #include <string>
+#include <utility>
 
 #ifndef NO_MULTITHREADING
 #include <thread>
@@ -217,7 +218,7 @@ MultithreadData calculate_thread_data(size_t num_iterations, size_t min_iteratio
         end[thread_idx] = (thread_idx == num_threads - 1) ? num_iterations : (thread_idx + 1) * thread_size;
     }
 
-    return MultithreadData{ num_threads, start, end };
+    return MultithreadData{ num_threads, std::move(start), std::move(end) };
 }
 
 /**

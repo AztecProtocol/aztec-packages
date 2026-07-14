@@ -1,0 +1,33 @@
+name: Nightly Release Tag (v5-next)
+on:
+  schedule:
+    # Run the workflow every night at 5:00 AM UTC.
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-v5-next
+
+jobs:
+  nightly-release-tag-v5-next:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: v5-next
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Create v5-next Nightly Tag
+        run: |
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
+          current_version=$(jq -r '."."' .release-please-manifest.json)
+          echo "Current version: $current_version"
+          nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
+          echo "v5-next nightly tag: $nightly_tag"
+          git tag -a "$nightly_tag" -m "$nightly_tag"
+          git push origin "$nightly_tag"

@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { serializeToFields } from '@aztec/foundation/serialize';
 
 import { BlockHeader } from '../tx/block_header.js';
@@ -11,13 +11,20 @@ export class PrivateContextInputs {
     public anchorBlockHeader: BlockHeader,
     public txContext: TxContext,
     public startSideEffectCounter: number,
+    public txRequestSalt: Fr,
   ) {}
 
   public static empty(): PrivateContextInputs {
-    return new PrivateContextInputs(CallContext.empty(), BlockHeader.empty(), TxContext.empty(), 0);
+    return new PrivateContextInputs(CallContext.empty(), BlockHeader.empty(), TxContext.empty(), 0, Fr.ZERO);
   }
 
   public toFields(): Fr[] {
-    return serializeToFields([this.callContext, this.anchorBlockHeader, this.txContext, this.startSideEffectCounter]);
+    return serializeToFields([
+      this.callContext,
+      this.anchorBlockHeader,
+      this.txContext,
+      this.startSideEffectCounter,
+      this.txRequestSalt,
+    ]);
   }
 }

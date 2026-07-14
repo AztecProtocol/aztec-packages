@@ -47,11 +47,16 @@ export class GSEContract {
     return EthAddress.fromString(await this.gse.read.getGovernance());
   }
 
-  getAttestersFromIndicesAtTime(instance: Hex | EthAddress, ts: bigint, indices: bigint[]) {
+  getAttestersFromIndicesAtTime(
+    instance: Hex | EthAddress,
+    ts: bigint,
+    indices: bigint[],
+    options?: { blockNumber?: bigint },
+  ) {
     if (instance instanceof EthAddress) {
       instance = instance.toString();
     }
-    return this.gse.read.getAttestersFromIndicesAtTime([instance, ts, indices]);
+    return this.gse.read.getAttestersFromIndicesAtTime([instance, ts, indices], options);
   }
 
   public async getRegistrationDigest(publicKey: ProjPointType<bigint>): Promise<ProjPointType<bigint>> {

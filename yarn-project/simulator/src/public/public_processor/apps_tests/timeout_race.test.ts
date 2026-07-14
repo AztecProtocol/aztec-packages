@@ -11,10 +11,10 @@
  * - GuardedMerkleTreeOperations does not guard C++ access
  * - Nothing stops C++ simulation on PublicProcessor deadline
  */
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import { MerkleTreeId, merkleTreeIds } from '@aztec/stdlib/trees';
@@ -24,21 +24,19 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 
-import { Opcode } from '../../avm/serialization/instruction_serialization.js';
-import { deployCustomBytecode } from '../../fixtures/custom_bytecode_tester.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
-import { SPAM_CONFIGS, type SpamConfig, createOpcodeSpamBytecode } from '../../fixtures/opcode_spammer.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
-import { CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
+import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
-/**
- * SSTORE spammer - writes to PUBLIC_DATA_TREE.
- * Uses single contract with infinite loop (no per-TX limit when writing same slot).
- * Provides continuous writes with NO gaps - ideal for race condition detection.
- */
-const SSTORE_SPAMMER = SPAM_CONFIGS[Opcode.SSTORE]![0]; // "Same slot (no limit)" variant
+// AvmTest's `n_storage_writes_to_same_slot` writes the same public-data slot in a loop. Same-slot
+// writes are squashed so they never hit the per-tx public-data-write limit: the call keeps writing
+// to PUBLIC_DATA_TREE continuously (no gaps) until it runs out of gas, which is exactly what we
+// need to reliably catch the C++ simulation mid-write. The count is far larger than any tx can
+// afford, so the call always runs to out-of-gas.
+const STORAGE_WRITE_SPAM_FN = 'n_storage_writes_to_same_slot';
+const STORAGE_WRITE_SPAM_COUNT = 1_000_000_000;
 
 jest.setTimeout(120_000);
 
@@ -50,7 +48,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
 
   const logger = createLogger('public-processor-timeout-race');
 
-  const admin = AztecAddress.fromNumber(42);
+  const admin = AztecAddress.fromNumberUnsafe(42);
 
   let worldStateService: NativeWorldStateService;
 
@@ -67,21 +65,15 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * Both BUG PROOF and FIX PROOF use IDENTICAL code - the ONLY difference is
    * whether cancellation is signaled and waited for.
    *
-   * Uses SSTORE spamming to keep C++ constantly writing to PUBLIC_DATA_TREE.
-   * SSTORE "Same slot" has NO per-TX limit, so it writes continuously without gaps.
+   * Uses same-slot storage spamming to keep C++ constantly writing to PUBLIC_DATA_TREE without gaps.
    *
    * For the BUG proof: Don't call cancel() → C++ continues during reverts → corruption
    * For the FIX proof: Call cancel(100) → wait for C++ to stop → then revert → no corruption
    *
    * @param useCancellation - Whether to call cancel() before reverts
    * @param numIterations - Number of iterations to run
-   * @param spammer - Which spammer config to use (defaults to SSTORE for continuous writes)
    */
-  async function runRaceConditionTest(
-    useCancellation: boolean,
-    numIterations: number,
-    spamConfig: SpamConfig = SSTORE_SPAMMER, // Default to SSTORE for continuous writes
-  ): Promise<number> {
+  async function runRaceConditionTest(useCancellation: boolean, numIterations: number): Promise<number> {
     let raceObservedCount = 0;
 
     const globals = GlobalVariables.empty();
@@ -91,17 +83,14 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
     const merkleTrees = await worldStateService.fork();
     const contractsDB = new PublicContractsDB(contractDataSource);
 
-    const simulator = new CppPublicTxSimulator(merkleTrees, contractsDB, globals);
+    const simulator = new PublicTxSimulator(merkleTrees, contractsDB, globals);
 
     const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
     await tester.setFeePayerBalance(admin);
 
-    // Deploy spammer contract(s) based on configuration
-    // Single contract: infinite loop of the target opcode until out of gas
-    const bytecode = createOpcodeSpamBytecode(spamConfig);
-    const contract = await deployCustomBytecode(bytecode, tester, `${spamConfig.label!}_Spammer`);
+    // Deploy the AvmTest contract; its `n_storage_writes_to_same_slot` loops storage writes until OOG.
+    const contract = await tester.registerAndDeployContract(/*constructorArgs=*/ [], admin, AvmTestContractArtifact);
     const contractAddress = contract.address;
-    const callArgs: Fr[] = [];
 
     for (let iteration = 0; iteration < numIterations; iteration++) {
       // Ensure any previous simulation is fully stopped before starting a new one
@@ -118,7 +107,11 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       const forkCheckpoint = await ForkCheckpoint.new(merkleTrees);
 
       // Create transaction that calls the spammer contract
-      const tx = await tester.createTx(admin, [], [{ address: contractAddress, args: callArgs }]);
+      const tx = await tester.createTx(
+        admin,
+        [],
+        [{ address: contractAddress, fnName: STORAGE_WRITE_SPAM_FN, args: [STORAGE_WRITE_SPAM_COUNT] }],
+      );
 
       // Start C++ simulation (not awaiting - like production timeout behavior!)
       const simulationPromise = simulator.simulate(tx);
@@ -179,7 +172,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * The race is non-deterministic, so we run multiple iterations.
    * This test PASSES if we observe corruption (proving the bug exists).
    */
-  it('CppPublicTxSimulator BUG PROOF: race condition exists WITHOUT cancellation', async () => {
+  it('PublicTxSimulator BUG PROOF: race condition exists WITHOUT cancellation', async () => {
     const raceObservedCount = await runRaceConditionTest(false, MAX_BUG_PROOF_ITERATIONS);
     logger.info(`Race condition observed in >0/${MAX_BUG_PROOF_ITERATIONS} iterations (expected: >0)`);
     expect(raceObservedCount).toBeGreaterThan(0);
@@ -195,7 +188,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    *
    * This test PASSES if we observe NO corruption (proving the fix works).
    */
-  it('CppPublicTxSimulator FIX PROOF: no race condition WITH cancellation', async () => {
+  it('PublicTxSimulator FIX PROOF: no race condition WITH cancellation', async () => {
     const raceObservedCount = await runRaceConditionTest(true, FIX_PROOF_ITERATIONS);
     logger.info(`Race condition observed in ${raceObservedCount}/${FIX_PROOF_ITERATIONS} iterations (expected: 0)`);
     expect(raceObservedCount).toBe(0);
@@ -206,9 +199,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * Both BUG and FIX tests use IDENTICAL code - the ONLY difference is whether
    * cancel() method exists on the simulator.
    *
-   * Uses SSTORE spamming to keep C++ constantly writing to PUBLIC_DATA_TREE.
-   * SSTORE "Same slot" has NO per-TX limit, so it writes continuously without gaps.
-   * This is more reliable than EMITNULLIFIER which has a cyclic 63-emit-then-REVERT pattern.
+   * Uses same-slot storage spamming to keep C++ constantly writing to PUBLIC_DATA_TREE without gaps.
    *
    * For the BUG proof: cancel is undefined → PublicProcessor can't wait for C++ → corruption
    * For the FIX proof: cancel exists → PublicProcessor awaits cancel(100) → C++ stops → no corruption
@@ -217,13 +208,8 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    *
    * @param useCancellation - Whether to provide cancel() method to PublicProcessor
    * @param numIterations - Number of iterations to run
-   * @param spammer - Which spammer config to use (defaults to SSTORE for continuous writes)
    */
-  async function runPublicProcessorTimeoutTest(
-    useCancellation: boolean,
-    numIterations: number,
-    spamConfig: SpamConfig = SSTORE_SPAMMER, // Default to SSTORE for continuous writes
-  ): Promise<number> {
+  async function runPublicProcessorTimeoutTest(useCancellation: boolean, numIterations: number): Promise<number> {
     let corruptionCount = 0;
 
     const globals = GlobalVariables.empty();
@@ -237,12 +223,9 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
     const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
     await tester.setFeePayerBalance(admin);
 
-    // Deploy spammer contract(s) based on configuration
-    // Single contract: infinite loop of the target opcode until out of gas
-    const bytecode = createOpcodeSpamBytecode(spamConfig);
-    const contract = await deployCustomBytecode(bytecode, tester, `${spamConfig.label!}_Spammer`);
+    // Deploy the AvmTest contract; its `n_storage_writes_to_same_slot` loops storage writes until OOG.
+    const contract = await tester.registerAndDeployContract(/*constructorArgs=*/ [], admin, AvmTestContractArtifact);
     const contractAddress = contract.address;
-    const callArgs: Fr[] = [];
 
     for (let iteration = 0; iteration < numIterations; iteration++) {
       // Create fresh guarded tree and processor for each iteration because
@@ -250,7 +233,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
 
       // Create the real C++ simulator
-      const realSimulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals);
+      const realSimulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals);
 
       // Track the simulation promise so we can await it for cleanup.
       // Use an object wrapper to avoid TypeScript control flow analysis issues.
@@ -290,7 +273,11 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       }
 
       // Create transaction that calls the spammer contract
-      const tx = await tester.createTx(admin, [], [{ address: contractAddress, args: callArgs }]);
+      const tx = await tester.createTx(
+        admin,
+        [],
+        [{ address: contractAddress, fnName: STORAGE_WRITE_SPAM_FN, args: [STORAGE_WRITE_SPAM_COUNT] }],
+      );
 
       // Calculate deadline RIGHT BEFORE process() to ensure we get the full timeout.
       // Use a 20ms deadline - enough for C++ to start but short enough to timeout mid-simulation.

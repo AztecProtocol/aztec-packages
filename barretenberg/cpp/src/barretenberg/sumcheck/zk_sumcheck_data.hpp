@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -23,6 +24,7 @@ namespace bb {
 template <typename Flavor> struct ZKSumcheckData {
     using Curve = typename Flavor::Curve;
     using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
@@ -43,6 +45,7 @@ template <typename Flavor> struct ZKSumcheckData {
     // to compute product in lagrange basis
     Polynomial<FF> libra_concatenated_lagrange_form;
     Polynomial<FF> libra_concatenated_monomial_form;
+    Commitment libra_concatenation_commitment;
 
     std::vector<Polynomial<FF>> libra_univariates{};
     size_t log_circuit_size{ 0 };
@@ -61,20 +64,23 @@ template <typename Flavor> struct ZKSumcheckData {
                    std::shared_ptr<typename Flavor::Transcript> transcript = nullptr,
                    const typename Flavor::CommitmentKey& commitment_key = typename Flavor::CommitmentKey())
         : constant_term(FF::random_element())
-        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2) // includes masking
+        , libra_concatenated_monomial_form(SUBGROUP_SIZE + WITNESS_MASKING_TERM_LENGTH)
         , libra_univariates(generate_libra_univariates(multivariate_d, LIBRA_UNIVARIATES_LENGTH))
         , log_circuit_size(multivariate_d)
         , univariate_length(LIBRA_UNIVARIATES_LENGTH)
 
     {
+        // transcript defaults to nullptr but is dereferenced unconditionally below.
+        BB_ASSERT(transcript != nullptr, "ZKSumcheckData: transcript must not be null");
+
         create_interpolation_domain();
 
         compute_concatenated_libra_polynomial();
 
         // If prover_instance is provided, commit to the concatenated and masked libra polynomial
         if (commitment_key.initialized()) {
-            auto libra_commitment = commitment_key.commit(libra_concatenated_monomial_form);
-            transcript->send_to_verifier("Libra:concatenation_commitment", libra_commitment);
+            libra_concatenation_commitment = commitment_key.commit(libra_concatenated_monomial_form);
+            transcript->send_to_verifier("Libra:concatenation_commitment", libra_concatenation_commitment);
         }
         // Compute the total sum of the Libra polynomials
         std::tie(libra_total_sum, libra_scaling_factor) = compute_libra_total_sum(libra_univariates, constant_term);
@@ -132,8 +138,14 @@ template <typename Flavor> struct ZKSumcheckData {
     };
 
     /**
-     * @brief Compute the sum of the randomly sampled multivariate polynomial \f$ G = \sum_{i=0}^{n-1} g_i(X_i) \f$ over
-     * the Boolean hypercube.
+     * @brief Compute the sum of the randomly sampled multivariate polynomial
+     * \f$ G = g + \sum_{i=0}^{d-1} g_i(X_i) \f$ over the Boolean hypercube \f$ \{0,1\}^d \f$, where \f$ g \f$ is
+     * `constant_term` and \f$ d = \f$ `libra_univariates.size()`.
+     *
+     * @details Summing over the hypercube, each univariate contributes \f$ 2^{d-1}(g_i(0) + g_i(1)) \f$ (the
+     * remaining \f$ d-1 \f$ variables each double the count) and the constant term contributes \f$ g\cdot 2^{d} \f$,
+     * so
+     * \f{align}{ \texttt{total\_sum} = 2^{d-1} \sum_i (g_i(0)+g_i(1)) + g\cdot 2^{d}. \f}
      *
      * @param libra_univariates
      * @param constant_term
@@ -157,11 +169,13 @@ template <typename Flavor> struct ZKSumcheckData {
     /**
      * @brief Set up Libra book-keeping table that simplifies the computation of Libra Round Univariates
      *
-     * @details The array of Libra univariates is getting scaled
+     * @details The array of Libra univariates is scaled
      * \f{align}{\texttt{libra_univariates} \gets \texttt{libra_univariates}\cdot \rho \cdot 2^{d-1}\f}
-     * We also initialize
-     * \f{align}{ \texttt{libra_running_sum} \gets \texttt{libra_total_sum} - \texttt{libra_univariates}_{0,0} -
-     * \texttt{libra_univariates}_{0,1} \f}.
+     * (with \f$ \rho = \f$ `libra_challenge`). The running sum, which on entry equals
+     * \f$ \rho\cdot\texttt{libra_total_sum} \f$, is then updated to
+     * \f{align}{ \texttt{libra_running_sum} \gets \tfrac{1}{2}\left( \texttt{libra_running_sum} -
+     * \texttt{libra_univariates}_{0,0} - \texttt{libra_univariates}_{0,1} \right), \f}
+     * i.e. the contribution of the first (now scaled) Libra univariate is subtracted and the result is halved.
      * @param libra_table
      * @param libra_round_factor
      * @param libra_challenge
@@ -206,6 +220,9 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     void compute_concatenated_libra_polynomial()
     {
+        BB_ASSERT_LT(log_circuit_size * LIBRA_UNIVARIATES_LENGTH + 1,
+                     SUBGROUP_SIZE,
+                     "Concatenated Libra polynomial does not fit in the SmallSubgroupIPA subgroup");
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
         coeffs_lagrange_subgroup[0] = constant_term;
 
@@ -271,6 +288,7 @@ template <typename Flavor> struct ZKSumcheckData {
     void update_zk_sumcheck_data(const FF& round_challenge, const size_t round_idx)
     {
         static constexpr FF two_inv = FF(1) / FF(2);
+        BB_ASSERT(round_idx < this->libra_univariates.size(), "update_zk_sumcheck_data: round_idx out of range");
         // when round_idx = d - 1, the update is not needed
         if (round_idx < this->log_circuit_size - 1) {
             for (auto& univariate : this->libra_univariates) {
@@ -278,6 +296,8 @@ template <typename Flavor> struct ZKSumcheckData {
             };
             // compute the evaluation \f$ \rho \cdot 2^{d-2-i} \çdot g_i(u_i) \f$
             const FF libra_evaluation = this->libra_univariates[round_idx].evaluate(round_challenge);
+            BB_ASSERT(round_idx + 1 < this->libra_univariates.size(),
+                      "update_zk_sumcheck_data: round_idx + 1 out of range");
             const auto& next_libra_univariate = this->libra_univariates[round_idx + 1];
             // update the running sum by adding g_i(u_i) and subtracting (g_i(0) + g_i(1))
             this->libra_running_sum += -next_libra_univariate.at(0) - next_libra_univariate.evaluate(FF(1));

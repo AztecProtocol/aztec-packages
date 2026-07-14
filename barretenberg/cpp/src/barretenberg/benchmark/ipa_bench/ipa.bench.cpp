@@ -146,11 +146,15 @@ void ipa_batch_verify(State& state) noexcept
 } // namespace
 BENCHMARK(ipa_open)
     ->Unit(kMillisecond)
-    ->DenseRange(MIN_POLYNOMIAL_DEGREE_LOG2, MAX_POLYNOMIAL_DEGREE_LOG2)
+    // IPA<Curve> is compile-time fixed to poly_length = 2^CONST_ECCVM_LOG_N; feeding any other
+    // size corrupts the heap (the round loop indexes past the witness). Only the fixed size is valid.
+    ->Arg(CONST_ECCVM_LOG_N)
     ->Setup(DoSetup);
 BENCHMARK(ipa_verify)
     ->Unit(kMillisecond)
-    ->DenseRange(MIN_POLYNOMIAL_DEGREE_LOG2, MAX_POLYNOMIAL_DEGREE_LOG2)
+    // IPA<Curve> is compile-time fixed to poly_length = 2^CONST_ECCVM_LOG_N; feeding any other
+    // size corrupts the heap (the round loop indexes past the witness). Only the fixed size is valid.
+    ->Arg(CONST_ECCVM_LOG_N)
     ->Setup(DoSetup);
 BENCHMARK(ipa_verify_individual)->Unit(kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Setup(DoBatchSetup);
 BENCHMARK(ipa_batch_verify)->Unit(kMillisecond)->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Setup(DoBatchSetup);

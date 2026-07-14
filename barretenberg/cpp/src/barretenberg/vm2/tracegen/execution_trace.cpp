@@ -44,42 +44,35 @@ namespace bb::avm2::tracegen {
 namespace {
 
 constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_COLUMNS = {
-    C::execution_op_0_, C::execution_op_1_, C::execution_op_2_, C::execution_op_3_,
-    C::execution_op_4_, C::execution_op_5_, C::execution_op_6_,
+    C::execution_op_0_, C::execution_op_1_, C::execution_op_2_, C::execution_op_3_, C::execution_op_4_,
 };
 constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_IS_ADDRESS_COLUMNS = {
     C::execution_sel_op_is_address_0_, C::execution_sel_op_is_address_1_, C::execution_sel_op_is_address_2_,
-    C::execution_sel_op_is_address_3_, C::execution_sel_op_is_address_4_, C::execution_sel_op_is_address_5_,
-    C::execution_sel_op_is_address_6_,
+    C::execution_sel_op_is_address_3_, C::execution_sel_op_is_address_4_,
 };
 constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_AFTER_RELATIVE_COLUMNS = {
     C::execution_op_after_relative_0_, C::execution_op_after_relative_1_, C::execution_op_after_relative_2_,
-    C::execution_op_after_relative_3_, C::execution_op_after_relative_4_, C::execution_op_after_relative_5_,
-    C::execution_op_after_relative_6_,
+    C::execution_op_after_relative_3_, C::execution_op_after_relative_4_,
 };
 constexpr std::array<C, AVM_MAX_OPERANDS> RESOLVED_OPERAND_COLUMNS = {
-    C::execution_rop_0_, C::execution_rop_1_, C::execution_rop_2_, C::execution_rop_3_,
-    C::execution_rop_4_, C::execution_rop_5_, C::execution_rop_6_,
+    C::execution_rop_0_, C::execution_rop_1_, C::execution_rop_2_, C::execution_rop_3_, C::execution_rop_4_,
 };
 constexpr std::array<C, AVM_MAX_OPERANDS> RESOLVED_OPERAND_TAG_COLUMNS = {
-    C::execution_rop_tag_0_, C::execution_rop_tag_1_, C::execution_rop_tag_2_, C::execution_rop_tag_3_,
-    C::execution_rop_tag_4_, C::execution_rop_tag_5_, C::execution_rop_tag_6_,
+    C::execution_rop_tag_0_, C::execution_rop_tag_1_, C::execution_rop_tag_2_,
+    C::execution_rop_tag_3_, C::execution_rop_tag_4_,
 };
 constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_APPLY_INDIRECTION_COLUMNS = {
     C::execution_sel_apply_indirection_0_, C::execution_sel_apply_indirection_1_, C::execution_sel_apply_indirection_2_,
-    C::execution_sel_apply_indirection_3_, C::execution_sel_apply_indirection_4_, C::execution_sel_apply_indirection_5_,
-    C::execution_sel_apply_indirection_6_,
+    C::execution_sel_apply_indirection_3_, C::execution_sel_apply_indirection_4_,
 };
 constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS = {
     C::execution_sel_relative_overflow_0_, C::execution_sel_relative_overflow_1_, C::execution_sel_relative_overflow_2_,
-    C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_, C::execution_sel_relative_overflow_5_,
-    C::execution_sel_relative_overflow_6_,
+    C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_,
 };
 constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS = {
     C::execution_sel_op_do_overflow_check_0_, C::execution_sel_op_do_overflow_check_1_,
     C::execution_sel_op_do_overflow_check_2_, C::execution_sel_op_do_overflow_check_3_,
-    C::execution_sel_op_do_overflow_check_4_, C::execution_sel_op_do_overflow_check_5_,
-    C::execution_sel_op_do_overflow_check_6_,
+    C::execution_sel_op_do_overflow_check_4_,
 };
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(static_cast<size_t>(AVM_MAX_OPERANDS) * 2 <= TOTAL_INDIRECT_BITS);
@@ -98,32 +91,46 @@ constexpr std::array<C, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_INDIRECT_WIRE_COLUMN
 };
 
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_COLUMNS = {
-    C::execution_register_0_, C::execution_register_1_, C::execution_register_2_,
-    C::execution_register_3_, C::execution_register_4_, C::execution_register_5_,
+    C::execution_register_0_,
+    C::execution_register_1_,
+    C::execution_register_2_,
+    C::execution_register_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_MEM_TAG_COLUMNS = {
-    C::execution_mem_tag_reg_0_, C::execution_mem_tag_reg_1_, C::execution_mem_tag_reg_2_,
-    C::execution_mem_tag_reg_3_, C::execution_mem_tag_reg_4_, C::execution_mem_tag_reg_5_,
+    C::execution_mem_tag_reg_0_,
+    C::execution_mem_tag_reg_1_,
+    C::execution_mem_tag_reg_2_,
+    C::execution_mem_tag_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_IS_WRITE_COLUMNS = {
-    C::execution_rw_reg_0_, C::execution_rw_reg_1_, C::execution_rw_reg_2_,
-    C::execution_rw_reg_3_, C::execution_rw_reg_4_, C::execution_rw_reg_5_,
+    C::execution_rw_reg_0_,
+    C::execution_rw_reg_1_,
+    C::execution_rw_reg_2_,
+    C::execution_rw_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
-    C::execution_sel_mem_op_reg_0_, C::execution_sel_mem_op_reg_1_, C::execution_sel_mem_op_reg_2_,
-    C::execution_sel_mem_op_reg_3_, C::execution_sel_mem_op_reg_4_, C::execution_sel_mem_op_reg_5_,
+    C::execution_sel_mem_op_reg_0_,
+    C::execution_sel_mem_op_reg_1_,
+    C::execution_sel_mem_op_reg_2_,
+    C::execution_sel_mem_op_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_EXPECTED_TAG_COLUMNS = {
-    C::execution_expected_tag_reg_0_, C::execution_expected_tag_reg_1_, C::execution_expected_tag_reg_2_,
-    C::execution_expected_tag_reg_3_, C::execution_expected_tag_reg_4_, C::execution_expected_tag_reg_5_,
+    C::execution_expected_tag_reg_0_,
+    C::execution_expected_tag_reg_1_,
+    C::execution_expected_tag_reg_2_,
+    C::execution_expected_tag_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_TAG_CHECK_COLUMNS = {
-    C::execution_sel_tag_check_reg_0_, C::execution_sel_tag_check_reg_1_, C::execution_sel_tag_check_reg_2_,
-    C::execution_sel_tag_check_reg_3_, C::execution_sel_tag_check_reg_4_, C::execution_sel_tag_check_reg_5_,
+    C::execution_sel_tag_check_reg_0_,
+    C::execution_sel_tag_check_reg_1_,
+    C::execution_sel_tag_check_reg_2_,
+    C::execution_sel_tag_check_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_OP_REG_EFFECTIVE_COLUMNS = {
-    C::execution_sel_op_reg_effective_0_, C::execution_sel_op_reg_effective_1_, C::execution_sel_op_reg_effective_2_,
-    C::execution_sel_op_reg_effective_3_, C::execution_sel_op_reg_effective_4_, C::execution_sel_op_reg_effective_5_,
+    C::execution_sel_op_reg_effective_0_,
+    C::execution_sel_op_reg_effective_1_,
+    C::execution_sel_op_reg_effective_2_,
+    C::execution_sel_op_reg_effective_3_,
 };
 
 /**
@@ -1254,16 +1261,14 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_2_settings>(C::gt_sel)
         .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_3_settings>(C::gt_sel)
         .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_4_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_5_settings>(C::gt_sel)
-        .add<InteractionType::LookupGeneric, lookup_addressing_relative_overflow_result_6_settings>(C::gt_sel)
         // Internal Call Stack
         .add<InteractionType::Permutation, perm_internal_call_push_call_stack_settings>()
         .add<InteractionType::LookupGeneric, lookup_internal_call_unwind_call_stack_settings>()
-        // Gas
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_gas_addressing_gas_read_settings>()
+        // Gas.
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_gas_addressing_gas_read_settings>(
+            C::precomputed_sel_range_16)
         .add<InteractionType::LookupGeneric, lookup_gas_is_out_of_gas_l2_settings>(C::gt_sel)
         .add<InteractionType::LookupGeneric, lookup_gas_is_out_of_gas_da_settings>(C::gt_sel)
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_execution_dyn_l2_factor_bitwise_settings>()
         // Gas - ToRadix BE
         .add<InteractionType::LookupGeneric, lookup_execution_check_radix_gt_256_settings>(C::gt_sel)
         .add<InteractionType::LookupIntoIndexedByRow, lookup_execution_get_p_limbs_settings>()
@@ -1303,7 +1308,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<InteractionType::LookupIntoIndexedByRow, lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings>()
         // Dispatching to other sub-traces
         .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_alu_settings>()
-        .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_bitwise_settings>()
+        .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_bitwise_settings>(C::bitwise_sel)
         .add<InteractionType::Permutation, perm_execution_dispatch_to_cd_copy_settings>()
         .add<InteractionType::Permutation, perm_execution_dispatch_to_rd_copy_settings>()
         .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_cast_settings>()

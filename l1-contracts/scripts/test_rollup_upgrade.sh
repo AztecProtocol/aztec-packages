@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Test rollup upgrade deployment on local anvil with devnet defaults.
+# Test rollup upgrade deployment on local anvil with the base l1-contracts defaults.
 
 cd "$(dirname "$0")/.."
 
-echo "=== Loading devnet defaults ==="
-source ./scripts/load_network_defaults.sh devnet
+echo "=== Loading L1 contract defaults ==="
+source ./scripts/load_network_defaults.sh
 
 cleanup() {
   if [[ -n "${anvil_pid:-}" ]]; then
@@ -51,8 +51,9 @@ if [[ -z "$registry_address" || "$registry_address" == "null" ]]; then
 fi
 
 echo "=== Testing run_rollup_upgrade.sh ==="
-# Use a different genesis to get a different rollup version
-export GENESIS_ARCHIVE_ROOT="0x$(openssl rand -hex 32)"
+# Use a different genesis to get a different rollup version. Only 31 random bytes (top byte zero) so the value is
+# always below the BN254 scalar field modulus; the rollup rejects a genesis archive root >= the field modulus.
+export GENESIS_ARCHIVE_ROOT="0x00$(openssl rand -hex 31)"
 
 ./scripts/run_rollup_upgrade.sh "$registry_address"
 

@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,9 +13,8 @@ template <typename FF_> class ecc_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 15> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 6, 5, 6, 5, 4, 3, 4, 4, 4, 4
-    };
+    static constexpr std::array<size_t, 17> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 6, 5, 6, 5,
+                                                                            4, 3, 4, 4, 4, 4, 6, 6 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -46,9 +44,12 @@ template <typename FF> class ecc_mem : public Relation<ecc_memImpl<FF>> {
     static constexpr size_t SR_P_INF_Y_CHECK = 12;
     static constexpr size_t SR_Q_INF_X_CHECK = 13;
     static constexpr size_t SR_Q_INF_Y_CHECK = 14;
+    static constexpr size_t SR_P_NOT_INF_CHECK = 15;
+    static constexpr size_t SR_Q_NOT_INF_CHECK = 16;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_WRITE_INCR_DST_ADDR:
             return "WRITE_INCR_DST_ADDR";
@@ -68,7 +69,12 @@ template <typename FF> class ecc_mem : public Relation<ecc_memImpl<FF>> {
             return "Q_INF_X_CHECK";
         case SR_Q_INF_Y_CHECK:
             return "Q_INF_Y_CHECK";
+        case SR_P_NOT_INF_CHECK:
+            return "P_NOT_INF_CHECK";
+        case SR_Q_NOT_INF_CHECK:
+            return "Q_NOT_INF_CHECK";
         }
+#endif
         return std::to_string(index);
     }
 };

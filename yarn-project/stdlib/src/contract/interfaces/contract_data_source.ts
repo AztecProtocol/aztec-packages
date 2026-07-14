@@ -25,11 +25,9 @@ export interface ContractDataSource {
   /**
    * Returns a publicly deployed contract instance given its address.
    * @param address - Address of the deployed contract.
-   * @param timestamp - Timestamp at which to retrieve the contract instance. If not provided, the latest block should
-   * be used.
-   * TODO(#15170): Fix the implementations ignoring the timestamp param and make timestamp required.
+   * @param timestamp - Timestamp at which to resolve the contract instance's current class id.
    */
-  getContract(address: AztecAddress, timestamp?: UInt64): Promise<ContractInstanceWithAddress | undefined>;
+  getContract(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns the list of all class ids known.

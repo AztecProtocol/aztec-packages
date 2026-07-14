@@ -21,15 +21,15 @@ use crate::{
 /// - `historical_header`: The header of the block whose state we are reading from.
 /// - `storage_slot`: The **starting** storage slot of the delayed public mutable state variable.
 /// - `contract_address`: The address of the contract where the delayed public mutable was written to.
-/// - `delayed_public_mutable`: The delayed public mutable to read.
-///   Note: This can be anything if the variable has not been initialized yet. The caller should only use the returned
-///   value from this function to perform further checks.
+/// - `delayed_public_mutable`: The hinted delayed public mutable to read (its correctness is validated within this function).
 /// - `witness`: A hint to prove that the `leaf_preimage` exists in the tree.
 /// - `leaf_preimage`: The preimage of the leaf containing the hash of the packed values. Or a low leaf if the variable
 ///   has not been initialized.
 ///
 /// Returns:
-/// - T: The current value of the delayed public mutable at the time of the historical block. Empty if not initialized.
+/// - T: The current value of the delayed public mutable at the time of the historical block. Returns
+///   `T::unpack(std::mem::zeroed())` (the bitwise-zero packing of `T`, i.e. the storage-default) if
+///   the variable has not been initialized.
 pub fn read_current_value_of_delayed_public_mutable_with_hash<T, let INITIAL_DELAY: u64>(
     historical_header: BlockHeader,
     storage_slot: Field,
@@ -59,18 +59,22 @@ where
         leaf_preimage,
     );
 
-    let computed_hash = poseidon2_hash(delayed_public_mutable.pack());
-
-    let current_value =
-        delayed_public_mutable.svc.get_current_at(historical_header.global_variables.timestamp);
+    let packed = delayed_public_mutable.pack();
+    let computed_hash = poseidon2_hash(packed);
 
     if hash != 0 {
         assert_eq(hash, computed_hash, "Hint values do not match hash");
-        current_value
     } else {
-        // If the hash is zero, the variable is uninitialized. All values must be zeros.
-        T::unpack(std::mem::zeroed())
+        // If the hash is zero, the variable is uninitialized, so public storage returns all zeros
+        // for the packed values.
+        assert_eq(
+            packed,
+            std::mem::zeroed(),
+            "delayed_public_mutable must be zeroed when its stored hash is zero",
+        );
     }
+
+    delayed_public_mutable.svc.get_current_at(historical_header.global_variables.timestamp)
 }
 
 /// Compute the storage slot of the hash of the packed values.
@@ -267,10 +271,23 @@ mod tests {
 
         // Read from the random contract address, whose value is uninitialized.
         builder.contract_address = builder.random_contract_address;
+        // When the variable is uninitialized, the hint `delayed_public_mutable` must be zeroed.
+        builder.delayed_public_mutable = std::mem::zeroed();
 
         let current_value = builder.read_current_value();
 
         assert_eq(current_value, ContractClassId::empty());
+    }
+
+    #[test(should_fail_with = "delayed_public_mutable must be zeroed when its stored hash is zero")]
+    fn read_uninitialized_value_with_non_zeroed_hint_fails() {
+        let mut builder = TestBuilder::new();
+
+        // Read from the random contract address, whose value is uninitialized (hash is zero), but
+        // leave `delayed_public_mutable` as the non-zeroed default. The function must reject this.
+        builder.contract_address = builder.random_contract_address;
+
+        let _ = builder.read_current_value();
     }
 
     #[test(should_fail_with = "Proving public value inclusion failed")]

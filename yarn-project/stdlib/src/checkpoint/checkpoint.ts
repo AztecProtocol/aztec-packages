@@ -14,7 +14,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { L2Block } from '../block/l2_block.js';
-import { MAX_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
+import { MAX_CAPACITY_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import { computeCheckpointOutHash } from '../messaging/out_hash.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { schemas } from '../schemas/schemas.js';
@@ -68,7 +68,7 @@ export class Checkpoint {
     const reader = BufferReader.asReader(buf);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const header = reader.readObject(CheckpointHeader);
-    const blocks = reader.readVector(L2Block, MAX_BLOCKS_PER_CHECKPOINT);
+    const blocks = reader.readVector(L2Block, MAX_CAPACITY_BLOCKS_PER_CHECKPOINT);
     const number = CheckpointNumber(reader.readNumber());
     const feeAssetPriceModifier = reader.readInt256();
     return new Checkpoint(archive, header, blocks, number, feeAssetPriceModifier);

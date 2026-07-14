@@ -324,27 +324,19 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 ));
             }
             BrilligOpcode::ConditionalMov { destination, source_a, source_b, condition } => {
-                // Move source_a to destination, if condition is true jump to the next brillig opcode, else move source_b to destination
-                avm_instrs.push(generate_mov_instruction(
-                    Some(
-                        AddressingModeBuilder::default()
-                            .direct_operand(source_a)
-                            .direct_operand(destination)
-                            .build(),
-                    ),
-                    source_a.to_u32(),
-                    destination.to_u32(),
-                ));
+                // Alias-safe lowering of the atomic `destination = condition ? source_a : source_b`.
+                //
+                //         JUMPI condition, then
+                //         MOV   source_b -> destination   ; false branch
+                //         JUMP  end
+                //   then: MOV   source_a -> destination   ; true branch
+                //   end:  (next brillig opcode)
+                //
+                // `destination` is written exactly once, on the branch actually taken, after
+                // `condition` has been read.
 
-                unresolved_jumps.insert(
-                    UnresolvedPCLocation {
-                        instruction_index: avm_instrs.len(),
-                        immediate_index: 0,
-                    },
-                    Label::BrilligPC { pc: brillig_pcs_to_avm_pcs.len() as u32 }, // We want to jump to the next brillig opcode
-                );
-
-                avm_instrs.push(AvmInstruction {
+                // JUMPI condition, then
+                let mut jumpi = AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
                     addressing_mode: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
@@ -352,9 +344,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     operands: vec![make_operand(16, &condition.to_u32())],
                     immediates: vec![make_unresolved_pc()],
                     ..Default::default()
-                });
-
-                avm_instrs.push(generate_mov_instruction(
+                };
+                // MOV source_b -> destination
+                let mov_b = generate_mov_instruction(
                     Some(
                         AddressingModeBuilder::default()
                             .direct_operand(source_b)
@@ -363,7 +355,36 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     ),
                     source_b.to_u32(),
                     destination.to_u32(),
-                ));
+                );
+                // JUMP end
+                let mut jump_end = AvmInstruction {
+                    opcode: AvmOpcode::JUMP_32,
+                    immediates: vec![make_unresolved_pc()],
+                    ..Default::default()
+                };
+                // MOV source_a -> destination
+                let mov_a = generate_mov_instruction(
+                    Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source_a)
+                            .direct_operand(destination)
+                            .build(),
+                    ),
+                    source_a.to_u32(),
+                    destination.to_u32(),
+                );
+
+                // Calculate jump pc targets
+                let then_pc = current_avm_pc + jumpi.size() + mov_b.size() + jump_end.size();
+                let end_pc = then_pc + mov_a.size();
+                // Update immediates with correct jump targets
+                jumpi.immediates = vec![AvmOperand::U32 { value: then_pc as u32 }];
+                jump_end.immediates = vec![AvmOperand::U32 { value: end_pc as u32 }];
+
+                avm_instrs.push(jumpi);
+                avm_instrs.push(mov_b);
+                avm_instrs.push(jump_end);
+                avm_instrs.push(mov_a);
             }
             BrilligOpcode::Load { destination, source_pointer } => {
                 avm_instrs.push(generate_mov_instruction(

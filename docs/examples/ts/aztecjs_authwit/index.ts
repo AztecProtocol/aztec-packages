@@ -16,7 +16,7 @@ const testAccounts = await getInitialTestAccountsData();
 const [aliceAddress, bobAddress] = await Promise.all(
   testAccounts.slice(0, 2).map(async (account) => {
     return (
-      await wallet.createSchnorrAccount(
+      await wallet.createSchnorrInitializerlessAccount(
         account.secret,
         account.salt,
         account.signingKey,

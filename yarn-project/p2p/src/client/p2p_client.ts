@@ -6,7 +6,6 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -15,17 +14,17 @@ import {
   type BlockHash,
   type CheckpointId,
   type EthAddress,
+  EventDrivenL2BlockStream,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
-  L2BlockStream,
   type L2BlockStreamEvent,
-  type L2Tips,
   type L2TipsStore,
+  type LocalL2Tips,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
+import { type GetTxByHashOptions, type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -43,6 +42,7 @@ import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../services/
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
+  OversizedProposalInfo,
   P2PBlockReceivedCallback,
   P2PCheckpointReceivedCallback,
   P2PService,
@@ -74,7 +74,7 @@ export class P2PClient extends WithTracer implements P2P {
 
   private config: P2PConfig;
 
-  private blockStream: L2BlockStream | undefined;
+  private blockStream: EventDrivenL2BlockStream | undefined;
 
   private txProvider: TxProvider;
 
@@ -82,9 +82,6 @@ export class P2PClient extends WithTracer implements P2P {
 
   /** Tracks the last slot for which we called prepareForSlot */
   private lastSlotProcessed: SlotNumber = SlotNumber.ZERO;
-
-  /** Polls for slot changes and calls prepareForSlot on the tx pool */
-  private slotMonitor: RunningPromise | undefined;
 
   constructor(
     private store: AztecAsyncKVStore,
@@ -152,7 +149,7 @@ export class P2PClient extends WithTracer implements P2P {
     this.p2pService.updateConfig(config);
   }
 
-  public getL2Tips(): Promise<L2Tips> {
+  public getL2Tips(): Promise<LocalL2Tips> {
     return this.l2Tips.getL2Tips();
   }
 
@@ -178,9 +175,11 @@ export class P2PClient extends WithTracer implements P2P {
         break;
       case 'chain-pruned':
         this.txCollection.stopCollectingForBlocksAfter(event.block.number);
-        await this.handlePruneL2Blocks(event.block, event.checkpoint);
+        await this.handlePruneL2Blocks(event.block, event.checkpointed.checkpoint);
         break;
       case 'chain-checkpointed':
+        break;
+      case 'chain-proposed':
         break;
       default: {
         const _: never = event;
@@ -268,14 +267,6 @@ export class P2PClient extends WithTracer implements P2P {
     this.blockStream.start();
     this.txFileStore?.start();
 
-    // Start slot monitor to call prepareForSlot when the slot changes
-    this.slotMonitor = new RunningPromise(
-      () => this.maybeCallPrepareForSlot(),
-      this.log,
-      this.config.slotCheckIntervalMS,
-    );
-    this.slotMonitor.start();
-
     return this.syncPromise;
   }
 
@@ -286,7 +277,7 @@ export class P2PClient extends WithTracer implements P2P {
   private initBlockStream(startingBlock?: BlockNumber) {
     if (!this.blockStream) {
       const { blockRequestBatchSize: batchSize, blockCheckIntervalMS: pollIntervalMS } = this.config;
-      this.blockStream = new L2BlockStream(
+      this.blockStream = new EventDrivenL2BlockStream(
         this.l2BlockSource,
         this,
         this,
@@ -302,8 +293,6 @@ export class P2PClient extends WithTracer implements P2P {
    */
   public async stop() {
     this.log.debug('Stopping p2p client...');
-    await this.slotMonitor?.stop();
-    this.log.debug('Stopped slot monitor');
     await tryStop(this.txCollection);
     this.log.debug('Stopped tx collection service');
     await this.txFileStore?.stop();
@@ -406,6 +395,10 @@ export class P2PClient extends WithTracer implements P2P {
     return this.attestationPool.hasBlockProposalsForSlot(slot);
   }
 
+  public hasCheckpointProposalForSlot(slot: SlotNumber): Promise<boolean> {
+    return this.attestationPool.hasCheckpointProposalForSlot(slot);
+  }
+
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
   public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {
@@ -424,6 +417,10 @@ export class P2PClient extends WithTracer implements P2P {
     this.p2pService.registerDuplicateProposalCallback(callback);
   }
 
+  public registerOversizedProposalCallback(callback: (info: OversizedProposalInfo) => void): void {
+    this.p2pService.registerOversizedProposalCallback(callback);
+  }
+
   public registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void {
     this.p2pService.registerDuplicateAttestationCallback(callback);
   }
@@ -432,7 +429,7 @@ export class P2PClient extends WithTracer implements P2P {
     this.p2pService.registerCheckpointAttestationCallback(callback);
   }
 
-  public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
+  public async getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
     if (limit !== undefined && limit <= 0) {
       throw new TypeError('limit must be greater than 0');
     }
@@ -451,7 +448,9 @@ export class P2PClient extends WithTracer implements P2P {
     const endIndex = limit !== undefined ? startIndex + limit : undefined;
     txHashes = txHashes.slice(startIndex, endIndex);
 
-    const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+    // This is a public-facing API (exposed via both the node and the p2p RPC), so proofs are opt-in.
+    const includeProof = !!options?.includeProof;
+    const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash, { includeProof })));
     return maybeTxs.filter((tx): tx is Tx => !!tx);
   }
 
@@ -459,18 +458,22 @@ export class P2PClient extends WithTracer implements P2P {
     return this.txPool.getPendingTxCount();
   }
 
-  public async *iteratePendingTxs(): AsyncIterableIterator<Tx> {
+  public hasEligiblePendingTxs(minCount: number): Promise<boolean> {
+    return this.txPool.hasEligiblePendingTxs(minCount);
+  }
+
+  public async *iteratePendingTxs(opts?: { includeProof?: boolean }): AsyncIterableIterator<Tx> {
     for (const txHash of await this.txPool.getPendingTxHashes()) {
-      const tx = await this.txPool.getTxByHash(txHash);
+      const tx = await this.txPool.getTxByHash(txHash, opts);
       if (tx) {
         yield tx;
       }
     }
   }
 
-  public async *iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
+  public async *iterateEligiblePendingTxs(opts?: { includeProof?: boolean }): AsyncIterableIterator<Tx> {
     for (const txHash of await this.txPool.getEligiblePendingTxHashes()) {
-      const tx = await this.txPool.getTxByHash(txHash);
+      const tx = await this.txPool.getTxByHash(txHash, opts);
       if (tx) {
         yield tx;
       }
@@ -480,19 +483,21 @@ export class P2PClient extends WithTracer implements P2P {
   /**
    * Returns a transaction in the transaction pool by its hash.
    * @param txHash - Hash of the transaction to look for in the pool.
+   * @param opts - Set `includeProof: false` to skip loading the tx proof from the DB.
    * @returns A single tx or undefined.
    */
-  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined> {
-    return this.txPool.getTxByHash(txHash);
+  getTxByHashFromPool(txHash: TxHash, opts?: { includeProof?: boolean }): Promise<Tx | undefined> {
+    return this.txPool.getTxByHash(txHash, opts);
   }
 
   /**
    * Returns transactions in the transaction pool by hash.
    * @param txHashes - Hashes of the transactions to look for.
+   * @param opts - Set `includeProof: false` to skip loading tx proofs from the DB.
    * @returns The txs found, in the same order as the requested hashes. If a tx is not found, it will be undefined.
    */
-  getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.txPool.getTxsByHash(txHashes);
+  getTxsByHashFromPool(txHashes: TxHash[], opts?: { includeProof?: boolean }): Promise<(Tx | undefined)[]> {
+    return this.txPool.getTxsByHash(txHashes, opts);
   }
 
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
@@ -634,11 +639,16 @@ export class P2PClient extends WithTracer implements P2P {
       return;
     }
 
-    await this.handleMinedBlocks(blocks);
-    await this.maybeCallPrepareForSlot();
-    await this.collectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
-    await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
+    const lastSlot = lastBlock.header.getSlot();
+
+    // Mark txs mined before releasing protections: a block landing at this slot supersedes any
+    // protection for txs it includes, so mined-marking must run first to keep just-landed txs from
+    // being unprotected into pending where they could be evicted before they are recorded as mined.
+    await this.handleMinedBlocks(blocks);
+    await this.maybeCallPrepareForSlot(lastSlot);
+    await this.collectingMissingTxs(blocks);
+    await this.synchedLatestSlot.set(BigInt(lastSlot));
   }
 
   /** Request txs for unproven blocks so the prover node can prove. */
@@ -733,20 +743,8 @@ export class P2PClient extends WithTracer implements P2P {
     return isEpochPrune;
   }
 
-  /** Checks if the slot has changed and calls prepareForSlot if so. */
-  private async maybeCallPrepareForSlot(): Promise<void> {
-    // If we have a proposed checkpoint available, we want to prepare the target slot - otherwise we prepare the current slot
-    const l2Tips = await this.l2Tips.getL2Tips();
-    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
-
-    let slot;
-    if (hasProposedCheckpoint) {
-      const { targetSlot } = this.epochCache.getTargetAndNextSlot();
-      slot = targetSlot;
-    } else {
-      const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
-      slot = currentSlot;
-    }
+  /** Calls prepareForSlot for the given slot if it advances past the last slot we prepared for. */
+  private async maybeCallPrepareForSlot(slot: SlotNumber): Promise<void> {
     if (slot <= this.lastSlotProcessed) {
       return;
     }

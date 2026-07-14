@@ -9,6 +9,8 @@ HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 cd $(dirname $0)/..
 
 # Configure and build.
+# BB_BENCH op counts are compiled out of wasm by default; add -DENABLE_WASM_BENCH=ON here if you
+# need them (timings are unaffected either way).
 cmake --preset wasm-threads
 cmake --build --preset wasm-threads --target $BENCHMARK
 

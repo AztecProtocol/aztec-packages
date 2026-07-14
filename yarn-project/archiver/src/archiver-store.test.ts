@@ -95,12 +95,17 @@ describe('Archiver Store', () => {
       batchSize: 1000,
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
-      orphanProposedBlockPruneGraceSeconds: 2,
-      enableOrphanProposedBlockPruning: true,
+      checkpointProposalSyncGrace: 4,
+      orphanPruneNoProposalTolerance: 1,
+      skipOrphanProposedBlockPruning: false,
+      blockDuration: 2,
     };
 
     const events = new EventEmitter() as ArchiverEmitter;
     const synchronizer = mock<ArchiverL1Synchronizer>();
+    // syncFromL1 returns the blocks added during the L1 pass; the archiver spreads it, so the mock must resolve
+    // to an array rather than the auto-mock's undefined.
+    synchronizer.syncFromL1.mockResolvedValue([]);
 
     const initialBlockHash = await initialHeader.hash();
     const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);

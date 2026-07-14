@@ -28,7 +28,7 @@ describe('LightweightCheckpointBuilder', () => {
 
   beforeEach(async () => {
     // Set up fee payer with balance
-    feePayer = AztecAddress.fromNumber(42222);
+    feePayer = AztecAddress.fromNumberUnsafe(42222);
     feePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
     const genesis: GenesisData = {
@@ -37,7 +37,7 @@ describe('LightweightCheckpointBuilder', () => {
     };
 
     // Create world state with fee payer balance
-    worldState = await NativeWorldStateService.tmp(undefined, true, genesis);
+    worldState = await NativeWorldStateService.tmp(true, genesis);
   });
 
   afterEach(async () => {

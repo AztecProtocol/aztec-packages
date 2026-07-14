@@ -1,6 +1,6 @@
 //! Pedersen hash and commit tests
 //!
-//! Parallels barretenberg/ts/src/barretenberg/pedersen.test.ts
+//! Parallels barretenberg/ts/bb.js/src/barretenberg/pedersen.test.ts
 //!
 //! These tests require the BB binary to be built. They are skipped if the binary is not found.
 
