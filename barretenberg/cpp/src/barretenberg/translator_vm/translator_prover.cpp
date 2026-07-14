@@ -8,8 +8,10 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/commitment_schemes/shplonk/sparse_masking_poly.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_short_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_short_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
@@ -71,11 +73,16 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
     BB_BENCH_NAME("TranslatorProver::execute_wire_and_sorted_constraints_commitments_round");
 
-    // Create and commit to Gemini masking polynomial (for ZK-PCS)
+    // Sparse 2d-coefficient Gemini masking polynomial on the tail-halving support.
+    // See SHPLEMINI_ZK_MASKING.md for the rank / ZK argument.
     const size_t circuit_size = key->proving_key->circuit_size;
-    key->proving_key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
-    auto masking_commitment =
-        key->proving_key->commitment_key.commit(key->proving_key->polynomials.gemini_masking_poly);
+    const size_t d = numeric::get_msb(circuit_size);
+    key->proving_key->polynomials.gemini_masking_poly = build_sparse_masking_poly<FF>(d, circuit_size, circuit_size);
+    Flavor::Commitment masking_commitment;
+    {
+        BB_BENCH_NAME("Translator::commit_masking_poly_msm");
+        masking_commitment = key->proving_key->commitment_key.commit(key->proving_key->polynomials.gemini_masking_poly);
+    }
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
     // Commit to non-op-queue wires and ordered range constraints
