@@ -67,6 +67,8 @@ export interface SequencerConfig {
    * the proposer to publish even when the parent landed on L1 with invalid attestations (for testing only).
    */
   skipWaitForValidParentCheckpointOnL1?: boolean;
+  /** Publish a checkpoint with only the self-attestation, then invalidate and repropose it with valid attestations. */
+  testRepublishInvalidCheckpoint?: boolean;
   /** Broadcast invalid block proposals with corrupted state (for testing only) */
   broadcastInvalidBlockProposal?: boolean;
   /** Broadcast an invalid block proposal only at this indexWithinCheckpoint (for testing only) */
@@ -140,6 +142,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     skipCollectingAttestations: z.boolean().optional(),
     skipInvalidateBlockAsProposer: z.boolean().optional(),
     skipWaitForValidParentCheckpointOnL1: z.boolean().optional(),
+    testRepublishInvalidCheckpoint: z.boolean().optional(),
     secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
     secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
     broadcastInvalidBlockProposal: z.boolean().optional(),

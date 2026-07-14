@@ -51,6 +51,7 @@ export const DefaultSequencerConfig = {
   skipCollectingAttestations: false,
   skipInvalidateBlockAsProposer: false,
   skipWaitForValidParentCheckpointOnL1: false,
+  testRepublishInvalidCheckpoint: false,
   broadcastInvalidBlockProposal: false,
   broadcastInvalidCheckpointProposalOnly: false,
   injectFakeAttestation: false,
@@ -191,6 +192,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
       'Bypass the parent checkpoint validity check before submitting a pipelined checkpoint, ' +
       'allowing the proposer to publish even when the parent landed on L1 with invalid attestations (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.skipWaitForValidParentCheckpointOnL1),
+  },
+  testRepublishInvalidCheckpoint: {
+    description:
+      'Publish a checkpoint with only the self-attestation, then invalidate and repropose it with valid attestations (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.testRepublishInvalidCheckpoint),
   },
   broadcastInvalidBlockProposal: {
     description: 'Broadcast invalid block proposals with corrupted state (for testing only)',

@@ -221,4 +221,19 @@ export class ValidationService {
     const typedData = getCoordinationSignatureTypedData(attestationsAndSigners);
     return this.keyStore.signTypedDataWithAddress(proposer, typedData, context);
   }
+
+  /**
+   * Signs an attestations-and-signers payload bypassing HA slashing protection. This allows
+   * producing more than one such signature for the same slot, which the protected path forbids.
+   * For testing only: used by the malicious-republish path to sign a throwaway self-only set in
+   * addition to the slot's real (protected) attestation set.
+   */
+  signAttestationsAndSignersWithoutProtection(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature> {
+    const context: SigningContext = { dutyType: DutyType.AUTH_REQUEST };
+    const typedData = getCoordinationSignatureTypedData(attestationsAndSigners);
+    return this.keyStore.signTypedDataWithAddress(proposer, typedData, context);
+  }
 }
