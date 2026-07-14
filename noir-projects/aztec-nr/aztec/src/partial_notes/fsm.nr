@@ -215,7 +215,7 @@ impl PartialNoteFsm {
             if num_logs != 0 {
                 // The tag is not unique, so a pending partial note can resolve to more than one completion log (e.g.
                 // the same partial note completed twice). We complete with the first and ignore the rest rather than
-                // fail, so one crafted delivery cannot permanently break sync.
+                // fail, so this cannot permanently break sync.
                 if num_logs > 1 {
                     let tag = self.read_pending_partial_note().note_completion_log_tag;
                     aztecnr_warn_log_format!(
@@ -477,9 +477,9 @@ mod test {
             let address = context.this_address();
             PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
 
-            // A single pending partial note can resolve to more than one completion log. Both logs here would
-            // independently discover a note, but step must complete only once (enqueuing exactly one note) rather
-            // than panic, or a crafted delivery would break sync.
+            // A single pending partial note can resolve to more than one completion log (e.g. the same partial note
+            // completed twice). Both logs here would independently discover a note, but step must complete only once
+            // (enqueuing exactly one note) rather than panic, so this cannot break sync.
             let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::empty();
             completion_logs.push(matching_completion_log(address, COMPLETION_LOG_FIRST_NULLIFIER));
             completion_logs.push(matching_completion_log(address, SECOND_COMPLETION_LOG_FIRST_NULLIFIER));
