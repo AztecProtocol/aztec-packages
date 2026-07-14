@@ -125,7 +125,10 @@ pub unsafe extern "C" fn avm_transpile_file(
         Err(_) => return create_error_result(&json_parse_error),
     };
 
-    let transpiled_contract = TranspiledContractArtifact::from(contract);
+    let transpiled_contract = match TranspiledContractArtifact::try_from_acir_contract(contract) {
+        Ok(contract) => contract,
+        Err(err) => return create_error_result(&err.to_string()),
+    };
     let transpiled_json = match serde_json::to_string(&transpiled_contract) {
         Ok(json) => json,
         Err(e) => return create_error_result(&format!("Unable to serialize json: {}", e)),
@@ -176,7 +179,10 @@ pub unsafe extern "C" fn avm_transpile_bytecode(
         Err(_) => return create_error_result(json_parse_error),
     };
 
-    let transpiled_contract = TranspiledContractArtifact::from(contract);
+    let transpiled_contract = match TranspiledContractArtifact::try_from_acir_contract(contract) {
+        Ok(contract) => contract,
+        Err(err) => return create_error_result(&err.to_string()),
+    };
     let transpiled_json = match serde_json::to_string(&transpiled_contract) {
         Ok(json) => json,
         Err(e) => return create_error_result(&format!("Unable to serialize json: {}", e)),
@@ -212,5 +218,109 @@ pub unsafe extern "C" fn avm_free_result(result: *mut TranspileResult) {
         // SAFETY: error_message was created by CString::into_raw in create_error_result
         let _ = unsafe { CString::from_raw(result.error_message) };
         result.error_message = std::ptr::null_mut();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
+    use acvm::acir::circuit::brillig::{BrilligBytecode, BrilligFunctionId};
+    use acvm::acir::circuit::{Circuit, Opcode, Program};
+    use noirc_abi::Abi;
+    use noirc_artifacts::debug::ProgramDebugInfo;
+    use std::ffi::CStr;
+
+    fn contract_with_public_calldata_copy_destination(
+        destination: u32,
+    ) -> CompiledAcirContractArtifact {
+        let bytecode = Program {
+            functions: vec![Circuit {
+                function_name: "public_dispatch".to_string(),
+                opcodes: vec![Opcode::BrilligCall {
+                    id: BrilligFunctionId(0),
+                    inputs: vec![],
+                    outputs: vec![],
+                    predicate: Default::default(),
+                }],
+                ..Default::default()
+            }],
+            unconstrained_functions: vec![BrilligBytecode {
+                function_name: "public_dispatch".to_string(),
+                bytecode: vec![BrilligOpcode::CalldataCopy {
+                    destination_address: MemoryAddress::direct(destination),
+                    size_address: MemoryAddress::direct(0),
+                    offset_address: MemoryAddress::direct(1),
+                }],
+            }],
+        };
+
+        CompiledAcirContractArtifact {
+            noir_version: "test".to_string(),
+            name: if destination > u16::MAX as u32 {
+                "OversizedAddress".to_string()
+            } else {
+                "BoundaryAddress".to_string()
+            },
+            functions: vec![AcirContractFunctionArtifact {
+                name: "public_dispatch".to_string(),
+                is_unconstrained: false,
+                custom_attributes: vec!["abi_public".to_string()],
+                abi: Abi::default(),
+                bytecode,
+                debug_symbols: ProgramDebugInfo::default(),
+            }],
+            outputs: serde_json::json!({}),
+            file_map: serde_json::json!({}),
+        }
+    }
+
+    #[test]
+    fn c_abi_bytecode_transpile_rejects_one_past_max_u16_address() {
+        let contract = contract_with_public_calldata_copy_destination(u16::MAX as u32 + 1);
+        let contract_json =
+            serde_json::to_string(&contract).expect("test contract should serialize");
+
+        let mut result =
+            unsafe { avm_transpile_bytecode(contract_json.as_ptr(), contract_json.len()) };
+
+        assert_eq!(result.success, 0);
+        assert!(result.data.is_null());
+        assert_eq!(result.length, 0);
+        assert!(!result.error_message.is_null());
+
+        let error = unsafe { CStr::from_ptr(result.error_message) }.to_str().unwrap();
+        assert!(error.contains("OversizedAddress::public_dispatch"), "missing context: {error}");
+        assert!(
+            error.contains("AVM memory address 65536 does not fit in a U16 operand"),
+            "missing root cause: {error}"
+        );
+
+        unsafe { avm_free_result(&mut result) };
+    }
+
+    #[test]
+    fn c_abi_bytecode_transpile_accepts_max_u16_address() {
+        let contract = contract_with_public_calldata_copy_destination(u16::MAX as u32);
+        let contract_json =
+            serde_json::to_string(&contract).expect("test contract should serialize");
+
+        let mut result =
+            unsafe { avm_transpile_bytecode(contract_json.as_ptr(), contract_json.len()) };
+
+        assert_eq!(
+            result.success,
+            1,
+            "max u16 address should not be rejected; error: {}",
+            if result.error_message.is_null() {
+                "<none>".to_string()
+            } else {
+                unsafe { CStr::from_ptr(result.error_message) }.to_string_lossy().into_owned()
+            }
+        );
+        assert!(!result.data.is_null());
+        assert!(result.length > 0);
+
+        unsafe { avm_free_result(&mut result) };
     }
 }
