@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v5.0.0-rc.2
-Generated: 2026-06-30T21:39:45.174Z
+Version: v5.0.0
+Generated: 2026-07-13T18:51:14.538Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -14,7 +14,7 @@ For detailed API documentation, see the individual package .md files.
   - Transaction creation and submission
   - Account management
   - RPC client for connecting to Aztec nodes
-Exports: 40 classes, 24 interfaces, 32 functions, 82 types
+Exports: 39 classes, 24 interfaces, 32 functions, 83 types
 Key: AccountManager, Contract, Fq, Fr
 
 **@aztec/accounts** - Sample account contract implementations
@@ -27,7 +27,7 @@ Exports: 6 classes, 1 interfaces, 4 functions, 9 types
   - Orchestrates private transaction execution and proving
   - Manages encrypted notes and nullifiers
   - Provides privacy-preserving state queries
-Exports: 19 classes, 3 interfaces, 11 functions, 30 types
+Exports: 21 classes, 3 interfaces, 14 functions, 40 types
 Key: PXE, createPXE
 
 **@aztec/entrypoints** - Transaction entrypoint implementations
@@ -53,7 +53,7 @@ Exports: 3 classes, 2 functions, 3 types
   - Proof types and verification
   - Kernel circuit types
   - Tree structures (note hash, nullifier, public data)
-Exports: 86 classes, 42 interfaces, 151 functions, 158 types
+Exports: 89 classes, 43 interfaces, 157 functions, 161 types
 Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
 
 **@aztec/foundation** - Low-level utilities and primitives
@@ -68,7 +68,7 @@ Key: EthAddress
   - Circuit size limits
   - Gas and fee constants
   - Tree heights and sizes
-Exports: 512 types
+Exports: 513 types
 
 ## Key Types Quick Reference
 
@@ -109,7 +109,7 @@ Exports: 512 types
 accounts → aztec.js, entrypoints, foundation, stdlib
 aztec.js → entrypoints, ethereum, foundation, stdlib
 entrypoints → foundation, stdlib
-pxe → aztec.js, ethereum, foundation, kv-store, stdlib
+pxe → aztec.js, ethereum, foundation, key-store, kv-store, stdlib
 stdlib → blob-lib, constants, ethereum, foundation
 wallet-sdk → aztec.js, entrypoints, foundation, pxe, stdlib
 wallets → accounts, aztec.js, entrypoints, foundation, kv-store, pxe, stdlib, wallet-sdk

@@ -21,6 +21,7 @@
 <h3>Module items</h3>
 <ul class="sidebar-list">
 <li><a href="#structs">Structs</a></li>
+<li><a href="#functions">Functions</a></li>
 </ul>
 <h2>In module helpers</h2>
 <h3>Modules</h3><ul class="item-list">
@@ -36,6 +37,12 @@
 <h1>Module <span id="mod" class="module">tagging_secret_strategy</span></h1>
 <h2 id="structs">Structs</h2><ul class="item-list">
 <li><div class="item-name"><a href="struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a></div><div class="item-description">How a message's tagging secret is chosen: the wallet's strategy.</div></li>
+</ul>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.compute_directional_app_secret.html" class="fn">compute_directional_app_secret</a></div><div class="item-description">Computes the directional tagging secret PXE derives from an arbitrary shared secret point: the point is app-siloed
+and the recipient is folded in for direction. Mirrors <code>AppTaggingSecret.computeDirectional</code> on the PXE side; tests
+use it to derive the secret they expect an <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html#arbitrary_secret"><code>arbitrary_secret</code></a> strategy
+to produce.</div></li>
 </ul>
 </main>
 </span>

@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: v5.0.0-rc.2
+Version: v5.0.0
 
 ## Quick Import Reference
 
@@ -161,13 +161,13 @@ Gets the basic information for initial test accounts.
 
 ### getSchnorrAccountContractAddress
 ```typescript
-function getSchnorrAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: Fq) => Promise<AztecAddress>
+function getSchnorrAccountContractAddress(signingPrivateKey: Fq, salt: Fr, secretKey?: Fr) => Promise<AztecAddress>
 ```
 Compute the address of a schnorr account contract.
 
 ### getSchnorrInitializerlessAccountContractAddress
 ```typescript
-function getSchnorrInitializerlessAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: Fq) => Promise<AztecAddress>
+function getSchnorrInitializerlessAccountContractAddress(signingPrivateKey: Fq, salt: Fr, secretKey?: Fr) => Promise<AztecAddress>
 ```
 Compute the address of a schnorr account contract.
 

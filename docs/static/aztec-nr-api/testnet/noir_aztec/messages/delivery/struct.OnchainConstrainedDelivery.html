@@ -20,6 +20,7 @@
 <h2><a href="#struct">Struct OnchainConstrainedDelivery</a></h2>
 <h3>Methods</h3>
 <ul class="sidebar-list">
+<li><a href="#via_interactive_handshake">via_interactive_handshake</a></li>
 <li><a href="#via_non_interactive_handshake">via_non_interactive_handshake</a></li>
 <li><a href="#with_sender">with_sender</a></li>
 </ul>
@@ -54,7 +55,10 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>On-chain delivery with constrained encryption/tagging. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_constrained"><code>MessageDelivery::onchain_constrained</code></a>.</p></div>
+<p>On-chain constrained delivery. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_constrained"><code>MessageDelivery::onchain_constrained</code></a>.</p>
+<p>By default the tag reuses a handshake already registered for the pair, and otherwise falls back to the
+wallet-resolved <a href="../../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html">tagging secret strategy</a>. Constrained
+delivery only supports handshake-backed derivations.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></code></h3>
 
@@ -62,18 +66,25 @@
 
 <div class="padded-description"><div class="comments">
 <p>Overrides the sender address used for discovery tag derivation.</p>
-<p>On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
-is derived from a shared secret between a &quot;sender&quot; and the recipient. By default, the sender is the
-wallet-supplied address (typically the account that initiated the transaction), but some contracts need to
-override it so that recipients can discover the notes correctly. This is the case for account contracts in their
-constructor: the deployer is the one that initiated the transaction, but any notes generated during deployment
-should be tagged by the account contract itself.</p>
+<p>See <a href="../../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html#with_sender"><code>OnchainUnconstrainedDelivery::with_sender</code></a> for details.</p>
 <h4>Examples</h4>
 <pre><code>MessageDelivery::onchain_constrained().with_sender(self.address)</code></pre></div>
 </div><code id="via_non_interactive_handshake" class="code-header">pub fn <a href="#via_non_interactive_handshake"><span class="fn">via_non_interactive_handshake</span></a>(&mut self) -> Self</code>
 
 <div class="padded-description"><div class="comments">
-<p>Uses the standard handshake registry's non-interactive handshake secret for discovery tags.</p>
+<p>Derives the discovery tag from a non-interactive handshake for the pair, reusing an existing one and creating a
+fresh one only when none exists. Overrides the wallet's default resolution.</p>
+<p>Constrained delivery only supports constrained secrets (e.g., handshake-registry backed derivations)</p>
+</div>
+</div><code id="via_interactive_handshake" class="code-header">pub fn <a href="#via_interactive_handshake"><span class="fn">via_interactive_handshake</span></a>(&mut self) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Derives the discovery tag from an interactive handshake.</p>
+<p>Reuses an existing handshake for the pair, creating a fresh interactive one only when none exists. Overrides
+the wallet's default resolution.</p>
+<p>Unlike a non-interactive handshake, establishing an interactive one announces nothing onchain, but it requires
+the recipient's cooperation: they must answer the registry's signed-authorization request, so the send fails
+if they cannot be reached.</p>
 </div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-MessageDeliveryBuilder-for-OnchainConstrainedDelivery"><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a> for <a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></code></h3>

@@ -35,6 +35,15 @@
     hasher: fn(<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> <a href="../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></pre>
 
+<div class="comments">
+<p>Inserts a subtree root into an append-only tree snapshot.</p>
+<p><code>SubtreeHeight</code> must be strictly less than 64: the leaf index is shifted right by <code>SubtreeHeight</code>
+as a <code>u64</code> (and the subtree leaf count is computed as <code>1 &lt;&lt; SubtreeHeight</code>), and a u64 shift amount
+of 64 or more is out of range. As a consequence the whole tree cannot be replaced in a single call
+(that would require <code>SubtreeHeight == TreeHeight</code>). Supporting <code>SubtreeHeight &gt;= 64</code> would require
+wider integer types and is out of scope; in practice every protocol tree uses a far smaller subtree
+height.</p>
+</div>
 </main>
 </span>
 </body>
