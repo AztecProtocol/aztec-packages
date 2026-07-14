@@ -1,11 +1,15 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/honk/proof_length.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "ultra_verification_keys_comparator.hpp"
@@ -460,6 +464,64 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         size_t expected_unconstrained = 0;
         EXPECT_EQ(variables_in_one_gate.size(), expected_unconstrained);
     }
+
+    /**
+     * @brief Profile recursive verifier by measuring total gates
+     * @details Simple profiling that just runs the verifier and reports total gates
+     */
+    static void test_recursive_verifier_profiling()
+    {
+        // Create inner circuit and generate proof (shared between both runs)
+        auto inner_circuit = create_inner_circuit();
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
+        auto inner_proof = inner_prover.construct_proof();
+
+        auto run_verifier = [&](bool fix_vk_witnesses) {
+            OuterBuilder outer_circuit;
+
+            auto stdlib_vk_and_hash =
+                std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
+
+            if (fix_vk_witnesses) {
+                // Fix all VK commitments to simulate a known/fixed kernel VK
+                stdlib_vk_and_hash->vk->fix_witness();
+                stdlib_vk_and_hash->hash.fix_witness();
+            }
+
+            RecursiveVerifier verifier{ stdlib_vk_and_hash };
+
+            OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
+
+            // Set pairing points public
+            OuterIO inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            if constexpr (IO::HasIPA) {
+                inputs.ipa_claim = output.ipa_claim;
+                outer_circuit.ipa_proof = output.ipa_proof.get_value();
+            }
+            inputs.set_public();
+
+            return outer_circuit.get_num_finalized_gates_inefficient();
+        };
+
+        // Run both configurations for comparison
+        const size_t gates_fixed_vk = run_verifier(true);
+        const size_t gates_baseline = run_verifier(false);
+
+        const int64_t delta = static_cast<int64_t>(gates_fixed_vk) - static_cast<int64_t>(gates_baseline);
+        const double pct = 100.0 * static_cast<double>(delta) / static_cast<double>(gates_baseline);
+
+        info("\n=== RECURSIVE VERIFIER PROFILING ===");
+        info("Flavor: ", typeid(RecursiveFlavor).name());
+        info("Baseline (all ROM):     ", gates_baseline, " gates");
+        info("Fixed VK (split MSM):   ", gates_fixed_vk, " gates");
+        info("Delta:                  ", delta, " gates (", pct, "%)");
+        info("====================================\n");
+    }
 };
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, TestConfigs);
@@ -506,6 +568,21 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
 HEAVY_TYPED_TEST(RecursiveVerifierTest, GraphAnalysisOfRecursiveVerifier)
 {
     TestFixture::test_recursive_verification_with_graph_analysis();
+};
+
+/**
+ * @brief Profile recursive verifier to measure gates at each verification stage
+ */
+HEAVY_TYPED_TEST(RecursiveVerifierTest, ProfilingRecursiveVerifier)
+{
+    // Run profiling for all UltraCircuitBuilder-based recursive flavors
+    using RecursiveFlavor = typename TypeParam::RecursiveFlavor;
+    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
+    if constexpr (std::is_same_v<OuterBuilder, UltraCircuitBuilder>) {
+        TestFixture::test_recursive_verifier_profiling();
+    } else {
+        GTEST_SKIP() << "Profiling only for UltraCircuitBuilder-based recursive flavors";
+    }
 };
 
 #ifdef DISABLE_HEAVY_TESTS

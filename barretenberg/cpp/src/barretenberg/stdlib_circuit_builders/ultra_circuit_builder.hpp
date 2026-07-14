@@ -456,6 +456,17 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint32_t key_a_index,
         std::optional<uint32_t> key_b_index = std::nullopt);
 
+    // Overload that accepts a MultiTable directly (for dynamically-created tables).
+    // BasicTables must already be registered via register_basic_table().
+    plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
+        const plookup::MultiTable& multi_table,
+        const plookup::ReadData<FF>& read_values,
+        const uint32_t key_a_index,
+        std::optional<uint32_t> key_b_index = std::nullopt);
+
+    // Register a dynamically-created BasicTable. Returns the table_index assigned to it.
+    size_t register_basic_table(plookup::BasicTable&& table);
+
     /**
      * @brief Range-constrain a variable to [0, 2^num_bits - 1] by decomposing into smaller limbs.
      * @details For large ranges, direct range-checking is too expensive (scales linearly in the `target_range`).

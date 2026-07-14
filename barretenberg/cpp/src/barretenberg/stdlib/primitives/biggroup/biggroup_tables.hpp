@@ -390,4 +390,241 @@ element<C, Fq, Fr, G>::create_endo_pair_four_bit_table_plookup(const element& in
     return result;
 }
 
+/**
+ * @brief Construct a fixed plookup table for k constant group elements.
+ * @details Precomputes all 2^k sign-combinations natively, decomposes into 68-bit limb pairs,
+ *          and registers 5 dynamic BasicTables (xlo, xhi, ylo, yhi, xyprime).
+ *
+ * Table layout: entry[i] = Σ_j sign_j * P_j, where sign_j = (bit j of i == 0) ? +1 : -1.
+ * Built iteratively: after processing point j, the table doubles in size.
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G>::fixed_group_table::fixed_group_table(Builder* builder, const std::vector<element>& points)
+    : num_points(points.size())
+    , ctx(builder)
+{
+    BB_ASSERT(num_points > 0);
+    for (const auto& p : points) {
+        BB_ASSERT(p.is_fixed(), "biggroup: fixed_group_table requires constant or fixed-witness points as input");
+    }
+
+    const size_t table_size = 1ULL << num_points;
+
+    // 1. Extract native affine points
+    using NativeAffineElement = typename G::affine_element;
+    using NativeElement = typename G::element;
+    std::vector<NativeAffineElement> native_points(num_points);
+    for (size_t i = 0; i < num_points; ++i) {
+        native_points[i] = points[i].get_value();
+    }
+
+    // 2. Build all 2^k sign-combinations iteratively in projective coordinates.
+    //    After processing point j, entries 0..2^j-1 include +P_j, entries 2^j..2^(j+1)-1 include -P_j.
+    std::vector<NativeElement> projective_table;
+    projective_table.reserve(table_size);
+    projective_table.push_back(NativeElement(native_points[0]));  // index 0: +P_0
+    projective_table.push_back(-NativeElement(native_points[0])); // index 1: -P_0
+
+    for (size_t j = 1; j < num_points; ++j) {
+        const NativeElement pj(native_points[j]);
+        const size_t current_size = projective_table.size();
+        // First, create new entries (bit j = 1 → subtract P_j)
+        for (size_t i = 0; i < current_size; ++i) {
+            projective_table.push_back(projective_table[i] - pj);
+        }
+        // Then add P_j to existing entries (bit j = 0 → add P_j)
+        for (size_t i = 0; i < current_size; ++i) {
+            projective_table[i] = projective_table[i] + pj;
+        }
+    }
+
+    // 3. Batch convert to affine
+    std::vector<NativeAffineElement> affine_table(table_size);
+    // Use batch_normalize: convert projective → affine efficiently
+    std::vector<NativeElement> proj_copy(projective_table.begin(), projective_table.end());
+    NativeElement::batch_normalize(&proj_copy[0], table_size);
+    for (size_t i = 0; i < table_size; ++i) {
+        affine_table[i] = NativeAffineElement(proj_copy[i].x, proj_copy[i].y);
+    }
+
+    // 4. Decompose each affine point into 68-bit limb pairs and build 5 BasicTables.
+    //    Each BasicTable has columns: (index, limb_lo, limb_hi) for one coordinate component.
+    constexpr uint64_t NUM_LIMB_BITS = Fq::NUM_LIMB_BITS;
+    constexpr uint64_t TOTAL_BITS = NUM_LIMB_BITS * 2; // 136 bits per limb pair
+
+    // Component order: xlo, xhi, ylo, yhi, xyprime
+    // xlo = (x_limb0, x_limb1), xhi = (x_limb2, x_limb3), ylo = (y_limb0, y_limb1), yhi = (y_limb2, y_limb3)
+    // xyprime = (x_prime_basis, y_prime_basis) where prime_basis = x mod native_modulus
+
+    // Helper: given a uint256_t coordinate, extract the j-th limb pair as (lo, hi) field elements
+    auto extract_limb_pair = [](const uint256_t& coord, size_t pair_idx) -> std::pair<bb::fr, bb::fr> {
+        const uint64_t shift = pair_idx * NUM_LIMB_BITS * 2;
+        const uint256_t lo = coord.slice(shift, shift + NUM_LIMB_BITS);
+        const uint256_t hi = coord.slice(shift + NUM_LIMB_BITS, shift + TOTAL_BITS);
+        return { bb::fr(lo), bb::fr(hi) };
+    };
+
+    // Track max limb values for safe Fq reconstruction
+    for (auto& m : limb_max) {
+        m = 0;
+    }
+
+    // Build the 5 BasicTables
+    std::array<plookup::BasicTable, 5> basic_tables;
+    for (size_t t = 0; t < 5; ++t) {
+        basic_tables[t].id = plookup::BasicTableId::DYNAMIC_TABLE;
+        basic_tables[t].use_twin_keys = false;
+        basic_tables[t].column_1_step_size = 0;
+        basic_tables[t].column_2_step_size = 0;
+        basic_tables[t].column_3_step_size = 0;
+        basic_tables[t].get_values_from_key = nullptr; // Not used for dynamic tables with direct ReadData
+        basic_tables[t].column_1.reserve(table_size);
+        basic_tables[t].column_2.reserve(table_size);
+        basic_tables[t].column_3.reserve(table_size);
+    }
+
+    for (size_t i = 0; i < table_size; ++i) {
+        const uint256_t x_val(affine_table[i].x);
+        const uint256_t y_val(affine_table[i].y);
+
+        // xlo pair (limbs 0,1), xhi pair (limbs 2,3), ylo pair (limbs 0,1), yhi pair (limbs 2,3)
+        auto [xlo_0, xlo_1] = extract_limb_pair(x_val, 0);
+        auto [xhi_0, xhi_1] = extract_limb_pair(x_val, 1);
+        auto [ylo_0, ylo_1] = extract_limb_pair(y_val, 0);
+        auto [yhi_0, yhi_1] = extract_limb_pair(y_val, 1);
+
+        // Prime basis limbs: coordinate mod native field modulus
+        bb::fr x_prime = bb::fr(x_val);
+        bb::fr y_prime = bb::fr(y_val);
+
+        // Track max limb values
+        limb_max[0] = std::max(limb_max[0], uint256_t(xlo_0));
+        limb_max[1] = std::max(limb_max[1], uint256_t(xlo_1));
+        limb_max[2] = std::max(limb_max[2], uint256_t(xhi_0));
+        limb_max[3] = std::max(limb_max[3], uint256_t(xhi_1));
+        limb_max[4] = std::max(limb_max[4], uint256_t(ylo_0));
+        limb_max[5] = std::max(limb_max[5], uint256_t(ylo_1));
+        limb_max[6] = std::max(limb_max[6], uint256_t(yhi_0));
+        limb_max[7] = std::max(limb_max[7], uint256_t(yhi_1));
+
+        const bb::fr key(i);
+        // Table 0: xlo (key, xlo_0, xlo_1)
+        basic_tables[0].column_1.push_back(key);
+        basic_tables[0].column_2.push_back(xlo_0);
+        basic_tables[0].column_3.push_back(xlo_1);
+        // Table 1: xhi
+        basic_tables[1].column_1.push_back(key);
+        basic_tables[1].column_2.push_back(xhi_0);
+        basic_tables[1].column_3.push_back(xhi_1);
+        // Table 2: ylo
+        basic_tables[2].column_1.push_back(key);
+        basic_tables[2].column_2.push_back(ylo_0);
+        basic_tables[2].column_3.push_back(ylo_1);
+        // Table 3: yhi
+        basic_tables[3].column_1.push_back(key);
+        basic_tables[3].column_2.push_back(yhi_0);
+        basic_tables[3].column_3.push_back(yhi_1);
+        // Table 4: xyprime
+        basic_tables[4].column_1.push_back(key);
+        basic_tables[4].column_2.push_back(x_prime);
+        basic_tables[4].column_3.push_back(y_prime);
+    }
+
+    // 5. Register BasicTables and build MultiTables
+    for (size_t t = 0; t < 5; ++t) {
+        const size_t idx = ctx->register_basic_table(std::move(basic_tables[t]));
+        // Single-slice MultiTable: coefficients = {1}, one lookup per read
+        multi_tables[t] = plookup::MultiTable({ bb::fr(1) }, { bb::fr(1) }, { bb::fr(1) });
+        multi_tables[t].slice_sizes = { table_size };
+        multi_tables[t].basic_table_indices = { idx };
+        // get_table_values not needed — we construct ReadData directly in get()
+        multi_tables[t].get_table_values = {};
+    }
+}
+
+/**
+ * @brief Look up the group element corresponding to k NAF bits.
+ * @details Computes index = Σ bit_j * 2^j, performs 5 plookup reads, reconstructs Fq coordinates.
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::fixed_group_table::get(const std::vector<bool_ct>& naf_bits) const
+{
+    BB_ASSERT(naf_bits.size() == num_points);
+
+    // Compute witness index from NAF bits
+    std::vector<field_ct> accumulators;
+    for (size_t i = 0; i < num_points; ++i) {
+        accumulators.emplace_back(field_ct(naf_bits[i]) * (1ULL << i));
+    }
+    field_ct index = field_ct::accumulate(accumulators);
+
+    // Helper: perform a single-slice plookup read from a dynamic table.
+    // Since our MultiTable has get_table_values = {}, we manually construct ReadData
+    // by looking up values from the builder's registered BasicTable.
+    auto read_pair = [this](const plookup::MultiTable& mt, const field_ct& key) -> std::pair<field_ct, field_ct> {
+        using ColumnIdx = plookup::ColumnIdx;
+
+        // Get the key's native value to look up the result
+        const bb::fr key_val = key.get_value();
+        const size_t key_idx = static_cast<size_t>(static_cast<uint64_t>(uint256_t(key_val)));
+
+        // Look up values from the builder's registered BasicTable
+        const size_t table_idx = mt.basic_table_indices[0];
+        const auto& basic_table = ctx->get_lookup_tables()[table_idx];
+        const bb::fr val_c2 = basic_table.column_2[key_idx];
+        const bb::fr val_c3 = basic_table.column_3[key_idx];
+
+        // Construct ReadData for a single-slice lookup
+        plookup::ReadData<bb::fr> lookup_data;
+        lookup_data[ColumnIdx::C1].push_back(key_val);
+        lookup_data[ColumnIdx::C2].push_back(val_c2);
+        lookup_data[ColumnIdx::C3].push_back(val_c3);
+        lookup_data.lookup_entries.push_back(
+            { { uint256_t(key_val).data[0], 0 }, { val_c2, val_c3 } });
+
+        // Create gates if key is a witness, else return constants
+        if (key.is_constant()) {
+            return { field_ct(ctx, val_c2), field_ct(ctx, val_c3) };
+        }
+
+        // Create lookup gate using builder
+        const auto result_indices =
+            ctx->create_gates_from_plookup_accumulators(mt, lookup_data, key.get_witness_index());
+
+        return { field_ct::from_witness_index(ctx, result_indices[ColumnIdx::C2][0]),
+                 field_ct::from_witness_index(ctx, result_indices[ColumnIdx::C3][0]) };
+    };
+
+    // Perform 5 plookup reads
+    const auto [xlo_0, xlo_1] = read_pair(multi_tables[0], index);
+    const auto [xhi_0, xhi_1] = read_pair(multi_tables[1], index);
+    const auto [ylo_0, ylo_1] = read_pair(multi_tables[2], index);
+    const auto [yhi_0, yhi_1] = read_pair(multi_tables[3], index);
+    const auto [xprime, yprime] = read_pair(multi_tables[4], index);
+
+    // Reconstruct Fq elements from limbs (using unsafe constructor — table entries are known valid)
+    Fq x_fq = Fq::unsafe_construct_from_limbs(xlo_0, xlo_1, xhi_0, xhi_1, xprime);
+    Fq y_fq = Fq::unsafe_construct_from_limbs(ylo_0, ylo_1, yhi_0, yhi_1, yprime);
+    x_fq.binary_basis_limbs[0].maximum_value = limb_max[0];
+    x_fq.binary_basis_limbs[1].maximum_value = limb_max[1];
+    x_fq.binary_basis_limbs[2].maximum_value = limb_max[2];
+    x_fq.binary_basis_limbs[3].maximum_value = limb_max[3];
+    y_fq.binary_basis_limbs[0].maximum_value = limb_max[4];
+    y_fq.binary_basis_limbs[1].maximum_value = limb_max[5];
+    y_fq.binary_basis_limbs[2].maximum_value = limb_max[6];
+    y_fq.binary_basis_limbs[3].maximum_value = limb_max[7];
+
+    return element(x_fq, y_fq, bool_ct(ctx, false), /*assert_on_curve=*/false);
+}
+
+/**
+ * @brief Same as get() but returns a chain_add_accumulator for efficient multi-table accumulation.
+ */
+template <typename C, class Fq, class Fr, class G>
+typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::fixed_group_table::get_chain_accumulator(
+    const std::vector<bool_ct>& naf_bits) const
+{
+    return chain_add_accumulator(get(naf_bits));
+}
+
 } // namespace bb::stdlib::element_default

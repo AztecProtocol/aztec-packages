@@ -14,6 +14,7 @@
 #include "../field/field_utils.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
+#include "../plookup/plookup.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
@@ -144,12 +145,22 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     /**
+     * @brief Returns true if this element is either a constant or a fixed witness.
+     * @details A fixed witness has its value constrained by fix_witness() gates, making it
+     * safe to use for precomputed plookup table construction (the prover cannot substitute
+     * a different value without breaking the arithmetic constraint).
+     */
+    [[nodiscard]] bool is_fixed() const { return is_constant() || _is_fixed; }
+
+    /**
      * @brief Creates fixed witnesses from a constant element.
      **/
     void convert_constant_to_fixed_witness(Builder* builder)
     {
         this->_x.convert_constant_to_fixed_witness(builder);
         this->_y.convert_constant_to_fixed_witness(builder);
+        // Mark as fixed so is_fixed() returns true after converting from constant
+        _is_fixed = true;
         // Origin tags should be unset after fixing the witness
         unset_free_witness_tag();
     }
@@ -165,6 +176,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         this->_is_infinity.fix_witness();
 
         // This is now effectively a constant
+        _is_fixed = true;
         unset_free_witness_tag();
     }
 
@@ -360,6 +372,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                              const size_t max_num_bits = 0,
                              const bool with_edgecases = true);
 
+    // MSM for fixed points using fixed plookup tables (no ROM init cost, ~1 gate per read instead of ~2).
+    // All points must be circuit constants or fixed witnesses (is_fixed() == true). Scalars are witnesses.
+    static element fixed_lookup_batch_mul(const std::vector<element>& points,
+                                          const std::vector<Fr>& scalars,
+                                          size_t max_num_bits = 0);
+
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
@@ -455,6 +473,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     Fq _x;
     Fq _y;
     bool_ct _is_infinity;
+    bool _is_fixed = false; // Set by fix_witness(); indicates value is constrained to a known constant
 
     // Internal implementations - may produce non-canonical infinity representation (efficient for chaining)
     element add_internal(const element& other) const;
@@ -668,6 +687,31 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     using quad_lookup_table = lookup_table_plookup<4>;
 
+    /**
+     * @brief Lookup table for k constant group elements using fixed plookup columns (not ROM).
+     * @details Precomputes all 2^k sign-combinations natively (zero circuit cost) and registers them
+     *          as dynamic plookup BasicTables. Each lookup costs 5 plookup gates (vs 10 ROM gates).
+     *          k is a runtime parameter (not a template), supporting k up to ~17.
+     */
+  public:
+    struct fixed_group_table {
+        fixed_group_table() = default;
+        fixed_group_table(Builder* builder, const std::vector<element>& points);
+
+        // Look up the signed combination selected by k NAF bits. Costs 5 plookup gates.
+        element get(const std::vector<bool_ct>& naf_bits) const;
+
+        // Get as chain_add_accumulator (for use in multi-table rounds)
+        chain_add_accumulator get_chain_accumulator(const std::vector<bool_ct>& naf_bits) const;
+
+        size_t num_points = 0;
+        std::array<uint256_t, Fq::NUM_LIMBS * 2> limb_max{};
+        // 5 MultiTables: xlo, xhi, ylo, yhi, xyprime (each single-slice, mapping index → limb pair)
+        std::array<plookup::MultiTable, Fq::NUM_LIMBS + 1> multi_tables;
+        Builder* ctx = nullptr;
+    };
+
+  private:
     /**
      * Creates a pair of 4-bit lookup tables, the former corresponding to 4 input points,
      * the latter corresponding to the endomorphism equivalent of the 4 input points (e.g. x -> \beta * x, y -> -y)

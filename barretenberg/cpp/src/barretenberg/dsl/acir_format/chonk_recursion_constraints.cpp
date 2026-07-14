@@ -98,6 +98,9 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
 
     // Recursively verify Chonk proof
     auto mega_vk = std::make_shared<VerificationKey>(key_fields);
+    // The Chonk VK is the hiding kernel's MegaZK VK, which is protocol-fixed (one per rollup stack).
+    // Fixing the witnesses enables fixed_lookup_batch_mul in KZG, saving gates vs ROM tables.
+    mega_vk->fix_witness();
     auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
     ChonkStdlibProof stdlib_proof = ChonkStdlibProof::from_field_elements(proof_fields);
 

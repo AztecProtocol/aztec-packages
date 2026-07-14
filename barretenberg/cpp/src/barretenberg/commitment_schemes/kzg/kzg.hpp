@@ -12,6 +12,7 @@
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <memory>
@@ -163,11 +164,84 @@ template <typename Curve_> class KZG {
             }
         }
 
-        // Compute C + [W]₁ ⋅ z
-        P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
-                                      batch_opening_claim.scalars,
-                                      /*max_num_bits=*/0,
-                                      /*with_edgecases=*/true);
+        // For stdlib types with UltraBuilder (not Mega), split the MSM: route fixed commitments (VK)
+        // through plookup tables and witness commitments through ROM tables.
+        // Mega uses ECCVM which bypasses circuit MSM entirely.
+        constexpr bool use_split_msm = []() {
+            if constexpr (!Curve::is_stdlib_type) {
+                return false;
+            } else {
+                return !IsMegaBuilder<typename Curve::Builder>;
+            }
+        }();
+
+        if constexpr (use_split_msm) {
+            // Separate constant (VK) commitments from witness commitments and use
+            // fixed_lookup_batch_mul for constants (plookup tables) vs batch_mul for witnesses (ROM tables)
+
+            // Collect the combined origin tag before we modify anything
+            using OriginTag = bb::OriginTag;
+            OriginTag combined_tag = OriginTag::constant();
+            for (size_t i = 0; i < batch_opening_claim.commitments.size(); ++i) {
+                combined_tag = OriginTag(
+                    combined_tag,
+                    OriginTag(batch_opening_claim.commitments[i].get_origin_tag(),
+                              batch_opening_claim.scalars[i].get_origin_tag()));
+            }
+
+            std::vector<Commitment> constant_commitments;
+            std::vector<Fr> constant_scalars;
+            std::vector<Commitment> witness_commitments;
+            std::vector<Fr> witness_scalars;
+
+            for (size_t i = 0; i < batch_opening_claim.commitments.size(); ++i) {
+                if (batch_opening_claim.commitments[i].is_fixed()) {
+                    constant_commitments.push_back(batch_opening_claim.commitments[i]);
+                    constant_scalars.push_back(batch_opening_claim.scalars[i]);
+                } else {
+                    witness_commitments.push_back(batch_opening_claim.commitments[i]);
+                    witness_scalars.push_back(batch_opening_claim.scalars[i]);
+                }
+            }
+
+            // Use fixed_lookup_batch_mul for constant points (plookup tables)
+            GroupElement constant_result;
+            if (!constant_commitments.empty()) {
+                constant_result = GroupElement::fixed_lookup_batch_mul(constant_commitments, constant_scalars);
+            }
+
+            // Use regular batch_mul for witness points (ROM tables)
+            GroupElement witness_result;
+            if (!witness_commitments.empty()) {
+                witness_result = GroupElement::batch_mul(witness_commitments,
+                                                         witness_scalars,
+                                                         /*max_num_bits=*/0,
+                                                         /*with_edgecases=*/true);
+            }
+
+            // Combine results
+            if (constant_commitments.empty()) {
+                P_0 = witness_result;
+            } else if (witness_commitments.empty()) {
+                P_0 = constant_result;
+            } else {
+                // Clear origin tags before adding (we'll set the combined tag on the result)
+                auto empty_tag = OriginTag::constant();
+                constant_result.set_origin_tag(empty_tag);
+                witness_result.set_origin_tag(empty_tag);
+                P_0 = constant_result + witness_result;
+            }
+
+            // Set the combined origin tag on the final result
+            P_0.set_origin_tag(combined_tag);
+        } else {
+            // Standard approach: single batch_mul for all commitments
+            // Compute C + [W]₁ ⋅ z
+            P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
+                                          batch_opening_claim.scalars,
+                                          /*max_num_bits=*/0,
+                                          /*with_edgecases=*/true);
+        }
         auto P_1 = -quotient_commitment;
 
         return PairingPointsType(P_0, P_1);

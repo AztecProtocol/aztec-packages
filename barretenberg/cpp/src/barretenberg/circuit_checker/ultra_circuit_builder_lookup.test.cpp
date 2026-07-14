@@ -58,7 +58,7 @@ TEST_F(UltraCircuitBuilderLookup, StepSizeCoefficients)
     builder.create_gates_from_plookup_accumulators(plookup::MultiTableId::UINT32_XOR, accumulators, a_idx, b_idx);
 
     const auto& multi_table = plookup::get_multitable(plookup::MultiTableId::UINT32_XOR);
-    const size_t num_lookups = multi_table.column_1_step_sizes.size();
+    const size_t num_lookups = multi_table.basic_table_ids.size();
 
     // Check that step sizes have been populated correctly in the the corresponding selectors
     for (size_t i = 0; i < num_lookups - 1; ++i) {
@@ -269,4 +269,165 @@ TEST_F(UltraCircuitBuilderLookup, InvalidInputWitnessFailure)
         // Circuit should fail because witness at b_idx doesn't match what accumulators expect
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
+}
+
+// Static function for dynamic table: key -> (value_a, value_b) = ((key+1)*10, (key+1)*10 + 1)
+static std::array<bb::fr, 2> dynamic_test_table_values(const std::array<uint64_t, 2> key)
+{
+    return { bb::fr((key[0] + 1) * 10), bb::fr((key[0] + 1) * 10 + 1) };
+}
+
+// Verifies that a dynamically-registered BasicTable + MultiTable works end-to-end
+TEST_F(UltraCircuitBuilderLookup, DynamicSingleSliceTable)
+{
+    Builder builder;
+
+    constexpr size_t table_size = 8;
+
+    // 1. Build a BasicTable with 8 rows: key -> ((key+1)*10, (key+1)*10+1)
+    plookup::BasicTable basic_table;
+    basic_table.id = plookup::BasicTableId::DYNAMIC_TABLE;
+    basic_table.use_twin_keys = false;
+    basic_table.column_1_step_size = 0;
+    basic_table.column_2_step_size = 0;
+    basic_table.column_3_step_size = 0;
+    basic_table.get_values_from_key = &dynamic_test_table_values;
+
+    for (size_t i = 0; i < table_size; ++i) {
+        basic_table.column_1.emplace_back(fr(i));
+        basic_table.column_2.emplace_back(fr((i + 1) * 10));
+        basic_table.column_3.emplace_back(fr((i + 1) * 10 + 1));
+    }
+
+    // 2. Register it
+    const size_t table_idx = builder.register_basic_table(std::move(basic_table));
+
+    // 3. Build a single-slice MultiTable
+    plookup::MultiTable multi_table({ fr(1) }, { fr(1) }, { fr(1) });
+    multi_table.slice_sizes = { table_size };
+    multi_table.get_table_values = { &dynamic_test_table_values };
+    multi_table.basic_table_indices = { table_idx };
+
+    // Sanity: one table registered, correct size
+    EXPECT_EQ(builder.get_num_lookup_tables(), 1UL);
+    EXPECT_EQ(builder.get_lookup_tables()[table_idx].size(), table_size);
+    EXPECT_EQ(builder.get_lookup_tables()[table_idx].id, plookup::BasicTableId::DYNAMIC_TABLE);
+
+    // 4. Perform lookups for several keys
+    const size_t lookup_block_size_before = builder.blocks.lookup.size();
+    const std::vector<uint64_t> test_keys = { 0, 3, 5, 7 };
+    for (const auto key : test_keys) {
+        const fr key_value(key);
+        const auto key_idx = builder.add_variable(key_value);
+
+        // Native accumulator computation
+        const auto accumulators = plookup::get_lookup_accumulators(multi_table, key_value);
+
+        // Create lookup gates
+        const auto result = builder.create_gates_from_plookup_accumulators(multi_table, accumulators, key_idx);
+
+        // 5. Verify returned values match expectations
+        EXPECT_EQ(builder.get_variable(result[ColumnIdx::C1][0]), key_value);
+        EXPECT_EQ(builder.get_variable(result[ColumnIdx::C2][0]), fr((key + 1) * 10));
+        EXPECT_EQ(builder.get_variable(result[ColumnIdx::C3][0]), fr((key + 1) * 10 + 1));
+    }
+
+    // Single-slice table: each lookup produces exactly 1 gate
+    EXPECT_EQ(builder.blocks.lookup.size(), lookup_block_size_before + test_keys.size());
+
+    // Each lookup should have been recorded in the BasicTable's lookup_gates
+    EXPECT_EQ(builder.get_lookup_tables()[table_idx].lookup_gates.size(), test_keys.size());
+
+    // 6. Circuit check — validates lookup relation is satisfied
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+// Second static function for the two-table test: key -> (key*100, key*100 + 7)
+static std::array<bb::fr, 2> dynamic_test_table2_values(const std::array<uint64_t, 2> key)
+{
+    return { bb::fr(key[0] * 100), bb::fr((key[0] * 100) + 7) };
+}
+
+// Verifies that two independent dynamic tables can coexist and both pass circuit check
+TEST_F(UltraCircuitBuilderLookup, TwoDynamicTables)
+{
+    Builder builder;
+
+    // --- Table A: 8 entries, key -> ((key+1)*10, (key+1)*10+1) ---
+    {
+        plookup::BasicTable table_a;
+        table_a.id = plookup::BasicTableId::DYNAMIC_TABLE;
+        table_a.use_twin_keys = false;
+        table_a.column_1_step_size = 0;
+        table_a.column_2_step_size = 0;
+        table_a.column_3_step_size = 0;
+        table_a.get_values_from_key = &dynamic_test_table_values;
+        for (size_t i = 0; i < 8; ++i) {
+            table_a.column_1.emplace_back(fr(i));
+            table_a.column_2.emplace_back(fr((i + 1) * 10));
+            table_a.column_3.emplace_back(fr((i + 1) * 10 + 1));
+        }
+        const size_t idx_a = builder.register_basic_table(std::move(table_a));
+        EXPECT_EQ(idx_a, 0UL);
+    }
+
+    // --- Table B: 4 entries, key -> (key*100, key*100+7) ---
+    {
+        plookup::BasicTable table_b;
+        table_b.id = plookup::BasicTableId::DYNAMIC_TABLE;
+        table_b.use_twin_keys = false;
+        table_b.column_1_step_size = 0;
+        table_b.column_2_step_size = 0;
+        table_b.column_3_step_size = 0;
+        table_b.get_values_from_key = &dynamic_test_table2_values;
+        for (size_t i = 0; i < 4; ++i) {
+            table_b.column_1.emplace_back(fr(i));
+            table_b.column_2.emplace_back(fr(i * 100));
+            table_b.column_3.emplace_back(fr((i * 100) + 7));
+        }
+        const size_t idx_b = builder.register_basic_table(std::move(table_b));
+        EXPECT_EQ(idx_b, 1UL);
+    }
+
+    EXPECT_EQ(builder.get_num_lookup_tables(), 2UL);
+    EXPECT_EQ(builder.get_lookup_tables()[0].size(), 8UL);
+    EXPECT_EQ(builder.get_lookup_tables()[1].size(), 4UL);
+
+    // Build MultiTables for each
+    plookup::MultiTable mt_a({ fr(1) }, { fr(1) }, { fr(1) });
+    mt_a.slice_sizes = { 8 };
+    mt_a.get_table_values = { &dynamic_test_table_values };
+    mt_a.basic_table_indices = { 0 };
+
+    plookup::MultiTable mt_b({ fr(1) }, { fr(1) }, { fr(1) });
+    mt_b.slice_sizes = { 4 };
+    mt_b.get_table_values = { &dynamic_test_table2_values };
+    mt_b.basic_table_indices = { 1 };
+
+    // Lookups on table A
+    for (const uint64_t key : { 2UL, 6UL }) {
+        const fr key_val(key);
+        const auto key_idx = builder.add_variable(key_val);
+        const auto acc = plookup::get_lookup_accumulators(mt_a, key_val);
+        const auto res = builder.create_gates_from_plookup_accumulators(mt_a, acc, key_idx);
+        EXPECT_EQ(builder.get_variable(res[ColumnIdx::C2][0]), fr((key + 1) * 10));
+        EXPECT_EQ(builder.get_variable(res[ColumnIdx::C3][0]), fr((key + 1) * 10 + 1));
+    }
+
+    // Lookups on table B
+    for (const uint64_t key : { 0UL, 3UL }) {
+        const fr key_val(key);
+        const auto key_idx = builder.add_variable(key_val);
+        const auto acc = plookup::get_lookup_accumulators(mt_b, key_val);
+        const auto res = builder.create_gates_from_plookup_accumulators(mt_b, acc, key_idx);
+        EXPECT_EQ(builder.get_variable(res[ColumnIdx::C2][0]), fr(key * 100));
+        EXPECT_EQ(builder.get_variable(res[ColumnIdx::C3][0]), fr((key * 100) + 7));
+    }
+
+    // 2 lookups on A + 2 lookups on B = 4 lookup gates total
+    EXPECT_EQ(builder.blocks.lookup.size(), 4UL);
+    EXPECT_EQ(builder.get_lookup_tables()[0].lookup_gates.size(), 2UL);
+    EXPECT_EQ(builder.get_lookup_tables()[1].lookup_gates.size(), 2UL);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

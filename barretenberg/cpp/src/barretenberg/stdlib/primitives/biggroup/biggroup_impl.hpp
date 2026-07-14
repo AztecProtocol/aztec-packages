@@ -86,6 +86,7 @@ element<C, Fq, Fr, G>::element(const element& other)
     : _x(other._x)
     , _y(other._y)
     , _is_infinity(other.is_point_at_infinity())
+    , _is_fixed(other._is_fixed)
 {}
 
 template <typename C, class Fq, class Fr, class G>
@@ -93,6 +94,7 @@ element<C, Fq, Fr, G>::element(element&& other) noexcept
     : _x(other._x)
     , _y(other._y)
     , _is_infinity(other.is_point_at_infinity())
+    , _is_fixed(other._is_fixed)
 {}
 
 template <typename C, class Fq, class Fr, class G>
@@ -104,6 +106,7 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(const element& other)
     _x = other._x;
     _y = other._y;
     _is_infinity = other.is_point_at_infinity();
+    _is_fixed = other._is_fixed;
     return *this;
 }
 
@@ -116,6 +119,7 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcep
     _x = other._x;
     _y = other._y;
     _is_infinity = other.is_point_at_infinity();
+    _is_fixed = other._is_fixed;
     return *this;
 }
 
@@ -1110,6 +1114,201 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
 {
     element result = batch_mul_internal(points, scalars, max_num_bits, with_edgecases);
     return result.get_standard_form();
+}
+
+/**
+ * @brief MSM for constant points using fixed plookup tables.
+ *
+ * @details This function performs multi-scalar multiplication (MSM) on constant points using
+ *          fixed plookup tables instead of ROM tables. This provides cheaper per-read costs
+ *          (5 plookup gates per read vs 10 ROM gates) at the cost of requiring all points
+ *          to be circuit constants.
+ *
+ *          The algorithm is similar to batch_mul but uses fixed_group_table for lookups.
+ *          Points are grouped into tables of up to 10 points each (2^10 = 1024 entries).
+ *
+ * @note All points must be circuit constants. This is enforced with an assertion.
+ * @note The result is always in canonical form (infinity points have coords (0,0)).
+ *
+ * @param points Vector of constant group elements.
+ * @param scalars Vector of scalar field elements (can be witnesses).
+ * @param max_num_bits Maximum number of bits in scalars. If 0, uses full scalar field width.
+ * @return element<C, Fq, Fr, G> The result of Σ points[i] * scalars[i].
+ */
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::fixed_lookup_batch_mul(const std::vector<element>& points,
+                                                                    const std::vector<Fr>& scalars,
+                                                                    const size_t max_num_bits)
+{
+    // Sanity checks
+    BB_ASSERT_GT(points.size(), 0ULL, "fixed_lookup_batch_mul: points cannot be empty");
+    BB_ASSERT_EQ(points.size(), scalars.size(), "fixed_lookup_batch_mul: points and scalars size mismatch");
+
+    // All points must be constant or fixed witnesses for plookup tables
+    for (const auto& p : points) {
+        BB_ASSERT(p.is_fixed(), "fixed_lookup_batch_mul: all points must be constants or fixed witnesses");
+    }
+
+    // Get builder context from scalars (points are constant so may not have context)
+    C* builder = nullptr;
+    for (const auto& scalar : scalars) {
+        if (scalar.get_context() != nullptr) {
+            builder = scalar.get_context();
+            break;
+        }
+    }
+    // If all scalars are also constant, get context from points
+    if (builder == nullptr) {
+        for (const auto& p : points) {
+            if (p.get_context() != nullptr) {
+                builder = p.get_context();
+                break;
+            }
+        }
+    }
+    BB_ASSERT(builder != nullptr, "fixed_lookup_batch_mul: no builder context found");
+
+    // Collect the combined origin tag and then clear tags on inputs to avoid origin tag issues
+    // during intermediate operations (similar to batch_mul's approach)
+    OriginTag combined_tag = OriginTag::constant();
+    auto empty_tag = OriginTag::constant();
+    // Make mutable copies so we can clear tags
+    std::vector<element> mutable_points = points;
+    std::vector<Fr> mutable_scalars = scalars;
+    for (size_t i = 0; i < mutable_points.size(); ++i) {
+        combined_tag =
+            OriginTag(combined_tag, OriginTag(mutable_points[i].get_origin_tag(), mutable_scalars[i].get_origin_tag()));
+        mutable_points[i].set_origin_tag(empty_tag);
+        mutable_scalars[i].set_origin_tag(empty_tag);
+    }
+
+    // Handle constant-constant case: compute out of circuit
+    bool all_constant = true;
+    for (const auto& scalar : mutable_scalars) {
+        if (!scalar.is_constant()) {
+            all_constant = false;
+            break;
+        }
+    }
+    if (all_constant) {
+        typename G::element result = G::element::infinity();
+        for (size_t i = 0; i < mutable_points.size(); ++i) {
+            result +=
+                typename G::element(mutable_points[i].get_value()) * typename G::Fr(mutable_scalars[i].get_value());
+        }
+        typename G::affine_element affine_result(result);
+        if (affine_result.is_point_at_infinity()) {
+            Fq zero_fq = Fq(builder, 0);
+            element res(zero_fq, zero_fq);
+            res.set_origin_tag(combined_tag);
+            return res;
+        }
+        element res(affine_result.x, affine_result.y);
+        res.set_origin_tag(combined_tag);
+        return res;
+    }
+
+    // Determine number of rounds (NAF bits)
+    const size_t max_num_bits_in_field = Fr::modulus.get_msb() + 1;
+    const size_t num_rounds = (max_num_bits == 0) ? max_num_bits_in_field : max_num_bits;
+    const size_t msm_size = mutable_scalars.size();
+
+    // Compute NAF representations of scalars
+    std::vector<std::vector<bool_ct>> naf_entries;
+    for (size_t i = 0; i < msm_size; ++i) {
+        naf_entries.emplace_back(compute_naf(mutable_scalars[i], num_rounds));
+    }
+
+    // Compute optimal table sizes to minimize the number of tables.
+    // We can use tables up to size 16 (2^16 = 65536 entries). For larger MSMs, we split
+    // points into multiple tables. The goal is to minimize total tables while keeping
+    // each table size ≤ MAX_K.
+    constexpr size_t MAX_K = 15;  // Maximum points per table (2^15 = 32768 entries)
+
+    // Compute table sizes: try to use fewer larger tables
+    // For N points, we want ceil(N / MAX_K) tables, distributed evenly
+    std::vector<size_t> table_sizes;
+    {
+        const size_t num_tables = (msm_size + MAX_K - 1) / MAX_K;  // ceil(N / MAX_K)
+        const size_t base_size = msm_size / num_tables;
+        const size_t remainder = msm_size % num_tables;
+
+        for (size_t t = 0; t < num_tables; ++t) {
+            // Distribute remainder across first 'remainder' tables
+            table_sizes.push_back(base_size + (t < remainder ? 1 : 0));
+        }
+    }
+
+    // Create fixed_group_tables
+    std::vector<fixed_group_table> tables;
+    size_t offset = 0;
+    for (size_t t = 0; t < table_sizes.size(); ++t) {
+        std::vector<element> table_points(mutable_points.begin() + static_cast<long>(offset),
+                                          mutable_points.begin() + static_cast<long>(offset + table_sizes[t]));
+        tables.emplace_back(builder, table_points);
+        offset += table_sizes[t];
+    }
+
+    // Helper to look up from all tables and chain-add the results
+    auto get_round_accumulator = [&](size_t round_idx) -> chain_add_accumulator {
+        std::vector<element> round_results;
+        size_t naf_offset = 0;
+        for (size_t t = 0; t < tables.size(); ++t) {
+            std::vector<bool_ct> table_nafs(table_sizes[t]);
+            for (size_t j = 0; j < table_sizes[t]; ++j) {
+                table_nafs[j] = naf_entries[naf_offset + j][round_idx];
+            }
+            round_results.push_back(tables[t].get(table_nafs));
+            naf_offset += table_sizes[t];
+        }
+
+        if (round_results.size() == 1) {
+            return chain_add_accumulator(round_results[0]);
+        }
+        if (round_results.size() == 2) {
+            return element::chain_add_start(round_results[0], round_results[1]);
+        }
+        chain_add_accumulator acc = element::chain_add_start(round_results[0], round_results[1]);
+        for (size_t i = 2; i < round_results.size(); ++i) {
+            acc = element::chain_add(round_results[i], acc);
+        }
+        return acc;
+    };
+
+    // Compute offset generators
+    const auto [offset_generator_start, offset_generator_end] = compute_offset_generators(num_rounds);
+
+    // Initialize accumulator with offset generator + first NAF column (round 0)
+    element accumulator = element::chain_add_end(element::chain_add(offset_generator_start, get_round_accumulator(0)));
+
+    // Process remaining rounds in groups of 4 using montgomery ladder
+    constexpr size_t num_rounds_per_iteration = 4;
+    const size_t num_iterations = numeric::ceil_div((num_rounds - 1), num_rounds_per_iteration);
+    const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
+
+    for (size_t i = 0; i < num_iterations; ++i) {
+        std::vector<chain_add_accumulator> to_add;
+        const size_t inner_num_rounds =
+            (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
+        for (size_t j = 0; j < inner_num_rounds; ++j) {
+            to_add.emplace_back(get_round_accumulator((i * num_rounds_per_iteration) + j + 1));
+        }
+        accumulator = accumulator.multiple_montgomery_ladder(to_add);
+    }
+
+    // Subtract the skew factors
+    for (size_t i = 0; i < msm_size; ++i) {
+        element skew = accumulator.subtract_internal(mutable_points[i]);
+        accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
+    }
+
+    // Subtract the scaled offset generator
+    accumulator = accumulator.subtract_internal(offset_generator_end);
+
+    // Set the combined origin tag (collected at the start of the function)
+    element result = accumulator.get_standard_form();
+    result.set_origin_tag(combined_tag);
+    return result;
 }
 
 /**

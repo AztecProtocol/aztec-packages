@@ -28,7 +28,7 @@ using namespace bb::stdlib::recursion::honk;
 
 template <typename Flavor, typename IO>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
-    typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input)
+    typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input, bool fix_vk_witnesses)
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>)
 {
     using Builder = Flavor::CircuitBuilder;
@@ -119,6 +119,12 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
+    // For kernel/rollup circuits, the VK is fixed and known at circuit construction time.
+    // Fixing the witnesses allows the MSM in KZG to route these commitments through plookup
+    // tables (fixed_lookup_batch_mul) instead of ROM tables, saving significant gates.
+    if (fix_vk_witnesses) {
+        vkey->fix_witness();
+    }
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(vk_and_hash);
     UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
@@ -170,7 +176,8 @@ void native_verification_debug(const std::shared_ptr<typename Flavor::Verificati
 #define INSTANTIATE_HONK_RECURSION_CONSTRAINT(Flavor, IO)                                                              \
     template HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder>                                            \
     create_honk_recursion_constraints<Flavor, IO>(typename Flavor::CircuitBuilder & builder,                           \
-                                                  const RecursionConstraint& input);
+                                                  const RecursionConstraint& input,                                    \
+                                                  bool fix_vk_witnesses);
 
 INSTANTIATE_HONK_RECURSION_CONSTRAINT(UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                       stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>)

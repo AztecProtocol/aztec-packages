@@ -437,6 +437,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_lookup_gate(const uint32_t key
  * result of the lookup operation. All indices are returned (not just the result) because some algorithms like SHA256
  * need access to the intermediate decomposed limb values.
  */
+/**
+ * @brief Resolve static BasicTableIds to table indices, then delegate to the MultiTable overload.
+ */
 template <typename ExecutionTrace>
 plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_from_plookup_accumulators(
     const plookup::MultiTableId& id,
@@ -444,9 +447,56 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
     const uint32_t key_a_index,
     std::optional<uint32_t> key_b_index)
 {
+    const auto& multi_table = plookup::get_multitable(id);
+    const size_t num_lookups = read_values[plookup::ColumnIdx::C1].size();
+
+    // Ensure all BasicTables exist (lazy creation) and collect their indices
+    plookup::MultiTable mt_with_indices = multi_table;
+    mt_with_indices.basic_table_indices.resize(num_lookups);
+    for (size_t i = 0; i < num_lookups; ++i) {
+        mt_with_indices.basic_table_indices[i] = get_table(multi_table.basic_table_ids[i]).table_index;
+    }
+
+    return create_gates_from_plookup_accumulators(mt_with_indices, read_values, key_a_index, key_b_index);
+}
+
+/**
+ * @brief Register a dynamically-created BasicTable into the builder's lookup_tables deque.
+ * @details Assigns a table_index, builds the index_map, and returns the assigned index.
+ */
+template <typename ExecutionTrace>
+size_t UltraCircuitBuilder_<ExecutionTrace>::register_basic_table(plookup::BasicTable&& table)
+{
+    table.table_index = lookup_tables.size();
+    table.initialize_index_map();
+    lookup_tables.emplace_back(std::move(table));
+    return lookup_tables.back().table_index;
+}
+
+/**
+ * @brief Create lookup gates from pre-computed accumulator values using a MultiTable directly.
+ * @details Each slice of the multi-table lookup produces one gate in blocks.lookup. The gate wires contain
+ *          accumulator values and the selectors encode the step sizes needed to extract raw slice values
+ *          via wire_i - step_size * wire_{i+1}. BasicTables are looked up by their table_index in
+ *          multi_table.basic_table_indices (must have been pre-registered or resolved from BasicTableIds).
+ *
+ * @param multi_table MultiTable with basic_table_indices populated
+ * @param read_values Pre-computed accumulator values and lookup entries from plookup::get_lookup_accumulators
+ * @param key_a_index Witness index for first input; reused in first lookup gate to avoid creating duplicate variables
+ * @param key_b_index Optional witness index for second input (2-to-1 lookups); reused in first lookup if provided
+ *
+ * @return ReadData<uint32_t> containing witness indices for all created gates. Primary use: [C3][0] contains the
+ * result of the lookup operation.
+ */
+template <typename ExecutionTrace>
+plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_from_plookup_accumulators(
+    const plookup::MultiTable& multi_table,
+    const plookup::ReadData<FF>& read_values,
+    const uint32_t key_a_index,
+    std::optional<uint32_t> key_b_index)
+{
     using plookup::ColumnIdx;
 
-    const auto& multi_table = plookup::get_multitable(id);
     const size_t num_lookups = read_values[ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
 
@@ -454,8 +504,11 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
         const bool is_first_lookup = (i == 0);
         const bool is_last_lookup = (i == num_lookups - 1);
 
-        // Get basic lookup table; construct and add to builder.lookup_tables if not already present
-        plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
+        // Look up the BasicTable by its table_index (must have been pre-registered)
+        const size_t tbl_idx = multi_table.basic_table_indices[i];
+        BB_ASSERT(tbl_idx < lookup_tables.size());
+        plookup::BasicTable& table = lookup_tables[tbl_idx];
+        table.lookup_gates.emplace_back(read_values.lookup_entries[i]);
 
         // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
         const auto first_idx = is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);

@@ -27,7 +27,6 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
 
     plookup::ReadData<field_t<Builder>> lookup;
 
-    // If both keys are constant (or key_b unused), we can directly create constant field elements
     if (key_a.is_constant() && (key_b.is_constant() || !is_2_to_1_lookup)) {
         for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {
             lookup[ColumnIdx::C1].emplace_back(field_t<Builder>(ctx, lookup_data[ColumnIdx::C1][i]));
@@ -35,7 +34,6 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
             lookup[ColumnIdx::C3].emplace_back(field_t<Builder>(ctx, lookup_data[ColumnIdx::C3][i]));
         }
     } else {
-        // At least one key needs witness constraints, so create plookup gates
         uint32_t lhs_index = key_a.get_witness_index();
         uint32_t rhs_index = key_b.get_witness_index();
 
@@ -54,7 +52,6 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
         const auto accumulator_witnesses =
             ctx->create_gates_from_plookup_accumulators(id, lookup_data, lhs_index, key_b_witness);
 
-        const auto merged_tag = OriginTag(key_a.get_origin_tag(), key_b.get_origin_tag());
         for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {
             lookup[ColumnIdx::C1].emplace_back(
                 field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C1][i]));
@@ -62,9 +59,6 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
                 field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C2][i]));
             lookup[ColumnIdx::C3].emplace_back(
                 field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C3][i]));
-            lookup[ColumnIdx::C1].back().set_origin_tag(merged_tag);
-            lookup[ColumnIdx::C2].back().set_origin_tag(merged_tag);
-            lookup[ColumnIdx::C3].back().set_origin_tag(merged_tag);
         }
     }
     return lookup;
