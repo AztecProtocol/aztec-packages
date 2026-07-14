@@ -238,35 +238,44 @@ describe('SessionManager', () => {
     expect(stubs.length).toBe(1);
   });
 
-  it('onTick does not re-attempt a stopped epoch, but a checkpoint event reopens it', async () => {
-    // A faulted attempt settles the session in the non-declaring terminal 'stopped'. The tick is gated
-    // by its high-water mark (lastTickEpoch), so it opens the epoch once and does not re-create (and
-    // re-prove) a session for it every tick. Recovery comes through the ungated checkpoint trigger — a
-    // re-add is a genuine change that may now succeed.
+  it('skips opening a full session while a checkpoint prover in the set has failed', async () => {
+    // A checkpoint prover fault (a sub-tree fault or a prune-induced fork fault) marks the prover failed.
+    // A session over it can never produce its block proofs, so openFullSessionIfReady skips it — on both
+    // the tick and checkpoint triggers, cheaply and with no bookkeeping. It stays skipped until a
+    // prune/re-add replaces the failed prover (see the recovery tests below) or the epoch expires.
     mockNextUnprovenSlot(2, 6);
-    const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
-    store.listInSlotRange.mockReturnValue(provers);
+    store.listInSlotRange.mockReturnValue([failedProverForCheckpoint(1, 6)]);
+
+    await manager.onTick();
+    await manager.onTick();
+    await manager.onCheckpointAdded(EpochNumber(3));
+
+    expect(stubs.length).toBe(0);
+    expect(manager.getFullSession(EpochNumber(3))).toBeUndefined();
+  });
+
+  it('re-opens an epoch whose session stopped but whose provers are healthy', async () => {
+    // A session-level failure (a transient top-tree prove or L1 submit error) settles the session in
+    // 'stopped' while its checkpoint provers succeeded. No prover has failed, so the next tick re-opens
+    // the epoch — the rebuilt session reuses the broker's completed sub-proofs and re-attempts the top
+    // tree / submit. (A doomed checkpoint prover, by contrast, would gate the reopen — see above.)
+    mockNextUnprovenSlot(2, 6);
+    l2BlockSource.isEpochComplete.mockResolvedValue(true);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+    store.listInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
 
     await manager.onTick();
     expect(stubs.length).toBe(1);
-
     stubs[0].terminate('stopped');
     await flushSessionCompletion();
 
-    // Further ticks must NOT re-create a session over the same (already-failed) content.
     await manager.onTick();
-    await manager.onTick();
-    expect(stubs.length).toBe(1);
-    expect(manager.getFullSession(EpochNumber(3))).toBeUndefined();
-
-    // A checkpoint event for the epoch is ungated and reopens a fresh, live session.
-    await manager.onCheckpointAdded(EpochNumber(3));
-    const reopened = manager.getFullSession(EpochNumber(3)) as unknown as StubSession | undefined;
-    expect(reopened).toBeDefined();
-    expect(reopened).not.toBe(stubs[0]);
-    expect(reopened!.isTerminal()).toBe(false);
+    const retried = manager.getFullSession(EpochNumber(3)) as unknown as StubSession | undefined;
+    expect(retried).toBeDefined();
+    expect(retried).not.toBe(stubs[0]);
+    expect(retried!.isTerminal()).toBe(false);
     expect(stubs.length).toBe(2);
   });
 
@@ -387,88 +396,66 @@ describe('SessionManager', () => {
     expect(stubs.length).toBe(2);
   });
 
-  it('reopens an epoch whose session stopped once its checkpoints are re-added', async () => {
-    // A data-plane reorg fault rejects a checkpoint's blockProofs mid-proof, settling the session in
-    // the non-declaring terminal 'stopped'. That must not strand the epoch — a re-add of its
-    // checkpoints reopens a fresh, live session via the checkpoint trigger.
+  it('data-plane fault then identical-content re-add: opens over the fresh prover and completes', async () => {
+    // A checkpoint prover faults mid-proof from a data-plane reorg — its blockProofs reject, so it is
+    // marked failed and no session is built over it. A prune+re-add then replaces it with a FRESH prover
+    // of identical content (same content-addressed id); the next open builds a session that completes.
+    // Opening over the same content id is what lets the content-addressed broker reuse the already-
+    // completed sub-proofs — see checkpoint-store.test.ts for the reuse itself.
     const epoch = EpochNumber(3);
-    const prover = proverForCheckpoint(1, 6);
-    await openCanonicalFullSession(epoch, [prover]);
-    const original = stubs[0];
+    const failed = failedProverForCheckpoint(1, 6);
+    l2BlockSource.isEpochComplete.mockResolvedValue(true);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+    store.listInSlotRange.mockReturnValue([failed]);
 
-    original.terminate('stopped');
+    await manager.onCheckpointAdded(epoch);
+    expect(stubs.length).toBe(0); // failed prover ⇒ no session
+
+    // Re-add replaces the failed prover with a fresh, healthy prover of identical content id.
+    const fresh = proverForCheckpoint(1, 6);
+    expect(fresh.id).toBe(failed.id);
+    store.listInSlotRange.mockReturnValue([fresh]);
+    await manager.onCheckpointAdded(epoch);
+
+    const session = manager.getFullSession(epoch) as unknown as StubSession | undefined;
+    expect(session).toBeDefined();
+    expect(session!.provers.map(p => p.id)).toEqual([fresh.id]);
+    expect(session!.isTerminal()).toBe(false);
+    expect(stubs.length).toBe(1);
+
+    session!.terminate('completed');
     await flushSessionCompletion();
-    expect(original.state).toBe('stopped');
-
-    await openCanonicalFullSession(epoch, [prover]);
-    const recreated = manager.getFullSession(epoch) as unknown as StubSession | undefined;
-    expect(recreated).toBeDefined();
-    expect(recreated).not.toBe(original);
-    expect(recreated!.uuid).not.toBe(original.uuid);
-    expect(recreated!.isTerminal()).toBe(false);
-    expect(stubs.length).toBe(2);
+    expect(session!.state).toBe('completed');
   });
 
-  it('data-plane fault then identical-content re-add: rebuilds over the same content and completes', async () => {
-    // A checkpoint prover faults mid-proof from a data-plane reorg (its blockProofs reject), so the
-    // session settles in 'stopped' — not 'failed'. The checkpoint is then re-added with identical
-    // content (same content-addressed id). The epoch is rebuilt over the replacement prover and
-    // completes. Building over the same content id is exactly what lets the (content-addressed) broker
-    // reuse the already-completed sub-tree proofs — see checkpoint-store.test.ts for the reuse itself.
-    const epoch = EpochNumber(3);
-    const original = proverForCheckpoint(1, 6);
-    await openCanonicalFullSession(epoch, [original]);
-    const faulted = stubs[0];
-
-    faulted.terminate('stopped');
-    await flushSessionCompletion();
-    expect(faulted.state).toBe('stopped');
-
-    // Re-add with identical content: same (number, slot) ⇒ same content-addressed id as the faulted one.
-    const readded = proverForCheckpoint(1, 6);
-    expect(readded.id).toBe(original.id);
-    await openCanonicalFullSession(epoch, [readded]);
-
-    const rebuilt = manager.getFullSession(epoch) as unknown as StubSession | undefined;
-    expect(rebuilt).toBeDefined();
-    expect(rebuilt).not.toBe(faulted);
-    expect(rebuilt!.isTerminal()).toBe(false);
-    expect(rebuilt!.provers.map(p => p.id)).toEqual([original.id]);
-    expect(stubs.length).toBe(2);
-
-    // The rebuilt session proves the epoch to completion.
-    rebuilt!.terminate('completed');
-    await flushSessionCompletion();
-    expect(rebuilt!.state).toBe('completed');
-  });
-
-  it('data-plane fault then different-content re-add: rebuilds over the new content and completes', async () => {
+  it('data-plane fault then different-content re-add: opens over the new prover and completes', async () => {
     // Same data-plane fault, but the reorg replaces the epoch's content: the re-added checkpoint has a
-    // different content-addressed id. The epoch is rebuilt over the NEW prover (nothing to reuse) and
-    // completes.
+    // different content-addressed id (reflected on both the archiver and the store). The epoch opens
+    // over the NEW prover (nothing to reuse) and completes.
     const epoch = EpochNumber(3);
-    const original = proverForCheckpoint(1, 6);
-    await openCanonicalFullSession(epoch, [original]);
-    const faulted = stubs[0];
+    const failed = failedProverForCheckpoint(1, 6);
+    l2BlockSource.isEpochComplete.mockResolvedValue(true);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+    store.listInSlotRange.mockReturnValue([failed]);
 
-    faulted.terminate('stopped');
+    await manager.onCheckpointAdded(epoch);
+    expect(stubs.length).toBe(0);
+
+    const fresh = proverForCheckpoint(2, 7);
+    expect(fresh.id).not.toBe(failed.id);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(2, 7)]);
+    store.listInSlotRange.mockReturnValue([fresh]);
+    await manager.onCheckpointAdded(epoch);
+
+    const session = manager.getFullSession(epoch) as unknown as StubSession | undefined;
+    expect(session).toBeDefined();
+    expect(session!.provers.map(p => p.id)).toEqual([fresh.id]);
+    expect(session!.isTerminal()).toBe(false);
+    expect(stubs.length).toBe(1);
+
+    session!.terminate('completed');
     await flushSessionCompletion();
-
-    // Re-add with different content within epoch 3's slot range [6, 7] ⇒ a distinct content id.
-    const readded = proverForCheckpoint(2, 7);
-    expect(readded.id).not.toBe(original.id);
-    await openCanonicalFullSession(epoch, [readded]);
-
-    const rebuilt = manager.getFullSession(epoch) as unknown as StubSession | undefined;
-    expect(rebuilt).toBeDefined();
-    expect(rebuilt).not.toBe(faulted);
-    expect(rebuilt!.isTerminal()).toBe(false);
-    expect(rebuilt!.provers.map(p => p.id)).toEqual([readded.id]);
-    expect(stubs.length).toBe(2);
-
-    rebuilt!.terminate('completed');
-    await flushSessionCompletion();
-    expect(rebuilt!.state).toBe('completed');
+    expect(session!.state).toBe('completed');
   });
 
   it('drops terminal sessions on the next reconcile', async () => {
@@ -956,14 +943,20 @@ function makeCheckpointContent(number: number, slot: number) {
   } as any;
 }
 
-function proverForCheckpoint(number: number, slot: number): CheckpointProver {
+function proverForCheckpoint(number: number, slot: number, failed = false): CheckpointProver {
   const checkpoint = makeCheckpointContent(number, slot);
   return {
     id: CheckpointProver.idFor(checkpoint),
     checkpoint,
     slotNumber: SlotNumber(slot),
     isCancelled: () => false,
+    isFailed: () => failed,
   } as unknown as CheckpointProver;
+}
+
+/** A checkpoint prover whose block proofs have failed (a sub-tree/fork fault). Same content id as the healthy one. */
+function failedProverForCheckpoint(number: number, slot: number): CheckpointProver {
+  return proverForCheckpoint(number, slot, true);
 }
 
 /** Archiver-side PublishedCheckpoint stub whose content matches `proverForCheckpoint(number, slot)`. */

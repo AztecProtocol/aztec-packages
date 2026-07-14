@@ -90,6 +90,7 @@ export class CheckpointProver {
   private readonly blockProofs: PromiseWithResolvers<SubTreeResult['blockProofOutputs']> = promiseWithResolvers();
 
   private cancelled = false;
+  private failed = false;
   private subTree?: CheckpointSubTreeOrchestrator;
   private completed = false;
   private readonly abortController = new AbortController();
@@ -139,6 +140,16 @@ export class CheckpointProver {
     return this.cancelled;
   }
 
+  /**
+   * True once this prover's block proofs have rejected for a genuine (non-cancel) reason — a sub-tree
+   * proving fault or a prune-induced world-state fork fault. A failed prover cannot produce its block
+   * proofs, so the reconciler must not build (or rebuild) an EpochSession over it; it is cleared only by
+   * a prune/re-add replacing it with a fresh prover, or by expiry reaping it.
+   */
+  public isFailed(): boolean {
+    return this.failed;
+  }
+
   /** True once block-level proving has been fully *enqueued* (sub-tree completion may still be pending). */
   public isCompleted(): boolean {
     return this.completed;
@@ -179,8 +190,20 @@ export class CheckpointProver {
       this.deps.log.error(`Error in CheckpointProver ${this.id}`, err, {
         checkpointNumber: this.checkpoint.number,
       });
-      this.blockProofs.reject(err instanceof Error ? err : new Error(String(err)));
+      this.failBlockProofs(err instanceof Error ? err : new Error(String(err)));
     }
+  }
+
+  /**
+   * Rejects the block-proof promise and, unless this is a cancellation, records the prover as failed so
+   * the reconciler won't build an EpochSession over it. First rejection wins, so a later duplicate reject
+   * (e.g. the executeCheckpoint `finally`) is a harmless no-op.
+   */
+  private failBlockProofs(err: Error): void {
+    if (!this.cancelled) {
+      this.failed = true;
+    }
+    this.blockProofs.reject(err);
   }
 
   private async gatherTxs(): Promise<Map<string, Tx>> {
@@ -248,7 +271,7 @@ export class CheckpointProver {
           this.deps.metrics.recordCheckpointProving(checkpointTimer.ms());
           this.blockProofs.resolve(result.blockProofOutputs);
         },
-        err => this.blockProofs.reject(err),
+        err => this.failBlockProofs(err instanceof Error ? err : new Error(String(err))),
       );
       if (signal.aborted) {
         return;
@@ -328,7 +351,7 @@ export class CheckpointProver {
         if (subTreeStarted) {
           await this.teardownSubTree();
         }
-        this.blockProofs.reject(new Error(`Checkpoint ${this.id} did not complete block processing`));
+        this.failBlockProofs(new Error(`Checkpoint ${this.id} did not complete block processing`));
       }
     }
   }

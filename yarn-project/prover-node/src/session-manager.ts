@@ -83,15 +83,6 @@ export class SessionManager {
   private readonly reconcileQueue = new SerialQueue();
   /** Cached L1 constants, populated on first read. */
   private cachedL1Constants: L1RollupConstants | undefined;
-  /**
-   * Highest epoch for which the periodic tick has opened a full session. Monotonic high-water mark:
-   * once the tick has opened a session for an epoch it stops re-opening it, so a failed attempt is not
-   * re-created (and re-proved) every tick until the deadline. Recovery from a genuine change comes
-   * through the ungated `checkpoint`/`prune` triggers, not the tick. The mark only advances once a
-   * session actually exists, so a transient blocker (max pending jobs, archiver still indexing) leaves
-   * it in place and the next tick retries.
-   */
-  private lastTickEpoch: EpochNumber | undefined;
   /** Test-only hooks applied to every session this manager constructs. */
   private sessionHooks: EpochSessionHooks | undefined;
   /** Periodic tick that nudges reconcile to pick up newly-complete epochs. Started by `start()`. */
@@ -243,16 +234,6 @@ export class SessionManager {
       await this.openFullSessionIfReady(epoch);
     }
 
-    // Advance the tick high-water mark only once a session actually exists for the epoch.
-    // `openFullSessionIfReady` can early-return without creating one (atMaxSessionLimit, archiver
-    // still indexing, etc.); in those cases the next tick should try again rather than skip forever.
-    if (trigger.kind === 'tick' && implicatedEpochs.length === 1) {
-      const epoch = implicatedEpochs[0];
-      if (this.fullSessions.has(epoch)) {
-        this.lastTickEpoch = epoch;
-      }
-    }
-
     if (trigger.kind === 'start-proof') {
       this.openPartialSession(trigger.spec);
     }
@@ -268,7 +249,7 @@ export class SessionManager {
       if (!this.checkpointsMatch(session.getCheckpoints(), canonical)) {
         this.fireAndForgetCancel(session, 'canonical content changed');
         this.fullSessions.delete(key);
-        if (canonical.length > 0) {
+        if (canonical.length > 0 && !this.hasFailedProver(canonical)) {
           const newSession = this.constructSession(session.getSpec(), canonical);
           this.fullSessions.set(key, newSession);
           void this.runSession(newSession);
@@ -284,7 +265,7 @@ export class SessionManager {
       if (!this.checkpointsMatch(session.getCheckpoints(), canonical)) {
         this.fireAndForgetCancel(session, 'canonical content changed');
         this.partialSessions.delete(key);
-        if (canonical.length > 0) {
+        if (canonical.length > 0 && !this.hasFailedProver(canonical)) {
           const newSession = this.constructSession(session.getSpec(), canonical);
           this.partialSessions.set(key, newSession);
           void this.runSession(newSession);
@@ -320,6 +301,13 @@ export class SessionManager {
       });
       return;
     }
+    if (this.hasFailedProver(canonical)) {
+      // A checkpoint prover in the set has failed (a sub-tree fault or a prune-induced fork fault), so a
+      // session over it would fail immediately. Don't re-create it every tick — it recovers when a
+      // prune/re-add replaces the failed prover with a fresh one, or fails for good at expiry.
+      this.log.debug(`Skipping full-session open for epoch ${epoch}: a checkpoint prover has failed`, { epoch });
+      return;
+    }
     const spec: SessionSpec = { kind: 'full', epochNumber: epoch, fromSlot, toSlot };
     const session = this.constructSession(spec, canonical);
     this.fullSessions.set(epoch, session);
@@ -328,7 +316,7 @@ export class SessionManager {
 
   private openPartialSession(spec: SessionSpec): void {
     const canonical = this.deps.checkpointStore.listInSlotRange(spec.fromSlot, spec.toSlot);
-    if (canonical.length === 0) {
+    if (canonical.length === 0 || this.hasFailedProver(canonical)) {
       return;
     }
     // Reuse a live partial session for this epoch whose checkpoint set already matches the
@@ -446,12 +434,12 @@ export class SessionManager {
   /**
    * Maps a reconcile trigger to the epochs whose full session should be (re)opened.
    *
-   * The periodic `tick` is gated by `lastTickEpoch`: it opens the next unproven epoch once, then stops
-   * re-opening it, so a failed attempt is not re-created (and re-proved) every tick until the deadline.
-   * `checkpoint` and `prune` are ungated — they fire only when an epoch's canonical content actually
-   * changes (a checkpoint arrives, or a reorg prunes/replaces one), which is exactly when re-attempting
-   * is correct, and is how a pruned-then-re-added epoch recovers. `openFullSessionIfReady` dedupes
-   * against a live session, so a re-add during an in-flight attempt does not spawn a duplicate.
+   * The periodic `tick` returns the next unproven epoch every time; it does not track prior attempts.
+   * `openFullSessionIfReady` is what keeps this from re-proving a doomed epoch: it refuses to build a
+   * session when any checkpoint prover in the set has failed, so a stuck epoch is cheaply skipped each
+   * tick rather than re-proved. `checkpoint` and `prune` fire when an epoch's canonical content changes
+   * (a checkpoint arrives, or a reorg prunes/replaces one) — which is what installs a fresh prover in
+   * place of a failed one, letting the next open succeed and recovering a pruned-then-re-added epoch.
    */
   private async epochsForTrigger(trigger: ReconcileTrigger): Promise<EpochNumber[]> {
     switch (trigger.kind) {
@@ -461,10 +449,7 @@ export class SessionManager {
         return trigger.affectedEpochs;
       case 'tick': {
         const epoch = await this.nextUnprovenEpoch();
-        if (epoch === undefined || (this.lastTickEpoch !== undefined && epoch <= this.lastTickEpoch)) {
-          return [];
-        }
-        return [epoch];
+        return epoch === undefined ? [] : [epoch];
       }
       case 'start-proof':
         return [];
@@ -489,6 +474,15 @@ export class SessionManager {
 
   private checkpointsForSpec(spec: SessionSpec): CheckpointProver[] {
     return this.deps.checkpointStore.listInSlotRange(spec.fromSlot, spec.toSlot);
+  }
+
+  /**
+   * True if any prover in the set has failed. The epoch cannot be proven over a failed prover (it can
+   * never produce its block proofs), so a session must not be built or rebuilt over it until a prune/re-add
+   * has replaced it with a fresh prover.
+   */
+  private hasFailedProver(checkpoints: readonly CheckpointProver[]): boolean {
+    return checkpoints.some(c => c.isFailed());
   }
 
   private fireAndForgetCancel(session: EpochSession, reason: string): void {

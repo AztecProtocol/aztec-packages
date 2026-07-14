@@ -130,11 +130,14 @@ describe('CheckpointProver', () => {
       await prover.whenDone();
     });
 
-    it('rejects whenBlockProofsReady()', async () => {
+    it('rejects whenBlockProofsReady() but does not mark the prover failed', async () => {
+      // A cancel (reorg/prune/shutdown) is not a proving failure: isFailed() must stay false so the
+      // reconciler doesn't treat a cancelled-and-removed prover's slot as a failed epoch.
       const prover = makeProver();
       const blockProofs = prover.whenBlockProofsReady();
       prover.cancel();
       await expect(blockProofs).rejects.toThrow(/cancelled/);
+      expect(prover.isFailed()).toBe(false);
       await prover.whenDone();
     });
 
@@ -280,9 +283,8 @@ describe('CheckpointProver', () => {
     it('rejects whenBlockProofsReady when a world-state fork faults mid-proof', async () => {
       // Models the data-plane prune race (A-1290): gather succeeds and the sub-tree starts, but the
       // world-state synchronizer has already unwound the base block, so forking it faults inside
-      // executeCheckpoint. The fault must reject whenBlockProofsReady() — which the EpochSession then
-      // maps to the non-declaring terminal 'stopped' (see epoch-session.test.ts), so the epoch stays
-      // retryable rather than being declared failed.
+      // executeCheckpoint. The fault must reject whenBlockProofsReady() AND mark the prover failed, so
+      // the SessionManager won't build (or rebuild) an EpochSession over it until a re-add replaces it.
       txProvider.getTxsForBlock.mockReset();
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
 
@@ -308,6 +310,7 @@ describe('CheckpointProver', () => {
       await expect(prover.whenBlockProofsReady()).rejects.toThrow(/did not complete block processing/);
       expect(dbProvider.fork).toHaveBeenCalled();
       expect(prover.isCompleted()).toBe(false);
+      expect(prover.isFailed()).toBe(true);
 
       await cleanup(prover);
     });

@@ -65,11 +65,12 @@ The prover-node splits responsibility between four classes:
   translated into a `reconcile(trigger)` call, a single idempotent function that walks
   all `EpochSession`s, cancels any whose canonical content has shifted, re-creates them with
   the new content, and opens fresh full `EpochSession`s for any epoch that has become provable.
-  A failed attempt settles the `EpochSession` in the non-declaring terminal `stopped` and is not
-  re-attempted on a loop by the tick; recovery from a genuine change comes through the ungated
-  `checkpoint`/`prune` triggers, and a rebuilt session reuses every already-completed sub-proof from
-  the content-addressed broker. Reconcile runs on a `SerialQueue` (from `@aztec/foundation/queue`), so
-  two concurrent triggers can never interleave on an `await` and race on the `EpochSession` maps.
+  It never builds a session over a **failed** `CheckpointProver` (one whose block proofs rejected —
+  a sub-tree fault or a prune-induced fork fault): a session over it could only fail, so the epoch is
+  cheaply skipped until a prune/re-add installs a fresh prover in its place, at which point a rebuilt
+  session reuses every already-completed sub-proof from the content-addressed broker. Reconcile runs on
+  a `SerialQueue` (from `@aztec/foundation/queue`), so two concurrent triggers can never interleave on an
+  `await` and race on the `EpochSession` maps.
 - **`ProofPublishingService`** — central owner of L1 proof submission. `EpochSession`s hand
   their top-tree proofs to the service as `PublishCandidate`s; the service serialises
   one publish at a time against a freshly-created `ProverNodePublisher`, gates eligibility
@@ -171,7 +172,8 @@ stateDiagram-v2
 
 A proving or submission fault never declares the epoch failed. It settles the `EpochSession` in
 the non-declaring terminal `stopped`: a fact about this attempt, not a verdict on the epoch. The
-reconciler rebuilds the epoch over current canonical content (retry-to-converge), and the epoch is
+reconciler is free to rebuild the epoch — over healthy provers it does so on the next tick; over a
+**failed** `CheckpointProver` it holds off until a prune/re-add installs a fresh one. The epoch is
 declared `failed` — with a post-mortem upload — only at its L1 proof-submission-window expiry, in
 `ProverNode.expireEpoch`. That is the single, race-free point where the proven tip is settled, so
 "did this epoch miss its window?" has an authoritative answer and no prune/fault classification is
@@ -380,15 +382,21 @@ a prune — another prover covers it) uploads nothing.
 `SessionManager.start()` arms a `RunningPromise` that fires
 `reconcile({ kind: 'tick' })` every `tickIntervalMs`. The tick picks up epochs that
 became complete by time alone (no fresh checkpoint event) and advances to the
-next unproven epoch once the previous one lands on L1. It is gated by a monotonic high-water mark
-(`lastTickEpoch`): once the tick has opened a session for an epoch it does not re-open it, so a failed
-attempt is not re-created — and re-proved — every tick until the deadline. Recovery from a genuine
-change flows through the ungated `checkpoint`/`prune` triggers instead: a re-add or reorg reopens the
-epoch, and the rebuilt session reuses every already-completed sub-proof from the content-addressed
-broker. (A consequence: a transient failure on an already-complete epoch, which produces no further
-events, is not auto-retried by the tick — it waits for the deadline.) The mark advances only once a
-session actually exists, so transient blockers (max-pending-jobs reached, archiver still indexing)
-leave it in place and the next tick tries again.
+next unproven epoch once the previous one lands on L1. The tick is not gated by any per-epoch
+bookkeeping; what keeps it from re-proving a doomed epoch is `openFullSessionIfReady` refusing to build
+a session when any `CheckpointProver` in the set has **failed** (`isFailed()`). So a stuck epoch is
+skipped cheaply each tick — no session, no proving — until a prune/re-add replaces the failed prover, or
+the epoch expires. Two consequences worth noting:
+
+- A session that stops with its provers **healthy** — a transient top-tree prove or L1 submit error —
+  is re-opened by the next tick (nothing is failed), and the rebuilt session reuses the broker's
+  completed sub-proofs and re-attempts the top tree / submit. This is the desired retry for transient
+  submit failures.
+- A failure that leaves a prover **failed** is not retried by the tick over the same prover; it recovers
+  only when a prune/re-add installs a fresh prover, and otherwise fails at expiry.
+
+Transient blockers (max-pending-jobs reached, archiver still indexing) create no session and no failed
+prover, so the next tick simply tries again.
 
 ## Walkthroughs
 
@@ -503,11 +511,12 @@ read faults inside a `CheckpointProver` mid-proof). If the `EpochSession` reacte
 declaring the epoch `failed`, it would have to answer "was this a prune or a genuine failure?" —
 and every way to answer it samples control-plane state that lags the data-plane unwind, so the
 check is racy by construction. We remove the question instead: a fault is just a fact about the
-attempt (`stopped`), the reconciler retries to converge over current canonical content, and the
-epoch is declared `failed` only when its submission window closes with the proven tip settled. At
-that instant "did the epoch miss its window?" has an authoritative, race-free answer, and the
-failure and its post-mortem upload become a single deliberate event. A stuck epoch blocks the
-sequential frontier on L1 regardless, so there is nothing lost by retrying it every tick until then.
+attempt (`stopped`), and — one level down — a fact about the prover that faulted (`isFailed()`). The
+reconciler simply won't build a session over a failed prover, so a doomed epoch is skipped rather than
+reasoned about; it recovers when a prune/re-add replaces the prover, and is declared `failed` only when
+its submission window closes with the proven tip settled. At that instant "did the epoch miss its
+window?" has an authoritative, race-free answer, and the failure and its post-mortem upload become a
+single deliberate event.
 
 ## Configuration
 
