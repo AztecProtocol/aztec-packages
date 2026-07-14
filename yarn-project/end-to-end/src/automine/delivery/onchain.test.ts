@@ -1,14 +1,8 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
-import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { ResolveCustomRequest } from '@aztec/pxe/config';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
-import {
-  type InteractiveHandshakeBackupEntry,
-  createInteractiveHandshakeResolver,
-  createInteractiveHandshakeResponder,
-} from '@aztec/wallet-sdk/delivery';
+import { createInteractiveHandshakeResolver, createInteractiveHandshakeResponder } from '@aztec/wallet-sdk/delivery';
 
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { buildMessageDeliveryTest } from './onchain_delivery_harness.js';
@@ -56,61 +50,35 @@ describe('onchain delivery', () => {
     },
   });
 
-  {
-    const constrained = makeInteractiveHandshakeCell();
-    buildMessageDeliveryTest({
-      strategy: 'interactive handshake',
-      mode: 'constrained',
-      senderHook: () => Promise.resolve({ type: 'interactive-handshake' }),
-      customRequestResponder: constrained.customRequestResponder,
-      additionalTests: constrained.additionalTests,
+  buildMessageDeliveryTest({
+    strategy: 'interactive handshake',
+    mode: 'constrained',
+    senderHook: () => Promise.resolve({ type: 'interactive-handshake' }),
+    customRequestResponder: interactiveHandshakeResponder,
+  });
+
+  buildMessageDeliveryTest({
+    strategy: 'interactive handshake',
+    mode: 'unconstrained',
+    senderHook: () => Promise.resolve({ type: 'interactive-handshake' }),
+    customRequestResponder: interactiveHandshakeResponder,
+  });
+
+  // Serves the registry's interactive-handshake signature request for the recipient: the wallet-sdk responder wrapped
+  // in the resolver that serves the sender PXE's custom-request hook.
+  function interactiveHandshakeResponder(
+    recipientWallet: TestWallet,
+    recipientAccount: InitialAccountData,
+  ): ResolveCustomRequest {
+    const responder = createInteractiveHandshakeResponder({
+      pxe: recipientWallet,
+      // The master message-signing secret key is deliberately never held by PXE or the key store; the wallet
+      // derives it client-side from the account secret.
+      getSigningKey: () => Promise.resolve(deriveMasterMessageSigningSecretKey(recipientAccount.secret)),
+      // Backup durability is a wallet concern with no onchain effect; its semantics are pinned in the wallet-sdk
+      // unit suite, so this cell passes a no-op store.
+      backup: { store: () => Promise.resolve() },
     });
-
-    const unconstrained = makeInteractiveHandshakeCell();
-    buildMessageDeliveryTest({
-      strategy: 'interactive handshake',
-      mode: 'unconstrained',
-      senderHook: () => Promise.resolve({ type: 'interactive-handshake' }),
-      customRequestResponder: unconstrained.customRequestResponder,
-      additionalTests: unconstrained.additionalTests,
-    });
-  }
-
-  // Builds one cell's interactive-handshake wiring: the wallet-sdk responder (validate, register with the recipient
-  // PXE, persist the backup, sign) wrapped in the resolver that serves the sender PXE's custom-request hook. Backup
-  // state is per cell so the constrained and unconstrained cells cannot interfere.
-  function makeInteractiveHandshakeCell() {
-    const backups: InteractiveHandshakeBackupEntry[] = [];
-    let recipient: AztecAddress | undefined;
-
-    const customRequestResponder = (
-      recipientWallet: TestWallet,
-      recipientAccount: InitialAccountData,
-      recipientCompleteAddress: CompleteAddress,
-    ): ResolveCustomRequest => {
-      recipient = recipientCompleteAddress.address;
-      const responder = createInteractiveHandshakeResponder({
-        pxe: recipientWallet,
-        // The master message-signing secret key is deliberately never held by PXE or the key store; the wallet
-        // derives it client-side from the account secret.
-        getSigningKey: () => Promise.resolve(deriveMasterMessageSigningSecretKey(recipientAccount.secret)),
-        backup: {
-          store: entry => {
-            backups.push(entry);
-            return Promise.resolve();
-          },
-        },
-      });
-      return createInteractiveHandshakeResolver(responder);
-    };
-
-    const additionalTests = () => {
-      it('persists exactly one backup entry, for the recipient, on the bootstrapping send', () => {
-        expect(backups).toHaveLength(1);
-        expect(backups[0].recipient.equals(recipient!)).toBe(true);
-      });
-    };
-
-    return { customRequestResponder, additionalTests };
+    return createInteractiveHandshakeResolver(responder);
   }
 });
