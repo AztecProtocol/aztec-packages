@@ -69,13 +69,8 @@ codealong
 Codex
 COEP
 Colour
-<<<<<<< HEAD
-CapsuleStore
-initializerless
-immutables
-=======
 colour
->>>>>>> origin/public-next
+immutables
 colums
 Commiting
 completer
