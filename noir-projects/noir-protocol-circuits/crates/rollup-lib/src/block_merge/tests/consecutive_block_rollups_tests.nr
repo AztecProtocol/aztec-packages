@@ -219,12 +219,66 @@ fn non_consecutive_l1_to_l2_message_tree_snapshots() {
 }
 
 #[test(should_fail_with = "Mismatched states: expected right.start_state to match left.end_state")]
+fn non_consecutive_l1_to_l2_message_tree_next_available_leaf_index() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_state.l1_to_l2_message_tree.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched states: expected right.start_state to match left.end_state")]
 fn non_consecutive_note_hash_tree_snapshots() {
     let mut builder = TestBuilder::default();
 
     // Change the end note_hash_tree_snapshot of the right rollup to be the same as the start note_hash_tree_snapshot of the left rollup.
     builder.right_rollup.start_state.partial.note_hash_tree =
         builder.left_rollup.start_state.partial.note_hash_tree;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched states: expected right.start_state to match left.end_state")]
+fn non_consecutive_note_hash_tree_next_available_leaf_index() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_state.partial.note_hash_tree.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched states: expected right.start_state to match left.end_state")]
+fn non_consecutive_nullifier_tree_roots() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_state.partial.nullifier_tree.root += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched states: expected right.start_state to match left.end_state")]
+fn non_consecutive_nullifier_tree_next_available_leaf_index() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_state.partial.nullifier_tree.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched states: expected right.start_state to match left.end_state")]
+fn non_consecutive_public_data_tree_roots() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_state.partial.public_data_tree.root += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched states: expected right.start_state to match left.end_state")]
+fn non_consecutive_public_data_tree_next_available_leaf_index() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_state.partial.public_data_tree.next_available_leaf_index += 1;
 
     builder.execute_and_fail();
 }

@@ -206,6 +206,15 @@ fn non_consecutive_note_hash_tree_roots() {
     builder.execute_and_fail();
 }
 
+#[test(should_fail_with = "Mismatched note hash tree snapshots: expected right.start to match left.end")]
+fn non_consecutive_note_hash_tree_next_available_leaf_index() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_tree_snapshots.note_hash_tree.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
 #[test(should_fail_with = "Mismatched nullifier tree snapshots: expected right.start to match left.end")]
 fn non_consecutive_nullifier_tree_roots() {
     let mut builder = TestBuilder::default();
@@ -217,6 +226,15 @@ fn non_consecutive_nullifier_tree_roots() {
     builder.execute_and_fail();
 }
 
+#[test(should_fail_with = "Mismatched nullifier tree snapshots: expected right.start to match left.end")]
+fn non_consecutive_nullifier_tree_next_available_leaf_index() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_tree_snapshots.nullifier_tree.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
 #[test(should_fail_with = "Mismatched public data tree snapshots: expected right.start to match left.end")]
 fn non_consecutive_public_data_tree_roots() {
     let mut builder = TestBuilder::default();
@@ -224,6 +242,15 @@ fn non_consecutive_public_data_tree_roots() {
     // Change the start public_data_tree root of the right rollup to be the same as the start public_data_tree root of the left rollup.
     builder.right_rollup.start_tree_snapshots.public_data_tree.root =
         builder.left_rollup.start_tree_snapshots.public_data_tree.root;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched public data tree snapshots: expected right.start to match left.end")]
+fn non_consecutive_public_data_tree_next_available_leaf_index() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.start_tree_snapshots.public_data_tree.next_available_leaf_index += 1;
 
     builder.execute_and_fail();
 }
