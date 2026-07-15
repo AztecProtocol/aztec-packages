@@ -266,7 +266,9 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
             Self { $param_name: $crate::traits::Packable::unpack(packed) }
         }
     } else {
+        // No members: the `packed` parameter is unused, so bind it to `_` to avoid an unused-variable warning.
         quote {
+            let _ = packed;
             Self {}
         }
     };

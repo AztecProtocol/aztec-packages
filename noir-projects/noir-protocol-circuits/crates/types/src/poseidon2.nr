@@ -69,7 +69,7 @@ impl Poseidon2Sponge {
     fn hash_internal<let N: u32>(
         input: [Field; N],
         in_len: u32,
-        is_variable_length: bool,
+        _is_variable_length: bool,
     ) -> Field {
         let iv: Field = (in_len as Field) * TWO_POW_64;
         let mut sponge = Poseidon2Sponge::new(iv);
