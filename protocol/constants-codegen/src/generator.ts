@@ -355,9 +355,14 @@ export interface ParsedContent {
   domainSeparatorEnum: { [key: string]: number };
 }
 
-/** Raw expressions parsed from Noir source before cross-file evaluation. */
+/**
+ * Raw expressions parsed from a Noir file, prior to evaluation. Keeping expressions unevaluated lets callers merge
+ * constants from multiple files and resolve cross-file references in a single evaluation pass.
+ */
 export interface ParsedExpressions {
+  /** Ordered list of constant name and expression pairs. */
   constantsExpressions: [string, string][];
+  /** DomainSeparatorEnum members. */
   domainSeparatorEnum: { [key: string]: number };
 }
 

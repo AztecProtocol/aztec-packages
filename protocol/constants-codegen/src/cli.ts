@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 
 import {
   type ParsedContent,
+  evaluateExpressions,
   generateCppConstants,
   generatePilConstants,
   generateSolidityConstants,
@@ -19,12 +20,23 @@ interface RequestedOutput {
   generate: GenerateOutput;
 }
 
+function parseIncludedConstant(value: string): { path: string; symbol: string } {
+  const separatorIndex = value.lastIndexOf(':');
+  const path = value.slice(0, separatorIndex);
+  const symbol = value.slice(separatorIndex + 1);
+  if (separatorIndex <= 0 || !/^\w+$/.test(symbol)) {
+    throw new Error(`invalid --include value '${value}', expected <file.nr>:<symbol>`);
+  }
+  return { path, symbol };
+}
+
 function run(args: string[]): void {
   const { values } = parseArgs({
     args,
     allowPositionals: false,
     options: {
       input: { type: 'string' },
+      include: { type: 'string', multiple: true },
       typescript: { type: 'string' },
       cpp: { type: 'string' },
       pil: { type: 'string' },
@@ -48,7 +60,23 @@ function run(args: string[]): void {
     throw new Error('at least one output option is required');
   }
 
-  const parsedContent = parseNoirFile(readFileSync(values.input, 'utf8'));
+  const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(readFileSync(values.input, 'utf8'));
+  for (const value of values.include ?? []) {
+    const { path, symbol } = parseIncludedConstant(value);
+    const { constantsExpressions: includedExpressions } = parseNoirFile(readFileSync(path, 'utf8'), {
+      stripLineComments: true,
+    });
+    const expression = includedExpressions.find(([name]) => name === symbol);
+    if (!expression) {
+      throw new Error(`constant '${symbol}' not found in ${path}`);
+    }
+    constantsExpressions.push(expression);
+  }
+
+  const parsedContent: ParsedContent = {
+    constants: evaluateExpressions(constantsExpressions),
+    domainSeparatorEnum,
+  };
 
   for (const output of outputs) {
     mkdirSync(dirname(output.path), { recursive: true });

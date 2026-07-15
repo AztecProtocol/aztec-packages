@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   type ParsedContent,
+  evaluateExpressions,
   generateCppConstants,
   generatePilConstants,
   generateSolidityConstants,
@@ -27,7 +28,8 @@ function generateToString(generate: (content: ParsedContent, targetPath: string)
   const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-'));
   const targetPath = join(tempDir, 'output');
   try {
-    generate(parseNoirFile(noirFixture), targetPath);
+    const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(noirFixture);
+    generate({ constants: evaluateExpressions(constantsExpressions), domainSeparatorEnum }, targetPath);
     return readFileSync(targetPath, 'utf8');
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
@@ -77,17 +79,38 @@ test('generates the existing Solidity subset', () => {
 test('the CLI generates multiple requested outputs', () => {
   const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
   const inputPath = join(tempDir, 'constants.nr');
+  const includedInputPath = join(tempDir, 'additional.nr');
   const typescriptPath = join(tempDir, 'typescript', 'constants.ts');
   const cppPath = join(tempDir, 'cpp', 'constants.hpp');
   const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.js');
 
   try {
     writeFileSync(inputPath, noirFixture);
-    execFileSync(process.execPath, [cliPath, '--input', inputPath, '--typescript', typescriptPath, '--cpp', cppPath], {
-      stdio: 'pipe',
-    });
+    writeFileSync(
+      includedInputPath,
+      `pub global INCLUDED_CONSTANT: u32 = ARCHIVE_HEIGHT + 1; // selected for export
+pub global EXCLUDED_CONSTANT: u32 = 100;
+`,
+    );
+    execFileSync(
+      process.execPath,
+      [
+        cliPath,
+        '--input',
+        inputPath,
+        '--include',
+        `${includedInputPath}:INCLUDED_CONSTANT`,
+        '--typescript',
+        typescriptPath,
+        '--cpp',
+        cppPath,
+      ],
+      { stdio: 'pipe' },
+    );
 
     assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = 30;/);
+    assert.match(readFileSync(typescriptPath, 'utf8'), /export const INCLUDED_CONSTANT = 31;/);
+    assert.doesNotMatch(readFileSync(typescriptPath, 'utf8'), /EXCLUDED_CONSTANT/);
     assert.match(readFileSync(cppPath, 'utf8'), /#define ARCHIVE_HEIGHT 30/);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });

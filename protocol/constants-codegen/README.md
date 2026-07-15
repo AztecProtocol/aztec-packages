@@ -4,12 +4,13 @@ This directory will contain the standalone cross-language generator for Aztec pr
 
 ## Version 1 interface
 
-The command reads one Noir source file and writes any requested combination of the four outputs produced by the
-existing generator.
+The command reads a primary Noir source file, optionally adds named constants from other Noir files, and writes any
+requested combination of the four outputs produced by the existing generator.
 
 ```text
 constants-codegen \
   --input <constants.nr> \
+  [--include <file.nr>:<symbol>]... \
   [--typescript <output.ts>] \
   [--cpp <output.hpp>] \
   [--pil <output.pil>] \
@@ -17,6 +18,7 @@ constants-codegen \
 ```
 
 - `--input` is required.
+- `--include` adds one named constant from another Noir file before evaluating expressions. It may be repeated.
 - At least one output option is required, and any combination of output options may be used in one invocation.
 - Relative paths are resolved from the caller's working directory. The tool does not infer paths from the monorepo
   layout.
