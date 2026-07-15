@@ -261,3 +261,53 @@ unconstrained fn mismatch_revertible_l2_to_l1_msgs_length() {
 
     builder.execute_and_fail();
 }
+
+#[test(should_fail_with = "AVM note_hashes not zero-padded past length")]
+unconstrained fn avm_note_hash_tail_must_be_zero() {
+    let mut builder = TestBuilder::new();
+
+    builder.avm.accumulated_data_array_lengths.note_hashes = 0;
+    builder.avm.accumulated_data.note_hashes[0] = 123;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "AVM nullifiers not zero-padded past length")]
+unconstrained fn avm_nullifier_tail_must_be_zero() {
+    let mut builder = TestBuilder::new();
+
+    builder.avm.accumulated_data_array_lengths.nullifiers = 0;
+    builder.avm.accumulated_data.nullifiers[0] = 123;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "AVM l2_to_l1_msgs not zero-padded past length")]
+unconstrained fn avm_l2_to_l1_msg_tail_must_be_zero() {
+    let mut builder = TestBuilder::new();
+
+    builder.avm.accumulated_data_array_lengths.l2_to_l1_msgs = 0;
+    builder.avm.accumulated_data.l2_to_l1_msgs[0].inner.content = 123;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "AVM public_data_writes not zero-padded past length")]
+unconstrained fn avm_public_data_write_tail_must_be_zero() {
+    let mut builder = TestBuilder::new();
+
+    builder.avm.accumulated_data_array_lengths.public_data_writes = 0;
+    builder.avm.accumulated_data.public_data_writes[0].leaf_slot = 123;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "AVM public_logs payload not zero-padded past length")]
+unconstrained fn avm_public_log_payload_tail_must_be_zero() {
+    let mut builder = TestBuilder::new();
+
+    builder.avm.accumulated_data.public_logs.length = 0;
+    builder.avm.accumulated_data.public_logs.payload[0] = 123;
+
+    builder.execute_and_fail();
+}
