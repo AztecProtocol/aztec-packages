@@ -6,8 +6,64 @@ import {RewardLibBase} from "./RewardLibBase.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
+
+contract BurnOnTransferERC20 is TestERC20 {
+  uint256 public constant BURN_BPS = 1000;
+
+  constructor() TestERC20("burn", "BURN", msg.sender) {}
+
+  function _update(address _from, address _to, uint256 _value) internal override {
+    if (_from != address(0) && _to != address(0) && _value > 0) {
+      uint256 burnAmount = _value * BURN_BPS / 10_000;
+      super._update(_from, address(0), burnAmount);
+      super._update(_from, _to, _value - burnAmount);
+    } else {
+      super._update(_from, _to, _value);
+    }
+  }
+}
 
 contract HandleRewardsTest is RewardLibBase {
+  function test_GivenRewardDistributorDeliversLessThanRequested() external {
+    // it reverts before recording checkpoint reward liabilities
+    feeAsset = IERC20(address(new BurnOnTransferERC20()));
+    uint96 requestedReward = 400e18;
+    uint256 burnBps = BurnOnTransferERC20(address(feeAsset)).BURN_BPS();
+
+    _prepare(requestedReward, 7000);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.RewardLib__InvalidFeeAssetTransfer.selector,
+        uint256(requestedReward),
+        uint256(requestedReward) * (10_000 - burnBps) / 10_000
+      )
+    );
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0));
+  }
+
+  function test_GivenFeePortalDeliversLessThanRequested() external {
+    // it reverts before recording fee-backed reward liabilities
+    feeAsset = IERC20(address(new BurnOnTransferERC20()));
+    uint256 burnBps = BurnOnTransferERC20(address(feeAsset)).BURN_BPS();
+
+    _prepare(0, 7000);
+
+    uint256 requestedFees = 100e18;
+    deal(address(feeAsset), address(wrapper.feePortal()), requestedFees);
+    _setHeaders(1, sequencer, requestedFees);
+    _addFeeHeaders(1);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.RewardLib__InvalidFeeAssetTransfer.selector, requestedFees, requestedFees * (10_000 - burnBps) / 10_000
+      )
+    );
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0));
+  }
+
   function test_GivenProverHasAlreadySubmitted() external prepare(400e18, 7000) {
     // it reverts with {Rollup__ProverHaveAlreadySubmitted}
     wrapper.handleRewardsAndFees(args, Epoch.wrap(0));

@@ -218,6 +218,7 @@ library Errors {
   error RewardBooster__InvalidConfig();
 
   error RewardLib__InvalidSequencerBps();
+  error RewardLib__InvalidFeeAssetTransfer(uint256 expected, uint256 received);
   error RewardLib__ZeroShares(address prover);
 
   // SlashingProposer

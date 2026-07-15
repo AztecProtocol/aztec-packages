@@ -195,8 +195,14 @@ library RewardLib {
           uint256 amountToClaim = Math.min(checkpointRewardsDesired, distributor.availableTo(address(this)));
 
           if (amountToClaim > 0) {
+            uint256 balanceBefore = rollupStore.config.feeAsset.balanceOf(address(this));
             distributor.claim(address(this), amountToClaim);
-            checkpointRewardsAvailable = amountToClaim;
+            uint256 balanceAfter = rollupStore.config.feeAsset.balanceOf(address(this));
+            checkpointRewardsAvailable = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0;
+            require(
+              checkpointRewardsAvailable == amountToClaim,
+              Errors.RewardLib__InvalidFeeAssetTransfer(amountToClaim, checkpointRewardsAvailable)
+            );
           }
         }
 
@@ -241,7 +247,11 @@ library RewardLib {
       $er.longestProvenLength = length.toUint128();
 
       if (t.feesToClaim > 0) {
+        uint256 balanceBefore = rollupStore.config.feeAsset.balanceOf(address(this));
         rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
+        uint256 balanceAfter = rollupStore.config.feeAsset.balanceOf(address(this));
+        uint256 received = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0;
+        require(received == t.feesToClaim, Errors.RewardLib__InvalidFeeAssetTransfer(t.feesToClaim, received));
       }
 
       if (t.totalBurn > 0) {

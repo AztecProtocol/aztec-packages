@@ -22,9 +22,16 @@ contract RewardLibBase is TestBase {
   SubmitEpochRootProofArgs internal args;
 
   modifier prepare(uint96 _checkpointReward, uint32 _sequencerBps) {
+    _prepare(_checkpointReward, _sequencerBps);
+    _;
+  }
+
+  function _prepare(uint96 _checkpointReward, uint32 _sequencerBps) internal {
     checkpointReward = uint96(_bound(_checkpointReward, 0, 10_000e18));
     sequencerBps = uint32(_bound(_sequencerBps, 0, 10_000));
-    feeAsset = IERC20(address(new TestERC20("test", "TEST", address(this))));
+    if (address(feeAsset) == address(0)) {
+      feeAsset = IERC20(address(new TestERC20("test", "TEST", address(this))));
+    }
     wrapper = new RewardLibWrapper(feeAsset, checkpointReward, sequencerBps);
     feePortal = wrapper.feePortal();
 
@@ -34,8 +41,6 @@ contract RewardLibBase is TestBase {
     _setHeaders(1, sequencer);
 
     args.args.proverId = prover;
-
-    _;
   }
 
   function _setHeaders(uint256 _count, address _sequencer) internal {
