@@ -1,16 +1,44 @@
 /* eslint-disable camelcase */
 import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
-import { withoutHexPrefix } from '@aztec/foundation/string';
-import { BOUNDED_VEC, BYTE, BoundedVec, Option, type OracleRegistryEntry, makeEntry } from '@aztec/pxe/simulator';
+import {
+  ARRAY,
+  BOUNDED_VEC,
+  BYTE,
+  BoundedVec,
+  FIELD,
+  Option,
+  type OracleRegistryEntry,
+  U32,
+  deserializeElement,
+  makeEntry,
+  serializeElement,
+} from '@aztec/pxe/simulator';
 
 import type { ForeignCallArgs, ForeignCallResult } from '../../utils/encoding.js';
-import { toInputSlots } from '../txe_oracle_registry.js';
-import { synthesizeDefaultFixtures } from './default_fixtures.js';
+import { outputSlotsToForeignCallResult, toInputSlots } from '../txe_oracle_registry.js';
+import { canonicalTestValue, ephemeralElementMappings, synthesizeDefaultFixtures } from './default_fixtures.js';
 
 /** Name of the meta-oracle that Noir tests call to announce the next call's scenario by name. */
 const SET_SCENARIO_ORACLE = 'aztec_oracle_test_set_scenario';
 export const SET_SCENARIO_ENTRY = makeEntry({ params: [{ name: 'name', type: BOUNDED_VEC(BYTE) }] });
+
+/**
+ * Name of the meta-oracle that roundtrips one ephemeral-array element row. An `EphemeralArray` puts only its slot on
+ * the wire, so the elements' serialization is tested separately: after calling the oracle under test, its generated
+ * test sends each ephemeral position's canonical element through this oracle, the resolver decodes it with the element
+ * mapping the last-resolved oracle's entry declares (addressed by DFS ordinal, see `ephemeralElementMappings`),
+ * verifies it, and serializes its own canonical element back.
+ */
+const ROUNDTRIP_ELEMENT_ORACLE = 'aztec_oracle_test_roundtripElement';
+export const ROUNDTRIP_ELEMENT_ENTRY = makeEntry({
+  params: [
+    { name: 'elementIndex', type: U32 },
+    { name: 'seed', type: U32 },
+    { name: 'row', type: ARRAY(FIELD) },
+  ],
+  returnType: ARRAY(FIELD),
+});
 
 export type OracleTestCallInput = {
   session_id: number;
@@ -37,10 +65,14 @@ export interface OracleTestScenario {
  *
  * For oracles with a single scenario, it is selected automatically. For oracles with multiple scenarios, the Noir test
  * announces the scenario by name via the `aztec_oracle_test_set_scenario` meta-oracle before calling the real oracle.
+ *
+ * Ephemeral-array positions are verified as the slot scalars they put on the wire; their element serialization is
+ * verified through the element-roundtrip meta-oracle (see {@link ROUNDTRIP_ELEMENT_ORACLE}).
  */
 export class OracleTestResolver {
   private readonly calledOracles = new Set<string>();
   private readonly pendingScenario = new Map<number, string>();
+  private readonly lastResolvedOracle = new Map<number, string>();
   private readonly logger: Logger;
 
   constructor(
@@ -68,6 +100,10 @@ export class OracleTestResolver {
       return this.#handleSetScenario(callData);
     }
 
+    if (oracleName === ROUNDTRIP_ELEMENT_ORACLE) {
+      return this.#handleRoundtripElement(callData);
+    }
+
     if (!(oracleName in this.registry)) {
       throw new Error(`Oracle '${oracleName}' not found in registry`);
     }
@@ -81,13 +117,11 @@ export class OracleTestResolver {
     const match = this.#selectScenario(callData.session_id, oracleName, scenarios);
     this.#verifyInputs(callData.inputs, entry, match, oracleName);
     this.calledOracles.add(oracleName);
+    this.lastResolvedOracle.set(callData.session_id, oracleName);
 
     this.logger.debug('Verified scenario for oracle', { oracleName });
 
-    const outputSlots = entry.serializeReturn(match.output);
-    return {
-      values: outputSlots.map(slot => (Array.isArray(slot) ? slot.map(withoutHexPrefix) : withoutHexPrefix(slot))),
-    };
+    return outputSlotsToForeignCallResult(entry.serializeReturn(match.output));
   }
 
   /** Returns oracles that have a fixture defined but were never called during testing. */
@@ -98,6 +132,41 @@ export class OracleTestResolver {
   /** Returns oracles in the registry that have no fixture defined at all. */
   getMissingFixtures(): string[] {
     return Object.keys(this.registry).filter(name => !(name in this.fixtures));
+  }
+
+  /**
+   * Roundtrips one ephemeral-array element row for the session's last-resolved oracle: decodes it with the element
+   * mapping the entry declares at the addressed position, verifies it against the canonical element, and serializes
+   * the canonical element back.
+   */
+  #handleRoundtripElement(callData: OracleTestCallInput): ForeignCallResult {
+    const oracleName = this.lastResolvedOracle.get(callData.session_id);
+    if (oracleName === undefined) {
+      throw new Error('Element roundtrip received before any oracle call in the session');
+    }
+    const [{ value: elementIndex }, { value: seed }, { value: row }] = ROUNDTRIP_ELEMENT_ENTRY.deserializeParams(
+      toInputSlots(callData.inputs),
+    );
+
+    const elements = ephemeralElementMappings(this.registry[oracleName]);
+    if (elementIndex >= elements.length) {
+      throw new Error(
+        `Element index ${elementIndex} out of range for oracle '${oracleName}' ` +
+          `(${elements.length} ephemeral element position(s))`,
+      );
+    }
+    const element = elements[elementIndex];
+
+    const actual = deserializeElement(element, row);
+    const expected = canonicalTestValue(element, seed);
+    if (!valuesEqual(actual, expected)) {
+      throw new Error(
+        `Element mismatch for oracle '${oracleName}' at ephemeral element position ${elementIndex}: ` +
+          `expected ${String(expected)} but got ${String(actual)}. ${versionBumpHint(oracleName)}`,
+      );
+    }
+
+    return outputSlotsToForeignCallResult(ROUNDTRIP_ELEMENT_ENTRY.serializeReturn(serializeElement(element, expected)));
   }
 
   /**

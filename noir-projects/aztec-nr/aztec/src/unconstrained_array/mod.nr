@@ -209,3 +209,11 @@ where
         result
     }
 }
+
+/// Handle equality: two handles are equal iff they reference the same slot. Contents are not compared (a handle
+/// only stores its slot); read the arrays to compare contents.
+impl<T, Oracle> Eq for UnconstrainedArray<T, Oracle> {
+    fn eq(self, other: Self) -> bool {
+        self.slot == other.slot
+    }
+}

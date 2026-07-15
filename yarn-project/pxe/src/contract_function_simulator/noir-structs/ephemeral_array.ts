@@ -49,6 +49,16 @@ export class EphemeralArray<T> {
     return this.state.cachedSlot;
   }
 
+  /**
+   * Handle equality: two handles are equal iff they reference the same slot (contents are not compared).
+   */
+  equals(other: EphemeralArray<T>): boolean {
+    if (this.state.kind !== 'input' || other.state.kind !== 'input') {
+      throw new Error('EphemeralArray.equals compares slots, which only wire-deserialized (input-state) handles carry');
+    }
+    return this.state.slot.equals(other.state.slot);
+  }
+
   /** Read all elements: returns stored values for output-mode arrays, deserializes from the service for input-mode. */
   readAll(service: EphemeralArrayService): T[] {
     if (this.state.kind === 'output') {

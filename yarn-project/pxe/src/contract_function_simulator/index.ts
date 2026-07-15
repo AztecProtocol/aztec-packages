@@ -29,13 +29,17 @@ export {
   NOTE_SELECTOR,
   NOTE_VALIDATION_REQUEST,
   OPTION,
+  ORIGIN_BLOCK_STATE,
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
   SLOT_NUMBER,
   STR,
   STRUCT,
+  TX_HASH,
   U32,
+  deserializeElement,
+  serializeElement,
   tryFieldWidth,
   type InputSlot,
   type MaybePromise,
@@ -74,5 +78,5 @@ export { NoteValidationRequest } from './noir-structs/note_validation_request.js
 export type { PendingTaggedLog } from './noir-structs/pending_tagged_log.js';
 export type { TxEffectData } from './noir-structs/tx_effect_data.js';
 export type { ProvidedSecret } from './noir-structs/provided_secret.js';
-export { ResolvedTx } from './noir-structs/resolved_tx.js';
+export type { ResolvedTx } from './noir-structs/resolved_tx.js';
 export { TransientArrayService } from './transient_array_service.js';

@@ -48,13 +48,26 @@
 //!
 //! produces two tests: `some+some` and `none+none`. Each scenario becomes its own `#[test]`, suffixed by index
 //! (`__0`, `__1`, …).
+//!
+//! ## Ephemeral arrays
+//!
+//! An `EphemeralArray<T>` puts only its slot on the wire, so its canonical test value is a handle at the canonical
+//! slot and the oracle roundtrip covers just that scalar (handles compare by slot). The elements' serialization is
+//! tested separately: after calling the oracle, the generated test roundtrips each reachable element type's
+//! canonical value through the [`roundtrip_element`] meta-oracle, which the resolver serves with the element mapping
+//! the
+//! oracle's registry entry declares at the same position (addressed by DFS ordinal, see
+//! [`ephemeral_element_types`]).
 
+use crate::ephemeral::EphemeralArray;
+use crate::facts::OriginBlockState;
 use crate::messages::delivery::OnchainDeliveryMode;
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::{AztecAddress, EthAddress},
     traits::FromField,
 };
+use crate::unconstrained_array::UnconstrainedArray;
 
 /// Max capacity of [`Scenario`] names.
 global MAX_SCENARIO_NAME_LEN: u32 = 64;
@@ -113,6 +126,7 @@ comptime fn scalars() -> [(Type, Quoted)] {
         scalar(|seed: u32| EthAddress::from_field(seed as Field)),
         scalar(|seed: u32| FunctionSelector::from_field(seed as Field)),
         onchain_delivery_mode_scalar(),
+        origin_block_state_scalar(),
     ]
 }
 
@@ -124,9 +138,23 @@ comptime fn synthesizers() -> [TestValueSynthesizer] {
         array_synth(),
         bounded_vec_synth(),
         tuple_synth(),
+        ephemeral_array_synth(),
         // Matches ANY named data type: must stay last (find-first).
         struct_synth(),
     ]
+}
+
+/// The seed rotates through the only three valid states.
+comptime fn origin_block_state_scalar() -> (Type, Quoted) {
+    scalar(
+        |seed: u32| if (seed % 3) == 0 {
+            OriginBlockState::pending()
+        } else if (seed % 3) == 1 {
+            OriginBlockState::proven()
+        } else {
+            OriginBlockState::finalized()
+        },
+    )
 }
 
 /// The seed alternates between the only two valid modes.
@@ -293,6 +321,62 @@ pub(crate) fn oracle_test_bounded_vec<T, let MaxLen: u32>(
     bounded_vec
 }
 
+comptime fn ephemeral_array_synth() -> TestValueSynthesizer {
+    TestValueSynthesizer {
+        matches: |t: Type| is_ephemeral_array(t),
+        scenarios: |t: Type, seed: Quoted| @[unnamed(ephemeral_array_value_expr(t, seed))],
+        // On the wire an ephemeral array is only its slot; the contents live behind the array-storage oracles.
+        width: |_t: Type| 1,
+        pinned: |t: Type| {
+            let pinned_element = pinned_type(ephemeral_element_type(t));
+            quote { crate::ephemeral::EphemeralArray<$pinned_element> }
+        },
+    }
+}
+
+/// Whether `typ` is `EphemeralArray<T>` (i.e. `UnconstrainedArray<T, EphemeralOracles>`).
+comptime fn is_ephemeral_array(typ: Type) -> bool {
+    if is_data_type_named(typ, quote { UnconstrainedArray }) {
+        let generics = typ.as_data_type().unwrap().1;
+        is_data_type_named(generics[1], quote { EphemeralOracles })
+    } else {
+        false
+    }
+}
+
+comptime fn ephemeral_element_type(typ: Type) -> Type {
+    typ.as_data_type().unwrap().1[0]
+}
+
+/// A call to [`oracle_test_ephemeral_array_handle`] with the seed as the slot.
+comptime fn ephemeral_array_value_expr(typ: Type, seed: Quoted) -> Quoted {
+    let pinned_element = pinned_type(ephemeral_element_type(typ));
+    quote {
+        crate::macros::oracle_testing::oracle_test_ephemeral_array_handle::<$pinned_element>(($seed) as Field)
+    }
+}
+
+/// The handle at the canonical slot: an ephemeral array's wire form is only its slot, so the test value carries no
+/// contents and handles compare by slot. Element serialization is exercised separately (see [`roundtrip_element`]).
+pub(crate) fn oracle_test_ephemeral_array_handle<T>(slot: Field) -> EphemeralArray<T> {
+    UnconstrainedArray { slot }
+}
+
+/// Roundtrips one ephemeral-array element row through the test resolver: `row` is verified against the resolver's
+/// canonical element at `seed` for the element mapping at `element_index` (DFS order, see
+/// [`ephemeral_element_types`]) of the session's last-called oracle, and the resolver's own canonical serialization
+/// comes back. Only the test resolver implements the oracle (PXE and TXE do not).
+pub(crate) unconstrained fn roundtrip_element<let N: u32>(
+    element_index: u32,
+    seed: u32,
+    row: [Field; N],
+) -> [Field; N] {
+    roundtrip_element_oracle(element_index, seed, row)
+}
+
+#[oracle(aztec_oracle_test_roundtripElement)]
+unconstrained fn roundtrip_element_oracle<let N: u32>(_element_index: u32, _seed: u32, _row: [Field; N]) -> [Field; N] {}
+
 comptime fn tuple_synth() -> TestValueSynthesizer {
     TestValueSynthesizer {
         matches: |t: Type| t.as_tuple().is_some(),
@@ -438,7 +522,7 @@ comptime fn flat_width(typ: Type) -> u32 {
 /// ```
 pub(crate) comptime fn generate_oracle_tests(m: Module) -> Quoted {
     let none: [Quoted] = @[];
-    generate_oracle_tests_excluding(m, none)
+    generate_tests(m, none)
 }
 
 /// Like [`generate_oracle_tests`], but leaves out the oracles named in `skip` (by Noir function name).
@@ -456,6 +540,11 @@ pub(crate) comptime fn generate_oracle_tests(m: Module) -> Quoted {
 /// pub mod avm;
 /// ```
 pub(crate) comptime fn generate_oracle_tests_excluding(m: Module, skip: [Quoted]) -> Quoted {
+    generate_tests(m, skip)
+}
+
+/// The generator behind the module attributes: emits one test per (oracle, scenario).
+comptime fn generate_tests(m: Module, skip: [Quoted]) -> Quoted {
     let oracles = m.functions().filter(|f: FunctionDefinition| f.has_named_attribute("oracle"));
 
     // Guard against stale skip-list entries: every name must match an oracle in this module.
@@ -472,16 +561,28 @@ pub(crate) comptime fn generate_oracle_tests_excluding(m: Module, skip: [Quoted]
     tests.join(quote {})
 }
 
-/// Generates the roundtrip test(s) for a single oracle: one `#[test]` per scenario (see the module docs).
+/// Generates the roundtrip test(s) for a single oracle: one `#[test]` per scenario (see the module docs). Each test
+/// ends with one roundtrip per ephemeral element position of the signature (see [`element_roundtrip_assertions`]);
+/// the roundtrips follow the oracle call because the resolver serves them for the session's last-called oracle.
 comptime fn oracle_test_for(f: FunctionDefinition) -> Quoted {
     let oracle = f.name();
+    let element_roundtrips = element_roundtrip_assertions(f.parameters(), f.return_type(), oracle);
     let scenarios = prepare_scenarios(f);
     let multi = scenarios.len() > 1;
 
     let mut tests: [Quoted] = @[];
     for i in 0..scenarios.len() {
         let (setup, assertion) = scenarios[i];
-        tests = tests.push_back(build_test(oracle, setup, assertion, multi, i));
+        tests = tests
+            .push_back(
+                build_test(
+                    oracle,
+                    setup,
+                    quote { $assertion $element_roundtrips },
+                    multi,
+                    i,
+                ),
+            );
     }
     tests.join(quote {})
 }
@@ -518,6 +619,82 @@ comptime fn prepare_scenarios(f: FunctionDefinition) -> [(Quoted, Quoted)] {
         setup = setup.push_back(return_setup);
 
         result = result.push_back((setup.join(quote {}), assertion));
+    }
+    result
+}
+
+/// One roundtrip per ephemeral element position of the signature, appended to every generated test after the
+/// oracle call: the canonical element is serialized, sent through [`roundtrip_element`], and the resolver's
+/// canonical response must deserialize back to it. This is where an ephemeral position's *element* serialization is
+/// verified; the oracle roundtrip itself only covers the slot the array puts on the wire.
+comptime fn element_roundtrip_assertions(params: [(Quoted, Type)], return_type: Type, oracle: Quoted) -> Quoted {
+    let elements = ephemeral_element_types(params, return_type);
+    let mut statements = quote {};
+    for k in 0..elements.len() {
+        let element = elements[k];
+        let pinned = pinned_type(element);
+        let index = f"{k}".quoted_contents();
+        let seed_value = SEED_BASE + k;
+        let seed = f"{seed_value}".quoted_contents();
+        let value = value_expr(element, seed, 0);
+        let why = f"element serialization mismatch for {oracle} (ephemeral element {k}). Consider bumping the oracle version after fixing the mismatch";
+        statements = quote {
+            $statements
+            {
+                let expected: $pinned = $value;
+                let returned = crate::macros::oracle_testing::roundtrip_element(
+                    $index,
+                    $seed,
+                    crate::protocol::traits::Serialize::serialize(expected),
+                );
+                let actual: $pinned = crate::protocol::traits::Deserialize::deserialize(returned);
+                assert_eq(actual, expected, $why);
+            }
+        };
+    }
+    statements
+}
+
+/// Every ephemeral-array element type reachable from the oracle's signature, in deterministic DFS order: params
+/// first then the return, members in declaration order, recursing into each ephemeral element after collecting it.
+/// Must mirror `ephemeralElementMappings` in the TS fixture synthesizer (`default_fixtures.ts`), which walks the
+/// registry entry in the same order, so an index addresses the same element mapping on both sides.
+comptime fn ephemeral_element_types(params: [(Quoted, Type)], return_type: Type) -> [Type] {
+    let mut collected: [Type] = @[];
+    for i in 0..params.len() {
+        let (_name, param_type) = params[i];
+        collected = append_ephemeral_elements(collected, param_type);
+    }
+    if !return_type.is_unit() {
+        collected = append_ephemeral_elements(collected, return_type);
+    }
+    collected
+}
+
+comptime fn append_ephemeral_elements(collected: [Type], typ: Type) -> [Type] {
+    let mut result = collected;
+    if is_ephemeral_array(typ) {
+        let element = ephemeral_element_type(typ);
+        result = result.push_back(element);
+        result = append_ephemeral_elements(result, element);
+    } else if maybe_scalar_builder(typ).is_some() {
+        // Scalars are leaves, including the data types among them (their TS mappings are scalar too, so recursing
+        // into their fields would desynchronize the two sides' orders).
+    } else if typ.as_array().is_some() {
+        let (element_type, _length_type) = typ.as_array().unwrap();
+        result = append_ephemeral_elements(result, element_type);
+    } else if typ.as_tuple().is_some() {
+        for member_type in typ.as_tuple().unwrap() {
+            result = append_ephemeral_elements(result, member_type);
+        }
+    } else if is_data_type_named(typ, quote { Option }) | is_data_type_named(typ, quote { BoundedVec }) {
+        result = append_ephemeral_elements(result, typ.as_data_type().unwrap().1[0]);
+    } else if typ.as_data_type().is_some() {
+        let (definition, generics) = typ.as_data_type().unwrap();
+        for field in definition.fields(generics) {
+            let (_name, field_type, _visibility) = field;
+            result = append_ephemeral_elements(result, field_type);
+        }
     }
     result
 }

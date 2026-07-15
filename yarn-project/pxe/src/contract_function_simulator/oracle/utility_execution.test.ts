@@ -68,7 +68,6 @@ import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
-import { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
@@ -658,13 +657,13 @@ describe('Utility Execution test suite', () => {
         expect(resultLogs).toEqual([
           {
             log: log.logData,
-            context: new ResolvedTx(
-              log.txHash,
-              log.noteHashes,
-              log.nullifiers[0],
-              log.blockNumber,
-              log.blockHash.toFr(),
-            ),
+            context: {
+              txHash: log.txHash,
+              uniqueNoteHashesInTx: log.noteHashes,
+              firstNullifierInTx: log.nullifiers[0],
+              blockNumber: log.blockNumber,
+              blockHash: log.blockHash.toFr(),
+            },
           },
         ]);
       });

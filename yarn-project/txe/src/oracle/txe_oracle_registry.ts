@@ -532,7 +532,7 @@ export async function callTxeLegacyHandler(
  * Strips the `0x` prefix from each serialized output slot (TXE foreign calls use bare hex strings) and wraps them in a
  * `ForeignCallResult`.
  */
-function outputSlotsToForeignCallResult(outputSlots: OutputSlot[]): ForeignCallResult {
+export function outputSlotsToForeignCallResult(outputSlots: OutputSlot[]): ForeignCallResult {
   return {
     values: outputSlots.map(slot => (Array.isArray(slot) ? slot.map(withoutHexPrefix) : withoutHexPrefix(slot))),
   };

@@ -22,7 +22,6 @@ import {
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import type { PendingTaggedLog } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
-import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
@@ -221,7 +220,13 @@ export class LogService {
       }
       return {
         log: log.logData,
-        context: new ResolvedTx(log.txHash, noteHashes, nullifiers[0], log.blockNumber, log.blockHash.toFr()),
+        context: {
+          txHash: log.txHash,
+          uniqueNoteHashesInTx: noteHashes,
+          firstNullifierInTx: nullifiers[0],
+          blockNumber: log.blockNumber,
+          blockHash: log.blockHash.toFr(),
+        },
       };
     });
   }

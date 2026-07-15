@@ -19,3 +19,14 @@ export function appTaggingSecretKindFromDeliveryMode(deliveryMode: number): AppT
       throw new Error(`Unrecognized delivery mode for tagging: ${deliveryMode}`);
   }
 }
+
+export function deliveryModeFromAppTaggingSecretKind(kind: AppTaggingSecretKind): number {
+  switch (kind) {
+    case AppTaggingSecretKind.UNCONSTRAINED:
+      return ONCHAIN_UNCONSTRAINED_DELIVERY_MODE;
+    case AppTaggingSecretKind.CONSTRAINED:
+      return ONCHAIN_CONSTRAINED_DELIVERY_MODE;
+    default:
+      throw new Error(`Unrecognized tagging secret kind: ${kind}`);
+  }
+}

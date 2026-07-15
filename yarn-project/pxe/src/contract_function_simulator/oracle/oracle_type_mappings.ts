@@ -34,6 +34,7 @@ import {
   PrivateLog,
   Tag,
   appTaggingSecretKindFromDeliveryMode,
+  deliveryModeFromAppTaggingSecretKind,
 } from '@aztec/stdlib/logs';
 import {
   type AppendOnlyTreeSnapshot,
@@ -52,7 +53,12 @@ import {
   TxHash,
 } from '@aztec/stdlib/tx';
 
-import type { OriginBlock, RetractableFactOrigin } from '../../storage/fact_store/index.js';
+import {
+  type OriginBlock,
+  type OriginBlockState,
+  type RetractableFactOrigin,
+  originBlockStateFromNumber,
+} from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
@@ -203,6 +209,7 @@ export const BYTE: TypeMapping<number> = {
 
 // Noir passes `MessageDelivery` onchain variants here.
 export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
+  serialization: { fn: kind => [new Fr(deliveryModeFromAppTaggingSecretKind(kind))] },
   deserialization: {
     fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
   },
@@ -521,70 +528,56 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
   { name: 'blockHash', type: BLOCK_HASH },
 ]);
 
-// `ResolvedTx.toFields()` packs the whole struct into a single slot: txHash, the uniqueNoteHashesInTx BoundedVec
-// (MAX_NOTE_HASHES_PER_TX storage fields + length), firstNullifierInTx, blockNumber and blockHash.
-export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
-  serialization: { fn: resolved => [resolved.toFields()] },
-  shape: [{ len: MAX_NOTE_HASHES_PER_TX + 5 }],
-};
+export const RESOLVED_TX: TypeMapping<ResolvedTx> = STRUCT([
+  { name: 'txHash', type: TX_HASH },
+  { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
+  { name: 'firstNullifierInTx', type: FIELD },
+  { name: 'blockNumber', type: U32 },
+  { name: 'blockHash', type: FIELD },
+]);
 
 export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT([
   { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
   { name: 'context', type: RESOLVED_TX },
 ]);
 
-export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
-  serialization: { fn: ob => [new Fr(ob.blockNumber), ob.blockHash] },
-  deserialization: {
-    fn: ([blockNumberReader, blockHashReader]) => ({
-      blockNumber: blockNumberReader.readField().toNumber(),
-      blockHash: blockHashReader.readField(),
-    }),
-  },
-  shape: ['scalar', 'scalar'],
+export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = STRUCT([
+  { name: 'blockNumber', type: U32 },
+  { name: 'blockHash', type: FIELD },
+]);
+
+/** Chain state of a retractable fact's origin block. */
+export const ORIGIN_BLOCK_STATE: TypeMapping<OriginBlockState> = {
+  serialization: { fn: v => [new Fr(v)] },
+  deserialization: { fn: ([reader]) => originBlockStateFromNumber(reader.readField().toNumber()) },
+  shape: ['scalar'],
 };
 
 /** Read-side origin of a retractable fact, carrying the chain state of its origin block. */
-export const RETRACTABLE_FACT_ORIGIN: TypeMapping<RetractableFactOrigin> = {
-  serialization: { fn: o => [new Fr(o.blockNumber), o.blockHash, new Fr(o.blockState)] },
-  shape: ['scalar', 'scalar', 'scalar'],
-};
+export const RETRACTABLE_FACT_ORIGIN: TypeMapping<RetractableFactOrigin> = STRUCT([
+  { name: 'blockNumber', type: U32 },
+  { name: 'blockHash', type: FIELD },
+  { name: 'blockState', type: ORIGIN_BLOCK_STATE },
+]);
 
-// `facts` and `payload` each materialize to a single service-slot id, so a Fact occupies: factTypeId, the payload
-// array slot, and `OPTION(RETRACTABLE_FACT_ORIGIN)` (its discriminant plus RETRACTABLE_FACT_ORIGIN's three slots).
-export const FACT: TypeMapping<Fact> = {
-  serialization: {
-    fn: f => [
-      f.factTypeId,
-      f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
-      ...OPTION(RETRACTABLE_FACT_ORIGIN).serialization!.fn(f.originBlock),
-    ],
-  },
-  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
-};
+export const FACT: TypeMapping<Fact> = STRUCT([
+  { name: 'factTypeId', type: FIELD },
+  { name: 'payload', type: EPHEMERAL_ARRAY(FIELD) },
+  { name: 'originBlock', type: OPTION(RETRACTABLE_FACT_ORIGIN) },
+]);
 
-export const FACT_COLLECTION: TypeMapping<FactCollection> = {
-  serialization: {
-    fn: c => [
-      c.contractAddress.toField(),
-      c.scope.toField(),
-      c.factCollectionTypeId,
-      c.factCollectionId,
-      c.facts.materializeSlot(v => FACT.serialization!.fn(v).flat() as Fr[]),
-    ],
-  },
-  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
-};
+export const FACT_COLLECTION: TypeMapping<FactCollection> = STRUCT([
+  { name: 'contractAddress', type: AZTEC_ADDRESS },
+  { name: 'scope', type: AZTEC_ADDRESS },
+  { name: 'factCollectionTypeId', type: FIELD },
+  { name: 'factCollectionId', type: FIELD },
+  { name: 'facts', type: EPHEMERAL_ARRAY(FACT) },
+]);
 
-export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
-  deserialization: {
-    fn: ([reader]) => ({
-      secret: reader.readField(),
-      mode: appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn([reader])),
-    }),
-  },
-  shape: [{ len: 2 }],
-};
+export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = STRUCT([
+  { name: 'secret', type: FIELD },
+  { name: 'mode', type: DELIVERY_MODE },
+]);
 
 // ─── Combinator Type Mappings ────────────────────────────────────────────────
 
@@ -695,8 +688,8 @@ export function BOUNDED_VEC<T>(
 
 /**
  * Noir's `BoundedVec<T, MaxLen>` in its padded form (one fixed-width slot): `maxLength * elementWidth` storage fields
- * (zero-padded) followed by the actual length, with no length prefix, so the width is statically known. Serialize-only.
- * Throws if the input exceeds `maxLength`.
+ * (zero-padded) followed by the actual length, with no length prefix, so the width is statically known. Throws if the
+ * input exceeds `maxLength`.
  */
 export function FIXED_BOUNDED_VEC<T>(
   element: TypeMapping<T>,
@@ -715,6 +708,17 @@ export function FIXED_BOUNDED_VEC<T>(
             }
             const flat = padArrayEnd(packElements(element, values), Fr.ZERO, maxLength * width);
             return [[...flat, new Fr(values.length)]];
+          },
+        }
+      : undefined,
+    deserialization: element.deserialization
+      ? {
+          fn: ([reader]) => {
+            // The padded storage comes first and the actual length last, so read the storage out fully before
+            // parsing the leading `length` elements from it.
+            const storage = new FieldReader(reader.readFieldArray(maxLength * width));
+            const length = reader.readField().toNumber();
+            return unpackElements(element, storage, length);
           },
         }
       : undefined,
@@ -790,7 +794,9 @@ export function BUFFER(bitSize: number, length: number): TypeMapping<Buffer> {
   };
 }
 
-export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<EphemeralArray<T>> {
+export function EPHEMERAL_ARRAY<T>(
+  element: TypeMapping<T>,
+): TypeMapping<EphemeralArray<T>> & { kind: 'ephemeral-array'; inner: TypeMapping<T> } {
   // EphemeralArray.readAll hands each row's flat fields in as a single reader; reconstruct the element's per-slot
   // readers from its shape, deserialize, and assert the row was fully consumed so a row with trailing fields is
   // rejected.
@@ -805,6 +811,8 @@ export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<Ephemer
       }
     : undefined;
   return {
+    kind: 'ephemeral-array',
+    inner: element,
     serialization: element.serialization
       ? { fn: ea => [ea.materializeSlot(v => serializeElement(element, v))] }
       : undefined,
@@ -913,7 +921,7 @@ function splitByShape(fields: Fr[], shape: SlotShape[]): FieldReader[] {
 }
 
 /** Serializes one element to its flat fields. Element must be serializable. */
-function serializeElement<T>(element: TypeMapping<T>, value: T): Fr[] {
+export function serializeElement<T>(element: TypeMapping<T>, value: T): Fr[] {
   return element.serialization!.fn(value).flat();
 }
 
@@ -921,7 +929,7 @@ function serializeElement<T>(element: TypeMapping<T>, value: T): Fr[] {
  * Deserializes one element from its exact flat fields, reconstructing its per-slot readers from its shape and asserting
  * they are fully consumed (so trailing fields are rejected). Element must be deserializable.
  */
-function deserializeElement<T>(element: TypeMapping<T>, fields: Fr[]): T {
+export function deserializeElement<T>(element: TypeMapping<T>, fields: Fr[]): T {
   const readers = splitByShape(fields, element.shape);
   const value = element.deserialization!.fn(readers);
   assertReadersConsumed(readers);
