@@ -3,7 +3,6 @@ use crate::protocol::meta::utils::get_params_len_quote;
 use crate::utils::cmap::CHashMap;
 use super::functions::initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 use super::utils::compute_fn_selector;
-use std::panic;
 
 /// Minimum number of public functions that must share a parameter-type signature before we extract a shared
 /// unpack helper. See [compute_unpack_prelude] for the rationale behind the chosen value.
