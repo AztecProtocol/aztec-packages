@@ -2,6 +2,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <gtest/gtest.h>
+#include <limits>
 
 namespace bb::field_conversion_tests {
 
@@ -24,6 +25,43 @@ TEST_F(FieldConversionTest, FieldConversionUint32)
 {
     auto x = static_cast<uint32_t>(1) << 31;
     check_conversion(x);
+}
+
+TEST_F(FieldConversionTest, FrCodecRejectsOversizedUint32Metadata)
+{
+    const std::vector<bb::fr> fields = { bb::fr((uint256_t(1) << 32) + 7) };
+    EXPECT_THROW_WITH_MESSAGE(FrCodec::deserialize_from_fields<uint32_t>(fields), "uint32_t");
+}
+
+TEST_F(FieldConversionTest, FrCodecRejectsOversizedUint64Metadata)
+{
+    const std::vector<bb::fr> fields = { bb::fr((uint256_t(1) << 64) + 7) };
+    EXPECT_THROW_WITH_MESSAGE(FrCodec::deserialize_from_fields<uint64_t>(fields), "uint64_t");
+}
+
+TEST_F(FieldConversionTest, U256CodecRejectsOversizedUint32Metadata)
+{
+    const std::vector<uint256_t> fields = { (uint256_t(1) << 32) + 7 };
+    EXPECT_THROW_WITH_MESSAGE(U256Codec::deserialize_from_fields<uint32_t>(fields), "uint32_t");
+}
+
+TEST_F(FieldConversionTest, U256CodecRejectsOversizedUint64Metadata)
+{
+    const std::vector<uint256_t> fields = { (uint256_t(1) << 64) + 7 };
+    EXPECT_THROW_WITH_MESSAGE(U256Codec::deserialize_from_fields<uint64_t>(fields), "uint64_t");
+}
+
+TEST_F(FieldConversionTest, IntegerMetadataMaxValuesAccepted)
+{
+    const auto max_u32 = std::numeric_limits<uint32_t>::max();
+    const auto max_u64 = std::numeric_limits<uint64_t>::max();
+
+    EXPECT_EQ(FrCodec::deserialize_from_fields<uint32_t>(std::vector<bb::fr>{ bb::fr(max_u32) }), max_u32);
+    EXPECT_EQ(FrCodec::deserialize_from_fields<uint64_t>(
+                  std::vector<bb::fr>{ bb::fr(uint256_t(std::numeric_limits<uint64_t>::max())) }),
+              max_u64);
+    EXPECT_EQ(U256Codec::deserialize_from_fields<uint32_t>(std::vector<uint256_t>{ uint256_t(max_u32) }), max_u32);
+    EXPECT_EQ(U256Codec::deserialize_from_fields<uint64_t>(std::vector<uint256_t>{ uint256_t(max_u64) }), max_u64);
 }
 
 /**

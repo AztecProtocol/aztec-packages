@@ -1,3 +1,4 @@
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -7,6 +8,7 @@
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 #include <gtest/gtest.h>
+#include <type_traits>
 
 using namespace bb;
 
@@ -105,4 +107,21 @@ TYPED_TEST(NativeVerificationKeyTests, FromFieldElementsRejectsWrongSize)
     oversize.push_back(fields.back());
     VerificationKey bad;
     EXPECT_ANY_THROW(bad.from_field_elements(oversize));
+}
+
+TYPED_TEST(NativeVerificationKeyTests, FromFieldElementsRejectsOversizedMetadata)
+{
+    using Flavor = typename TypeParam::Flavor;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using DataType = typename VerificationKey::DataType;
+
+    std::vector<DataType> fields(VerificationKey::calc_num_data_types());
+    if constexpr (std::is_same_v<DataType, bb::fr>) {
+        fields[0] = bb::fr((uint256_t(1) << 64) + 1);
+    } else {
+        fields[0] = (uint256_t(1) << 64) + 1;
+    }
+
+    VerificationKey bad;
+    EXPECT_THROW_WITH_MESSAGE(bad.from_field_elements(fields), "uint64_t");
 }

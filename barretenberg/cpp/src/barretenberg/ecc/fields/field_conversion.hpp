@@ -13,8 +13,23 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp" // NUM_LIMB_BITS_IN_FIELD_SIMULATION
+#include <limits>
 
 namespace bb {
+
+template <typename T, typename Value> T deserialize_bounded_integer(const Value& value)
+{
+    if constexpr (std::is_same_v<T, uint32_t>) {
+        BB_ASSERT_LTE(uint256_t(value),
+                      uint256_t(std::numeric_limits<uint32_t>::max()),
+                      "Non-canonical uint32_t encoding: value exceeds uint32_t range");
+    } else if constexpr (std::is_same_v<T, uint64_t>) {
+        BB_ASSERT_LTE(uint256_t(value),
+                      uint256_t(std::numeric_limits<uint64_t>::max()),
+                      "Non-canonical uint64_t encoding: value exceeds uint64_t range");
+    }
+    return static_cast<T>(value);
+}
 
 class FrCodec {
   public:
@@ -114,7 +129,9 @@ class FrCodec {
         BB_ASSERT_EQ(fr_vec.size(), calc_num_fields<T>());
         if constexpr (IsAnyOf<T, bool>) {
             return static_cast<bool>(fr_vec[0]);
-        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, bb::fr>) {
+        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t>) {
+            return deserialize_bounded_integer<T>(fr_vec[0]);
+        } else if constexpr (IsAnyOf<T, bb::fr>) {
             return static_cast<T>(fr_vec[0]);
         } else if constexpr (IsAnyOf<T, fq>) {
             return convert_grumpkin_fr_from_bn254_frs(fr_vec);
@@ -277,7 +294,9 @@ class U256Codec {
         } else if constexpr (IsAnyOf<T, fq>) {
             BB_ASSERT_LT(vec[0], uint256_t(fq::modulus), "Non-canonical base field element: value >= fq::modulus");
             return static_cast<T>(vec[0]);
-        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t>) {
+        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t>) {
+            return deserialize_bounded_integer<T>(vec[0]);
+        } else if constexpr (IsAnyOf<T, uint256_t>) {
             return static_cast<T>(vec[0]);
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
