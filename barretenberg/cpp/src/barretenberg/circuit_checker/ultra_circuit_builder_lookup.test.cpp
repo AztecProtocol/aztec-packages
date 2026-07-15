@@ -122,19 +122,27 @@ TEST_F(UltraCircuitBuilderLookup, DifferentTablesGetUniqueIndices)
     EXPECT_EQ(builder.get_num_lookup_tables(), 3UL);
 }
 
-TEST_F(UltraCircuitBuilderLookup, Secp256r1FixedBaseTablesGetUniquePositiveIndices)
+// Every basic table reachable through any MultiTable must receive a unique, positive circuit-local
+// table_index. The LogDeriv lookup relation identifies a table solely by table_index (not BasicTableId),
+// so a generator that stores anything other than the builder-assigned index — e.g. a window or bit-slice
+// position — silently collapses distinct tables to one identity. This sweeps the whole table space so
+// any such generator (not just secp256r1 fixed-base) is caught.
+TEST_F(UltraCircuitBuilderLookup, AllMultiTableBasicTablesGetUniquePositiveIndices)
 {
     Builder builder;
-    std::unordered_set<size_t> table_indices;
-
-    const auto first_id = static_cast<size_t>(plookup::BasicTableId::SECP256R1_FIXED_BASE_XLO_0);
-    const auto end_id = static_cast<size_t>(plookup::BasicTableId::SECP256R1_FIXED_BASE_END);
-    for (size_t id = first_id; id < end_id; ++id) {
-        const auto& table = builder.get_table(static_cast<plookup::BasicTableId>(id));
-        EXPECT_GT(table.table_index, 0UL);
-        EXPECT_TRUE(table_indices.insert(table.table_index).second);
+    for (size_t mt = 0; mt < static_cast<size_t>(plookup::MultiTableId::NUM_MULTI_TABLES); ++mt) {
+        const auto& multitable = plookup::get_multitable(static_cast<plookup::MultiTableId>(mt));
+        for (const auto id : multitable.basic_table_ids) {
+            builder.get_table(id);
+        }
     }
 
+    std::unordered_set<size_t> seen;
+    for (const auto& table : builder.get_lookup_tables()) {
+        EXPECT_GT(table.table_index, 0UL) << "non-positive index for basic table id " << static_cast<size_t>(table.id);
+        EXPECT_TRUE(seen.insert(table.table_index).second)
+            << "duplicate table_index " << table.table_index << " for basic table id " << static_cast<size_t>(table.id);
+    }
     EXPECT_NO_THROW(builder.finalize_circuit());
 }
 
