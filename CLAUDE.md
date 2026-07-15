@@ -21,7 +21,7 @@ The noir-projects build scripts default `$NARGO` to `noir/noir-repo/target/relea
 </build_system>
 
 <bumping_noir>
-To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), follow the **`noir-sync-update` skill** — it is the authoritative, complete checklist. Do not just bump the submodule by hand: a bump must also refresh `avm-transpiler/Cargo.lock` and `yarn-project/yarn.lock` and reformat `noir-projects`, or the tree is inconsistent and CI fails. The mechanical core (submodule pointer + both lockfiles) is `noir/scripts/bump_noir_compiler.sh <ref>`, where `<ref>` is a noir-lang/noir ref (release tag `v1.0.0-beta.23`, nightly `nightly-2026-06-02`, branch, or commit); the script stages but does not commit and does not run the `noir-projects` format step, so complete the skill's remaining steps before finishing.
+To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), run `noir/scripts/bump_noir_compiler.sh <ref>` — the single source of truth, also surfaced via the `noir-sync-update` skill. It bumps the `noir/noir-repo` submodule to `<ref>` (a noir-lang/noir ref: release tag `v1.0.0-beta.23`, nightly `nightly-2026-06-02`, branch, or commit), refreshes `avm-transpiler/Cargo.lock` and `yarn-project/yarn.lock`, reformats `noir-projects`, and stages everything. Do not bump the submodule by hand; skipping any of these leaves the tree inconsistent and fails CI. The script does not commit — verify with `git status` from the repo root, then commit as `chore: update Noir to <ref>`.
 </bumping_noir>
 
 <git_workflow>

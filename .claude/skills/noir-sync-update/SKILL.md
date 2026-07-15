@@ -5,72 +5,28 @@ description: Bump the Noir compiler version in aztec-packages and perform every 
 
 # Noir Sync Update
 
-Use this for any request to bump the Noir compiler ("bump the noir compiler version to X",
-"update noir to <ref>") and after any manual `noir/noir-repo` submodule change. Bumping Noir
-touches several tracked artifacts that must move together; doing only the submodule bump leaves
-the tree inconsistent and breaks downstream builds/CI.
-
-## Quick path
-
-`noir/scripts/bump_noir_compiler.sh <ref>` automates steps 1-3 below in one shot — it bumps the
-submodule to `<ref>`, refreshes `avm-transpiler/Cargo.lock` (targeted `cargo update -p` on the
-noir crates only) and `yarn-project/yarn.lock`, and `git add`s all three. `<ref>` is any
-noir-lang/noir ref: a release tag (`v1.0.0-beta.23`), a nightly tag (`nightly-2026-06-02`), a
-branch, or a commit. With no `<ref>` it uses the latest `nightly-*` tag.
-
-The script does NOT commit and does NOT run step 4 (formatting). After it runs you still must
-format `noir-projects`, run the verifications below, and commit. If you prefer to do the steps
-by hand — or the script's lockfile steps fail because a transitive dependency changed — follow
-the manual steps below.
-
-## Critical Verification Rules
-
-**ALWAYS verify file changes with `git status` after any modification step before marking it complete.** Command output showing "updating" does not guarantee the file was written to disk.
-
-**IMPORTANT:** Always run `git status` from the repository root directory, not from subdirectories. Running `git status noir-projects/` from inside `noir-projects/` will fail silently.
-
-After each step, verify with `git status` and commit the results before proceeding.
-
-### 1. Ensure submodule is pulled
-
-Run `./bootstrap.sh` in `noir` to ensure that the new submodule commit has been pulled. This shouldn't produce changes that need committing. (The quick-path script checks out `<ref>` directly, covering this.)
-
-### 2. Update `Cargo.lock` in `avm-transpiler`
-
-**Before updating**, determine the expected noir version:
-1. Read `noir/noir-repo/.release-please-manifest.json` to find the expected version (e.g., `1.0.0-beta.18`)
-2. Check the current version in `avm-transpiler/Cargo.lock` by searching for `acir` or similar noir packages
-
-**To update the lock file**, run `cargo update` in `avm-transpiler` with **only noir-repo packages**:
+To bump the Noir compiler (a request like "bump the noir compiler version to X",
+"update noir to <ref>") or to reconcile the tree after any manual `noir/noir-repo`
+submodule change, run the single source-of-truth script:
 
 ```bash
-cd avm-transpiler
-cargo update -p acir -p acir_field -p acvm -p acvm_blackbox_solver -p bn254_blackbox_solver -p brillig -p brillig_vm -p fm -p iter-extended -p noirc_abi -p noirc_arena -p noirc_artifacts -p noirc_errors -p noirc_evaluator -p noirc_frontend -p noirc_printable_type -p noirc_span
+noir/scripts/bump_noir_compiler.sh <ref>
 ```
 
-**IMPORTANT:** Do NOT use `cargo update` without `-p` flags—this will update ALL dependencies, not just noir-repo packages.
+`<ref>` is any noir-lang/noir git reference — a release tag (`v1.0.0-beta.23`), a
+nightly tag (`nightly-2026-06-02`), a branch, or a commit. With no `<ref>` it uses
+the latest `nightly-*` tag. The script bumps the submodule, refreshes
+`avm-transpiler/Cargo.lock` and `yarn-project/yarn.lock`, reformats `noir-projects`,
+and stages everything. It does not commit.
 
-**After updating**, verify:
-1. Run `git status avm-transpiler/` to confirm `Cargo.lock` was modified
-2. Run `cargo check` to ensure it still builds
-3. Grep `Cargo.lock` for `acir` to verify the version matches the expected version from `.release-please-manifest.json`
+Read the script's header and inline comments for what each step does, why, and how
+to recover when a step fails (e.g. a changed transitive Cargo dependency, or the
+format step needing a built nargo). After it runs:
 
-It's possible that changes in dependencies result in `avm-transpiler` no longer building.
-  - If transient dependency mismatches mean changes to the dependency tree are necessary, then the `Cargo.lock` file in `avm-transpiler` should be modified. **DO NOT MODIFY `noir/noir-repo`**.
-  - If updates are necessary due to changes in exports from `noir/noir-repo` packages, then perform the necessary updates to import statements, etc.
+1. Verify each artifact actually changed with `git status` from the **repository root**
+   (running `git status` from inside a subdirectory can silently report nothing).
+2. Review the staged diff and commit, e.g. `git commit -m "chore: update Noir to <ref>"`.
 
-### 3. Update `yarn.lock` in `yarn-project`
-
-Run `yarn install` in `yarn-project` to update the `yarn.lock` file.
-
-**After running**, verify with `git status yarn-project/yarn.lock` that the file was modified before committing.
-
-### 4. Format `noir-projects`
-
-Run `./bootstrap.sh format` in `noir-projects`.
-
-This is necessary as the updates to the noir compiler may result in the formatter handling the same code differently.
-
-Failing to run the formatter will result in a CI failure.
-
-**After running**, check `git status noir-projects/` for any formatting changes that need to be committed.
+Requires a real toolchain (cargo, corepack/yarn, a built nargo); the steps are
+best-effort in a bare checkout. If a step warns, follow the guidance it prints and
+re-run before committing.
