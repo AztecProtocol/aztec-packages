@@ -21,6 +21,7 @@ import {CompressedProposal, CompressedProposalLib} from "@aztec/governance/libra
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
+import {CompressedTimeMath, CompressedTimestamp} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -141,6 +142,7 @@ contract Governance is IGovernance {
   using ConfigurationLib for CompressedConfiguration;
   using CompressedConfigurationLib for CompressedConfiguration;
   using CompressedProposalLib for CompressedProposal;
+  using CompressedTimeMath for CompressedTimestamp;
   using BallotLib for CompressedBallot;
 
   IERC20 public immutable ASSET;
@@ -218,6 +220,14 @@ contract Governance is IGovernance {
    * `withdrawalCount` is only updated during `initiateWithdraw` and `proposeWithLock`.
    */
   uint256 public withdrawalCount;
+
+  /**
+   * @dev The earliest timestamp at which a user may complete a withdrawal after casting votes.
+   *
+   * Voting locks all of the voter's power until the latest proposal they voted on is executable, so a later
+   * configuration update cannot shorten the withdrawal delay for votes already counted under frozen proposal timing.
+   */
+  mapping(address user => Timestamp exitTimestamp) internal earliestVoteExit;
 
   /**
    * @dev Modifier to ensure that the caller is the governance contract itself.
@@ -468,6 +478,13 @@ contract Governance is IGovernance {
     } else {
       ballots[_proposalId][msg.sender] = userBallot.addNay(_amount);
       proposal.addNay(_amount);
+    }
+    if (_amount > 0) {
+      Timestamp executionBuffer = Timestamp.wrap(Timestamp.unwrap(proposal.votingDelay.decompress()) / 5 + 1);
+      Timestamp executableAt = proposal.queuedThrough() + executionBuffer;
+      if (executableAt > earliestVoteExit[msg.sender]) {
+        earliestVoteExit[msg.sender] = executableAt;
+      }
     }
 
     emit VoteCast(_proposalId, msg.sender, _support, _amount);
@@ -738,9 +755,12 @@ contract Governance is IGovernance {
 
     uint256 withdrawalId = withdrawalCount++;
 
-    withdrawals[withdrawalId] = Withdrawal({
-      amount: _amount, unlocksAt: Timestamp.wrap(block.timestamp) + _delay, recipient: _to, claimed: false
-    });
+    Timestamp unlocksAt = Timestamp.wrap(block.timestamp) + _delay;
+    if (earliestVoteExit[_from] > unlocksAt) {
+      unlocksAt = earliestVoteExit[_from];
+    }
+
+    withdrawals[withdrawalId] = Withdrawal({amount: _amount, unlocksAt: unlocksAt, recipient: _to, claimed: false});
 
     emit WithdrawInitiated(withdrawalId, _to, _amount);
 
