@@ -15,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dest",
     "prepack": "yarn build",
-    "test": "yarn build && node --test dest/*.test.js"
+    "test": "yarn build && node --test dest/*.test.js && ./scripts/test-package.sh"
   },
   "devDependencies": {
     "@types/node": "^22",

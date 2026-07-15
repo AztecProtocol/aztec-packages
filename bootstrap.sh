@@ -579,6 +579,7 @@ function release {
     noir
     l1-contracts
     noir-projects/aztec-nr
+    protocol/constants-codegen
     yarn-project
     boxes
     aztec-up
@@ -603,10 +604,11 @@ function release_dryrun {
 function private_release {
   # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
   # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
-  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, wsdb, yarn-project -> the
-  # INTERNAL_NPM_REGISTRY npm repo). We run the release step for real on exactly those components and do
-  # not invoke the others — the remaining release sources publish public artifacts (github releases,
-  # crates.io, the aztec-up/playground S3 installers) and are not interrelated with these.
+  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, ipc-runtime, wsdb,
+  # protocol/constants-codegen, yarn-project -> the INTERNAL_NPM_REGISTRY npm repo). We run the release
+  # step for real on exactly those components and do not invoke the others — the remaining release
+  # sources publish public artifacts (github releases, crates.io, the aztec-up/playground S3 installers)
+  # and are not interrelated with these.
   echo_header "private release"
 
   # Default to the private staging Artifact Registry; override via the INTERNAL_*_REGISTRY env vars.
@@ -619,15 +621,16 @@ function private_release {
   ci3/gcp_artifact_login
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
-  # Route our scope to the internal npm registry; public deps still resolve from the default registry
-  # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish is
-  # @aztec-scoped — the noir packages are renamed @noir-lang/* -> @aztec/noir-* on release. Exported so
-  # deploy_npm and that smoke-test share one config.
+  # Route our scopes to the internal npm registry; public deps still resolve from the default registry
+  # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish uses
+  # either the @aztec or @aztec-foundation scope — the noir packages are renamed @noir-lang/* ->
+  # @aztec/noir-* on release. Exported so deploy_npm and that smoke-test share one config.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
   (umask 077; {
     echo "@aztec:registry=$reg"
+    echo "@aztec-foundation:registry=$reg"
     echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
   } > "$npmrc")
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"
@@ -671,7 +674,7 @@ function private_release {
   # them. @aztec/world-state has a runtime dependency on @aztec/wsdb, and the ipc-codegen-generated
   # @aztec/wsdb in turn has a runtime dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
   # npm packages are platform-independent, so only the docker image is published on arm64.
-  local publish=(barretenberg/ts noir ipc-runtime wsdb yarn-project release-image)
+  local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen yarn-project release-image)
   if [ $(arch) == arm64 ]; then
     publish=(release-image)
   fi
