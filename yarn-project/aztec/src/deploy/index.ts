@@ -1,5 +1,5 @@
 /**
- * A minimal, declarative deployment framework for Aztec — "terraform for Aztec" (v0).
+ * A minimal, declarative deployment framework for Aztec.
  *
  * Describe the accounts you send from and a graph of steps — contracts that must end up on-chain
  * (deterministic addresses, interdependencies via `initializerArgs`) and the txs to send — plus how

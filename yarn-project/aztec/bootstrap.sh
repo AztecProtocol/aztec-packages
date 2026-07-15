@@ -14,8 +14,6 @@ function test_cmds {
   echo "$hash:ISOLATE=1:NAME=aztec/cli NARGO=$NARGO BB=$BB PROFILER_PATH=$PROFILER_PATH yarn-project/scripts/run_test.sh aztec/src/cli"
   # setupLocalNetwork smoke test: spins up anvil + an in-process node (network usage ⇒ ISOLATE).
   echo "$hash:ISOLATE=1:NAME=aztec/testing yarn-project/scripts/run_test.sh aztec/src/testing/local-network.test.ts"
-  # Pure deploy-graph scheduling tests: no network/toolchain, safe in the fast gate. The heavier
-  # deploy integration suite spins up a local network and is run on demand, not here.
   echo "$hash yarn-project/scripts/run_test.sh aztec/src/deploy/graph.test.ts"
 }
 
