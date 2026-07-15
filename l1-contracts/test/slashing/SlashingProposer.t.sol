@@ -1052,6 +1052,7 @@ contract SlashingProposerTest is TestBase {
       slashAmounts,
       COMMITTEE_SIZE,
       EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
       SLASH_OFFSET_IN_ROUNDS
     );
 
@@ -1068,6 +1069,7 @@ contract SlashingProposerTest is TestBase {
       slashAmounts,
       COMMITTEE_SIZE,
       EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
       SLASH_OFFSET_IN_ROUNDS
     );
 
@@ -1084,7 +1086,36 @@ contract SlashingProposerTest is TestBase {
       slashAmounts,
       COMMITTEE_SIZE,
       EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
       SLASH_OFFSET_IN_ROUNDS
+    );
+  }
+
+  function test_revertWhenSlashOffsetIsBeforeProofSubmissionWindow() public {
+    uint256 unsafeRoundSize = EPOCH_DURATION;
+    uint256 unsafeProofSubmissionEpochs = 2;
+    uint256 unsafeOffset = 1;
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.SlashingProposer__SlashOffsetBelowProofWindow.selector,
+        unsafeOffset,
+        unsafeRoundSize / EPOCH_DURATION,
+        unsafeProofSubmissionEpochs
+      )
+    );
+    new SlashingProposer(
+      address(rollup),
+      ISlasher(address(slasher)),
+      2,
+      unsafeRoundSize,
+      LIFETIME_IN_ROUNDS,
+      0,
+      [SLASHING_UNIT, SLASHING_UNIT * 2, SLASHING_UNIT * 3],
+      COMMITTEE_SIZE,
+      EPOCH_DURATION,
+      unsafeProofSubmissionEpochs,
+      unsafeOffset
     );
   }
 

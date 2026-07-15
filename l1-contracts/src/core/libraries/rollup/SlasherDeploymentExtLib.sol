@@ -35,6 +35,7 @@ library SlasherDeploymentExtLib {
       _config.slashAmounts,
       _config.targetCommitteeSize,
       _config.aztecEpochDuration,
+      _config.aztecProofSubmissionEpochs,
       _config.slashingOffsetInRounds
     );
 

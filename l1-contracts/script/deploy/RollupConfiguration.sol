@@ -127,6 +127,18 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.version = 0; // Computed below
     config.provingCostPerMana = EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA"));
     config.initialEthPerFeeAsset = EthPerFeeAssetE12.wrap(vm.envUint("AZTEC_INITIAL_ETH_PER_FEE_ASSET"));
+
+    if (config.slasherEnabled) {
+      _assertSafeSlashingOffset(config);
+    }
+  }
+
+  function _assertSafeSlashingOffset(RollupConfigInput memory _config) private pure {
+    uint256 roundSizeInEpochs = _config.slashingRoundSize / _config.aztecEpochDuration;
+    require(
+      _config.slashingOffsetInRounds * roundSizeInEpochs >= roundSizeInEpochs + _config.aztecProofSubmissionEpochs,
+      "SLASH_OFFSET_IN_ROUNDS below proof window"
+    );
   }
 
   /// @notice Compute rollup config version by hashing config + genesis state

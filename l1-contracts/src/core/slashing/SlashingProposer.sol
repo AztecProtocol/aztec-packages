@@ -284,6 +284,7 @@ contract SlashingProposer is EIP712 {
    * @param _slashAmounts Array of 3 slash amounts [small, medium, large] for 1, 2, 3 unit votes (all must be > 0)
    * @param _committeeSize The number of validators in each committee (must be > 0)
    * @param _epochDuration The number of slots in each epoch (used to calculate ROUND_SIZE_IN_EPOCHS)
+   * @param _proofSubmissionEpochs Number of epochs after a target epoch during which proofs are still accepted
    * @param _slashOffsetInRounds How many rounds in the past to look when determining which validators to slash (must be
    * > 0)
    */
@@ -297,6 +298,7 @@ contract SlashingProposer is EIP712 {
     uint256[3] memory _slashAmounts,
     uint256 _committeeSize,
     uint256 _epochDuration,
+    uint256 _proofSubmissionEpochs,
     uint256 _slashOffsetInRounds
   ) EIP712("SlashingProposer", "1") {
     INSTANCE = _instance;
@@ -341,6 +343,12 @@ contract SlashingProposer is EIP712 {
     );
     require(ROUND_SIZE <= MAX_ROUND_SIZE, Errors.SlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
     require(COMMITTEE_SIZE > 0, Errors.SlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
+    require(
+      SLASH_OFFSET_IN_ROUNDS * ROUND_SIZE_IN_EPOCHS >= ROUND_SIZE_IN_EPOCHS + _proofSubmissionEpochs,
+      Errors.SlashingProposer__SlashOffsetBelowProofWindow(
+        SLASH_OFFSET_IN_ROUNDS, ROUND_SIZE_IN_EPOCHS, _proofSubmissionEpochs
+      )
+    );
 
     // Validate that vote size doesn't exceed our fixed 4 bytes32 allocation
     // Each vote requires COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4 bytes

@@ -242,6 +242,9 @@ library Errors {
   error SlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(uint256 roundSize, uint256 epochDuration);
   error SlashingProposer__VotingNotOpen(SlashRound currentRound);
   error SlashingProposer__SlashOffsetMustBeGreaterThanZero(uint256 slashOffset);
+  error SlashingProposer__SlashOffsetBelowProofWindow(
+    uint256 slashOffsetInRounds, uint256 roundSizeInEpochs, uint256 proofSubmissionEpochs
+  );
   error SlashingProposer__InvalidEpochIndex(uint256 epochIndex, uint256 roundSizeInEpochs);
   error SlashingProposer__VoteSizeTooBig(uint256 voteSize, uint256 maxSize);
   error SlashingProposer__VotesMustBeMultipleOf4(uint256 votes);
