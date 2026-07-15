@@ -47,9 +47,9 @@ jobs:
           if [[ "${{ github.event.inputs.ref }}" != "" ]]; then
             LATEST_NIGHTLY="${{ github.event.inputs.ref }}"
           else
-            # Fetch all tags and get latest nightly (tags look like v6.0.0-nightly.YYYYMMDD)
+            # Fetch all tags and get latest nightly (tags look like nightly-YYYY-MM-DD)
             git -C noir/noir-repo fetch --tags
-            LATEST_NIGHTLY=$(git -C noir/noir-repo tag -l '*nightly*' | sort -V | tail -1)
+            LATEST_NIGHTLY=$(git -C noir/noir-repo tag -l 'nightly-*' | sort -V | tail -1)
           fi
           echo "latest_nightly=$LATEST_NIGHTLY" >> $GITHUB_OUTPUT
 

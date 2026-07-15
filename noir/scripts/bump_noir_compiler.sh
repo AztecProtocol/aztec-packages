@@ -12,8 +12,8 @@
 #   noir/scripts/bump_noir_compiler.sh <ref>
 #   noir/scripts/bump_noir_compiler.sh                # defaults to latest nightly tag
 #
-# <ref> is any git reference in noir-lang/noir: a tag (e.g. v6.0.0-nightly.20260611),
-# a branch, or a commit sha.
+# <ref> is any git reference in noir-lang/noir: a tag (e.g. a release tag
+# v1.0.0-beta.23, or a nightly tag nightly-2026-06-02), a branch, or a commit sha.
 #
 # The script only edits and `git add`s files; it does not commit, branch, or push.
 # Lockfile update steps are best-effort (mirrors the old pull-noir.yml workflow):
@@ -34,8 +34,8 @@ REF="${1:-}"
 if [[ -z "$REF" ]]; then
   echo "No ref supplied; resolving latest nightly tag..."
   git -C "$SUBMODULE" fetch --tags --quiet
-  # Tags look like v6.0.0-nightly.YYYYMMDD; version-sort and take the newest.
-  REF="$(git -C "$SUBMODULE" tag -l '*nightly*' | sort -V | tail -1)"
+  # Upstream noir nightly tags look like nightly-YYYY-MM-DD; version-sort, newest last.
+  REF="$(git -C "$SUBMODULE" tag -l 'nightly-*' | sort -V | tail -1)"
   if [[ -z "$REF" ]]; then
     echo "error: could not determine a latest nightly tag; pass an explicit ref." >&2
     exit 1
@@ -57,10 +57,20 @@ git -C "$SUBMODULE" checkout --detach "$REF" 2>/dev/null \
 NEW_COMMIT="$(git -C "$SUBMODULE" rev-parse HEAD)"
 
 echo "==> Refreshing avm-transpiler/Cargo.lock"
-# `cargo check` regenerates Cargo.lock for the path-based noir deps. Tolerate a
-# build failure -- the lockfile update is the goal, not a green transpiler build.
-cargo check --manifest-path avm-transpiler/Cargo.toml \
-  || echo "warning: 'cargo check' on avm-transpiler failed; Cargo.lock may be partially updated" >&2
+# Update ONLY the noir-repo path packages, per the repo's lockfile-discipline
+# rule (never bulk-update Cargo.lock). Keep this list in sync with the
+# noir-sync-update skill. A new/removed transitive dep may still require a
+# manual follow-up; a failure here warns rather than aborting.
+NOIR_CARGO_PACKAGES=(
+  acir acir_field acvm acvm_blackbox_solver bn254_blackbox_solver
+  brillig brillig_vm fm iter-extended noirc_abi noirc_arena
+  noirc_artifacts noirc_errors noirc_evaluator noirc_frontend
+  noirc_printable_type noirc_span
+)
+CARGO_PKG_ARGS=()
+for pkg in "${NOIR_CARGO_PACKAGES[@]}"; do CARGO_PKG_ARGS+=(-p "$pkg"); done
+cargo update --manifest-path avm-transpiler/Cargo.toml "${CARGO_PKG_ARGS[@]}" \
+  || echo "warning: 'cargo update' on avm-transpiler failed; Cargo.lock may be partially updated" >&2
 
 echo "==> Refreshing yarn-project/yarn.lock"
 # --mode=update-lockfile skips linking and build scripts; it just reconciles the
@@ -81,6 +91,10 @@ Done. Staged: $SUBMODULE, avm-transpiler/Cargo.lock, yarn-project/yarn.lock
 
 Review the staged diff, then commit, e.g.:
   git commit -m "chore: update Noir to $REF"
+
+Follow-on: a compiler bump can change formatter output, so run
+'./bootstrap.sh format' in noir-projects (needs a built nargo) and commit any
+changes, or CI will fail. See the noir-sync-update skill for the full checklist.
 
 Compare upstream:
   https://github.com/noir-lang/noir/compare/$CURRENT_COMMIT...$NEW_COMMIT
