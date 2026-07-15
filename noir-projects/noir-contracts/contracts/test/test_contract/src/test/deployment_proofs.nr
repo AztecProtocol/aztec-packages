@@ -110,7 +110,7 @@ unconstrained fn assert_contract_bytecode_was_not_published_by_of_deployed_fails
     });
 }
 
-#[test(should_fail_with = "Nullifier membership witness not found at block")]
+#[test(should_fail_with = "Contract initialization hash mismatch")]
 unconstrained fn assert_contract_was_initialized_by_with_wrong_init_hash_fails() {
     let (env, contract_address, _owner, _init_hash) = setup();
 
