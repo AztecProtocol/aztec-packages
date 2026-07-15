@@ -1,9 +1,21 @@
 use super::TestBuilder;
+use crate::{
+    abis::CheckpointRollupPublicInputs,
+    checkpoint_root::checkpoint_padding_rollup::{self, CheckpointPaddingRollupPrivateInputs},
+};
 use types::constants::{
     BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
 };
+use types::traits::Empty;
+
+#[test]
+fn checkpoint_padding_is_empty() {
+    let pi = checkpoint_padding_rollup::execute(CheckpointPaddingRollupPrivateInputs {});
+
+    assert_eq(pi, CheckpointRollupPublicInputs::empty());
+}
 
 #[test]
 fn with_both_roots_left_is_first() {
@@ -199,10 +211,18 @@ fn with_left_unbalanced_merge_and_right_balanced_merge() {
 
 #[test]
 fn with_single_block_root() {
-    let builder = TestBuilder::new_single_block(BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX);
-    let (pi, mock) = builder.execute_with_mock();
-    builder.assert_expected_public_inputs(pi);
-    builder.assert_mock_called(mock);
+    let children_vk_indices = [
+        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
+    ];
+
+    for vk_index in children_vk_indices {
+        let builder = TestBuilder::new_single_block(vk_index);
+        let (pi, mock) = builder.execute_with_mock();
+        builder.assert_expected_public_inputs(pi);
+        builder.assert_mock_called(mock);
+    }
 }
 
 #[test(should_fail_with = "Vk index not in allowed list")]

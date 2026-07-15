@@ -31,6 +31,20 @@ fn with_left_root_and_right_padding() {
     builder.assert_expected_public_inputs(pi);
 }
 
+#[test]
+fn with_left_general_root_and_right_padding() {
+    let builder = TestBuilder::new(
+        // Left rollup is a root.
+        CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
+        1,
+        // Right rollup is a padding.
+        CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
+        0,
+    );
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+}
+
 #[test(should_fail_with = "Vk index not in allowed list")]
 fn with_left_padding_and_right_root() {
     TestBuilder::new(
