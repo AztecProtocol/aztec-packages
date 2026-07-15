@@ -22,6 +22,7 @@ import { createExtendedL1Client } from './client.js';
 import { type L1ContractsConfig, assertValidSlotDurations } from './config.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RollupContract } from './contracts/rollup.js';
+import { resolveFoundryBinary } from './foundry_binary.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
@@ -93,11 +94,16 @@ function runProcess<T>(
 
 // Covers an edge where where we may have a cached BlobLib that is not meant for production.
 // Despite the profile apparently sometimes cached code remains (so says Lasse after his ignition-monorepo arc).
-async function maybeForgeForceProductionBuild(l1ContractsPath: string, script: string, chainId: number) {
+async function maybeForgeForceProductionBuild(
+  forgeBin: string,
+  l1ContractsPath: string,
+  script: string,
+  chainId: number,
+) {
   if (chainId === mainnet.id) {
     logger.info(`Recompiling ${script} with production profile for mainnet deployment`);
     logger.info('This may take a minute but ensures production BlobLib is used.');
-    await runProcess('forge', ['build', script, '--force'], { FOUNDRY_PROFILE: 'production' }, l1ContractsPath);
+    await runProcess(forgeBin, ['build', script, '--force'], { FOUNDRY_PROFILE: 'production' }, l1ContractsPath);
   }
 }
 
@@ -320,8 +326,9 @@ export async function deployAztecL1Contracts(
   // Use foundry-artifacts from l1-artifacts package
   const l1ContractsPath = prepareL1ContractsForDeployment();
 
+  const forgeBin = resolveFoundryBinary('forge');
   const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
-  await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
+  await maybeForgeForceProductionBuild(forgeBin, l1ContractsPath, FORGE_SCRIPT, chainId);
 
   // Verify contracts on Etherscan when on mainnet/sepolia and ETHERSCAN_API_KEY is available.
   const isVerifiableChain = chainId === mainnet.id || chainId === sepolia.id;
@@ -346,6 +353,8 @@ export async function deployAztecL1Contracts(
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
+    // Resolved forge binary picked up by forge_broadcast.js, so it works without forge on PATH.
+    FORGE_BIN: forgeBin,
     // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
     NETWORK: getActiveNetworkName(),
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
@@ -613,12 +622,15 @@ export const deployRollupForUpgrade = async (
   // Use foundry-artifacts from l1-artifacts package
   const l1ContractsPath = prepareL1ContractsForDeployment();
 
+  const forgeBin = resolveFoundryBinary('forge');
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
-  await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
+  await maybeForgeForceProductionBuild(forgeBin, l1ContractsPath, FORGE_SCRIPT, chainId);
 
   const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.js');
   const forgeArgs = [FORGE_SCRIPT, '--sig', 'run()', '--private-key', privateKey, '--rpc-url', rpcUrl];
   const forgeEnv = {
+    // Resolved forge binary picked up by forge_broadcast.js, so it works without forge on PATH.
+    FORGE_BIN: forgeBin,
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
     REGISTRY_ADDRESS: registryAddress.toString(),

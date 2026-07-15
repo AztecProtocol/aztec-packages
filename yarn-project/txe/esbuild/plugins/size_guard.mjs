@@ -14,6 +14,7 @@
 // - 2026-07-08: total 14 -> 15 MiB. Merging public-v5-next into v5-next pulled in the interactive-handshake
 //   support (recipient- and sender-side) and the enlarged HandshakeRegistry contract chunk, pushing the TXE
 //   bundle to ~14.01 MiB. No individual chunk exceeded its cap.
+// - 2026-07-13: bumped total to 14.5 MiB.
 export const sizeLimits = [
   // Shared chunks emitted by code-splitting; carry the simulator + PXE + world-state graph.
   // Spikes here usually mean a heavy dep crept into the eager import path.
