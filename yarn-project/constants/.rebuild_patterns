@@ -1,0 +1,10 @@
+^protocol/constants-codegen/
+^noir-projects/noir-protocol-circuits/crates/types/src/constants\.nr$
+^yarn-project/constants/\.rebuild_patterns$
+^yarn-project/constants/src/constants\.gen\.ts$
+^yarn-project/constants/scripts/remake-constants\.sh$
+^barretenberg/cpp/\.clang-format$
+^barretenberg/cpp/src/barretenberg/aztec/aztec_constants\.hpp$
+^barretenberg/cpp/pil/vm2/constants_gen\.pil$
+^l1-contracts/foundry\.toml$
+^l1-contracts/src/core/libraries/ConstantsGen\.sol$
