@@ -3,6 +3,7 @@ import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static 
 
 import { SqliteEncryptionError, type SqliteEncryptionErrorCode, isDecryptFailureMessage } from './errors.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
+import { DEFAULT_SAH_POOL_DIRECTORY } from './pool_lock.js';
 
 const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS data (
@@ -19,7 +20,6 @@ const SCHEMA_SQL = `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_hash ON data(container, key, hash);
 `;
 
-const DEFAULT_SAH_POOL_DIRECTORY = '.aztec-kv';
 const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
 const MC_SAH_POOL_VFS_NAME = `multipleciphers-${SAH_POOL_VFS_NAME}`;
 
@@ -91,10 +91,13 @@ async function handleInit(
 }
 
 function handleClose(): void {
-  db?.close();
-  db = undefined;
-  dbPath = undefined;
-  releasePool();
+  try {
+    db?.close();
+  } finally {
+    db = undefined;
+    dbPath = undefined;
+    releasePool();
+  }
 }
 
 /**
@@ -215,7 +218,15 @@ function respond(msg: WorkerResponse): void {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    respond({ type: 'err', id: req.id, message, encryptionCode: detectEncryptionCode(req, err, message) });
+    const encryptionCode = detectEncryptionCode(req, err, message);
+    if (req.type === 'init') {
+      try {
+        handleClose();
+      } catch {
+        // The main thread terminates this worker after a failed init, which releases any remaining OPFS handles.
+      }
+    }
+    respond({ type: 'err', id: req.id, message, encryptionCode });
   }
 };
 

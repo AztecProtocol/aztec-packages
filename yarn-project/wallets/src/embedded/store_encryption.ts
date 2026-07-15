@@ -8,7 +8,12 @@
  *     surfaces, so callers don't leak the SAH Pool's OPFS lock.
  */
 import type { Logger } from '@aztec/foundation/log';
-import { AztecSQLiteOPFSStore, SqliteCorruptionError, SqliteEncryptionError } from '@aztec/kv-store/sqlite-opfs';
+import {
+  AztecSQLiteOPFSStore,
+  SqliteCorruptionError,
+  SqliteEncryptionError,
+  deletePoolDirectory,
+} from '@aztec/kv-store/sqlite-opfs';
 
 /** Which of the embedded wallet's two stores failed to open. */
 export type EmbeddedStoreName = 'pxe' | 'wallet';
@@ -66,8 +71,7 @@ const defaultWipeStore: WipeSqliteStoreFn = async poolDirectory => {
   if (!poolDirectory) {
     return;
   }
-  const root = await navigator.storage.getDirectory();
-  await root.removeEntry(poolDirectory, { recursive: true }).catch(() => {
+  await deletePoolDirectory(poolDirectory).catch(() => {
     // Already gone / never created — nothing to wipe.
   });
 };
