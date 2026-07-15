@@ -31,13 +31,18 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack_apply.hpp"
+#include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -59,6 +64,20 @@ namespace serialize {
 // Forward declare derived msgpack methods
 void read(auto& it, msgpack_concepts::HasMsgPack auto& obj);
 void write(auto& buf, const msgpack_concepts::HasMsgPack auto& obj);
+
+inline constexpr size_t MAX_SERIALIZED_VECTOR_BYTES = 64 * 1024 * 1024;
+
+inline void validate_serialized_vector_size(uint32_t size, size_t element_size)
+{
+    const size_t bytes_per_element = element_size == 0 ? 1 : element_size;
+    if (static_cast<size_t>(size) > MAX_SERIALIZED_VECTOR_BYTES / bytes_per_element) {
+        throw_or_abort(format("Serialized vector length ",
+                              size,
+                              " exceeds the ",
+                              MAX_SERIALIZED_VECTOR_BYTES,
+                              "-byte deserialization limit"));
+    }
+}
 
 // Basic integer read / write, to / from raw buffers.
 // Pointers to buffers are advanced by length of type.
@@ -215,6 +234,7 @@ inline void read(uint8_t const*& it, std::vector<uint8_t>& value)
 {
     uint32_t size = 0;
     read(it, size);
+    serialize::validate_serialized_vector_size(size, sizeof(uint8_t));
     value.resize(size);
     std::copy(it, it + size, value.data());
     it += size;
@@ -233,6 +253,7 @@ inline void read(std::istream& is, std::vector<uint8_t>& value)
 {
     uint32_t size = 0;
     read(is, size);
+    serialize::validate_serialized_vector_size(size, sizeof(uint8_t));
     value.resize(size);
     is.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(size));
 }
@@ -282,6 +303,7 @@ template <typename B, typename T, typename A> inline void read(B& it, std::vecto
     using serialize::read;
     uint32_t size = 0;
     read(it, size);
+    serialize::validate_serialized_vector_size(size, sizeof(T));
     value.resize(size);
     for (size_t i = 0; i < size; ++i) {
         read(it, value[i]);
