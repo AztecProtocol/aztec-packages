@@ -225,6 +225,23 @@ pub contract AvmTest {
     }
 
     #[external("public")]
+    fn variable_base_msm_with_point(
+        px: Field,
+        py: Field,
+        scalar_lo: Field,
+        scalar_hi: Field,
+        scalar2_lo: Field,
+        scalar2_hi: Field,
+    ) -> EmbeddedCurvePoint {
+        let p = EmbeddedCurvePoint { x: px, y: py };
+
+        multi_scalar_mul(
+            [p, p],
+            [Scalar { lo: scalar_lo, hi: scalar_hi }, Scalar { lo: scalar2_lo, hi: scalar2_hi }],
+        )
+    }
+
+    #[external("public")]
     fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
         std::hash::pedersen_commitment_with_separator([x, y], 20)
     }
