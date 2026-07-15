@@ -1,4 +1,5 @@
 use crate::{
+    context::{inputs::PrivateContextInputs, PrivateContext},
     note::{
         ConfirmedNote,
         HintedNote,
@@ -8,7 +9,7 @@ use crate::{
         note_getter_options::{NoteGetterOptions, PropertySelector, Sort, SortOrder},
     },
     oracle::random::random,
-    protocol::{address::AztecAddress, traits::FromField},
+    protocol::{address::AztecAddress, traits::{Empty, FromField}},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
     utils::comparison::Comparator,
 };
@@ -24,6 +25,12 @@ global owner: AztecAddress = AztecAddress::from_field(50);
 
 unconstrained fn build_valid_hinted_note(contract_address: AztecAddress, value: Field) -> HintedNote<MockNote> {
     MockNote::new(value).contract_address(contract_address).owner(owner).storage_slot(storage_slot).build_hinted_note()
+}
+
+unconstrained fn build_private_context(contract_address: AztecAddress) -> PrivateContext {
+    let mut inputs = PrivateContextInputs::empty();
+    inputs.call_context.contract_address = contract_address;
+    PrivateContext::new(inputs, 0)
 }
 
 unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(vec: BoundedVec<T, N>, arr: [Option<T>; N])
@@ -86,6 +93,19 @@ unconstrained fn confirm_notes_processes_many_notes() {
         assert_equivalent_vec_and_array(confirmed.map(confirmed_to_hinted), notes_to_constrain);
         assert_eq(context.note_hash_read_requests.len(), 2);
     });
+}
+
+#[test(should_fail_with = "Duplicate note returned.")]
+unconstrained fn confirm_notes_rejects_duplicate_hinted_note() {
+    let contract_address = AztecAddress::from_field(1);
+    let mut context = build_private_context(contract_address);
+
+    let mut notes_to_constrain = [Option::none(); _];
+    notes_to_constrain[0] = Option::some(build_valid_hinted_note(contract_address, 13));
+    notes_to_constrain[1] = Option::some(build_valid_hinted_note(contract_address, 13));
+
+    let options = NoteGetterOptions::new().set_owner(owner);
+    let _ = confirm_hinted_notes(&mut context, storage_slot, notes_to_constrain, options);
 }
 
 #[test]

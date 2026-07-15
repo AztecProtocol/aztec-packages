@@ -219,6 +219,8 @@ where
     // rest will not. Hence, we can just _unconditionally_ write to a raw storage array at the iteration index: we know
     // the resulting array will have no gaps. Because of this, we can then manually create a correct `BoundedVec`.
     let mut confirmed_notes_bvec_storage: [ConfirmedNote<_>; _] = std::mem::zeroed();
+    let mut seen_note_hashes: [Field; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = std::mem::zeroed();
+    let mut seen_contract_addresses: [AztecAddress; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = std::mem::zeroed();
 
     let mut prev_packed_note = [0; M];
     for i in 0..options.limit {
@@ -252,9 +254,18 @@ where
             prev_packed_note = packed_note;
 
             let note_existence_request = compute_note_existence_request(hinted_note);
+            let note_hash = note_existence_request.note_hash();
+            let contract_address = note_existence_request.maybe_contract_address().unwrap_or(AztecAddress::zero());
+            for j in 0..i {
+                let same_note_hash = seen_note_hashes[j] == note_hash;
+                let same_contract_address = seen_contract_addresses[j].eq(contract_address);
+                assert(!(same_note_hash & same_contract_address), "Duplicate note returned.");
+            }
+            seen_note_hashes[i] = note_hash;
+            seen_contract_addresses[i] = contract_address;
             context.assert_note_exists(note_existence_request);
 
-            confirmed_notes_bvec_storage[i] = ConfirmedNote::new(hinted_note, note_existence_request.note_hash());
+            confirmed_notes_bvec_storage[i] = ConfirmedNote::new(hinted_note, note_hash);
         };
     }
 
