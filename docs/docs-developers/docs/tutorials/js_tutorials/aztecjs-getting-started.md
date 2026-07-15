@@ -24,7 +24,7 @@ yarn init -y
 Next, add the TypeScript dependencies:
 
 ```sh
-yarn add typescript @types/node tsx
+yarn add "typescript@^5.3.3" @types/node tsx
 ```
 
 :::tip
