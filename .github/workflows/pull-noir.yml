@@ -47,9 +47,9 @@ jobs:
           if [[ "${{ github.event.inputs.ref }}" != "" ]]; then
             LATEST_NIGHTLY="${{ github.event.inputs.ref }}"
           else
-            # Fetch all tags and get latest nightly
+            # Fetch all tags and get latest nightly (tags look like v6.0.0-nightly.YYYYMMDD)
             git -C noir/noir-repo fetch --tags
-            LATEST_NIGHTLY=$(git -C noir/noir-repo tag -l 'nightly-*' | sort -V | tail -1)
+            LATEST_NIGHTLY=$(git -C noir/noir-repo tag -l '*nightly*' | sort -V | tail -1)
           fi
           echo "latest_nightly=$LATEST_NIGHTLY" >> $GITHUB_OUTPUT
 
@@ -60,22 +60,12 @@ jobs:
             echo "update_needed=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update submodule to latest nightly
+      - name: Update submodule and lockfiles
         if: steps.noir_versions.outputs.update_needed == 'true'
-        run: |
-          cd noir/noir-repo
-          git fetch --tags
-          git checkout ${{ steps.noir_versions.outputs.latest_nightly }}
-          cd ../..
-          # Update Cargo.lock if needed, but don't fail if transpiler no longer builds
-          cargo check --manifest-path avm-transpiler/Cargo.toml || true
-          # Update yarn.lock to pick up any changes to noir's JS packages (versions
-          # or the file: hash of noir_js). --mode=update-lockfile skips linking and
-          # build scripts. Don't fail the workflow if yarn errors out -- a partial
-          # update is still useful for the resulting PR.
-          corepack enable
-          (cd yarn-project && yarn install --mode=update-lockfile) || true
-          git add noir/noir-repo avm-transpiler/Cargo.lock yarn-project/yarn.lock
+        # Delegates to the same script used for manual bumps so the submodule +
+        # lockfile update logic lives in one place. It fetches the ref, refreshes
+        # avm-transpiler/Cargo.lock and yarn-project/yarn.lock, and stages them.
+        run: ./noir/scripts/bump_noir_compiler.sh "${{ steps.noir_versions.outputs.latest_nightly }}"
 
       - name: Check for existing PR
         if: steps.noir_versions.outputs.update_needed == 'true'

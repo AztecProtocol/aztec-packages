@@ -20,6 +20,10 @@ When a change spans multiple components, rebuild in dependency order: first `bar
 The noir-projects build scripts default `$NARGO` to `noir/noir-repo/target/release/nargo`. Do not override this with a globally installed nargo — version mismatches produce opaque bytecode failures in downstream components.
 </build_system>
 
+<bumping_noir>
+To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), run `noir/scripts/bump_noir_compiler.sh <ref>` from anywhere in the repo. `<ref>` is any git reference in noir-lang/noir — a tag such as `v6.0.0-nightly.20260611`, a branch, or a commit. One invocation moves all three artifacts that must change together — the `noir/noir-repo` submodule pointer, `avm-transpiler/Cargo.lock`, and `yarn-project/yarn.lock` — and stages them. Do not bump the submodule by hand; skipping the lockfile updates leaves the tree inconsistent and breaks the AVM transpiler and TS builds. The script stages but does not commit; review the diff, then commit as `chore: update Noir to <ref>`.
+</bumping_noir>
+
 <git_workflow>
 
 <critical_never_assume_master>
