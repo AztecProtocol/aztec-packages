@@ -11,6 +11,22 @@ let privateFunctionTreeCalculator: MerkleTreeCalculator | undefined;
 
 const PRIVATE_FUNCTION_SIZE = 2;
 
+export function assertNoDuplicatePrivateFunctionSelectors(
+  fns: readonly PrivateFunction[],
+  functionNames: readonly string[] = [],
+) {
+  const namesBySelector = new Map<string, string>();
+  for (let i = 0; i < fns.length; i++) {
+    const selector = fns[i].selector.toString();
+    const functionName = functionNames[i] ?? `private function at index ${i}`;
+    const previousName = namesBySelector.get(selector);
+    if (previousName !== undefined) {
+      throw new Error(`Duplicate private function selector ${selector} for ${previousName} and ${functionName}.`);
+    }
+    namesBySelector.set(selector, functionName);
+  }
+}
+
 /** Returns a Merkle tree for the set of private functions in a contract. */
 export async function computePrivateFunctionsTree(fns: PrivateFunction[]): Promise<MerkleTree> {
   const calculator = await getPrivateFunctionTreeCalculator();
@@ -26,6 +42,7 @@ export async function computePrivateFunctionsRoot(fns: PrivateFunction[]): Promi
 }
 
 function computePrivateFunctionLeaves(fns: PrivateFunction[]): Promise<Buffer[]> {
+  assertNoDuplicatePrivateFunctionSelectors(fns);
   const leaves = [...fns].sort((a, b) => a.selector.value - b.selector.value);
   return Promise.all(leaves.map(computePrivateFunctionLeaf));
 }

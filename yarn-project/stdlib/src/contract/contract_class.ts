@@ -7,6 +7,7 @@ import { hashVK } from '../hash/hash.js';
 import { computeArtifactHash } from './artifact_hash.js';
 import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
 import type { ContractClass, ContractClassWithId } from './interfaces/index.js';
+import { assertNoDuplicatePrivateFunctionSelectors } from './private_function.js';
 
 /** Contract artifact including its artifact hash */
 export type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
@@ -32,6 +33,10 @@ export async function getContractClassFromArtifact(
   const privateFunctions = artifact.functions.filter(f => f.functionType === FunctionType.PRIVATE);
   const privateArtifactFunctions: ContractClass['privateFunctions'] = await Promise.all(
     privateFunctions.map(getContractClassPrivateFunctionFromArtifact),
+  );
+  assertNoDuplicatePrivateFunctionSelectors(
+    privateArtifactFunctions,
+    privateFunctions.map(f => f.name),
   );
 
   privateArtifactFunctions.sort(cmpFunctionArtifacts);

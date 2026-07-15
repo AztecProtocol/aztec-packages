@@ -35,4 +35,18 @@ describe('PrivateFunction', () => {
     const rootReversed = await computePrivateFunctionsRoot([...privateFunctions].reverse());
     expect(root.equals(rootReversed)).toBe(true);
   });
+
+  it('rejects duplicate selectors', async () => {
+    const duplicateSelectorFunctions: PrivateFunction[] = [
+      { selector: makeSelector(1), vkHash: fr(2) },
+      { selector: makeSelector(1), vkHash: fr(3) },
+    ];
+
+    await expect(computePrivateFunctionsRoot(duplicateSelectorFunctions)).rejects.toThrow(
+      /Duplicate private function selector/,
+    );
+    await expect(computePrivateFunctionsTree(duplicateSelectorFunctions)).rejects.toThrow(
+      /Duplicate private function selector/,
+    );
+  });
 });
