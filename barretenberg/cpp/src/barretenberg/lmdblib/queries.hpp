@@ -163,6 +163,7 @@ bool get_value_or_previous(TKey& key,
                     // we will need to go round again
                 } else if (code == MDB_NOTFOUND) {
                     // DB is empty?
+                    break;
                 } else {
                     throw_error("get_value_or_previous::mdb_cursor_get", code);
                 }
@@ -356,7 +357,7 @@ void get_all_values_lesser_or_equal_key(const TKey& key, ValuesVector& data, con
                 copy_to_vector(dbVal, temp);
                 data.push_back(temp);
 
-            } else if (MDB_NOTFOUND) {
+            } else if (code == MDB_NOTFOUND) {
                 // we have reached the end of the db
                 break;
             } else {
@@ -422,7 +423,7 @@ void delete_all_values_lesser_or_equal_key(const TKey& key, const LMDBDatabase& 
                     throw_error("delete_all_values_lesser_or_equal_key::mdb_cursor_del", code);
                 }
 
-            } else if (MDB_NOTFOUND) {
+            } else if (code == MDB_NOTFOUND) {
                 // we have reached the end of the db
                 break;
             } else {

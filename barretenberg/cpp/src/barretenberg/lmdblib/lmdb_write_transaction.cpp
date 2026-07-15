@@ -23,10 +23,14 @@ LMDBWriteTransaction::~LMDBWriteTransaction()
 
 void LMDBWriteTransaction::commit()
 {
-    if (state == TransactionState::ABORTED) {
-        throw std::runtime_error("Tried to commit reverted transaction");
+    if (state != TransactionState::OPEN) {
+        throw std::runtime_error("Tried to commit completed transaction");
     }
-    call_lmdb_func("mdb_txn_commit", mdb_txn_commit, _transaction);
+    int code = call_lmdb_func_with_return(mdb_txn_commit, _transaction);
+    if (code != MDB_SUCCESS) {
+        state = TransactionState::ABORTED;
+        throw_error("mdb_txn_commit", code);
+    }
     state = TransactionState::COMMITTED;
 }
 

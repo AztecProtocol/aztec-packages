@@ -57,8 +57,8 @@ bool LMDBDatabase::duplicate_keys_permitted() const
 
 DBStats LMDBDatabase::get_stats(LMDBReadTransaction& tx)
 {
-    MDB_stat stat;
-    call_lmdb_func(mdb_stat, tx.underlying(), underlying(), &stat);
+    MDB_stat stat{};
+    call_lmdb_func("mdb_stat", mdb_stat, tx.underlying(), underlying(), &stat);
     return DBStats(name(), stat);
 }
 

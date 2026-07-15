@@ -1501,3 +1501,84 @@ TEST_F(LMDBStoreTest, has_deduplicates_keys)
     EXPECT_TRUE(results[0]);
     EXPECT_TRUE(results[1]);
 }
+
+TEST_F(LMDBStoreTest, duplicate_cursor_helpers_throw_on_non_duplicate_database)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name, false);
+    write_test_data({ name }, 1, 1, *store);
+
+    auto key = get_key(0);
+    {
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, name);
+        ASSERT_TRUE(cursor->set_at_key(key));
+
+        KeyDupValuesVector keyValues;
+        EXPECT_THROW(lmdb_queries::read_next_dup(*cursor, keyValues, 1), std::runtime_error);
+    }
+    {
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, name);
+        ASSERT_TRUE(cursor->set_at_key(key));
+
+        uint64_t count = 0;
+        EXPECT_THROW(lmdb_queries::count_until_next_dup(*cursor, key, count), std::runtime_error);
+    }
+}
+
+TEST_F(LMDBStoreTest, filtered_get_value_or_previous_returns_false_on_empty_database)
+{
+    LMDBEnvironment::SharedPtr environment = std::make_shared<LMDBEnvironment>(_directory, _mapSize, 1, _maxReaders);
+    LMDBDatabase::SharedPtr db;
+    {
+        environment->wait_for_writer();
+        LMDBDatabaseCreationTransaction tx(environment);
+        db = std::make_shared<LMDBDatabase>(environment, tx, "DB", false, false);
+        tx.commit();
+    }
+
+    environment->wait_for_reader();
+    LMDBReadTransaction tx(environment);
+    uint64_t key = 0;
+    uint64_t data = 0;
+    auto accept_any_value = [](const MDB_val&) { return true; };
+    EXPECT_FALSE(tx.get_value_or_previous(key, data, *db, accept_any_value));
+}
+
+TEST_F(LMDBStoreTest, get_stats_throws_for_uncommitted_database)
+{
+    LMDBEnvironment::SharedPtr environment = std::make_shared<LMDBEnvironment>(_directory, _mapSize, 1, _maxReaders);
+    LMDBDatabase::SharedPtr db;
+    {
+        environment->wait_for_writer();
+        LMDBDatabaseCreationTransaction tx(environment);
+        db = std::make_shared<LMDBDatabase>(environment, tx, "DB", false, false);
+        tx.try_abort();
+    }
+
+    environment->wait_for_reader();
+    LMDBReadTransaction tx(environment);
+    EXPECT_THROW(db->get_stats(tx), std::runtime_error);
+}
+
+TEST_F(LMDBStoreTest, write_transaction_rejects_second_commit)
+{
+    LMDBEnvironment::SharedPtr environment = std::make_shared<LMDBEnvironment>(_directory, _mapSize, 1, _maxReaders);
+    LMDBDatabase::SharedPtr db;
+    {
+        environment->wait_for_writer();
+        LMDBDatabaseCreationTransaction tx(environment);
+        db = std::make_shared<LMDBDatabase>(environment, tx, "DB", false, false);
+        tx.commit();
+    }
+
+    environment->wait_for_writer();
+    LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
+    auto key = get_key(0);
+    auto data = get_value(0, 0);
+    tx->put_value(key, data, *db);
+    EXPECT_NO_THROW(tx->commit());
+    EXPECT_THROW(tx->commit(), std::runtime_error);
+}
