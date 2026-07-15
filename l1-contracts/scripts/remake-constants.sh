@@ -19,14 +19,13 @@ esac
 
 repo_root=$(git rev-parse --show-toplevel)
 codegen_dir="$repo_root/protocol/constants-codegen"
-additional_input="$repo_root/noir-projects/noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr:MAX_TX_BLOB_DATA_SIZE_IN_FIELDS"
-typescript_output="$repo_root/yarn-project/constants/src/constants.gen.ts"
+solidity_output="$repo_root/l1-contracts/src/core/libraries/ConstantsGen.sol"
 
 temp_dir=""
 if [ "$check" -eq 1 ]; then
   temp_dir=$(mktemp -d)
   trap 'rm -rf "$temp_dir"' EXIT
-  typescript_output="$temp_dir/constants.gen.ts"
+  solidity_output="$temp_dir/ConstantsGen.sol"
 fi
 
 if [ "$check" -eq 0 ]; then
@@ -38,9 +37,10 @@ fi
 
 node "$codegen_dir/dest/cli.js" \
   --input "$repo_root/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr" \
-  --include "$additional_input" \
-  --typescript "$typescript_output"
+  --solidity "$solidity_output"
+
+(cd "$repo_root/l1-contracts" && forge fmt "$solidity_output")
 
 if [ "$check" -eq 1 ]; then
-  diff -u "$repo_root/yarn-project/constants/src/constants.gen.ts" "$typescript_output"
+  diff -u "$repo_root/l1-contracts/src/core/libraries/ConstantsGen.sol" "$solidity_output"
 fi

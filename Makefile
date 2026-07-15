@@ -260,7 +260,7 @@ bb-sol: bb-cpp-native bb-crs l1-contracts-solc
 # Barretenberg Tests
 #==============================================================================
 
-bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
+bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs constants-codegen
 	$(call test,$@,barretenberg/cpp,native)
 
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads
@@ -425,7 +425,7 @@ l1-contracts-artifacts: l1-contracts-verifier
 # l1-contracts: Complete build (aggregate target)
 l1-contracts: l1-contracts-src l1-contracts-verifier l1-contracts-artifacts
 
-l1-contracts-tests: l1-contracts-verifier
+l1-contracts-tests: l1-contracts-verifier constants-codegen
 	$(call test,$@,l1-contracts)
 
 #==============================================================================

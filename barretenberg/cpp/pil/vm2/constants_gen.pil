@@ -1,4 +1,4 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
+// GENERATED FILE - DO NOT EDIT
 namespace constants;
     pol MAX_ETH_ADDRESS_VALUE = 1461501637330902918203684832716283019655932542975;
     pol NOTE_HASH_TREE_HEIGHT = 42;

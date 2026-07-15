@@ -130,6 +130,14 @@ function build {
 }
 
 function test_cmds {
+  local constants_hash=$(cache_content_hash \
+    ^protocol/constants-codegen/ \
+    ^noir-projects/noir-protocol-circuits/crates/types/src/constants\.nr$ \
+    ^l1-contracts/foundry\.toml$ \
+    ^l1-contracts/scripts/remake-constants\.sh$ \
+    ^l1-contracts/src/core/libraries/ConstantsGen\.sol$)
+  echo "$constants_hash l1-contracts/scripts/remake-constants.sh --check"
+
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && forge test"

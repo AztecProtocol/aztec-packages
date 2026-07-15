@@ -39,7 +39,7 @@ function generateToString(generate: (content: ParsedContent, targetPath: string)
 test('generates TypeScript constants and domain separators', () => {
   assert.equal(
     generateToString(generateTypescriptConstants),
-    `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants
+    `// GENERATED FILE - DO NOT EDIT
 export const MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
 export const MAX_ETH_ADDRESS_VALUE = 1461501637330902918203684832716283019655932542975n;
 export const ARCHIVE_HEIGHT = 30;

@@ -1,4 +1,4 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
+// GENERATED FILE - DO NOT EDIT
 #pragma once
 
 #define MAX_ETH_ADDRESS_BIT_SIZE 160

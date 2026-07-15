@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Verify the distribution boundary by packing the prebuilt output, installing it in an isolated consumer, and invoking
+# the published binary as an external user would.
 set -euo pipefail
 
 package_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)

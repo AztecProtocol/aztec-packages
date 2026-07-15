@@ -19,14 +19,15 @@ esac
 
 repo_root=$(git rev-parse --show-toplevel)
 codegen_dir="$repo_root/protocol/constants-codegen"
-additional_input="$repo_root/noir-projects/noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr:MAX_TX_BLOB_DATA_SIZE_IN_FIELDS"
-typescript_output="$repo_root/yarn-project/constants/src/constants.gen.ts"
+cpp_output="$repo_root/barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp"
+pil_output="$repo_root/barretenberg/cpp/pil/vm2/constants_gen.pil"
 
 temp_dir=""
 if [ "$check" -eq 1 ]; then
   temp_dir=$(mktemp -d)
   trap 'rm -rf "$temp_dir"' EXIT
-  typescript_output="$temp_dir/constants.gen.ts"
+  cpp_output="$temp_dir/aztec_constants.hpp"
+  pil_output="$temp_dir/constants_gen.pil"
 fi
 
 if [ "$check" -eq 0 ]; then
@@ -38,9 +39,18 @@ fi
 
 node "$codegen_dir/dest/cli.js" \
   --input "$repo_root/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr" \
-  --include "$additional_input" \
-  --typescript "$typescript_output"
+  --cpp "$cpp_output" \
+  --pil "$pil_output"
+
+clang-format-20 --style="file:$repo_root/barretenberg/cpp/.clang-format" -i "$cpp_output"
 
 if [ "$check" -eq 1 ]; then
-  diff -u "$repo_root/yarn-project/constants/src/constants.gen.ts" "$typescript_output"
+  failed=0
+  if ! diff -u "$repo_root/barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp" "$cpp_output"; then
+    failed=1
+  fi
+  if ! diff -u "$repo_root/barretenberg/cpp/pil/vm2/constants_gen.pil" "$pil_output"; then
+    failed=1
+  fi
+  exit "$failed"
 fi
