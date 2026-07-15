@@ -266,6 +266,7 @@ contract DeployAztecL1Contracts is Script, Test {
 
     // If we deployed assets, set them free.
     if (config.existingTokenAddress() == address(0)) {
+      TestERC20(address(_output.feeAsset)).removeMinter(deployer);
       Ownable(address(_output.feeAsset)).transferOwnership(address(_output.coinIssuer));
       _output.coinIssuer.acceptTokenOwnership();
       _output.coinIssuer.transferOwnership(address(_output.dateGatedRelayer));
@@ -311,6 +312,8 @@ contract DeployAztecL1Contracts is Script, Test {
 
     if (config.existingTokenAddress() == address(0)) {
       assertEq(TestERC20(address(_output.feeAsset)).owner(), address(_output.coinIssuer), "invalid fee asset owner");
+      assertFalse(TestERC20(address(_output.feeAsset)).minters(deployer), "deployer is still fee asset minter");
+      assertTrue(TestERC20(address(_output.feeAsset)).minters(address(_output.coinIssuer)), "coin issuer is not minter");
       assertEq(_output.coinIssuer.owner(), address(_output.dateGatedRelayer), "invalid coin issuer owner");
     }
   }

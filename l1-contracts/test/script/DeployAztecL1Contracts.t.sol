@@ -5,7 +5,8 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
-import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
+import {DeployAztecL1Contracts, DeployAztecL1ContractsOutput} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 contract DeployAztecL1ContractsTest is Test {
   using stdJson for string;
@@ -81,5 +82,11 @@ contract DeployAztecL1ContractsTest is Test {
   function test_SmokeTest() public {
     DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
     deployScript.run();
+
+    DeployAztecL1ContractsOutput memory deployed = deployScript.output();
+    TestERC20 feeAsset = TestERC20(address(deployed.feeAsset));
+
+    assertFalse(feeAsset.minters(deployScript.deployer()), "deployer is still fee asset minter");
+    assertTrue(feeAsset.minters(address(deployed.coinIssuer)), "coin issuer is not fee asset minter");
   }
 }
