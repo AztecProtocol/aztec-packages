@@ -52,15 +52,17 @@ pub fn build_tx_effect(
         private_to_rollup.gas_used,
     );
 
-    // Create a `PublicDataWrite` that updates the fee payer's balance in the public data tree.
-    // The `fee_payer_balance_leaf_preimage` is validated in `private_tx_base_inputs_validator`.
-    let leaf_slot = fee_payer_balance_leaf_preimage.slot;
-    let old_balance = fee_payer_balance_leaf_preimage.value;
-    let new_balance = old_balance - transaction_fee;
-    let fee_payer_balance_write = PublicDataWrite { leaf_slot, value: new_balance };
+    let has_fee_payment = transaction_fee != 0;
     let mut public_data_writes =
         [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
-    public_data_writes[0] = fee_payer_balance_write;
+    if has_fee_payment {
+        // Create a `PublicDataWrite` that updates the fee payer's balance in the public data tree.
+        // The `fee_payer_balance_leaf_preimage` is validated in `private_tx_base_inputs_validator`.
+        let leaf_slot = fee_payer_balance_leaf_preimage.slot;
+        let old_balance = fee_payer_balance_leaf_preimage.value;
+        let new_balance = old_balance - transaction_fee;
+        public_data_writes[0] = PublicDataWrite { leaf_slot, value: new_balance };
+    }
 
     // Construct ContractClassLogs from the hashes from kernel circuits and the log fields given via private inputs.
     let contract_class_logs = accumulated_data.contract_class_logs_hashes.mapi(|i, log_hash| {
@@ -95,7 +97,7 @@ pub fn build_tx_effect(
         note_hashes: array_length(accumulated_data.note_hashes),
         nullifiers: array_length(accumulated_data.nullifiers),
         l2_to_l1_msgs: array_length(l2_to_l1_msgs),
-        public_data_writes: 1, // No public functions were called. This is the fee_payer's FeeJuice balance decrementation.
+        public_data_writes: if has_fee_payment { 1 } else { 0 },
         private_logs: get_private_log_array_length(accumulated_data.private_logs),
         contract_class_logs: get_contract_class_log_hash_array_length(
             accumulated_data.contract_class_logs_hashes,

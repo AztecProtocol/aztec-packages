@@ -1,13 +1,14 @@
 use super::TestBuilder;
 use protocol_test_utils::{FixtureBuilder, pad_end};
 use types::{
+    abis::gas_fees::GasFees,
     blob_data::{create_tx_start_marker, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, TxEffectArrayLengths},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    traits::{Hash, ToField},
+    traits::{Empty, Hash, ToField},
 };
 
 #[test]
@@ -301,5 +302,42 @@ fn partially_empty_tx_effects() {
 
     let mut expected_end_sponge_blob = pi.start_sponge_blob;
     expected_end_sponge_blob.absorb(expected_blob_fields, expected_num_blob_fields);
+    assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
+}
+
+#[test]
+fn zero_fee_omits_fee_payer_public_data_write() {
+    let mut builder = TestBuilder::new();
+
+    builder.constants.global_variables.gas_fees = GasFees::empty();
+    builder.private_tail.constants.tx_context.gas_settings.max_fees_per_gas = GasFees::empty();
+    builder.private_tail.constants.tx_context.gas_settings.max_priority_fees_per_gas =
+        GasFees::empty();
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    let tx_start_marker = create_tx_start_marker(
+        3,
+        TxEffectArrayLengths {
+            note_hashes: 0,
+            nullifiers: 0,
+            l2_to_l1_msgs: 0,
+            public_data_writes: 0,
+            private_logs: 0,
+            contract_class_logs: 0,
+        },
+        0, // private_logs_length
+        0, // public_logs_length
+        0, // contract_class_log_length
+        0, // revert_code
+    );
+
+    let tx_hash = builder.private_tail.hash();
+    let expected_blob_fields: [Field; MAX_TX_BLOB_DATA_SIZE_IN_FIELDS] =
+        pad_end([tx_start_marker, tx_hash, 0]);
+
+    let mut expected_end_sponge_blob = pi.start_sponge_blob;
+    expected_end_sponge_blob.absorb(expected_blob_fields, 3);
     assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 }

@@ -39,6 +39,7 @@ pub fn build_tree_snapshots(
     nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     fee_payer_balance_leaf_preimage: PublicDataTreeLeafPreimage,
     fee_payer_new_balance: Field,
+    has_fee_payment: bool,
     hints: TreeSnapshotDiffHints,
 ) -> PartialStateReference {
     // Insert note hashes.
@@ -61,13 +62,17 @@ pub fn build_tree_snapshots(
         nullifier_merkle_hash,
     );
 
-    // Update the public data tree leaf with the fee payer's new balance.
-    let end_public_data_tree_snapshot = update_public_data_tree_leaf(
-        start_tree_snapshots.public_data_tree,
-        fee_payer_new_balance,
-        fee_payer_balance_leaf_preimage,
-        hints.fee_payer_balance_membership_witness,
-    );
+    let end_public_data_tree_snapshot = if has_fee_payment {
+        // Update the public data tree leaf with the fee payer's new balance.
+        update_public_data_tree_leaf(
+            start_tree_snapshots.public_data_tree,
+            fee_payer_new_balance,
+            fee_payer_balance_leaf_preimage,
+            hints.fee_payer_balance_membership_witness,
+        )
+    } else {
+        start_tree_snapshots.public_data_tree
+    };
 
     PartialStateReference {
         note_hash_tree: end_note_hash_tree_snapshot,

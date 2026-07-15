@@ -50,12 +50,14 @@ impl TxBasePublicInputsComposer {
         );
 
         let fee_payer_balance_write = tx_effect.public_data_writes[0];
+        let has_fee_payment = tx_effect_array_lengths.public_data_writes != 0;
         let end_tree_snapshots = build_tree_snapshots(
             start_tree_snapshots,
             tx_effect.note_hashes,
             tx_effect.nullifiers,
             fee_payer_balance_leaf_preimage,
             fee_payer_balance_write.value,
+            has_fee_payment,
             tree_snapshot_diff_hints,
         );
 
