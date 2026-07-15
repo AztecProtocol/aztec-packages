@@ -1,0 +1,8 @@
+[package]
+name = "bench_block_root_chain_64"
+type = "bin"
+authors = [""]
+compiler_version = ">=0.18.0"
+
+[dependencies]
+rollup_lib = { path = "../rollup-lib" }
