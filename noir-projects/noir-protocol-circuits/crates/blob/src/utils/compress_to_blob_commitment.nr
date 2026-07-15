@@ -1,5 +1,5 @@
 use crate::abis::{batching_blob_commitment::BatchingBlobCommitment, BLSPoint};
-use super::validate_canonical_representation_if_infinity;
+use super::{validate_canonical_coordinates, validate_canonical_representation_if_infinity};
 use bignum::{BigNum, BLS12_381_Fq};
 
 // TODO(MW): get_flags() and compress_to_bytes() will eventually be part of BigCurve.
@@ -17,6 +17,7 @@ pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) 
     // A point at infinity must be canonically encoded (x == 0 && y == 0); otherwise a non-zero
     // coordinate would leak into the compressed output and produce a non-canonical encoding.
     validate_canonical_representation_if_infinity(point);
+    validate_canonical_coordinates(point);
     let (flags, x) = get_flags(point);
     let mut compressed = x.to_be_bytes();
     let most_sig_bits: [bool; 8] = (compressed[0] as Field).to_be_bits();
@@ -34,7 +35,7 @@ fn get_flags(point: BLSPoint) -> ([bool; 3], BLS12_381_Fq) {
     let y = point.y;
     let is_compressed = true;
     let is_infinity = point.is_infinity;
-    let is_greater = y > -y;
+    let is_greater = if is_infinity { false } else { y > -y };
     let flags = [is_compressed, is_infinity, is_greater];
     (flags, x)
 }
@@ -121,6 +122,38 @@ mod tests {
         let point =
             BLSPoint { x: BLS12_381_Fq::zero(), y: BLS12_381_Fq::from(1), is_infinity: true };
         let _ = compress_to_blob_commitment(point);
+    }
+
+    #[test(should_fail_with = "Non canonical y coordinate at infinity")]
+    fn modulus_y_infinity_point_fails() {
+        let point = BLSPoint {
+            x: BLS12_381_Fq::zero(),
+            y: BLS12_381_Fq::modulus(),
+            is_infinity: true,
+        };
+        let _ = compress_to_blob_commitment(point);
+    }
+
+    #[test(should_fail_with = "Non canonical x coordinate")]
+    fn non_canonical_x_coordinate_fails() {
+        let x_plus_q = BLS12_381_Fq::from_limbs([
+            0x3b75ba40707c427d998c5529beb9f9,
+            0x26b584ad13e4aac0ffabba099c4f01,
+            0xd4c9cd4de0d32470a193f4f1e3fb99,
+            0x1f73dd,
+        ]);
+        let p = BLSPoint {
+            x: x_plus_q,
+            y: BLS12_381_Fq::from_limbs([
+                0x56d9d4cd16bd1bba86881979749d28,
+                0x3ecb8670e461f73bb9021d5fd76a4c,
+                0x8cabc673a322fda673779d8e3822ba,
+                0x166a9d,
+            ]),
+            is_infinity: false,
+        };
+
+        let _ = compress_to_blob_commitment(p);
     }
 
     #[test]

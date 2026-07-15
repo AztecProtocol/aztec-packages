@@ -6,7 +6,10 @@ use crate::{
     blob::barycentric_evaluate_blob_at_z,
     compute_factor,
     compute_fracs,
-    utils::{compress_to_blob_commitment, validate_canonical_representation_if_infinity},
+    utils::{
+        compress_to_blob_commitment, validate_blob_commitment_point,
+        validate_canonical_representation_if_infinity,
+    },
 };
 use bigcurve::BigCurve;
 use bignum::BLS12_381_Fr;
@@ -84,10 +87,8 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     for i in 0..NumBlobs {
         let single_blob_fields = subarray(blobs_as_fields, i * FIELDS_PER_BLOB);
         let commitment_point = kzg_commitments_points[i];
-        // We need to validate that the point is on the curve and canonical (0,0 if infinity), since it's hinted in this verification scheme
-        commitment_point.validate_on_curve();
-        // `validate_on_curve` doesn't validate the point at infinity, but `compress_to_blob_commitment`
-        // asserts the canonical (0,0) infinity encoding internally, so the hinted point is fully validated.
+        // The KZG commitment point is a private hint; validate the exact compressed point L1 accepts.
+        validate_blob_commitment_point(commitment_point);
         let c_i = compress_to_blob_commitment(commitment_point);
 
         // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.
@@ -402,6 +403,34 @@ mod tests {
         let point = BLSPoint {
             x: BLS12_381_Fq::from_limbs([0, 0, 0, 42]),
             y: BLS12_381_Fq::from_limbs([0, 0, 0, 27]),
+            is_infinity: false,
+        };
+        let final_challenges = FinalBlobBatchingChallenges::empty();
+
+        let challenge_z = BLS12_381_Fr::from(final_challenges.z);
+
+        let _ = evaluate_blobs_and_batch(
+            blob,
+            FIELDS_PER_BLOB,
+            123, // Arbitrary blob fields hash.
+            [point],
+            final_challenges,
+            BlobAccumulator::empty(),
+            challenge_z,
+        );
+    }
+
+    #[test(should_fail_with = "Point is not in the prime-order subgroup")]
+    fn test_non_subgroup_commitment_point_fails() {
+        let blob = [0; FIELDS_PER_BLOB];
+        let point = BLSPoint {
+            x: BLS12_381_Fq::from_limbs([6, 0, 0, 0]),
+            y: BLS12_381_Fq::from_limbs([
+                0x7991ee2150c45aa818e09c22df3b39,
+                0xa9f859c6f15d3a7ced587ae40ecf69,
+                0x1462f2e82445342f837b384cb8f008,
+                0x5116d,
+            ]),
             is_infinity: false,
         };
         let final_challenges = FinalBlobBatchingChallenges::empty();
