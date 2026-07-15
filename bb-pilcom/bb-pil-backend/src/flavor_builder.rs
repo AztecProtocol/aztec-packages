@@ -35,6 +35,8 @@ pub trait FlavorBuilder {
         shifted: &[String],
         all_cols_and_shifts: &[String],
     );
+
+    fn create_columns_cpp(&mut self, name: &str);
 }
 
 /// Build the boilerplate for the flavor file
@@ -134,5 +136,24 @@ impl FlavorBuilder for BBFiles {
         let hpp = handlebars.render("columns.hpp", data).unwrap();
 
         self.write_file(None, "columns.hpp", &hpp);
+    }
+
+    fn create_columns_cpp(&mut self, name: &str) {
+        let mut handlebars = Handlebars::new();
+
+        let data = &json!({
+            "name": name,
+        });
+
+        handlebars
+            .register_template_string(
+                "columns.cpp",
+                std::str::from_utf8(include_bytes!("../templates/columns.cpp.hbs")).unwrap(),
+            )
+            .unwrap();
+
+        let cpp = handlebars.render("columns.cpp", data).unwrap();
+
+        self.write_file(None, "columns.cpp", &cpp);
     }
 }

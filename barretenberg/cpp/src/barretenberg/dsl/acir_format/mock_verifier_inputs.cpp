@@ -1,4 +1,5 @@
 #include "mock_verifier_inputs.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
@@ -72,17 +73,7 @@ template <typename Flavor> HonkProof create_mock_sumcheck_proof()
 HonkProof create_mock_multilinear_batch_proof()
 {
     using Flavor = MultilinearBatchingFlavor;
-    using FF = typename Flavor::FF;
     HonkProof proof;
-
-    // Populate mock accumulator commitments (non_shifted + shifted)
-    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_ACCUMULATOR_COMMITMENTS);
-
-    // Accumulator multivariate challenges
-    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N);
-
-    // Accumulator polynomial evaluations (non_shifted + shifted)
-    populate_field_elements<FF>(proof, Flavor::NUM_ACCUMULATOR_EVALUATIONS);
 
     // Sumcheck proof
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
@@ -124,8 +115,8 @@ template <typename Flavor> HonkProof create_mock_pcs_proof()
     populate_field_elements<FF>(proof, NUM_GEMINI_FOLD_EVALUATIONS);
 
     if constexpr (Flavor::HasZK) {
-        // NUM_SMALL_IPA_EVALUATIONS libra evals
-        populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
+        // NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals
+        populate_field_elements<FF>(proof, NUM_SMALL_IPA_TRANSCRIPT_EVALS);
     }
 
     // Shplonk batched quotient commitment
@@ -185,8 +176,8 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     populate_field_elements<FF>(proof, NUM_GEMINI_FOLD_EVALUATIONS);
 
     if constexpr (Flavor::HasZK) {
-        // NUM_SMALL_IPA_EVALUATIONS libra evals
-        populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
+        // NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals
+        populate_field_elements<FF>(proof, NUM_SMALL_IPA_TRANSCRIPT_EVALS);
     }
 
     // Shplonk batched quotient commitment
@@ -214,11 +205,9 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
     return proof;
 }
 
-HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding)
+HonkProof create_mock_avm_proof_without_pub_inputs()
 {
-    size_t proof_length =
-        add_padding ? AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED : bb::avm2::AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;
-    // Construct an AVM proof as the padded concatenation of an Oink proof and a Decider proof
+    constexpr size_t proof_length = bb::avm2::AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;
     HonkProof oink_proof =
         create_mock_oink_proof<bb::avm2::AvmFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
             /*acir_public_inputs_size=*/0);
@@ -232,8 +221,7 @@ HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding)
                  oink_proof.end());
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
-    BB_ASSERT_LTE(proof.size(), proof_length); // Sanity check
-    proof.resize(proof_length, 0);             // Pad the proof to the required length (if needed)
+    BB_ASSERT_EQ(proof.size(), proof_length, "AVM mock proof length must match COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS");
 
     return proof;
 }
@@ -285,16 +273,11 @@ Goblin::MergeProof create_mock_merge_proof()
     Goblin::MergeProof proof;
     proof.reserve(MERGE_PROOF_SIZE);
 
-    uint32_t mock_shift_size = 5; // Must be smaller than 32, otherwise pow raises an error
-
-    // Populate mock shift size
-    populate_field_elements<fr>(proof, 1, /*value=*/fr{ mock_shift_size });
-
     // Populate mock merged table commitments and batched degree check polynomial commitment
-    populate_field_elements_for_mock_commitments(proof, 5);
+    populate_field_elements_for_mock_commitments(proof, NUM_WIRES + 1);
 
     // Populate evaluations (3 * NUM_WIRES + 1: left, right, and merged tables, plus batched degree check polynomial)
-    populate_field_elements(proof, 13);
+    populate_field_elements(proof, (3 * NUM_WIRES) + 1);
 
     // Shplonk proof: commitment to the quotient
     populate_field_elements_for_mock_commitments(proof, 1);
@@ -311,7 +294,6 @@ HonkProof create_mock_batch_merge_proof()
 {
     HonkProof proof;
 
-    constexpr size_t NUM_WIRES = Goblin::BatchMergeRecursiveVerifier::NUM_WIRES;
     constexpr size_t MAX_MERGE_SIZE = Goblin::BatchMergeRecursiveVerifier::MAX_MERGE_SIZE;
 
     // Commitments to the fixed-width list of subtables.
@@ -386,8 +368,8 @@ HonkProof create_mock_eccvm_proof()
     // 11. Gemini evaluations
     populate_field_elements<FF>(proof, CONST_ECCVM_LOG_N);
 
-    // 12. NUM_SMALL_IPA_EVALUATIONS libra evals
-    populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
+    // 12. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals
+    populate_field_elements<FF>(proof, NUM_SMALL_IPA_TRANSCRIPT_EVALS);
 
     // 13. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);

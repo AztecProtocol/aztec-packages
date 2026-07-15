@@ -18,8 +18,9 @@ pub struct TxRequest {
     pub tx_context: TxContext,
     // The data of the first function call in the transaction.
     pub function_data: FunctionData,
-    // A salt to make the hash of `TxRequest` difficult to predict. The hash is used as the first nullifier if no
-    // nullifier is emitted by any private function throughout the transaction.
+    // A salt that keeps `TxRequest.hash()` unpredictable. That hash is always injected by the init kernel as the
+    // transaction's first nullifier (the protocol nullifier), which seeds the note-hash nonce computation. The salt
+    // prevents a dictionary attack that guesses the tx request preimage to recompute the nullifier.
     pub salt: Field,
 }
 

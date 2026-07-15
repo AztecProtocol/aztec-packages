@@ -1,8 +1,8 @@
 #pragma once
 
 #include <array>
-
-#include "barretenberg/common/std_string.hpp"
+#include <string>
+#include <vector>
 
 namespace bb::{{snakeCase name}} {
 
@@ -78,12 +78,12 @@ constexpr auto TO_BE_SHIFTED_COLUMNS_ARRAY = []() { return std::array{ {{shoutyS
 constexpr auto SHIFTED_COLUMNS_ARRAY = []() { return std::array{ {{shoutySnakeCase name}}_SHIFTED_COLUMNS }; }();
 static_assert(TO_BE_SHIFTED_COLUMNS_ARRAY.size() == SHIFTED_COLUMNS_ARRAY.size());
 
-// Two layers are needed to properly expand the macro. Don't ask why.
-#define VARARGS_TO_STRING(...) #__VA_ARGS__
-#define UNPACK_TO_STRING(...) VARARGS_TO_STRING(__VA_ARGS__)
-inline const std::vector<std::string>& COLUMN_NAMES = []() {
-    static auto vec = detail::split_and_trim(UNPACK_TO_STRING({{shoutySnakeCase name}}_ALL_ENTITIES), ',');
-    return vec;
-}();
+// For assert builds, we'll enable column information.
+#ifndef NDEBUG
+#define AVM_INCLUDE_COLUMN_INFORMATION
+#endif
+
+// We'll define this in the cpp file. Conditionally.
+extern const std::vector<std::string>& COLUMN_NAMES;
 
 } // namespace bb::{{snakeCase name}}

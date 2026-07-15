@@ -35,7 +35,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     module: WebAssembly.Module,
     threads = Math.min(getNumCpu(), BarretenbergWasmMain.MAX_THREADS),
     logger?: (msg: string) => void,
-    initial = 35,
+    initial = 37,
     maximum = this.getDefaultMaximumMemoryPages(),
     unref = false,
   ) {

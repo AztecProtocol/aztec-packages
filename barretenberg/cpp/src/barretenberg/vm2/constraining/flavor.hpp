@@ -94,9 +94,9 @@ class AvmFlavor {
     static constexpr size_t NUM_FRS_COM = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t NUM_FRS_FR = FrCodec::calc_num_fields<FF>();
 
-    // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
-    // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
-    // This formula must match the serialization in Transcript::serialize_full_transcript().
+    // The formula must match the serialization in Transcript::serialize_full_transcript(). The static_assert below
+    // catches drift between AVM_V2_PROOF_LENGTH_IN_FIELDS (the protocol-shared mirror in constants.nr) and the
+    // computed length. When it fires, follow the diagnostic and run scripts/bump_avm_proof_length.sh.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
         NUM_WITNESS_ENTITIES * NUM_FRS_COM +                                    // witness commitments
         NUM_ALL_ENTITIES * NUM_FRS_FR +                                         // sumcheck evaluations
@@ -105,24 +105,10 @@ class AvmFlavor {
         MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR +                                   // gemini fold evals
         2 * NUM_FRS_COM;                                                        // shplonk + kzg
 
-    static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
-                  "\n The constant AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED is now too short\n"
-                  "as is smaller than the real AVM v2 proof. Increase the padded constant \n"
-                  "in constants.nr accordingly.");
-
-    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
-    //               "\nUnexpected AVM V2 proof length. This might be due to some changes in the\n"
-    //               "AVM circuit layout. In this case, modify AVM_V2_PROOF_LENGTH_IN_FIELDS \n"
-    //               "in constants.nr accordingly.");
-
-    // VK is composed of
-    // - NUM_PRECOMPUTED_ENTITIES commitments
-    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
-    //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
-    //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
-    //               "in constants.nr accordingly.");
+    static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+                  "AVM_V2_PROOF_LENGTH_IN_FIELDS (constants.nr) != COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS. "
+                  "Update AVM_V2_PROOF_LENGTH_IN_FIELDS in constants.nr to the computed value and "
+                  "run barretenberg/cpp/scripts/bump_avm_proof_length.sh.");
 
   public:
     template <typename DataType_> class AllEntities {

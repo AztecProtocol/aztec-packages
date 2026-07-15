@@ -125,7 +125,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
  * \f$ A \f$ is uniquely defined by the following properties:
  *    - \f$ A(1) = 0 \f$,
  *    - \f$ A(g^i) = A(g^{i-1}) + F(g^{i-1}) G(g^{i-1}) \f$ for \f$ i = 1, \ldots, |H|-1 \f$.
- * 2. Mask \f$ A(X) \f$ by adding \f$ Z_H(X) R(X) \f$, where \f$ R(X) \f$ is a random polynomial of degree 3.
+ * 2. Mask \f$ A(X) \f$ by adding \f$ Z_H(X) R(X) \f$, where \f$ R(X) \f$ is a random polynomial of degree 2.
  * 3. Commit to \f$ A(X) + Z_H(X) \cdot R(X) \f$ and send the commitment to the verifier.
  *
  * ### Grand Sum Identity
@@ -143,9 +143,10 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
  * The methods of this class allow the prover to compute \f$ A(X) \f$ and \f$ Q(X) \f$.
  *
  * After receiving a random evaluation challenge \f$ r \f$, the prover will send \f$ G(r), A(g\cdot r), A(r), Q(r) \f$
- * to the verifier. In the ZKSumcheckData case, \f$ r \f$ is the Gemini evaluation challenge, and this further part is
- * taken care of by Shplemini. In the TranslationData case, \f$ r \f$ is an evaluation challenge that will be sampled in
- * the translation evaluations sub-protocol of ECCVM.
+ * to the verifier and contribute an opening proof for the fixed boundary value \f$ A(1) = 0 \f$. In the
+ * ZKSumcheckData case, \f$ r \f$ is the Gemini evaluation challenge, and this further part is taken care of by
+ * Shplemini. In the TranslationData case, \f$ r \f$ is an evaluation challenge that will be sampled in the
+ * translation evaluations sub-protocol of ECCVM.
  */
 template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
 {
@@ -300,13 +301,13 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_grand_su
         grand_sum_identity_polynomial.at(idx) += shifted_grand_sum.at(idx) - grand_sum_polynomial.at(idx);
     }
 
-    // Mutiply - F(X) * G(X) + A(gX) - A(X) by X-g:
+    // Multiply -F(X) * G(X) + A(gX) - A(X) by X - g^{-1}:
     // 1. Multiply by X
     for (size_t idx = GRAND_SUM_IDENTITY_LENGTH - 1; idx > 0; idx--) {
         grand_sum_identity_polynomial.at(idx) = grand_sum_identity_polynomial.at(idx - 1);
     }
     grand_sum_identity_polynomial.at(0) = FF(0);
-    // 2. Subtract  1/g(A(gX) - A(X) - F(X) * G(X))
+    // 2. Subtract g^{-1}(A(gX) - A(X) - F(X) * G(X)).
     for (size_t idx = 0; idx < GRAND_SUM_IDENTITY_LENGTH - 1; idx++) {
         grand_sum_identity_polynomial.at(idx) -=
             grand_sum_identity_polynomial.at(idx + 1) * interpolation_domain[SUBGROUP_SIZE - 1];
@@ -391,7 +392,7 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
         claimed_inner_product += univariate.evaluate(multivariate_challenge[idx]);
         idx++;
     }
-    // Libra Univariates are mutiplied by the Libra challenge in setup_auxiliary_data(), needs to be undone
+    // Libra univariates are multiplied by the Libra challenge in setup_auxiliary_data(), which needs to be undone.
     claimed_inner_product *= libra_challenge_inv / FF(1 << (log_circuit_size - 1));
     claimed_inner_product += zk_sumcheck_data.constant_term;
     return claimed_inner_product;

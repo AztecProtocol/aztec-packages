@@ -306,7 +306,16 @@ namespace tx;
         calldata_hashing.context_id
     };
 
-    pol commit is_teardown; // @boolean (on active row guaranteed by #[READ_PHASE_SPEC])
+    pol commit is_teardown; // @boolean
+                            // - On active row guaranteed by #[READ_PHASE_SPEC].
+                            // - On inactive row, constrained to be 0 by #[IS_TEARDOWN_ON_SEL].
+                            // It is important for `is_teardown` to be unconditionally boolean
+                            // to guarantee that `should_read_gas_limit` (tx_context.pil) is also
+                            // unconditionally boolean. This is a requirement for a lookup selector.
+
+    // sel == 0 ==> is_teardown == 0
+    #[TEARDOWN_ON_SEL]
+    is_teardown * (1 - sel) = 0;
 
     pol commit prev_l2_gas_used_sent_to_enqueued_call;
     pol commit prev_da_gas_used_sent_to_enqueued_call;
@@ -459,24 +468,26 @@ namespace tx;
    /***************************************************************************
     * Private Side Effect Insertions
     **************************************************************************/
-    pol commit sel_append_note_hash; // @boolean
-    pol commit sel_append_nullifier; // @boolean
-    pol commit sel_append_l2_l1_msg; // @boolean
+    pol commit sel_append_note_hash; // @boolean (on active rows)
+    pol commit sel_append_nullifier; // @boolean (on active rows)
+    pol commit sel_append_l2_l1_msg; // @boolean (on active rows)
     // The 3 above selectors are booleans thanks to #[READ_PHASE_SPEC] on active rows.
     // Furthermore, phase spec guarantees that they are mutually exclusive.
     // Whether such an append is revertible or not is determined by `is_revertible`.
 
-    // A tree selector means we need to get the tree value
-    pol commit is_tree_insert_phase; // @boolean on active rows (follows from mutual exclusivity of the above selectors)
+    // Boolean on active rows by mutual exclusivity of the above selectors.
+    // Forced to zero on inactive rows by #[IS_TREE_INSERT_PHASE_ON_SEL].
+    // Therefore, unconditionally boolean — required as a lookup source selector.
+    pol commit is_tree_insert_phase; // @boolean
     is_tree_insert_phase = sel_append_note_hash + sel_append_nullifier;
     pol commit leaf_value;
     // Shared column to track the inverse of the remaining side effects for note hashes, nullifiers, and L2 to L1 messages
     pol commit remaining_side_effects_inv;
 
+    #[IS_TREE_INSERT_PHASE_ON_SEL]
+    (1 - sel) * is_tree_insert_phase = 0;
+
     // Read the tree value from public inputs
-    // Note: A malicious prover could activate `is_tree_insert_phase` outside of the active
-    //       trace, but it does not affect security because "reading the public inputs" does
-    //       not create any side effects.
     #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.idx, public_inputs.cols[0] };
@@ -528,20 +539,15 @@ namespace tx;
     pol commit sel_try_nullifier_append; // @boolean (follows from definition)
     sel_try_nullifier_append = (sel - is_padded) * sel_append_nullifier;
 
-    pol commit nullifier_limit_error; // @boolean
-    nullifier_limit_error * (1 - nullifier_limit_error) = 0;
-
     // If we are at the maximum emitted nullifiers, we must disable the lookup
     pol REMAINING_NULLIFIER_WRITES = constants.MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted;
-    // Disable the lookup if remaining nullifiers is 0
+    // We revert iff remaining nullifiers is 0.
     #[MAX_NULLIFIER_WRITES_REACHED]
-    sel_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (nullifier_limit_error * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + nullifier_limit_error) = 0;
+    sel_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
-    // If over the limit, reverted=1; else, reverted is constrained by the lookup.
-    sel_try_nullifier_append * nullifier_limit_error * (1 - reverted) = 0;
-
+    // We only activate the append operation if we did not revert.
     pol commit sel_nullifier_append; // @boolean (follows from definition)
-    sel_nullifier_append = sel_try_nullifier_append * (1 - nullifier_limit_error);
+    sel_nullifier_append = sel_try_nullifier_append * (1 - reverted);
 
     pol commit write_nullifier_pi_offset;
     sel_nullifier_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + prev_num_nullifiers_emitted - write_nullifier_pi_offset) = 0;
@@ -700,11 +706,13 @@ namespace tx;
     // Retrieve fee_payer_balance
     #[BALANCE_READ]
     is_collect_fee {
+       precomputed.zero, // write = 0 (read)
        fee_payer_balance,
        fee_juice_contract_address,
        fee_juice_balance_slot,
        prev_public_data_tree_root
     } in public_data_check.sel {
+       public_data_check.write,
        public_data_check.value,
        public_data_check.address,
        public_data_check.slot,

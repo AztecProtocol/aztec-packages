@@ -367,8 +367,9 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
             return table;
         }
     }
-    // Table doesn't exist! So try to create it.
-    lookup_tables.emplace_back(plookup::create_basic_table(id, lookup_tables.size()));
+    // Table doesn't exist! So try to create it. Indices start at 1 so that the relation batched term always contains at
+    // least beta cubed.
+    lookup_tables.emplace_back(plookup::create_basic_table(id, lookup_tables.size() + 1));
     return lookup_tables.back();
 }
 
@@ -376,7 +377,10 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
 template <typename ExecutionTrace>
 plookup::BasicTable* UltraCircuitBuilder_<ExecutionTrace>::register_basic_lookup_table(plookup::BasicTable&& table)
 {
-    table.table_index = lookup_tables.size();
+    // Indices start at 1; see get_table() for the reason.
+    table.table_index = lookup_tables.size() + 1;
+    BB_ASSERT_GT(table.table_index, 0U, "Table index must be greater than 0");
+
     lookup_tables.emplace_back(std::move(table));
     return &lookup_tables.back();
 }
@@ -1937,10 +1941,10 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
             };
 
             if (idx < block.size() - 1) {
-                tmp_w.push_back(block.w_l()[idx + 1]);
-                tmp_w.push_back(block.w_r()[idx + 1]);
-                tmp_w.push_back(block.w_o()[idx + 1]);
-                tmp_w.push_back(block.w_4()[idx + 1]);
+                tmp_w.push_back(this->real_variable_index[block.w_l()[idx + 1]]);
+                tmp_w.push_back(this->real_variable_index[block.w_r()[idx + 1]]);
+                tmp_w.push_back(this->real_variable_index[block.w_o()[idx + 1]]);
+                tmp_w.push_back(this->real_variable_index[block.w_4()[idx + 1]]);
             } else {
                 tmp_w.push_back(0);
                 tmp_w.push_back(0);
@@ -1958,7 +1962,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     cir.real_variable_index = this->real_variable_index;
 
     for (const auto& table : this->lookup_tables) {
-        const FF table_index(table.table_index);
         info("Table no: ", table.table_index);
         std::vector<std::vector<FF>> tmp_table;
         for (size_t i = 0; i < table.size(); ++i) {

@@ -225,31 +225,36 @@ TEST(ContractInstanceRetrievalConstrainingTest, NonExistentInstanceTrace)
     // mutate deployer_addr
     trace.set(C::contract_instance_retrieval_deployer_addr, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<contract_instance_retrieval>(trace),
-                              "INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE");
+                              contract_instance_retrieval::get_subrelation_label(
+                                  contract_instance_retrieval::SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE));
     // reset
     trace.set(C::contract_instance_retrieval_deployer_addr, 1, 0);
     // mutate current_class_id
     trace.set(C::contract_instance_retrieval_current_class_id, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<contract_instance_retrieval>(trace),
-                              "INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE");
+                              contract_instance_retrieval::get_subrelation_label(
+                                  contract_instance_retrieval::SR_INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE));
     // reset
     trace.set(C::contract_instance_retrieval_current_class_id, 1, 0);
     // mutate original_class_id
     trace.set(C::contract_instance_retrieval_original_class_id, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<contract_instance_retrieval>(trace),
-                              "INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE");
+                              contract_instance_retrieval::get_subrelation_label(
+                                  contract_instance_retrieval::SR_INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE));
     // reset
     trace.set(C::contract_instance_retrieval_original_class_id, 1, 0);
     // mutate init_hash
     trace.set(C::contract_instance_retrieval_init_hash, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<contract_instance_retrieval>(trace),
-                              "INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE");
+                              contract_instance_retrieval::get_subrelation_label(
+                                  contract_instance_retrieval::SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE));
     // reset
     trace.set(C::contract_instance_retrieval_init_hash, 1, 0);
     // mutate immutables_hash
     trace.set(C::contract_instance_retrieval_immutables_hash, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<contract_instance_retrieval>(trace),
-                              "INSTANCE_MEMBER_IMMUTABLES_HASH_IS_ZERO_IF_DNE");
+                              contract_instance_retrieval::get_subrelation_label(
+                                  contract_instance_retrieval::SR_INSTANCE_MEMBER_IMMUTABLES_HASH_IS_ZERO_IF_DNE));
     // reset
     trace.set(C::contract_instance_retrieval_immutables_hash, 1, 0);
 }

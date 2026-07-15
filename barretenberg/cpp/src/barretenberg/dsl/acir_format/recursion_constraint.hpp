@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/gate_counter.hpp"
@@ -159,7 +158,7 @@ HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
     Builder& builder,
     GateCounter<Builder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
-    [[maybe_unused]] const std::shared_ptr<IVCBase>& ivc_base,
+    [[maybe_unused]] const std::shared_ptr<Chonk>& ivc_base,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& honk_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& avm_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
@@ -179,6 +178,6 @@ void process_hn_recursion_constraints(
     GateCounter<MegaCircuitBuilder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
-    const std::shared_ptr<IVCBase>& ivc_base);
+    const std::shared_ptr<Chonk>& ivc_base);
 
 } // namespace acir_format

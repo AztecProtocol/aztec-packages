@@ -183,23 +183,13 @@ void process_return_data_operations(Builder& builder,
                                     std::vector<bb::stdlib::field_t<Builder>>& init)
 {
     using databus_ct = stdlib::databus<Builder>;
-    // Return data opcodes simply copy the data from the initialization vector to the return data vector in the databus.
-    // There is no operation happening.
+    // set_values populates the return-data bus column and creates one busread per slot.
     BB_ASSERT_EQ(constraint.trace.size(), 0U, "Return data opcodes should have empty traces");
 
     databus_ct databus;
 
     databus.return_data.set_context(&builder);
-    // Populate the returndata in the databus
     databus.return_data.set_values(init);
-    // For each entry of the return data, explicitly assert equality with the initialization value. This implicitly
-    // creates the return data read gates that are required to connect witness values in the main wires to witness
-    // values in the databus return data column.
-    size_t c = 0;
-    for (const auto& value : init) {
-        value.assert_equal(databus.return_data[c]);
-        c++;
-    }
 }
 
 } // namespace acir_format

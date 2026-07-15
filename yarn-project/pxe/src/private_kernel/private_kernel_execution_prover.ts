@@ -24,8 +24,8 @@ import {
   PrivateKernelInner2CircuitPrivateInputs,
   PrivateKernelInner3CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelResetTailCircuitPrivateInputs,
   type PrivateKernelSimulateOutput,
-  PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
   type UpdatedClassIdHints,
@@ -170,7 +170,6 @@ export class PrivateKernelExecutionProver {
         previousOutput: output,
         txRequest,
         isPrivateOnlyTx,
-        firstNullifierHint: executionResult.firstNullifier,
         minRevertibleSideEffectCounter,
         executionSteps,
         generateWitnesses,
@@ -179,7 +178,8 @@ export class PrivateKernelExecutionProver {
       firstIteration = false;
     }
 
-    // Final reset: include siloing of note hashes, nullifiers and private logs.
+    // Terminal reset+tail. The final reset must be performed exactly once because each tx has at
+    // least one nullifier that requires siloing, and siloing cannot be done multiple times.
     const finalResetBuilder = new PrivateKernelResetPrivateInputsBuilder(
       output,
       [],
@@ -187,29 +187,9 @@ export class PrivateKernelExecutionProver {
       splitCounter,
     );
     if (!finalResetBuilder.needsReset()) {
-      // The final reset must be performed exactly once, because each tx has at least one nullifier that requires
-      // siloing, and siloing cannot be done multiple times.
-      // While, in theory, it might be possible to silo note hashes first and then run another reset to silo nullifiers
-      // and/or private logs, we currently don't have standalone dimensions for the arrays that require siloing. As a
-      // result, all necessary siloing must be done together in a single reset.
+      // Siloing for note hashes, nullifiers, and private logs is dimensioned as one terminal reset.
       // Refer to the possible combinations of dimensions in private_kernel_reset_config.json.
       throw new Error('Nothing to reset for the final reset.');
-    } else {
-      const witgenTimer = new Timer();
-      const privateInputs = await finalResetBuilder.build(this.oracle);
-      output = generateWitnesses
-        ? await this.proofCreator.generateResetOutput(privateInputs)
-        : await this.proofCreator.simulateReset(privateInputs);
-
-      executionSteps.push({
-        functionName: 'private_kernel_reset',
-        bytecode: output.bytecode,
-        witness: output.outputWitness,
-        vk: output.verificationKey.keyAsBytes,
-        timings: {
-          witgen: witgenTimer.ms(),
-        },
-      });
     }
 
     if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
@@ -218,34 +198,35 @@ export class PrivateKernelExecutionProver {
       }
       output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
     }
-    // Private tail.
-    const vkData = await this.getVkData(output.verificationKey);
-    const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
-
-    this.log.debug(
-      `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
-    );
 
     // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
 
     // Round the aggregated expirationTimestamp down to reduce precision and avoid leaking which private
     // functions were called via their exact expiration offsets.
-    const expirationTimestampUpperBound = computeTxExpirationTimestamp(previousKernelData.publicInputs);
+    const expirationTimestampUpperBound = computeTxExpirationTimestamp(output.publicInputs);
 
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
-      previousKernelData,
+    const resetInputs = await finalResetBuilder.build(this.oracle);
+    const mergedInputs = new PrivateKernelResetTailCircuitPrivateInputs(
+      resetInputs.previousKernel,
+      resetInputs.paddedSideEffects,
+      resetInputs.hints,
+      resetInputs.dimensions,
       paddedSideEffectAmounts,
       expirationTimestampUpperBound,
     );
 
+    this.log.debug(
+      `Calling terminal private kernel reset+tail (${mergedInputs.isForPublic() ? 'to-public' : 'to-rollup'}) with hwm ${output.publicInputs.minRevertibleSideEffectCounter}`,
+    );
+
     const witgenTimer = new Timer();
     const tailOutput = generateWitnesses
-      ? await this.proofCreator.generateTailOutput(privateInputs)
-      : await this.proofCreator.simulateTail(privateInputs);
+      ? await this.proofCreator.generateResetTailOutput(mergedInputs)
+      : await this.proofCreator.simulateResetTail(mergedInputs);
 
     executionSteps.push({
-      functionName: 'private_kernel_tail',
+      functionName: mergedInputs.isForPublic() ? 'private_kernel_reset_tail_to_public' : 'private_kernel_reset_tail',
       bytecode: tailOutput.bytecode,
       witness: tailOutput.outputWitness,
       vk: tailOutput.verificationKey.keyAsBytes,
@@ -457,7 +438,6 @@ export class PrivateKernelExecutionProver {
     previousOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>;
     txRequest: TxRequest;
     isPrivateOnlyTx: boolean;
-    firstNullifierHint: Fr;
     minRevertibleSideEffectCounter: number;
     executionSteps: PrivateExecutionStep[];
     generateWitnesses: boolean;
@@ -468,7 +448,6 @@ export class PrivateKernelExecutionProver {
       previousOutput,
       txRequest,
       isPrivateOnlyTx,
-      firstNullifierHint,
       minRevertibleSideEffectCounter,
       executionSteps,
       generateWitnesses,
@@ -488,12 +467,9 @@ export class PrivateKernelExecutionProver {
             ProtocolContractsList,
             apps[0],
             isPrivateOnlyTx,
-            firstNullifierHint,
             minRevertibleSideEffectCounter,
           );
-          this.log.debug(
-            `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-          );
+          this.log.debug(`Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx}`);
           pushTestData('private-kernel-inputs-init', proofInput);
           output = generateWitnesses
             ? await this.proofCreator.generateInitOutput(proofInput)
@@ -509,12 +485,9 @@ export class PrivateKernelExecutionProver {
             apps[0],
             apps[1],
             isPrivateOnlyTx,
-            firstNullifierHint,
             minRevertibleSideEffectCounter,
           );
-          this.log.debug(
-            `Calling private kernel init_2 with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-          );
+          this.log.debug(`Calling private kernel init_2 with isPrivateOnly ${isPrivateOnlyTx}`);
           pushTestData('private-kernel-inputs-init-2', proofInput);
           output = generateWitnesses
             ? await this.proofCreator.generateInit2Output(proofInput)
@@ -531,12 +504,9 @@ export class PrivateKernelExecutionProver {
             apps[1],
             apps[2],
             isPrivateOnlyTx,
-            firstNullifierHint,
             minRevertibleSideEffectCounter,
           );
-          this.log.debug(
-            `Calling private kernel init_3 with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-          );
+          this.log.debug(`Calling private kernel init_3 with isPrivateOnly ${isPrivateOnlyTx}`);
           pushTestData('private-kernel-inputs-init-3', proofInput);
           output = generateWitnesses
             ? await this.proofCreator.generateInit3Output(proofInput)

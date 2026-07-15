@@ -861,6 +861,38 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)
     }
 }
 
+// Negative test on wrongly setting tag_out_of_range when the opcode has no tag
+TEST(InstrFetchingConstrainingTest, NegativeTagOutOfRangeNoTag)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    // Some chosen opcode without a tag
+    WireOpCode opcode = WireOpCode::ADD_8;
+
+    const auto instr = testing::random_instruction(opcode);
+    bytecode_builder.process_instruction_fetching(
+        { { .bytecode_id = 1,
+            .pc = 0,
+            .instruction = instr,
+            .bytecode = std::make_shared<std::vector<uint8_t>>(instr.serialize()) } },
+        trace);
+    precomputed_builder.process_memory_tag_range(trace);
+    precomputed_builder.process_sel_range_8(trace);
+    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
+
+    check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_tag_value_validation_settings>(trace);
+
+    // Mutate tag out-of-range error
+    ASSERT_EQ(trace.get(C::instr_fetching_tag_out_of_range, 1), 0);
+    ASSERT_EQ(trace.get(C::instr_fetching_sel_has_tag, 1), 0);
+    trace.set(C::instr_fetching_tag_out_of_range, 1, 1); // Mutate by toggling the error.
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TAG_OUT_OF_RANGE_ZERO),
+                              instr_fetching::get_subrelation_label(instr_fetching::SR_TAG_OUT_OF_RANGE_ZERO));
+}
+
 // Negative test on not toggling instr_out_of_range when instr_size > bytes_to_read
 TEST(InstrFetchingConstrainingTest, NegativeNotTogglingInstrOutOfRange)
 {
@@ -879,7 +911,7 @@ TEST(InstrFetchingConstrainingTest, NegativeNotTogglingInstrOutOfRange)
     trace.set(C::instr_fetching_instr_out_of_range, 0, 0); // Mutate to wrong value
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE),
-                              "INSTR_OUT_OF_RANGE_TOGGLE");
+                              instr_fetching::get_subrelation_label(instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE));
 }
 
 // Negative test on wrongly toggling instr_out_of_range when instr_size <= bytes_to_read
@@ -900,7 +932,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTogglingInstrInRange)
     trace.set(C::instr_fetching_instr_out_of_range, 0, 1); // Mutate to wrong value
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE),
-                              "INSTR_OUT_OF_RANGE_TOGGLE");
+                              instr_fetching::get_subrelation_label(instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE));
 }
 
 // Negative test on not toggling pc_out_of_range when pc >= bytecode_size
@@ -921,7 +953,31 @@ TEST(InstrFetchingConstrainingTest, NegativeNotTogglingPcOutOfRange)
     trace.set(C::instr_fetching_pc_out_of_range, 0, 0); // Mutate to wrong value
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE),
-                              "PC_OUT_OF_RANGE_TOGGLE");
+                              instr_fetching::get_subrelation_label(instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE));
+}
+
+// Negative test on setting sel_has_tag when pc >= bytecode_size
+TEST(InstrFetchingConstrainingTest, NegativeTagSelPcOutOfRange)
+{
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::instr_fetching_bytecode_size, 12 },
+            { C::instr_fetching_pc, 12 },
+            { C::instr_fetching_pc_abs_diff, 0 },
+            { C::instr_fetching_pc_out_of_range, 1 },
+            { C::instr_fetching_sel_pc_in_range, 0 },
+            { C::instr_fetching_sel_has_tag, 0 }, // Will be mutated to 1
+            { C::instr_fetching_sel, 1 },
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_SEL_HAS_TAG_ZERO);
+
+    trace.set(C::instr_fetching_sel_has_tag, 1, 1); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_SEL_HAS_TAG_ZERO),
+                              instr_fetching::get_subrelation_label(instr_fetching::SR_SEL_HAS_TAG_ZERO));
 }
 
 // Negative test on wrongly toggling pc_out_of_range when pc < bytecode_size
@@ -942,7 +998,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTogglingPcInRange)
     trace.set(C::instr_fetching_pc_out_of_range, 0, 1); // Mutate to wrong value
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE),
-                              "PC_OUT_OF_RANGE_TOGGLE");
+                              instr_fetching::get_subrelation_label(instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE));
 }
 
 TEST(InstrFetchingConstrainingTest, ErrorFlagSetButSelParsingErrIsZero)

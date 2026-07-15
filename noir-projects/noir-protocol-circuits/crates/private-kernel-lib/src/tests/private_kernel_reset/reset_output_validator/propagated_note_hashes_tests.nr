@@ -121,7 +121,7 @@ fn with_padded_note_hashes() {
     builder.validate_siloing();
 }
 
-#[test(should_fail_with = "CappedSize not large enough to cover all valid items in original_array")]
+#[test(should_fail_with = "CappedSize not large enough to cover all items in result_array")]
 fn more_non_empty_note_hashes_than_capped_size() {
     let mut builder = TestBuilder::new();
 

@@ -13,7 +13,7 @@ namespace bb {
 template <typename Flavor_>
 template <size_t N>
 HypernovaFoldingVerifier<Flavor_>::Commitment HypernovaFoldingVerifier<Flavor_>::batch_mul(
-    const RefArray<Commitment, N>& _points, std::vector<FF>& scalars)
+    std::span<Commitment, N> _points, std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
     for (size_t idx = 0; idx < N; ++idx) {
@@ -45,7 +45,8 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
     }
 
     // Batch commitments
-    VerifierCommitments verifier_commitments(instance->get_vk(), instance->witness_commitments);
+    VerifierCommitments verifier_commitments =
+        VerifierCommitmentsConstructor<Flavor>::construct(instance->get_vk(), instance->witness_commitments);
 
     Commitment batched_unshifted_commitment = batch_mul(verifier_commitments.get_unshifted(), unshifted_challenges);
     Commitment batched_shifted_commitment = batch_mul(verifier_commitments.get_to_be_shifted(), shifted_challenges);
@@ -112,6 +113,7 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
 template <typename Flavor>
 std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> HypernovaFoldingVerifier<
     Flavor>::verify_folding_proof(const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
+                                  const Accumulator& accumulator,
                                   const HypernovaFoldingVerifier::Proof& proof)
 {
     BB_BENCH_NAME("HypernovaFoldingVerifier::verify_folding_proof");
@@ -129,11 +131,12 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     const auto [unshifted_challenges, shifted_challenges] =
         get_hypernova_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
-    VerifierCommitments verifier_commitments(instance->get_vk(), instance->witness_commitments);
+    VerifierCommitments verifier_commitments =
+        VerifierCommitmentsConstructor<Flavor>::construct(instance->get_vk(), instance->witness_commitments);
 
     MultilinearBatchingVerifier batching_verifier(transcript);
-    auto [sumcheck_batching_result, new_accumulator] =
-        batching_verifier.verify_proof(sumcheck_output, verifier_commitments, unshifted_challenges, shifted_challenges);
+    auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof(
+        sumcheck_output, verifier_commitments, unshifted_challenges, shifted_challenges, accumulator);
 
     if (sumcheck_output.verified && sumcheck_batching_result) {
         vinfo("HypernovaFoldingVerifier: successfully verified folding proof.");
