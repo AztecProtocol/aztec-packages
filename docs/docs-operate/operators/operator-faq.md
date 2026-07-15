@@ -49,7 +49,7 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
    ```
 
 :::warning Data Loss and Resync
-This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`SYNC_MODE=snapshot`) to speed up recovery. See the [syncing best practices guide](./setup/syncing-best-practices.md) for more information.
+This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`SYNC_MODE=snapshot`) to speed up recovery. See the [syncing best practices guide](./setup/syncing_best_practices) for more information.
 :::
 
 ### Error Getting Slot Number
@@ -163,7 +163,7 @@ Error: Unable to get blob sidecar, Gateway Time-out (504)
 
    - Check your beacon client logs
    - Verify the sync status shows as synced
-   - Blob data is only available for recent blocks (typically 18 days)
+   - A regular beacon serves blob sidecars only for recent blocks; a node that does not serve them at all needs supernode or semi-supernode mode (see [L1 RPC requirements](/operate/operators/concepts/l1-rpc))
 
 4. **Run your own beacon node** (recommended):
    - Using a third-party beacon endpoint may have rate limits
@@ -178,18 +178,11 @@ No. You do not need an L1 archive node to run an Aztec node. Snapshot sync is th
 
 To use snapshot sync, set `SYNC_MODE=snapshot` in your configuration.
 
-#if(testnet)
-### Consensus RPC and Blob Availability (Testnet)
+### Consensus RPC and blob availability
 
-On testnet, your L1 consensus (beacon) RPC endpoint must be able to serve **all blob data**. Standard beacon nodes only retain blobs for approximately 18 days (4096 epochs), which may not be sufficient.
+Your L1 consensus (beacon) RPC must serve **blob sidecars**. After Ethereum's Fusaka upgrade (PeerDAS), a regular beacon node no longer serves the blob sidecar endpoint, so an Aztec node pointed at one cannot sync. You need a beacon configured as a **supernode** (holds all data columns) or a **semi-supernode** (holds enough columns to reconstruct blobs, sufficient for an Aztec node).
 
-To meet this requirement, you need a consensus node configured as either a:
-
-- **Supernode**: Stores all 128/128 data columns regardless of validator staking weight. This provides full blob availability.
-- **Semi-supernode**: Stores enough data columns (typically 64/128) to reconstruct blobs. This is sufficient for testnet participation.
-
-This requirement is specific to testnet. On mainnet, standard beacon nodes with default blob retention are expected to be sufficient.
-#endif
+For the version and flag requirements, the load a node puts on an RPC, and the self-host versus hosted trade-off, see [L1 RPC requirements](/operate/operators/concepts/l1-rpc).
 
 ## Funding and Resources
 
@@ -203,7 +196,7 @@ Error: insufficient funds for gas * price + value
 ```
 
 #if(testnet)
-**Cause**: Your publisher address doesn't have enough Sepolia ETH to pay for L1 gas fees.
+**Cause**: Your publisher address has run out of Sepolia ETH to pay for L1 gas. Publisher balance decays slowly, so this usually means you started small and let it drift to zero.
 
 **Solutions**:
 
@@ -215,32 +208,30 @@ Error: insufficient funds for gas * price + value
 
    For Aztec testnet tokens (TST), use the **[Aztec Testnet Faucet](https://testnet.aztec.network/)**.
 
-2. **Maintain sufficient balance**:
+2. **Top up the publisher account**:
 #else
-**Cause**: Your publisher address doesn't have enough ETH to pay for L1 gas fees.
+**Cause**: Your publisher address has run out of ETH to pay for L1 gas.
 
 **Solutions**:
 
-1. **Maintain sufficient balance**:
+1. **Top up the publisher account**:
 #endif
 
-   - Keep at least **0.1 ETH** in your publisher account at all times
-   - Monitor your balance regularly to avoid running out
-   - Falling below the minimum balance may result in slashing
+   - The [funding calculator](./solo-sequencer/fund-accounts#fund-the-publisher) in Fund accounts converts a top-up amount into a runway estimate at current and elevated gas prices once you have scanned the network with your RPC
 
-3. **Set up balance monitoring**:
+2. **Check your publisher balance**:
 
    ```bash
    # Check your publisher balance
    cast balance [YOUR_PUBLISHER_ADDRESS] --rpc-url [YOUR_RPC_URL]
    ```
 
-4. **Configure alerts**:
-   - Set up monitoring to alert you when balance drops below 0.15 ETH
-   - This gives you time to top up before hitting the critical threshold
+3. **Set a refill threshold and an alert**:
+   - Use `aztec_l1_publisher_balance` from your Prometheus stack
+   - The threshold should leave enough headroom to refill before the publisher dries up at the worst-case gas price you expect
 
-:::warning Slashing Risk
-Sequencers with insufficient funds in their publisher account risk being slashed. Always maintain at least 0.1 ETH to ensure uninterrupted operation and avoid penalties.
+:::warning Slashing risk
+A publisher that runs out of ETH cannot submit proposals. A single missed proposal is not slashable, but staying out of ETH long enough for the attester to miss almost all its duties over a full epoch hits the inactivity threshold, which is slashable. Set a refill threshold that leaves time to act under realistic L1 gas conditions.
 :::
 
 ## Updates and Maintenance
@@ -462,6 +453,7 @@ If you've tried the solutions above and are still experiencing issues:
 
 ## Next Steps
 
+- See [Reading your logs](./reference/reading-logs.md) for a catalogue of common log messages and which are safe to ignore
 - Review [monitoring setup](./monitoring/index.md) to catch issues early with metrics and alerts
 - Check the [CLI reference](./reference/cli-reference.md) for all configuration options
 - Join the [Aztec Discord](https://discord.gg/aztec) for real-time operator support

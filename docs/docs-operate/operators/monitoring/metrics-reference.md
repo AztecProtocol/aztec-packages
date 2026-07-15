@@ -1,6 +1,7 @@
 ---
 title: Key Metrics Reference
 description: Comprehensive guide to understanding and using the metrics exposed by your Aztec node for monitoring and observability.
+displayed_sidebar: operatorsSidebar
 ---
 
 ## Overview
@@ -21,6 +22,15 @@ Once your monitoring stack is running, you can discover available metrics in the
 The exact metric names and labels in this guide depend on your node type, version, and configuration. Always verify the actual metrics exposed by your node using the Prometheus UI metrics explorer at `http://localhost:9090/graph`. Common prefixes: `aztec_archiver_*`, `aztec_sequencer_*`, `aztec_prover_*`, `process_*`.
 :::
 
+:::info How metric names are formed
+The node defines metrics in OpenTelemetry style with dotted names like `aztec.archiver.block_height`. When Prometheus scrapes them, two transformations apply, so the name you query is not the name in the source:
+
+1. Dots become underscores: `aztec.archiver.block_height` becomes `aztec_archiver_block_height`.
+2. The unit is appended as a suffix. A metric with unit `eth` gains `_eth` (`aztec.l1_publisher.balance` becomes `aztec_l1_publisher_balance_eth`); unit `peers` gains `_peers` (`aztec.peer_manager.peer_count` becomes `aztec_peer_manager_peer_count_peers`).
+
+If a metric name in this guide returns nothing, type its prefix into the Prometheus explorer and read the exact exported name, including any unit suffix.
+:::
+
 ## Querying with PromQL
 
 Use Prometheus Query Language (PromQL) to query and analyze your metrics. Understanding these basics will help you read the alert rules throughout this guide.
@@ -39,13 +49,13 @@ aztec_archiver_block_height[5m]
 
 ```promql
 # Rate of change per second (for counters)
-rate(process_cpu_seconds_total[5m])
+rate(aztec_sequencer_block_proposal_failed_count[5m])
 
 # Blocks synced over time window (for gauges)
 increase(aztec_archiver_block_height[1h])
 
 # Derivative - per-second change rate of gauges
-deriv(process_resident_memory_bytes[30m])
+deriv(process_memory_usage[30m])
 ```
 
 ### Arithmetic Operations
@@ -54,11 +64,11 @@ Calculate derived metrics using basic math operators:
 
 ```promql
 # Calculate percentage (block proposal failure rate)
-(increase(aztec_sequencer_slot_count[15m]) - increase(aztec_sequencer_slot_filled_count[15m]))
-/ increase(aztec_sequencer_slot_count[15m])
+(increase(aztec_sequencer_slot_total_count[15m]) - increase(aztec_sequencer_slot_filled_count[15m]))
+/ increase(aztec_sequencer_slot_total_count[15m])
 
-# Convert to percentage scale
-rate(process_cpu_seconds_total[5m]) * 100
+# Convert a 0..1 ratio to a percentage scale
+process_cpu_utilization * 100
 ```
 
 ### Comparison Operators
@@ -66,8 +76,8 @@ rate(process_cpu_seconds_total[5m]) * 100
 Filter and alert based on thresholds:
 
 ```promql
-# Greater than
-rate(process_cpu_seconds_total[5m]) > 2.8
+# Greater than (70% of available CPU)
+process_cpu_utilization > 0.7
 
 # Less than
 aztec_peer_manager_peer_count_peers < 5
@@ -75,8 +85,8 @@ aztec_peer_manager_peer_count_peers < 5
 # Equal to
 increase(aztec_archiver_block_height[15m]) == 0
 
-# Not equal to
-aztec_sequencer_current_state != 1
+# Not equal to (no new blocks proposed in the window)
+increase(aztec_sequencer_block_count[15m]) == 0
 ```
 
 ### Time Windows
@@ -135,13 +145,13 @@ Track the number of active P2P peers connected to your node:
 
 Monitor whether your node is seeing new L1 blocks:
 
-- **Metric**: `aztec_l1_block_height`
+- **Metric**: `aztec_archiver_l1_block_height`
 - **Description**: Latest L1 (Ethereum) block number seen by the node
 
 **Alert rule**:
 ```yaml
 - alert: L1BlockHeightNotIncreasing
-  expr: increase(aztec_l1_block_height[15m]) == 0
+  expr: increase(aztec_archiver_l1_block_height[15m]) == 0
   for: 10m
   labels:
     severity: warning
@@ -173,38 +183,42 @@ Monitor the ETH balance used for publishing to L1 to prevent transaction failure
     description: "Publisher balance is {{ $value }} ETH. Refill immediately to avoid transaction failures."
 ```
 
-### Sequencer State
+### Sequencer Liveness
 
-Monitor the operational state of the sequencer module:
+There is no single gauge that reports a sequencer "healthy/unhealthy" state. Observe liveness through the work the sequencer does: a running sequencer keeps building blocks and keeps its archiver advancing. Alert when block production stalls.
 
-- **Metric**: `aztec_sequencer_current_state`
-- **Description**: Current state of the sequencer module (1 = OK/running, 0 = stopped/error)
+- **Metric**: `aztec_sequencer_block_count`
+- **Description**: Count of blocks this sequencer has built. A flat count over a full proposal window means the sequencer is not producing.
 
 **Alert rule**:
 ```yaml
-- alert: SequencerNotHealthy
-  expr: aztec_sequencer_current_state != 1
-  for: 2m
+- alert: SequencerNotProducing
+  expr: increase(aztec_sequencer_block_count[30m]) == 0
+  for: 5m
   labels:
     severity: critical
   annotations:
-    summary: "Sequencer module not in healthy state"
-    description: "Sequencer state is {{ $value }} (expected 1). Check sequencer logs immediately."
+    summary: "Sequencer is not building blocks"
+    description: "No blocks built in the last 30 minutes. Check sequencer logs and confirm the node is in the committee."
 ```
+
+:::note
+A sequencer only builds blocks during slots it is assigned, so size the window to span several of your expected slots before alerting. If you want a node-level liveness signal that is independent of slot assignment, alert on `aztec_archiver_block_height` not advancing instead (see [L2 Block Height Progress](#l2-block-height-progress)).
+:::
 
 ### Block Proposal Failures
 
 Track failed block proposals by comparing slots to filled slots:
 
-- **Metrics**: `aztec_sequencer_slot_count` and `aztec_sequencer_slot_filled_count`
+- **Metrics**: `aztec_sequencer_slot_total_count` and `aztec_sequencer_slot_filled_count`
 - **Description**: Tracks slots assigned to your sequencer versus slots successfully filled. Alert triggers when the failure rate exceeds 5% over 15 minutes.
 
 **Alert rule**:
 ```yaml
 - alert: HighBlockProposalFailureRate
   expr: |
-    (increase(aztec_sequencer_slot_count[15m]) - increase(aztec_sequencer_slot_filled_count[15m]))
-    / increase(aztec_sequencer_slot_count[15m]) > 0.05
+    (increase(aztec_sequencer_slot_total_count[15m]) - increase(aztec_sequencer_slot_filled_count[15m]))
+    / increase(aztec_sequencer_slot_total_count[15m]) > 0.05
   for: 5m
   labels:
     severity: warning
@@ -324,34 +338,34 @@ Your node exposes standard infrastructure metrics through OpenTelemetry and the 
 
 Monitor process and system CPU utilization:
 
-- **Metric**: `process_cpu_seconds_total`
-- **Description**: Cumulative CPU time consumed by the process in seconds
+- **Metric**: `process_cpu_utilization`
+- **Description**: Fraction of available CPU the process is using, already normalized across all cores. A value of `1.0` means every available core is fully busy; `0.7` means 70% of total CPU capacity. This is a gauge, so query it directly without `rate()`.
 
 **Alert rules**:
 ```yaml
-# Note: Adjust thresholds based on your system's CPU core count.
-# Example below assumes a 4-core system (70% = 2.8 cores, 85% = 3.4 cores)
+# process_cpu_utilization is a 0..1 ratio across all cores, so the threshold is
+# a fraction of total capacity, not a core count. 0.7 = 70% of available CPU.
 - alert: HighCPUUsage
-  expr: rate(process_cpu_seconds_total[5m]) > 2.8
+  expr: process_cpu_utilization > 0.7
   for: 10m
   labels:
     severity: warning
   annotations:
     summary: "High CPU usage detected"
-    description: "Node using {{ $value }} CPU cores (above 2.8 threshold). Consider scaling resources."
+    description: "Node using {{ $value | humanizePercentage }} of available CPU. Consider scaling resources."
 ```
 
 ### Memory Usage
 
 Track RAM consumption:
 
-- **Metric**: `process_resident_memory_bytes`
-- **Description**: Resident memory size in bytes
+- **Metric**: `process_memory_usage`
+- **Description**: Resident (physical) memory the process is using, in bytes
 
 **Alert rules**:
 ```yaml
 - alert: HighMemoryUsage
-  expr: process_resident_memory_bytes > 8000000000
+  expr: process_memory_usage > 8000000000
   for: 5m
   labels:
     severity: warning

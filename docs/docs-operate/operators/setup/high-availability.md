@@ -323,12 +323,16 @@ Before starting your nodes, you need a PostgreSQL database that all HA nodes can
 
 **1. Provision a PostgreSQL database:**
 
-For production HA setups, we recommend using a managed database service with built-in high availability:
+For production HA setups, use a managed, multi-zone database service with automatic failover. The coordination database is small (a few tables holding signing locks), so the entry tier of any managed service is enough; what matters is that the database survives the loss of a single zone or machine.
 
-- **AWS RDS PostgreSQL** with Multi-AZ for automatic failover
-- **Google Cloud SQL for PostgreSQL** with high availability configuration
-- **Azure Database for PostgreSQL** with zone redundancy
-- **Self-hosted PostgreSQL** with streaming replication and automatic failover (if you manage your own infrastructure)
+Examples:
+
+- **Google Cloud SQL for PostgreSQL** with the high-availability (regional) configuration
+- **DigitalOcean Managed PostgreSQL** with a standby node for automatic failover
+- **AWS RDS PostgreSQL** with Multi-AZ, or **Azure Database for PostgreSQL** with zone redundancy
+- **Self-hosted PostgreSQL** with streaming replication and automatic failover, only if you already operate database infrastructure across multiple sites
+
+Avoid running the coordination database on a single machine, including on one of the sequencer nodes themselves. If that machine goes down, both nodes stop signing and the HA pair fails together. The database must be more available than any single node it coordinates.
 
 :::danger Critical: All Nodes Must Connect to the Same Primary Database
 The HA signing system relies on atomic database operations for distributed locking. **All validator nodes MUST connect to the SAME PRIMARY database instance**. The configurations above are safe because they use automatic failover to a single primary.
