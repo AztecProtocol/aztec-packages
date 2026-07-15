@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace bb;
 
@@ -119,6 +120,40 @@ TEST_F(UltraCircuitBuilderLookup, DifferentTablesGetUniqueIndices)
 
     // Exactly three different tables should have been created
     EXPECT_EQ(builder.get_num_lookup_tables(), 3UL);
+}
+
+TEST_F(UltraCircuitBuilderLookup, Secp256r1FixedBaseTablesGetUniquePositiveIndices)
+{
+    Builder builder;
+    std::unordered_set<size_t> table_indices;
+
+    const auto first_id = static_cast<size_t>(plookup::BasicTableId::SECP256R1_FIXED_BASE_XLO_0);
+    const auto end_id = static_cast<size_t>(plookup::BasicTableId::SECP256R1_FIXED_BASE_END);
+    for (size_t id = first_id; id < end_id; ++id) {
+        const auto& table = builder.get_table(static_cast<plookup::BasicTableId>(id));
+        EXPECT_GT(table.table_index, 0UL);
+        EXPECT_TRUE(table_indices.insert(table.table_index).second);
+    }
+
+    EXPECT_NO_THROW(builder.finalize_circuit());
+}
+
+TEST_F(UltraCircuitBuilderLookup, FinalizationRejectsDuplicateTableIndices)
+{
+    Builder builder;
+    builder.get_table(plookup::BasicTableId::UINT_XOR_SLICE_6_ROTATE_0);
+    builder.get_table(plookup::BasicTableId::UINT_AND_SLICE_6_ROTATE_0);
+    builder.get_lookup_tables()[1].table_index = builder.get_lookup_tables()[0].table_index;
+
+    EXPECT_THROW_OR_ABORT(builder.finalize_circuit(), "Lookup table indices must be unique within a circuit");
+}
+
+TEST_F(UltraCircuitBuilderLookup, FinalizationRejectsZeroTableIndex)
+{
+    Builder builder;
+    builder.get_table(plookup::BasicTableId::UINT_XOR_SLICE_6_ROTATE_0).table_index = 0;
+
+    EXPECT_THROW_OR_ABORT(builder.finalize_circuit(), "Lookup table indices must be positive");
 }
 
 // Verifies correct behavior when key_b_index is not provided (2-to-1 lookup without second index)
