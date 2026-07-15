@@ -1,13 +1,27 @@
 ---
 name: noir-sync-update
-description: Perform necessary follow-on updates as a result of updating the noir git submodule.
+description: Bump the Noir compiler version in aztec-packages and perform every follow-on update. Use whenever the noir/noir-repo submodule changes or on a request to "bump/update the noir compiler version to X" or "bump the noir submodule". Covers the submodule pointer, avm-transpiler Cargo.lock, yarn-project yarn.lock, and noir-projects formatting.
 ---
 
 # Noir Sync Update
 
-## Steps
+Use this for any request to bump the Noir compiler ("bump the noir compiler version to X",
+"update noir to <ref>") and after any manual `noir/noir-repo` submodule change. Bumping Noir
+touches several tracked artifacts that must move together; doing only the submodule bump leaves
+the tree inconsistent and breaks downstream builds/CI.
 
-After each step, verify with `git status` and commit the results before proceeding.
+## Quick path
+
+`noir/scripts/bump_noir_compiler.sh <ref>` automates steps 1-3 below in one shot — it bumps the
+submodule to `<ref>`, refreshes `avm-transpiler/Cargo.lock` (targeted `cargo update -p` on the
+noir crates only) and `yarn-project/yarn.lock`, and `git add`s all three. `<ref>` is any
+noir-lang/noir ref: a release tag (`v1.0.0-beta.23`), a nightly tag (`nightly-2026-06-02`), a
+branch, or a commit. With no `<ref>` it uses the latest `nightly-*` tag.
+
+The script does NOT commit and does NOT run step 4 (formatting). After it runs you still must
+format `noir-projects`, run the verifications below, and commit. If you prefer to do the steps
+by hand — or the script's lockfile steps fail because a transitive dependency changed — follow
+the manual steps below.
 
 ## Critical Verification Rules
 
@@ -15,9 +29,11 @@ After each step, verify with `git status` and commit the results before proceedi
 
 **IMPORTANT:** Always run `git status` from the repository root directory, not from subdirectories. Running `git status noir-projects/` from inside `noir-projects/` will fail silently.
 
+After each step, verify with `git status` and commit the results before proceeding.
+
 ### 1. Ensure submodule is pulled
 
-Run `./bootstrap.sh` in `noir` to ensure that the new submodule commit has been pulled. This shouldn't produce changes that need committing.
+Run `./bootstrap.sh` in `noir` to ensure that the new submodule commit has been pulled. This shouldn't produce changes that need committing. (The quick-path script checks out `<ref>` directly, covering this.)
 
 ### 2. Update `Cargo.lock` in `avm-transpiler`
 
