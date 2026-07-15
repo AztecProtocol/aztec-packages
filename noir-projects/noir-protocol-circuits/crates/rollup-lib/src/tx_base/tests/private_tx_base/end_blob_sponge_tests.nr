@@ -11,7 +11,7 @@ use types::{
 };
 
 #[test]
-unconstrained fn full_tx_effects() {
+fn full_tx_effects() {
     let mut builder = TestBuilder::new();
 
     let mut fixture_builder = FixtureBuilder::new();
@@ -119,7 +119,7 @@ unconstrained fn full_tx_effects() {
 }
 
 #[test]
-unconstrained fn all_side_effects_non_full() {
+fn all_side_effects_non_full() {
     let mut builder = TestBuilder::new();
 
     let mut fixture_builder = FixtureBuilder::new();
@@ -230,7 +230,7 @@ unconstrained fn all_side_effects_non_full() {
 }
 
 #[test]
-unconstrained fn partially_empty_tx_effects() {
+fn partially_empty_tx_effects() {
     let mut builder = TestBuilder::new();
 
     let mut fixture_builder = FixtureBuilder::new();

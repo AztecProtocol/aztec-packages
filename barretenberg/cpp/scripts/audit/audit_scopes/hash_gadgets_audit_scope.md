@@ -1,6 +1,6 @@
 # External Audit Scope: Hash Gadgets
 
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 Commit hash: Most recent commit on branch 'next'
 
 Note: All paths are relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
@@ -83,7 +83,7 @@ A restricted variant of BLAKE3 with inputs limited to ≤1024 bytes that generat
 
 - BLAKE2s: https://www.blake2.net/blake2.pdf
 - BLAKE3: https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf
-- Lookup tables: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/plookup_tables/README.md
+- Lookup tables: https://github.com/AztecProtocol/aztec-packages-private/blob/next/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/plookup_tables/README.md
 
 ### Files to Audit
 

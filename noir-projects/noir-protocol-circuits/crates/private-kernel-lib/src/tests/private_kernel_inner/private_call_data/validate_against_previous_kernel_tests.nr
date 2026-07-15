@@ -17,3 +17,14 @@ fn mismatch_chain_id() {
 
     builder.execute_and_fail();
 }
+
+// A nested private call must see the same `tx_request_salt` that the Init circuit bound to the transaction request.
+// A malicious prover that picks a different app-visible salt for the nested call must be rejected.
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn mismatch_tx_request_salt() {
+    let mut builder = TestBuilder::new();
+
+    builder.private_call.tx_request_salt += 1;
+
+    builder.execute_and_fail();
+}

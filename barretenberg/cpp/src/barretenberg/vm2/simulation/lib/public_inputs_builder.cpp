@@ -138,7 +138,7 @@ PublicInputsBuilder& PublicInputsBuilder::extract_outputs(const LowLevelMerkleDB
     if (side_effects.note_hashes.size() > MAX_NOTE_HASHES_PER_TX ||
         side_effects.nullifiers.size() > MAX_NULLIFIERS_PER_TX ||
         side_effects.l2_to_l1_messages.size() > MAX_L2_TO_L1_MSGS_PER_TX ||
-        side_effects.storage_writes_slot_to_value.size() > MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        side_effects.storage_writes_slot_to_value.size() > MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
         throw std::runtime_error(
             "Too many side effects. Note hashes: " + std::to_string(side_effects.note_hashes.size()) +
             ", Nullifiers: " + std::to_string(side_effects.nullifiers.size()) +

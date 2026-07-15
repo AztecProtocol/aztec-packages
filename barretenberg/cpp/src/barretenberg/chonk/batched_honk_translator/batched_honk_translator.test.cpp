@@ -74,7 +74,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         add_mixed_ops(op_queue, circuit_size_param / 2);
         add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
         // Merge with fixed append
-        op_queue->merge_fixed_append(op_queue->get_append_offset());
+        op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
         TranslatorCircuitBuilder circuit(batching_challenge_v, evaluation_input_x, op_queue);
         return std::make_shared<TranslatorProvingKey>(circuit);
@@ -139,36 +139,19 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         for (size_t i = 1; i <= 4; ++i) {
             m.add_entry(round, "ECC_OP_WIRE_" + std::to_string(i), G);
         }
-        // DataBus entities:
-        for (const auto& label : { "KERNEL_CALLDATA",
-                                   "KERNEL_CALLDATA_READ_COUNTS",
-                                   "FIRST_APP_CALLDATA",
-                                   "FIRST_APP_CALLDATA_READ_COUNTS",
-                                   "SECOND_APP_CALLDATA",
-                                   "SECOND_APP_CALLDATA_READ_COUNTS",
-                                   "THIRD_APP_CALLDATA",
-                                   "THIRD_APP_CALLDATA_READ_COUNTS",
-                                   "RETURN_DATA",
-                                   "RETURN_DATA_READ_COUNTS" }) {
-            m.add_entry(round, label, G);
-        }
-        m.add_challenge(round, "eta");
-        round++;
-
-        // ── Round 1: MegaZK lookup counts/tags/W_4 ───────────────────────────────
-        m.add_entry(round, "LOOKUP_READ_COUNTS", G);
-        m.add_entry(round, "LOOKUP_READ_TAGS", G);
+        // MegaZK keeps the kernel_calldata bus (the only bus the hiding kernel needs):
+        // the calldata column + its read_counts ride the oink batch alongside the wires.
+        m.add_entry(round, "KERNEL_CALLDATA", G);
+        m.add_entry(round, "KERNEL_CALLDATA_READ_COUNTS", G);
+        // No "eta" challenge in MegaZK (no memory / log-derivative lookup relation), so W_4
+        // stays in the same FS round as the prior wire/bus commitments — no round break here.
         m.add_entry(round, "W_4", G);
         m.add_challenge(round, std::array<std::string, 2>{ "beta", "gamma" });
         round++;
 
-        // ── Round 2: MegaZK logderiv inverses + Z_PERM + translator Oink ─────────
-        m.add_entry(round, "LOOKUP_INVERSES", G);
+        // ── Round 1: MegaZK Z_PERM + bus inverses + translator Oink ──────────────
+        // (LOOKUP_INVERSES dropped — MegaZK has no lookup relation.)
         m.add_entry(round, "KERNEL_CALLDATA_INVERSES", G);
-        m.add_entry(round, "FIRST_APP_CALLDATA_INVERSES", G);
-        m.add_entry(round, "SECOND_APP_CALLDATA_INVERSES", G);
-        m.add_entry(round, "THIRD_APP_CALLDATA_INVERSES", G);
-        m.add_entry(round, "RETURN_DATA_INVERSES", G);
         m.add_entry(round, "Z_PERM", G);
         // Translator Oink: vk_hash, masking commitment, 10 wire commitments
         m.add_entry(round, "vk_hash", Fr);

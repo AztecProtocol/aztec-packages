@@ -14,8 +14,13 @@ else
   npm_tag="latest"
 fi
 
-# Point .npmrc config to one that relies on 'NPM_TOKEN' in the environment.
-export NPM_CONFIG_GLOBALCONFIG="$root/ci3/npm/.npmrc"
+# Point .npmrc config to one that relies on 'NPM_TOKEN' in the environment. A private release
+# (INTERNAL_NPM_REGISTRY set) has already exported NPM_CONFIG_GLOBALCONFIG — an .npmrc that scopes
+# @aztec/@noir-lang to our internal GCP Artifact Registry npm repo (see bootstrap.sh::private_release)
+# — so we leave it in place; a normal release uses the npmjs config.
+if [ -z "${INTERNAL_NPM_REGISTRY:-}" ]; then
+  export NPM_CONFIG_GLOBALCONFIG="$root/ci3/npm/.npmrc"
+fi
 
 package_name=$(jq -r '.name' package.json)
 echo_header "publishing $package_name"

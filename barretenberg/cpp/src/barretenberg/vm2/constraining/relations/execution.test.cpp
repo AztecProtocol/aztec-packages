@@ -60,7 +60,8 @@ TEST(ExecutionConstrainingTest, Continuity)
 
     // Negative test: remove enqueued call end
     trace.set(C::execution_enqueued_call_end, 3, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY),
+                              execution::get_subrelation_label(execution::SR_TRACE_CONTINUITY));
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
@@ -74,7 +75,8 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
     });
     // clang-format on
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY),
+                              execution::get_subrelation_label(execution::SR_TRACE_CONTINUITY));
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
@@ -88,7 +90,8 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
     });
     // clang-format on
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY),
+                              execution::get_subrelation_label(execution::SR_TRACE_CONTINUITY));
 }
 
 TEST(ExecutionConstrainingTest, TreeStateNotChanged)
@@ -143,64 +146,66 @@ TEST(ExecutionConstrainingTest, TreeStateNotChanged)
     // Negative test: change note hash tree root
     trace.set(C::execution_note_hash_tree_root, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NOTE_HASH_TREE_ROOT_NOT_CHANGED),
-                              "NOTE_HASH_TREE_ROOT_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_NOTE_HASH_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: change note hash tree size
     trace.set(C::execution_note_hash_tree_size, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NOTE_HASH_TREE_SIZE_NOT_CHANGED),
-                              "NOTE_HASH_TREE_SIZE_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_NOTE_HASH_TREE_SIZE_NOT_CHANGED));
 
     // Negative test: change num note hashes emitted
     trace.set(C::execution_num_note_hashes_emitted, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NUM_NOTE_HASHES_EMITTED_NOT_CHANGED),
-                              "NUM_NOTE_HASHES_EMITTED_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_NUM_NOTE_HASHES_EMITTED_NOT_CHANGED));
 
     // Negative test: change nullifier tree root
     trace.set(C::execution_nullifier_tree_root, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NULLIFIER_TREE_ROOT_NOT_CHANGED),
-                              "NULLIFIER_TREE_ROOT_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_NULLIFIER_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: change nullifier tree size
     trace.set(C::execution_nullifier_tree_size, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NULLIFIER_TREE_SIZE_NOT_CHANGED),
-                              "NULLIFIER_TREE_SIZE_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_NULLIFIER_TREE_SIZE_NOT_CHANGED));
 
     // Negative test: change num nullifiers emitted
     trace.set(C::execution_prev_num_nullifiers_emitted, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NUM_NULLIFIERS_EMITTED_NOT_CHANGED),
-                              "NUM_NULLIFIERS_EMITTED_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_NUM_NULLIFIERS_EMITTED_NOT_CHANGED));
 
     // Negative test: change public data tree root
     trace.set(C::execution_public_data_tree_root, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED),
-                              "PUBLIC_DATA_TREE_ROOT_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: change public data tree size
     trace.set(C::execution_public_data_tree_size, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED),
-                              "PUBLIC_DATA_TREE_SIZE_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED));
 
     // Negative test: change written public data slots tree root
     trace.set(C::execution_written_public_data_slots_tree_root, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<execution>(trace, execution::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED),
-        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED");
+        execution::get_subrelation_label(execution::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: change written public data slots tree size
     trace.set(C::execution_written_public_data_slots_tree_size, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<execution>(trace, execution::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED),
-        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED");
+        execution::get_subrelation_label(execution::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED));
 
     // Negative test: change retrieved bytecodes tree root
     trace.set(C::execution_retrieved_bytecodes_tree_root, 1, 100);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED),
-                              "RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution>(trace, execution::SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED),
+        execution::get_subrelation_label(execution::SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: change retrieved bytecodes tree size
     trace.set(C::execution_retrieved_bytecodes_tree_size, 1, 100);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED),
-                              "RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution>(trace, execution::SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED),
+        execution::get_subrelation_label(execution::SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED));
 }
 
 TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)
@@ -224,12 +229,12 @@ TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)
     // Negative test: change num public logs
     trace.set(C::execution_num_public_log_fields, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NUM_PUBLIC_LOGS_NOT_CHANGED),
-                              "NUM_PUBLIC_LOGS_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_NUM_PUBLIC_LOGS_NOT_CHANGED));
 
     // Negative test: change num l2 to l1 messages
     trace.set(C::execution_num_l2_to_l1_messages, 1, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED),
-                              "NUM_L2_TO_L1_MESSAGES_NOT_CHANGED");
+                              execution::get_subrelation_label(execution::SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED));
 }
 
 TEST(ExecutionConstrainingTest, NoFetchingNoInstrFetchError)
@@ -244,7 +249,7 @@ TEST(ExecutionConstrainingTest, NoFetchingNoInstrFetchError)
     // Negative test: sel_bytecode_retrieval_success == 0 but sel_instruction_fetching_failure == 1
     trace.set(C::execution_sel_instruction_fetching_failure, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NO_FETCHING_NO_INSTR_FETCH_ERROR),
-                              "NO_FETCHING_NO_INSTR_FETCH_ERROR");
+                              execution::get_subrelation_label(execution::SR_NO_FETCHING_NO_INSTR_FETCH_ERROR));
 
     // Positive test: sel_bytecode_retrieval_success == 1 allows sel_instruction_fetching_failure == 1
     trace.set(C::execution_sel_bytecode_retrieval_success, 0, 1);
@@ -264,7 +269,7 @@ TEST(ExecutionConstrainingTest, NoAddressingErrorIfNotResolving)
     // Negative test: sel_instruction_fetching_success == 0 but sel_addressing_error == 1
     trace.set(C::execution_sel_addressing_error, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING),
-                              "NO_ADDRESSING_ERROR_IF_NOT_RESOLVING");
+                              addressing::get_subrelation_label(addressing::SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING));
 
     // Positive test: sel_instruction_fetching_success == 1 allows sel_addressing_error == 1
     trace.set(C::execution_sel_instruction_fetching_success, 0, 1);
@@ -285,7 +290,7 @@ TEST(ExecutionConstrainingTest, NoRegisterReadErrorIfNotReading)
     // Negative test: sel_read_registers == 0 but sel_register_read_error == 1
     trace.set(C::execution_sel_register_read_error, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<registers>(trace, registers::SR_REGISTER_READ_TAG_CHECK),
-                              "REGISTER_READ_TAG_CHECK");
+                              registers::get_subrelation_label(registers::SR_REGISTER_READ_TAG_CHECK));
 }
 
 TEST(ExecutionConstrainingTest, NoOogIfNoGasCheck)
@@ -299,7 +304,8 @@ TEST(ExecutionConstrainingTest, NoOogIfNoGasCheck)
 
     // Negative test: sel_check_gas == 0 but sel_out_of_gas == 1
     trace.set(C::execution_sel_out_of_gas, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK), "NO_OOG_IF_NO_GAS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_NO_OOG_IF_NO_GAS_CHECK),
+                              gas::get_subrelation_label(gas::SR_NO_OOG_IF_NO_GAS_CHECK));
 
     // Positive test: sel_check_gas == 1 allows sel_out_of_gas == 1
     trace.set(C::execution_sel_check_gas, 0, 1);
@@ -318,7 +324,7 @@ TEST(ExecutionConstrainingTest, NoOpcodeErrorIfNotExecuting)
     // Negative test: sel_execute_opcode == 0 but sel_opcode_error == 1
     trace.set(C::execution_sel_opcode_error, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING),
-                              "NO_OPCODE_ERROR_IF_NOT_EXECUTING");
+                              execution::get_subrelation_label(execution::SR_NO_OPCODE_ERROR_IF_NOT_EXECUTING));
 
     // Positive test: sel_execute_opcode == 1 allows sel_opcode_error == 1
     trace.set(C::execution_sel_execute_opcode, 0, 1);
@@ -355,13 +361,13 @@ TEST(ExecutionConstrainingTest, SubtraceIdDecomposition)
         // Negative test: de-activate the selector
         trace.set(subtrace_selector, i, 0);
         EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SUBTRACE_ID_DECOMPOSITION),
-                                  "SUBTRACE_ID_DECOMPOSITION");
+                                  execution::get_subrelation_label(execution::SR_SUBTRACE_ID_DECOMPOSITION));
 
         // Negative test: activate the wrong selector
         const auto wrong_selector = get_subtrace_selector(static_cast<SubtraceSel>((i + 1) % enum_length));
         trace.set(wrong_selector, i, 1);
         EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SUBTRACE_ID_DECOMPOSITION),
-                                  "SUBTRACE_ID_DECOMPOSITION");
+                                  execution::get_subrelation_label(execution::SR_SUBTRACE_ID_DECOMPOSITION));
         // De-activate the wrong selector
         trace.set(wrong_selector, i, 0);
 

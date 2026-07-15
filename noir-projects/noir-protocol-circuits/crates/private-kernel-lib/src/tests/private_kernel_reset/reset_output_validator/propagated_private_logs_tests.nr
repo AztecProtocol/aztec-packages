@@ -167,7 +167,7 @@ fn with_padded_private_logs() {
     builder.validate_siloing();
 }
 
-#[test(should_fail_with = "CappedSize not large enough to cover all valid items in original_array")]
+#[test(should_fail_with = "CappedSize not large enough to cover all items in result_array")]
 fn previous_private_logs_more_than_capped_size() {
     let mut builder = TestBuilder::new();
 

@@ -52,6 +52,16 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
+    static constexpr bool HasDataBus = MegaFlavor::HasDataBus;
+    static constexpr size_t NUM_BUS_COLUMNS = MegaFlavor::NUM_BUS_COLUMNS;
+    // Per-relation capability bools — see flavor-codegen `RELATION_CAPABILITY_BOOLS`.
+    static constexpr bool HasLogDerivLookup = MegaFlavor::HasLogDerivLookup;
+    static constexpr bool HasElliptic = MegaFlavor::HasElliptic;
+    static constexpr bool HasMemory = MegaFlavor::HasMemory;
+    static constexpr bool HasNonNativeField = MegaFlavor::HasNonNativeField;
+    static constexpr bool HasEccOpQueue = MegaFlavor::HasEccOpQueue;
+    static constexpr bool UsesEtaPowers = MegaFlavor::UsesEtaPowers;
+    static constexpr bool UsesBetaPowers = MegaFlavor::UsesBetaPowers;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from Mega
@@ -93,8 +103,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using WitnessCommitments = MegaFlavor::WitnessEntities<Commitment>;
 
     using CommitmentLabels = MegaFlavor::CommitmentLabels;
-    // Reuse the VerifierCommitments from Mega
-    using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey>;
+    static const CommitmentLabels& commitment_labels() { return MegaFlavor::commitment_labels(); }
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };

@@ -111,11 +111,11 @@ TEST_F(UltraCircuitBuilderLookup, DifferentTablesGetUniqueIndices)
     EXPECT_EQ(table1_again.id, table_id1);
     EXPECT_EQ(table3.id, table_id3);
 
-    // Tables should have `table_index` based on order of creation
-    EXPECT_EQ(table1.table_index, 0UL);
-    EXPECT_EQ(table2.table_index, 1UL);
-    EXPECT_EQ(table1_again.table_index, 0UL);
-    EXPECT_EQ(table3.table_index, 2UL);
+    // Tables should have `table_index` based on order of creation, starting from 1 (0 is reserved).
+    EXPECT_EQ(table1.table_index, 1UL);
+    EXPECT_EQ(table2.table_index, 2UL);
+    EXPECT_EQ(table1_again.table_index, 1UL);
+    EXPECT_EQ(table3.table_index, 3UL);
 
     // Exactly three different tables should have been created
     EXPECT_EQ(builder.get_num_lookup_tables(), 3UL);

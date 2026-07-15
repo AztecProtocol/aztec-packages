@@ -1,0 +1,37 @@
+name: Public v5-next Auto-Pull
+
+on:
+  push:
+    branches:
+      - public-v5-next
+  workflow_dispatch:
+
+concurrency:
+  group: public-v5-next-to-v5-next
+  cancel-in-progress: false
+
+jobs:
+  merge-to-v5-next:
+    name: Merge public-v5-next to v5-next
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout public-v5-next automation
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: public-v5-next
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config user.name AztecBot
+          git config user.email tech@aztecprotocol.com
+
+      - name: Merge public-v5-next into v5-next
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          SOURCE_BRANCH: public-v5-next
+          TARGET_BRANCH: v5-next
+          CONFLICT_EXIT_CODE: 1
+        run: ./scripts/merge-train/merge-public-next.sh

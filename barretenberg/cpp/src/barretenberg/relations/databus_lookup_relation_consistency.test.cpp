@@ -1,15 +1,19 @@
 /**
  * @file databus_lookup_relation_consistency.test.cpp
- * @brief Tests for DatabusLookupRelation to verify the relation arithmetic matches a simple reference implementation
- * @details Similar to ultra_relation_consistency.test.cpp, this test verifies that the optimized relation
- * implementation produces the same results as a simpler, more readable reference implementation.
+ * @brief Tests SingleBusLookupRelation arithmetic against a simple reference implementation.
  *
- * The DatabusLookupRelation implements a log-derivative lookup argument with 3 subrelations per bus column:
- * 1a. Inverse correctness (read rows): (I * L * T - 1) * is_read = 0
- * 1b. Inverse correctness (write rows): (I * L * T - 1) * count = 0
- * 2.  Log-derivative lookup: sum of (is_read * T - count * L) * I = 0
+ * Each Mega bus column is its own SingleBusLookupRelation in the flavor's `Relations_<FF>` tuple,
+ * and every instantiation has identical shape (4 subrelations, same algebraic identity, only the
+ * EntityId template args differ). Testing one bus — kernel_calldata, with selector `q_l` — is
+ * sufficient to cover the relation's behavior. The four subrelations being validated are:
+ *
+ *   1a  Inverse correctness on read rows:  (I·L·T − 1) · is_read = 0
+ *   1b  Inverse correctness on write rows: (I·L·T − 1) · count   = 0
+ *   2   Log-derivative lookup identity:    Σ_rows (is_read·T − count·L)·I = 0
+ *   3   Read-count locality:               (1 − indicator) · count        = 0
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/flavor/generated/mega_flavor_generated.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <gtest/gtest.h>
@@ -18,121 +22,57 @@ using namespace bb;
 
 using FF = fr;
 
-/**
- * @brief Input elements for DatabusLookupRelation testing
- * @details Contains all the polynomial evaluations needed for the databus lookup relation
- */
-struct DatabusInputElements {
-    // Wires used in read gates
-    FF w_l;        // value being read
-    FF w_r;        // index into bus column
-    FF databus_id; // id/index in the bus (for write term)
+using DatabusInputElements = MegaFlavor_Generated::AllEntities<FF>;
+using AllEntities = DatabusInputElements;
+using EntityId = DatabusInputElements::EntityId;
 
-    // Read gate selector
-    FF q_busread;
+// The kernel_calldata bus relation. App-calldata and return-data buses are shape-identical and
+// covered by symmetry — running the consistency suite once is enough.
+using KernelCalldataRelation = SingleBusLookupRelationImpl<FF,
+                                                           EntityId::kernel_calldata,
+                                                           EntityId::kernel_calldata_read_counts,
+                                                           EntityId::kernel_calldata_inverses,
+                                                           EntityId::kernel_calldata_indicator,
+                                                           EntityId::q_l>;
 
-    // Column selectors (determine which bus column is being read)
-    FF q_l; // kernel calldata selector
-    FF q_r; // first app calldata selector
-    FF q_o; // second app calldata selector
-    FF q_4; // third app calldata selector
-    FF q_m; // return data selector
-
-    // Kernel calldata (bus_idx = 0)
-    FF kernel_calldata;
-    FF kernel_calldata_read_counts;
-    FF kernel_calldata_inverses;
-
-    // First app calldata (bus_idx = 1)
-    FF first_app_calldata;
-    FF first_app_calldata_read_counts;
-    FF first_app_calldata_inverses;
-
-    // Second app calldata (bus_idx = 2)
-    FF second_app_calldata;
-    FF second_app_calldata_read_counts;
-    FF second_app_calldata_inverses;
-
-    // Third app calldata (bus_idx = 3)
-    FF third_app_calldata;
-    FF third_app_calldata_read_counts;
-    FF third_app_calldata_inverses;
-
-    // Return data (bus_idx = 4)
-    FF return_data;
-    FF return_data_read_counts;
-    FF return_data_inverses;
-
-    static DatabusInputElements get_random()
-    {
-        DatabusInputElements result;
-        result.w_l = FF::random_element();
-        result.w_r = FF::random_element();
-        result.databus_id = FF::random_element();
-        result.q_busread = FF::random_element();
-        result.q_l = FF::random_element();
-        result.q_r = FF::random_element();
-        result.q_o = FF::random_element();
-        result.q_4 = FF::random_element();
-        result.q_m = FF::random_element();
-        result.kernel_calldata = FF::random_element();
-        result.kernel_calldata_read_counts = FF::random_element();
-        result.kernel_calldata_inverses = FF::random_element();
-        result.first_app_calldata = FF::random_element();
-        result.first_app_calldata_read_counts = FF::random_element();
-        result.first_app_calldata_inverses = FF::random_element();
-        result.second_app_calldata = FF::random_element();
-        result.second_app_calldata_read_counts = FF::random_element();
-        result.second_app_calldata_inverses = FF::random_element();
-        result.third_app_calldata = FF::random_element();
-        result.third_app_calldata_read_counts = FF::random_element();
-        result.third_app_calldata_inverses = FF::random_element();
-        result.return_data = FF::random_element();
-        result.return_data_read_counts = FF::random_element();
-        result.return_data_inverses = FF::random_element();
-        return result;
+static DatabusInputElements get_random_databus_inputs()
+{
+    DatabusInputElements result;
+    for (auto name : { EntityId::w_l,
+                       EntityId::w_r,
+                       EntityId::databus_id,
+                       EntityId::q_busread,
+                       EntityId::q_l,
+                       EntityId::kernel_calldata,
+                       EntityId::kernel_calldata_read_counts,
+                       EntityId::kernel_calldata_inverses,
+                       EntityId::kernel_calldata_indicator }) {
+        result[name] = FF::random_element();
     }
+    return result;
+}
 
-    // Create inputs representing a valid read gate for kernel_calldata
-    static DatabusInputElements get_valid_calldata_read()
-    {
-        DatabusInputElements result{};
-
-        // Set up a read from kernel_calldata at index 5, value 42
-        result.w_l = FF(42);             // value being read
-        result.w_r = FF(5);              // index
-        result.databus_id = FF(5);       // same index in the bus
-        result.kernel_calldata = FF(42); // value in bus matches
-
-        // Enable read gate for kernel_calldata
-        result.q_busread = FF(1);
-        result.q_l = FF(1); // kernel_calldata selector
-        result.q_r = FF(0);
-        result.q_o = FF(0);
-        result.q_4 = FF(0);
-        result.q_m = FF(0);
-
-        // Read counts
-        result.kernel_calldata_read_counts = FF(1);
-
-        // Other columns inactive
-        result.first_app_calldata_read_counts = FF(0);
-        result.second_app_calldata_read_counts = FF(0);
-        result.third_app_calldata_read_counts = FF(0);
-        result.return_data_read_counts = FF(0);
-
-        return result;
-    }
-};
+// A valid kernel_calldata read: read kernel_calldata[5] == 42 with q_l (the column's selector)
+// and read-counts enabled.
+static DatabusInputElements get_valid_calldata_read_inputs()
+{
+    DatabusInputElements result{};
+    result[EntityId::w_l] = FF(42);
+    result[EntityId::w_r] = FF(5);
+    result[EntityId::databus_id] = FF(5);
+    result[EntityId::kernel_calldata] = FF(42);
+    result[EntityId::q_busread] = FF(1);
+    result[EntityId::q_l] = FF(1);
+    result[EntityId::kernel_calldata_read_counts] = FF(1);
+    result[EntityId::kernel_calldata_indicator] = FF(1);
+    return result;
+}
 
 class DatabusLookupRelationConsistency : public testing::Test {
   public:
-    using Relation = DatabusLookupRelationImpl<FF>;
-    static constexpr size_t NUM_SUBRELATIONS = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
+    using Relation = KernelCalldataRelation;
+    static constexpr size_t NUM_SUBRELATIONS = 4;
 
-    /**
-     * @brief Validate that the relation's accumulate function produces expected values
-     */
     static void validate_relation_execution(const std::array<FF, NUM_SUBRELATIONS>& expected_values,
                                             const DatabusInputElements& input_elements,
                                             const RelationParameters<FF>& parameters)
@@ -143,130 +83,68 @@ class DatabusLookupRelationConsistency : public testing::Test {
     }
 };
 
-/**
- * @brief Helper to compute all expected subrelation values for a given input
- */
-static std::array<FF, DatabusLookupRelationConsistency::NUM_SUBRELATIONS> compute_expected_values(
-    const DatabusInputElements& in, const RelationParameters<FF>& params)
+/** Reference implementation: compute the four kernel_calldata subrelation values directly. */
+static std::array<FF, 4> compute_expected_values(const DatabusInputElements& in, const RelationParameters<FF>& params)
 {
     const auto& beta = params.beta;
     const auto& gamma = params.gamma;
 
-    std::array<FF, DatabusLookupRelationConsistency::NUM_SUBRELATIONS> expected_values;
-    std::fill(expected_values.begin(), expected_values.end(), FF(0));
+    const auto lookup_term = in[EntityId::w_l] + in[EntityId::w_r] * beta + gamma;
+    const auto column_selector = in[EntityId::q_l];
+    const auto bus_value = in[EntityId::kernel_calldata];
+    const auto read_counts = in[EntityId::kernel_calldata_read_counts];
+    const auto inverses = in[EntityId::kernel_calldata_inverses];
+    const auto indicator = in[EntityId::kernel_calldata_indicator];
 
-    // Read term (same for all columns): value + index * beta + gamma
-    auto lookup_term = in.w_l + in.w_r * beta + gamma;
+    const auto is_read = in[EntityId::q_busread] * column_selector;
+    const auto table_term = bus_value + in[EntityId::databus_id] * beta + gamma;
+    const auto common = lookup_term * table_term * inverses - FF(1);
 
-    // Lambda to compute subrelations for a given bus column
-    auto compute_column_subrelations =
-        [&](size_t bus_idx, FF column_selector, FF bus_value, FF read_counts, FF inverses) {
-            auto is_read = in.q_busread * column_selector;
-            auto table_term = bus_value + in.databus_id * beta + gamma;
-
-            // Common: I * L * T - 1
-            auto common = lookup_term * table_term * inverses - FF(1);
-
-            // Subrelation 1a: Inverse correctness on read rows: (I*L*T - 1) * is_read
-            expected_values[bus_idx * 3] = common * is_read;
-
-            // Subrelation 1b: Inverse correctness on write rows: (I*L*T - 1) * count
-            expected_values[bus_idx * 3 + 1] = common * read_counts;
-
-            // Subrelation 2: Log-derivative lookup (no scaling factor since linearly dependent)
-            expected_values[bus_idx * 3 + 2] = (is_read * table_term - read_counts * lookup_term) * inverses;
-        };
-
-    // Bus column 0 (kernel_calldata)
-    compute_column_subrelations(
-        0, in.q_l, in.kernel_calldata, in.kernel_calldata_read_counts, in.kernel_calldata_inverses);
-
-    // Bus column 1 (first_app_calldata)
-    compute_column_subrelations(
-        1, in.q_r, in.first_app_calldata, in.first_app_calldata_read_counts, in.first_app_calldata_inverses);
-
-    // Bus column 2 (second_app_calldata)
-    compute_column_subrelations(
-        2, in.q_o, in.second_app_calldata, in.second_app_calldata_read_counts, in.second_app_calldata_inverses);
-
-    // Bus column 3 (third_app_calldata)
-    compute_column_subrelations(
-        3, in.q_4, in.third_app_calldata, in.third_app_calldata_read_counts, in.third_app_calldata_inverses);
-
-    // Bus column 4 (return_data)
-    compute_column_subrelations(4, in.q_m, in.return_data, in.return_data_read_counts, in.return_data_inverses);
-
-    return expected_values;
+    return {
+        common * is_read,                                              // (1a)
+        common * read_counts,                                          // (1b)
+        (is_read * table_term - read_counts * lookup_term) * inverses, // (2)  no scaling
+        read_counts - indicator * read_counts,                         // (3)  (1 - ind) * count
+    };
 }
 
-/**
- * @brief Test all subrelations with random inputs
- * @details Verifies that the relation's accumulate function matches the simple reference implementation
- */
 TEST_F(DatabusLookupRelationConsistency, RandomInputs)
 {
     const auto run_test = [](bool random_inputs) {
-        DatabusInputElements in =
-            random_inputs ? DatabusInputElements::get_random() : DatabusInputElements::get_valid_calldata_read();
-
+        DatabusInputElements in = random_inputs ? get_random_databus_inputs() : get_valid_calldata_read_inputs();
         const auto parameters = RelationParameters<FF>::get_random();
-        auto expected_values = compute_expected_values(in, parameters);
-
-        validate_relation_execution(expected_values, in, parameters);
+        validate_relation_execution(compute_expected_values(in, parameters), in, parameters);
     };
 
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
 }
 
-/**
- * @brief Test that inactive gates (all selectors and counts = 0) produce all-zero subrelations
- */
+/** Inactive gate (no read, no count) → all four subrelations vanish. */
 TEST_F(DatabusLookupRelationConsistency, InactiveGates)
 {
     const auto parameters = RelationParameters<FF>::get_random();
 
     DatabusInputElements in{};
-    in.q_busread = FF(0);
-    in.q_l = FF(0);
-    in.q_r = FF(0);
-    in.q_o = FF(0);
-    in.q_4 = FF(0);
-    in.q_m = FF(0);
-    in.kernel_calldata_read_counts = FF(0);
-    in.first_app_calldata_read_counts = FF(0);
-    in.second_app_calldata_read_counts = FF(0);
-    in.third_app_calldata_read_counts = FF(0);
-    in.return_data_read_counts = FF(0);
+    in[EntityId::q_busread] = FF(0);
+    in[EntityId::q_l] = FF(0);
+    in[EntityId::kernel_calldata_read_counts] = FF(0);
+    // Set other values non-zero to confirm they don't leak into the subrelations.
+    in[EntityId::w_l] = FF(42);
+    in[EntityId::w_r] = FF(5);
+    in[EntityId::databus_id] = FF(5);
+    in[EntityId::kernel_calldata] = FF(42);
+    in[EntityId::kernel_calldata_inverses] = FF(0);
 
-    // Set other values non-zero to ensure they don't affect inactive gates
-    in.w_l = FF(42);
-    in.w_r = FF(5);
-    in.databus_id = FF(5);
-    in.kernel_calldata = FF(42);
-    in.kernel_calldata_inverses = FF(0); // inverse should be 0 when inactive
-    in.first_app_calldata = FF(100);
-    in.first_app_calldata_inverses = FF(0);
-    in.second_app_calldata = FF(200);
-    in.second_app_calldata_inverses = FF(0);
-    in.third_app_calldata = FF(300);
-    in.third_app_calldata_inverses = FF(0);
-    in.return_data = FF(400);
-    in.return_data_inverses = FF(0);
-
-    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+    std::array<FF, 4> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
-
-    // All subrelations should be 0 when inactive
-    for (size_t i = 0; i < NUM_SUBRELATIONS; i++) {
+    for (size_t i = 0; i < 4; i++) {
         EXPECT_EQ(accumulator[i], FF(0)) << "Subrelation " << i << " should be zero for inactive gates";
     }
 }
 
-/**
- * @brief Test a valid read gate scenario where inverse is correctly computed
- * @details When I = 1/(L * T), both inverse correctness subrelations and the lookup identity should be satisfied
- */
+/** Valid read with correct inverse: all per-row subrelations vanish; lookup identity is also zero
+ *  here because L == T (the read's value/index match the table). */
 TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
 {
     const auto parameters = RelationParameters<FF>::get_random();
@@ -274,60 +152,31 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     const auto& gamma = parameters.gamma;
 
     DatabusInputElements in{};
+    in[EntityId::q_busread] = FF(1);
+    in[EntityId::q_l] = FF(1);
 
-    // Set up a read gate for kernel_calldata
-    in.q_busread = FF(1);
-    in.q_l = FF(1); // kernel_calldata selector
-    in.q_r = FF(0);
-    in.q_o = FF(0);
+    const FF value = FF(42);
+    const FF index = FF(5);
+    in[EntityId::w_l] = value;
+    in[EntityId::w_r] = index;
+    in[EntityId::databus_id] = index;
+    in[EntityId::kernel_calldata] = value;
 
-    // Value and index
-    FF value = FF(42);
-    FF index = FF(5);
-    in.w_l = value;             // value being read
-    in.w_r = index;             // index
-    in.databus_id = index;      // same index in the bus
-    in.kernel_calldata = value; // value in bus matches
-
-    // Compute the correct inverse
-    auto lookup_term = value + index * beta + gamma;
-    auto table_term = value + index * beta + gamma; // same since value and index match
-    auto inverse = (lookup_term * table_term).invert();
-    in.kernel_calldata_inverses = inverse;
-
-    in.kernel_calldata_read_counts = FF(1);
-
-    // Other columns inactive
-    in.first_app_calldata_read_counts = FF(0);
-    in.first_app_calldata_inverses = FF(0);
-    in.second_app_calldata_read_counts = FF(0);
-    in.second_app_calldata_inverses = FF(0);
-    in.third_app_calldata_read_counts = FF(0);
-    in.third_app_calldata_inverses = FF(0);
-    in.return_data_read_counts = FF(0);
-    in.return_data_inverses = FF(0);
-
-    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+    const auto lookup_term = value + index * beta + gamma;
+    const auto table_term = value + index * beta + gamma; // same; L == T.
+    in[EntityId::kernel_calldata_inverses] = (lookup_term * table_term).invert();
+    in[EntityId::kernel_calldata_read_counts] = FF(1);
+    in[EntityId::kernel_calldata_indicator] = FF(1);
+    std::array<FF, 4> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
-    // (1a) Inverse correctness on read: (I*L*T - 1) * is_read = (1 - 1) * 1 = 0
-    EXPECT_EQ(accumulator[0], FF(0));
-
-    // (1b) Inverse correctness on write: (I*L*T - 1) * count = (1 - 1) * 1 = 0
-    EXPECT_EQ(accumulator[1], FF(0));
-
-    // (2) Lookup: (is_read*T - count*L) * I = (T - L) * I = 0 (since L == T here)
-    EXPECT_EQ(accumulator[2], FF(0));
-
-    // Other columns should have all-zero subrelations (inactive)
-    for (size_t i = 3; i < NUM_SUBRELATIONS; i++) {
-        EXPECT_EQ(accumulator[i], FF(0)) << "Inactive column subrelation " << i << " should be zero";
-    }
+    EXPECT_EQ(accumulator[0], FF(0)); // (1a) (I·L·T − 1)·is_read = 0
+    EXPECT_EQ(accumulator[1], FF(0)); // (1b) (I·L·T − 1)·count   = 0
+    EXPECT_EQ(accumulator[2], FF(0)); // (2)  (T − L)·I = 0 since L == T
+    EXPECT_EQ(accumulator[3], FF(0)); // (3)  (1 − indicator)·count = 0
 }
 
-/**
- * @brief Test that when lookup_term != table_term, the lookup identity fails
- */
+/** Mismatched read/write terms: the per-row component of (2) becomes nonzero. */
 TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
 {
     const auto parameters = RelationParameters<FF>::get_random();
@@ -335,109 +184,74 @@ TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
     const auto& gamma = parameters.gamma;
 
     DatabusInputElements in{};
+    in[EntityId::q_busread] = FF(1);
+    in[EntityId::q_l] = FF(1);
 
-    // Set up a read gate for kernel_calldata
-    in.q_busread = FF(1);
-    in.q_l = FF(1);
-    in.q_r = FF(0);
-    in.q_o = FF(0);
+    const FF read_value = FF(42);
+    const FF bus_value = FF(100); // intentional mismatch
+    const FF index = FF(5);
+    in[EntityId::w_l] = read_value;
+    in[EntityId::w_r] = index;
+    in[EntityId::databus_id] = index;
+    in[EntityId::kernel_calldata] = bus_value;
 
-    // Value being read differs from value in bus!
-    FF read_value = FF(42);
-    FF bus_value = FF(100); // Different!
-    FF index = FF(5);
-
-    in.w_l = read_value;
-    in.w_r = index;
-    in.databus_id = index;
-    in.kernel_calldata = bus_value;
-
-    auto lookup_term = read_value + index * beta + gamma;
-    auto table_term = bus_value + index * beta + gamma;
-    auto inverse = (lookup_term * table_term).invert();
-    in.kernel_calldata_inverses = inverse;
-
-    in.kernel_calldata_read_counts = FF(1);
-    in.first_app_calldata_read_counts = FF(0);
-    in.first_app_calldata_inverses = FF(0);
-    in.second_app_calldata_read_counts = FF(0);
-    in.second_app_calldata_inverses = FF(0);
-    in.third_app_calldata_read_counts = FF(0);
-    in.third_app_calldata_inverses = FF(0);
-    in.return_data_read_counts = FF(0);
-    in.return_data_inverses = FF(0);
-
-    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+    const auto lookup_term = read_value + index * beta + gamma;
+    const auto table_term = bus_value + index * beta + gamma;
+    const auto inverse = (lookup_term * table_term).invert();
+    in[EntityId::kernel_calldata_inverses] = inverse;
+    in[EntityId::kernel_calldata_read_counts] = FF(1);
+    in[EntityId::kernel_calldata_indicator] = FF(1);
+    std::array<FF, 4> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
-    // (1a) Inverse correctness still satisfied (I is correct for these terms)
-    EXPECT_EQ(accumulator[0], FF(0));
-
-    // (1b) Inverse correctness on write: (I*L*T - 1) * count = 0 * 1 = 0 (I*L*T = 1)
-    EXPECT_EQ(accumulator[1], FF(0));
-
-    // (2) Lookup subrelation is non-zero because lookup_term != table_term
-    // (is_read * table_term - count * lookup_term) * I = (table_term - lookup_term) * I
-    FF expected_lookup = (table_term - lookup_term) * inverse;
-    EXPECT_EQ(accumulator[2], expected_lookup);
+    EXPECT_EQ(accumulator[0], FF(0));                                // (1a) I correct
+    EXPECT_EQ(accumulator[1], FF(0));                                // (1b) I correct
+    EXPECT_EQ(accumulator[2], (table_term - lookup_term) * inverse); // (2)  L != T
+    EXPECT_EQ(accumulator[3], FF(0));                                // (3)  data row
     EXPECT_NE(accumulator[2], FF(0));
 }
 
-/**
- * @brief Test inverse correctness gating: I unconstrained at inactive rows
- * @details At rows where is_read = 0 and count = 0, the inverse can be anything without
- * affecting any subrelation (since the lookup identity contribution is also zero).
- */
+/** At inactive rows the inverse is unconstrained — set it to garbage and confirm no subrelation
+ *  is affected. */
 TEST_F(DatabusLookupRelationConsistency, InverseUnconstrainedAtInactiveRows)
 {
     const auto parameters = RelationParameters<FF>::get_random();
 
     DatabusInputElements in{};
-    in.q_busread = FF(0);
-    in.q_l = FF(0);
-    in.q_r = FF(0);
-    in.q_o = FF(0);
-    in.kernel_calldata_read_counts = FF(0);
-    in.first_app_calldata_read_counts = FF(0);
-    in.second_app_calldata_read_counts = FF(0);
-    in.third_app_calldata_read_counts = FF(0);
-    in.return_data_read_counts = FF(0);
+    in[EntityId::q_busread] = FF(0);
+    in[EntityId::q_l] = FF(0);
+    in[EntityId::kernel_calldata_read_counts] = FF(0);
+    in[EntityId::kernel_calldata_inverses] = FF(999);
+    in[EntityId::w_l] = FF(42);
+    in[EntityId::w_r] = FF(5);
+    in[EntityId::databus_id] = FF(5);
+    in[EntityId::kernel_calldata] = FF(42);
 
-    // Set inverses to arbitrary nonzero values — should not matter
-    in.kernel_calldata_inverses = FF(999);
-    in.first_app_calldata_inverses = FF(777);
-    in.second_app_calldata_inverses = FF(555);
-    in.third_app_calldata_inverses = FF(333);
-    in.return_data_inverses = FF(111);
-
-    in.w_l = FF(42);
-    in.w_r = FF(5);
-    in.databus_id = FF(5);
-    in.kernel_calldata = FF(42);
-
-    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+    std::array<FF, 4> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
-
-    // (1a) gated by is_read = 0: always zero regardless of I
-    EXPECT_EQ(accumulator[0], FF(0));
-    EXPECT_EQ(accumulator[3], FF(0));
-    EXPECT_EQ(accumulator[6], FF(0));
-
-    // (1b) gated by count = 0: always zero regardless of I
-    EXPECT_EQ(accumulator[1], FF(0));
-    EXPECT_EQ(accumulator[4], FF(0));
-    EXPECT_EQ(accumulator[7], FF(0));
-
-    // (2) lookup: (0 * T - 0 * L) * I = 0 regardless of I
-    EXPECT_EQ(accumulator[2], FF(0));
-    EXPECT_EQ(accumulator[5], FF(0));
-    EXPECT_EQ(accumulator[8], FF(0));
+    for (size_t i = 0; i < 4; i++) {
+        EXPECT_EQ(accumulator[i], FF(0)) << "Subrelation " << i << " should be unaffected by garbage inverse";
+    }
 }
 
-/**
- * @brief Test that a wrong inverse on a read row causes (1a) to fail
- * @details When is_read = 1 and I != 1/(L*T), subrelation (1a) should be nonzero.
- */
+/** Nonzero read-count outside the bus's data rows → (3) fires. */
+TEST_F(DatabusLookupRelationConsistency, ReadCountLocalityFailsOutsideDataRows)
+{
+    const auto parameters = RelationParameters<FF>::get_random();
+
+    DatabusInputElements in{};
+    in[EntityId::q_busread] = FF(0);
+    in[EntityId::q_l] = FF(0);
+    in[EntityId::kernel_calldata_read_counts] = FF(3);
+    in[EntityId::kernel_calldata_indicator] = FF(0);
+
+    std::array<FF, 4> accumulator{};
+    Relation::accumulate(accumulator, in, parameters, FF(1));
+
+    EXPECT_EQ(accumulator[3], FF(3)); // (1 - indicator) * count
+}
+
+/** Wrong inverse on a read row → (1a) fires. */
 TEST_F(DatabusLookupRelationConsistency, WrongInverseOnReadRowFails)
 {
     const auto parameters = RelationParameters<FF>::get_random();
@@ -445,49 +259,30 @@ TEST_F(DatabusLookupRelationConsistency, WrongInverseOnReadRowFails)
     const auto& gamma = parameters.gamma;
 
     DatabusInputElements in{};
-    in.q_busread = FF(1);
-    in.q_l = FF(1);
-    in.q_r = FF(0);
-    in.q_o = FF(0);
+    in[EntityId::q_busread] = FF(1);
+    in[EntityId::q_l] = FF(1);
 
-    FF value = FF(42);
-    FF index = FF(5);
-    in.w_l = value;
-    in.w_r = index;
-    in.databus_id = index;
-    in.kernel_calldata = value;
+    const FF value = FF(42);
+    const FF index = FF(5);
+    in[EntityId::w_l] = value;
+    in[EntityId::w_r] = index;
+    in[EntityId::databus_id] = index;
+    in[EntityId::kernel_calldata] = value;
+    in[EntityId::kernel_calldata_inverses] = FF(777); // wrong
+    in[EntityId::kernel_calldata_read_counts] = FF(0);
 
-    // Set a WRONG inverse (just some arbitrary value, not 1/(L*T))
-    in.kernel_calldata_inverses = FF(777);
-    in.kernel_calldata_read_counts = FF(0); // pure read row, no write
-    in.first_app_calldata_read_counts = FF(0);
-    in.first_app_calldata_inverses = FF(0);
-    in.second_app_calldata_read_counts = FF(0);
-    in.second_app_calldata_inverses = FF(0);
-    in.third_app_calldata_read_counts = FF(0);
-    in.third_app_calldata_inverses = FF(0);
-    in.return_data_read_counts = FF(0);
-    in.return_data_inverses = FF(0);
+    const auto lookup_term = value + index * beta + gamma;
+    const auto table_term = value + index * beta + gamma;
 
-    auto lookup_term = value + index * beta + gamma;
-    auto table_term = value + index * beta + gamma;
-
-    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+    std::array<FF, 4> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
-    // (1a) should be nonzero: (I*L*T - 1) * is_read = (777*L*T - 1) * 1 != 0
-    FF expected_1a = (FF(777) * lookup_term * table_term - FF(1)) * FF(1); // is_read = q_busread * q_l = 1
-    EXPECT_EQ(accumulator[0], expected_1a);
+    EXPECT_EQ(accumulator[0], (FF(777) * lookup_term * table_term - FF(1)) * FF(1));
     EXPECT_NE(accumulator[0], FF(0));
-
-    // (1b) should be zero: gated by count = 0
     EXPECT_EQ(accumulator[1], FF(0));
 }
 
-/**
- * @brief Test that a wrong inverse on a write row causes (1b) to fail
- * @details When count != 0 and I != 1/(L*T), subrelation (1b) should be nonzero.
- */
+/** Wrong inverse on a write row (count != 0, no read gate) → (1b) fires. */
 TEST_F(DatabusLookupRelationConsistency, WrongInverseOnWriteRowFails)
 {
     const auto parameters = RelationParameters<FF>::get_random();
@@ -495,52 +290,32 @@ TEST_F(DatabusLookupRelationConsistency, WrongInverseOnWriteRowFails)
     const auto& gamma = parameters.gamma;
 
     DatabusInputElements in{};
-    // No read gate active
-    in.q_busread = FF(0);
-    in.q_l = FF(0);
-    in.q_r = FF(0);
-    in.q_o = FF(0);
+    in[EntityId::q_busread] = FF(0);
+    in[EntityId::q_l] = FF(0);
 
-    FF value = FF(42);
-    FF index = FF(5);
-    in.databus_id = index;
-    in.kernel_calldata = value;
-    in.w_l = FF(0); // irrelevant (no read gate)
-    in.w_r = FF(0);
+    const FF value = FF(42);
+    const FF index = FF(5);
+    in[EntityId::databus_id] = index;
+    in[EntityId::kernel_calldata] = value;
+    in[EntityId::w_l] = FF(0);
+    in[EntityId::w_r] = FF(0);
+    in[EntityId::kernel_calldata_read_counts] = FF(3);
+    in[EntityId::kernel_calldata_indicator] = FF(1);
+    in[EntityId::kernel_calldata_inverses] = FF(999); // wrong
+    const auto lookup_term = in[EntityId::w_l] + in[EntityId::w_r] * beta + gamma;
+    const auto table_term = value + index * beta + gamma;
 
-    // Row has nonzero read_count (it's been read from elsewhere) but wrong inverse
-    in.kernel_calldata_read_counts = FF(3);
-    in.kernel_calldata_inverses = FF(999); // WRONG
-
-    in.first_app_calldata_read_counts = FF(0);
-    in.first_app_calldata_inverses = FF(0);
-    in.second_app_calldata_read_counts = FF(0);
-    in.second_app_calldata_inverses = FF(0);
-    in.third_app_calldata_read_counts = FF(0);
-    in.third_app_calldata_inverses = FF(0);
-    in.return_data_read_counts = FF(0);
-    in.return_data_inverses = FF(0);
-
-    auto lookup_term = in.w_l + in.w_r * beta + gamma; // = gamma (wires are 0)
-    auto table_term = value + index * beta + gamma;
-
-    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+    std::array<FF, 4> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
-    // (1a) should be zero: gated by is_read = q_busread * q_l = 0
     EXPECT_EQ(accumulator[0], FF(0));
-
-    // (1b) should be nonzero: (I*L*T - 1) * count = (999*L*T - 1) * 3 != 0
-    FF expected_1b = (FF(999) * lookup_term * table_term - FF(1)) * FF(3);
-    EXPECT_EQ(accumulator[1], expected_1b);
+    EXPECT_EQ(accumulator[1], (FF(999) * lookup_term * table_term - FF(1)) * FF(3));
+    EXPECT_EQ(accumulator[3], FF(0));
     EXPECT_NE(accumulator[1], FF(0));
 }
 
-/**
- * @brief Test that nonzero count with correct inverse satisfies all subrelations
- * @details A pure write row (count != 0, no read gate) with I = 1/(L*T) should
- * make (1b) zero and contribute correctly to the lookup identity.
- */
+/** Pure write row with correct inverse: (1a)/(1b) zero; (2) contributes nonzero per-row (the row
+ *  sum cancels at the trace level). */
 TEST_F(DatabusLookupRelationConsistency, CorrectInverseOnWriteRow)
 {
     const auto parameters = RelationParameters<FF>::get_random();
@@ -548,45 +323,27 @@ TEST_F(DatabusLookupRelationConsistency, CorrectInverseOnWriteRow)
     const auto& gamma = parameters.gamma;
 
     DatabusInputElements in{};
-    in.q_busread = FF(0);
-    in.q_l = FF(0);
-    in.q_r = FF(0);
-    in.q_o = FF(0);
+    in[EntityId::q_busread] = FF(0);
+    in[EntityId::q_l] = FF(0);
 
-    FF value = FF(42);
-    FF index = FF(5);
-    in.databus_id = index;
-    in.kernel_calldata = value;
-    in.w_l = FF(0);
-    in.w_r = FF(0);
+    const FF value = FF(42);
+    const FF index = FF(5);
+    in[EntityId::databus_id] = index;
+    in[EntityId::kernel_calldata] = value;
+    in[EntityId::w_l] = FF(0);
+    in[EntityId::w_r] = FF(0);
 
-    auto lookup_term = in.w_l + in.w_r * beta + gamma;
-    auto table_term = value + index * beta + gamma;
-
-    // Correct inverse
-    in.kernel_calldata_inverses = (lookup_term * table_term).invert();
-    in.kernel_calldata_read_counts = FF(3);
-
-    in.first_app_calldata_read_counts = FF(0);
-    in.first_app_calldata_inverses = FF(0);
-    in.second_app_calldata_read_counts = FF(0);
-    in.second_app_calldata_inverses = FF(0);
-    in.third_app_calldata_read_counts = FF(0);
-    in.third_app_calldata_inverses = FF(0);
-    in.return_data_read_counts = FF(0);
-    in.return_data_inverses = FF(0);
-
-    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+    const auto lookup_term = in[EntityId::w_l] + in[EntityId::w_r] * beta + gamma;
+    const auto table_term = value + index * beta + gamma;
+    in[EntityId::kernel_calldata_inverses] = (lookup_term * table_term).invert();
+    in[EntityId::kernel_calldata_read_counts] = FF(3);
+    in[EntityId::kernel_calldata_indicator] = FF(1);
+    std::array<FF, 4> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
-    // (1a) zero: is_read = 0
     EXPECT_EQ(accumulator[0], FF(0));
-
-    // (1b) zero: (1 - 1) * 3 = 0
     EXPECT_EQ(accumulator[1], FF(0));
-
-    // (2) lookup: (0*T - 3*L) * I = -3*L/(L*T) = -3/T
-    FF expected_lookup = (FF(0) * table_term - FF(3) * lookup_term) * (lookup_term * table_term).invert();
-    EXPECT_EQ(accumulator[2], expected_lookup);
-    EXPECT_NE(accumulator[2], FF(0)); // nonzero contribution (balances across the full trace sum)
+    EXPECT_EQ(accumulator[2], (FF(0) * table_term - FF(3) * lookup_term) * (lookup_term * table_term).invert());
+    EXPECT_EQ(accumulator[3], FF(0));
+    EXPECT_NE(accumulator[2], FF(0));
 }

@@ -276,8 +276,10 @@ TEST_F(BytecodeRetrievalConstrainingTest, NonExistentInstance)
         "Failed.*LOOKUP_BC_RETRIEVAL_CONTRACT_INSTANCE_RETRIEVAL.*Could not find tuple in destination.");
 
     trace.set(C::contract_instance_retrieval_current_class_id, 1, 99);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::contract_instance_retrieval<FF>>(trace);
-                              , "INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<bb::avm2::contract_instance_retrieval<FF>>(trace),
+        bb::avm2::contract_instance_retrieval<FF>::get_subrelation_label(
+            bb::avm2::contract_instance_retrieval<FF>::SR_INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE));
 
     // reset
     trace.set(C::bc_retrieval_current_class_id, 1, 0);
@@ -285,7 +287,8 @@ TEST_F(BytecodeRetrievalConstrainingTest, NonExistentInstance)
 
     // mutate the bytecode_id and confirm that it is a violation
     trace.set(C::bc_retrieval_bytecode_id, 1, 99);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_retrieval>(trace), "BYTECODE_ID_IS_ZERO_IF_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_retrieval>(trace),
+                              bc_retrieval::get_subrelation_label(bc_retrieval::SR_BYTECODE_ID_IS_ZERO_IF_ERROR));
     // reset
     trace.set(C::bc_retrieval_bytecode_id, 1, 0);
 }
@@ -520,7 +523,9 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
     trace.set(C::indexed_tree_check_exists, 2, 0);
     check_all_interactions<BytecodeTraceBuilder>(trace);
     check_relation<bc_retrieval>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::indexed_tree_check<FF>>(trace), "EXISTS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<bb::avm2::indexed_tree_check<FF>>(trace),
+        bb::avm2::indexed_tree_check<FF>::get_subrelation_label(bb::avm2::indexed_tree_check<FF>::SR_EXISTS_CHECK));
 }
 
 } // namespace
