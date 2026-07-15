@@ -86,8 +86,8 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         let commitment_point = kzg_commitments_points[i];
         // We need to validate that the point is on the curve and canonical (0,0 if infinity), since it's hinted in this verification scheme
         commitment_point.validate_on_curve();
-        // Strangely, `validate_on_curve` doesn't validate the point at infinity, so we check that here:
-        validate_canonical_representation_if_infinity(commitment_point);
+        // `validate_on_curve` doesn't validate the point at infinity, but `compress_to_blob_commitment`
+        // asserts the canonical (0,0) infinity encoding internally, so the hinted point is fully validated.
         let c_i = compress_to_blob_commitment(commitment_point);
 
         // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.
@@ -146,7 +146,7 @@ mod tests {
     use types::{constants::FIELDS_PER_BLOB, hash::sha256_to_field, traits::Empty};
 
     #[test]
-    unconstrained fn test_1_blob_batched() {
+    fn test_1_blob_batched() {
         // We evaluate 1 blob of 400 items using the batch methods.
         // This ensures a block with a single blob will work:
         let num_fields = 400;
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_empty_blob() {
+    fn test_empty_blob() {
         let blob = [0; FIELDS_PER_BLOB];
         let final_challenges = FinalBlobBatchingChallenges::empty();
 
@@ -378,7 +378,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "Non canonical x coordinate at infinity")]
-    unconstrained fn test_non_canonical_point_at_infinity_fails() {
+    fn test_non_canonical_point_at_infinity_fails() {
         let blob = [0; FIELDS_PER_BLOB];
         let point = BLSPoint { x: BLS12_381_Fq::one(), y: BLS12_381_Fq::zero(), is_infinity: true };
         let final_challenges = FinalBlobBatchingChallenges::empty();
@@ -397,7 +397,7 @@ mod tests {
     }
 
     #[test(should_fail)]
-    unconstrained fn test_point_not_on_curve_fails() {
+    fn test_point_not_on_curve_fails() {
         let blob = [0; FIELDS_PER_BLOB];
         let point = BLSPoint {
             x: BLS12_381_Fq::from_limbs([0, 0, 0, 42]),

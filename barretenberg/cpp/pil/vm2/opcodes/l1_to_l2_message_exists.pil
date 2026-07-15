@@ -35,8 +35,10 @@ namespace execution;
     #[skippable_if]
     sel_execute_l1_to_l2_message_exists = 0; // from execution.pil.
 
-    // Constrained to be boolean by the lookup into gt. (provided that sel_execute_l1_to_l2_message_exists == 1).
-    pol commit l1_to_l2_msg_leaf_in_range;
+    // Boolean by lookup into gt when sel_execute_l1_to_l2_message_exists == 1.
+    // Forced to zero otherwise by #[LEAF_IN_RANGE_IS_ZERO].
+    // Therefore, unconditionally boolean — required as a lookup source selector.
+    pol commit l1_to_l2_msg_leaf_in_range; // @boolean
 
     // Lookup constant support: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit l1_to_l2_msg_tree_leaf_count;
@@ -56,9 +58,14 @@ namespace execution;
         gt.res
     };
 
-    // If the leaf index is out of range, set the output to false
+    #[LEAF_IN_RANGE_IS_ZERO]
+    l1_to_l2_msg_leaf_in_range * (1 - sel_execute_l1_to_l2_message_exists) = 0;
+
+    // If the leaf index is out of range, set the output to false.
+    // By #[LEAF_IN_RANGE_IS_ZERO], sel_execute * leaf_in_range == leaf_in_range,
+    // so sel_execute * (1 - leaf_in_range) == sel_execute - leaf_in_range.
     #[L1_TO_L2_MSG_EXISTS_OUT_OF_RANGE_FALSE]
-    sel_execute_l1_to_l2_message_exists * (1 - l1_to_l2_msg_leaf_in_range) * register[2] = 0;
+    (sel_execute_l1_to_l2_message_exists - l1_to_l2_msg_leaf_in_range) * register[2] = 0;
 
     // If the leaf index is in range, check if the msg_hash exists in the l1 to l2 message tree
     #[L1_TO_L2_MSG_READ]

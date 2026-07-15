@@ -388,13 +388,13 @@ TEST(EmitPublicLogConstrainingTest, NegativeStartAfterLatch)
     trace.set(C::emit_public_log_end, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_START_AFTER_LATCH),
-                              "START_AFTER_LATCH");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_START_AFTER_LATCH));
 
     trace.set(C::emit_public_log_end, 1, 1);
     trace.set(C::precomputed_first_row, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_START_AFTER_LATCH),
-                              "START_AFTER_LATCH");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_START_AFTER_LATCH));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeTraceContinuity)
@@ -426,7 +426,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeTraceContinuity)
     trace.set(C::emit_public_log_sel, 3, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_TRACE_CONTINUITY),
-                              "TRACE_CONTINUITY");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_TRACE_CONTINUITY));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeComputationFinishAtEnd)
@@ -448,7 +448,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeComputationFinishAtEnd)
                                                     } });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_TRACE_CONTINUITY),
-                              "TRACE_CONTINUITY");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_TRACE_CONTINUITY));
 
     // Adding end=1 on row 1 should satisfy the constraint.
     trace.set(C::emit_public_log_end, 1, 1);
@@ -473,7 +473,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeRemainingRowsDecrement)
     trace.set(C::emit_public_log_remaining_rows, 1, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_REMAINING_ROWS_DECREMENT),
-                              "REMAINING_ROWS_DECREMENT");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_REMAINING_ROWS_DECREMENT));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeErrorOutOfBoundsConsistency)
@@ -494,7 +494,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeErrorOutOfBoundsConsistency)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_public_log>(trace, emit_public_log::SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY),
-        "ERROR_OUT_OF_BOUNDS_CONSISTENCY");
+        emit_public_log::get_subrelation_label(emit_public_log::SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeErrorTagMismatchConsistency)
@@ -515,7 +515,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeErrorTagMismatchConsistency)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_public_log>(trace, emit_public_log::SR_ERROR_TAG_MISMATCH_CONSISTENCY),
-        "ERROR_TAG_MISMATCH_CONSISTENCY");
+        emit_public_log::get_subrelation_label(emit_public_log::SR_ERROR_TAG_MISMATCH_CONSISTENCY));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeWrongTagCheck)
@@ -536,7 +536,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeWrongTagCheck)
     trace.set(C::emit_public_log_seen_wrong_tag, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_WRONG_TAG_CHECK),
-                              "WRONG_TAG_CHECK");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_WRONG_TAG_CHECK));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeSelectorShouldWriteToPublicInputsConsistency)
@@ -557,7 +557,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeSelectorShouldWriteToPublicInputsCon
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_public_log>(trace, emit_public_log::SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY),
-        "SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY");
+        emit_public_log::get_subrelation_label(emit_public_log::SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeLogOffsetIncrement)
@@ -579,7 +579,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeLogOffsetIncrement)
     trace.set(C::emit_public_log_log_address, 1, 9);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_LOG_ADDRESS_INCREMENT),
-                              "LOG_ADDRESS_INCREMENT");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_LOG_ADDRESS_INCREMENT));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeExecutionClkConsistency)
@@ -599,7 +599,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeExecutionClkConsistency)
     trace.set(C::emit_public_log_execution_clk, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_EXEC_CLK_CONSISTENCY),
-                              "EXEC_CLK_CONSISTENCY");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_EXEC_CLK_CONSISTENCY));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeSpaceIdConsistency)
@@ -619,7 +619,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeSpaceIdConsistency)
     trace.set(C::emit_public_log_space_id, 1, 18);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SPACE_ID_CONSISTENCY),
-                              "SPACE_ID_CONSISTENCY");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_SPACE_ID_CONSISTENCY));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeContractAddressConsistency)
@@ -639,7 +639,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeContractAddressConsistency)
     trace.set(C::emit_public_log_contract_address, 1, 43);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_CONTRACT_ADDRESS_CONSISTENCY),
-                              "CONTRACT_ADDRESS_CONSISTENCY");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_CONTRACT_ADDRESS_CONSISTENCY));
 }
 
 // =====================================================================
@@ -726,7 +726,8 @@ TEST(EmitPublicLogConstrainingTest, NegativeGhostRowInjectionBlocked)
     // Gating by sel should cause the relation check to fail
     // because sel_read_memory=1 and sel=0 violates this constraint
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace),
-                              "SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR");
+                              emit_public_log::get_subrelation_label(
+                                  emit_public_log::SR_SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeSelToggledAtStartEnd)
@@ -743,7 +744,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeSelToggledAtStartEnd)
     trace.set(C::emit_public_log_sel, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SEL_ON_START_OR_END),
-                              "SEL_ON_START_OR_END");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_SEL_ON_START_OR_END));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeInitialSeenWrongTag)
@@ -761,7 +762,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeInitialSeenWrongTag)
     trace.set(C::emit_public_log_seen_wrong_tag, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_INITIAL_SEEN_WRONG_TAG),
-                              "INITIAL_SEEN_WRONG_TAG");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_INITIAL_SEEN_WRONG_TAG));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeCheckEndTagMismatch)
@@ -780,7 +781,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeCheckEndTagMismatch)
     trace.set(C::emit_public_log_error_tag_mismatch, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_CHECK_END_TAG_MISMATCH),
-                              "CHECK_END_TAG_MISMATCH");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_CHECK_END_TAG_MISMATCH));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeWriteContractAddressAfterStart)
@@ -801,7 +802,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeWriteContractAddressAfterStart)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_public_log>(trace, emit_public_log::SR_WRITE_CONTRACT_ADDRESS_AFTER_START),
-        "WRITE_CONTRACT_ADDRESS_AFTER_START");
+        emit_public_log::get_subrelation_label(emit_public_log::SR_WRITE_CONTRACT_ADDRESS_AFTER_START));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeSetAndProgateValueWrite)
@@ -824,7 +825,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeSetAndProgateValueWrite)
     trace.set(C::emit_public_log_is_write_memory_value, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_SET_AND_PROGATE_VALUE_WRITE),
-                              "SET_AND_PROGATE_VALUE_WRITE");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_SET_AND_PROGATE_VALUE_WRITE));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeDisabledMemReadValueZero)
@@ -842,7 +843,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeDisabledMemReadValueZero)
     trace.set(C::emit_public_log_value, 0, 42);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_DISABLED_MEM_READ_VALUE_ZERO),
-                              "DISABLED_MEM_READ_VALUE_ZERO");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_DISABLED_MEM_READ_VALUE_ZERO));
 }
 
 TEST(EmitPublicLogConstrainingTest, NegativeDisabledMemReadTagFF)
@@ -860,7 +861,7 @@ TEST(EmitPublicLogConstrainingTest, NegativeDisabledMemReadTagFF)
     trace.set(C::emit_public_log_tag, 0, 3);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_public_log>(trace, emit_public_log::SR_DISABLED_MEM_READ_TAG_FF),
-                              "DISABLED_MEM_READ_TAG_FF");
+                              emit_public_log::get_subrelation_label(emit_public_log::SR_DISABLED_MEM_READ_TAG_FF));
 }
 
 } // namespace

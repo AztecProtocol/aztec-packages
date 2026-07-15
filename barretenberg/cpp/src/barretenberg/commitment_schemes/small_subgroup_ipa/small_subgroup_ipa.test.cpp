@@ -8,6 +8,7 @@
 #include <vector>
 
 namespace bb {
+
 template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
   public:
     using Curve = typename Flavor::Curve;
@@ -18,6 +19,11 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
 
     static constexpr size_t log_circuit_size = 7;
     static constexpr size_t circuit_size = 1ULL << log_circuit_size;
+
+    // Number of sumcheck challenges in a padded transcript: Grumpkin (committed sumcheck) runs at the fixed
+    // CONST_ECCVM_LOG_N, whose Libra concatenation is what fits the subgroup; BN254 pads to CONST_PROOF_SIZE_LOG_N.
+    static constexpr size_t num_sumcheck_challenges =
+        std::is_same_v<Curve, curve::Grumpkin> ? CONST_ECCVM_LOG_N : CONST_PROOF_SIZE_LOG_N;
 
     FF evaluation_challenge;
 
@@ -32,15 +38,22 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
         return multivariate_challenge;
     }
 
-    // A helper to evaluate the four IPA witness polynomials at x, x*g, x, x
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluate_small_ipa_witnesses(
-        const std::array<Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS>& witness_polynomials)
+    // A helper to evaluate the small-IPA witness polynomials at the verifier's claimed points (r, g*r, r, 1, r).
+    // `witness_polynomials` is the 3-array {G, A, Q} returned by SmallSubgroupIPAProver::get_witness_polynomials();
+    // we expand to the full 5-claim layout via SMALL_IPA_CLAIMS[i].commitment_index. The fourth slot is the A(1) = 0
+    // boundary opening required for soundness.
+    std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> evaluate_small_ipa_witnesses(
+        const std::array<Polynomial<FF>, NUM_SMALL_IPA_COMMITMENTS>& witness_polynomials)
     {
-        // Hard-coded pattern of evaluation: (x, x*g, x, x)
-        return { witness_polynomials[0].evaluate(evaluation_challenge),
-                 witness_polynomials[1].evaluate(evaluation_challenge * subgroup_generator),
-                 witness_polynomials[2].evaluate(evaluation_challenge),
-                 witness_polynomials[3].evaluate(evaluation_challenge) };
+        const std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> points = {
+            evaluation_challenge, evaluation_challenge * subgroup_generator, evaluation_challenge, FF(1),
+            evaluation_challenge,
+        };
+        std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> result;
+        for (size_t i = 0; i < NUM_SMALL_IPA_OPENING_CLAIMS; ++i) {
+            result[i] = witness_polynomials[SMALL_IPA_CLAIMS[i].commitment_index].evaluate(points[i]);
+        }
+        return result;
     }
 };
 
@@ -76,8 +89,9 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
     small_subgroup_ipa_prover.prove();
 
     const Polynomial batched_polynomial = small_subgroup_ipa_prover.get_batched_polynomial();
-    const Polynomial libra_concatenated_polynomial = small_subgroup_ipa_prover.get_witness_polynomials()[0];
-    const Polynomial batched_quotient = small_subgroup_ipa_prover.get_witness_polynomials()[3];
+    const auto witness_polynomials = small_subgroup_ipa_prover.get_witness_polynomials();
+    const Polynomial libra_concatenated_polynomial = witness_polynomials[0]; // [G]
+    const Polynomial batched_quotient = witness_polynomials[2];              // [Q]
     const Polynomial challenge_polynomial = small_subgroup_ipa_prover.get_challenge_polynomial();
 
     // Check that claimed inner product coincides with the inner product of libra_concatenated_polynomial and
@@ -187,7 +201,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
 
-    std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> multivariate_challenge = this->generate_random_vector(this->num_sumcheck_challenges);
 
     const FF claimed_inner_product =
         Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
@@ -197,7 +211,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
 
     small_subgroup_ipa_prover.prove();
 
-    const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
+    const std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
     bool consistency_checked = Verifier::check_libra_evaluations_consistency(
@@ -224,7 +238,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
 
-    std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> multivariate_challenge = this->generate_random_vector(this->num_sumcheck_challenges);
 
     const FF claimed_inner_product =
         Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
@@ -234,13 +248,13 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
 
     small_subgroup_ipa_prover.prove();
 
-    std::array<Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> witness_polynomials =
+    std::array<Polynomial<FF>, NUM_SMALL_IPA_COMMITMENTS> witness_polynomials =
         small_subgroup_ipa_prover.get_witness_polynomials();
 
     // Tamper with witness polynomials
     witness_polynomials[0].at(0) = FF::random_element();
 
-    const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
+    const std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(witness_polynomials);
 
     bool consistency_checked = Verifier::check_libra_evaluations_consistency(
@@ -289,7 +303,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistency)
             translation_data, evaluation_challenge_x, batching_challenge_v, prover_transcript, ck);
         small_subgroup_ipa_prover.prove();
 
-        const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
+        const std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> small_ipa_evaluations =
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
         bool consistency_checked =
@@ -341,7 +355,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
             translation_data, evaluation_challenge_x, batching_challenge_v, prover_transcript, ck);
         small_subgroup_ipa_prover.prove();
 
-        const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
+        const std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> small_ipa_evaluations =
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
         bool consistency_checked =
@@ -376,11 +390,11 @@ TYPED_TEST(SmallSubgroupIPATest, EvaluationChallengeInSubgroupThrows)
     EXPECT_EQ(vanishing_poly_eval, FF(0));
 
     // Create dummy evaluations - the actual values don't matter since we expect an abort
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> dummy_evaluations = {
+    std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS> dummy_evaluations = {
         FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
     };
 
-    std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> multivariate_challenge = this->generate_random_vector(this->num_sumcheck_challenges);
     FF dummy_inner_product = FF::random_element();
 
     // The check should throw/abort because the evaluation challenge is in the subgroup

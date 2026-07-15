@@ -50,8 +50,9 @@ TEST(ExecutionDiscardConstrainingTest, DiscardIffDyingContext)
     // Negative test: discard=1 but dying_context_id=0
     trace.set(C::execution_dying_context_id, 2, 0);
     trace.set(C::execution_dying_context_id_inv, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT),
-                              "DISCARD_IFF_DYING_CONTEXT");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT),
+        execution_discard::get_subrelation_label(execution_discard::SR_DISCARD_IFF_DYING_CONTEXT));
 
     // Reset before next test
     trace.set(C::execution_dying_context_id, 1, 0);
@@ -62,8 +63,9 @@ TEST(ExecutionDiscardConstrainingTest, DiscardIffDyingContext)
     // Negative test: discard=0 but dying_context_id!=0
     trace.set(C::execution_dying_context_id, 1, 42);
     trace.set(C::execution_dying_context_id_inv, 1, FF(42).invert());
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT),
-                              "DISCARD_IFF_DYING_CONTEXT");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT),
+        execution_discard::get_subrelation_label(execution_discard::SR_DISCARD_IFF_DYING_CONTEXT));
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardFailureMustDiscard)
@@ -99,7 +101,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardFailureMustDiscard)
     trace.set(C::execution_discard, 1, 0);
     trace.set(C::execution_dying_context_id, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DISCARD_IF_FAILURE),
-                              "DISCARD_IF_FAILURE");
+                              execution_discard::get_subrelation_label(execution_discard::SR_DISCARD_IF_FAILURE));
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardIsDyingContextCheck)
@@ -137,13 +139,13 @@ TEST(ExecutionDiscardConstrainingTest, DiscardIsDyingContextCheck)
     // Negative test: wrong is_dying_context when equal
     trace.set(C::execution_is_dying_context, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_IS_DYING_CONTEXT_CHECK),
-                              "IS_DYING_CONTEXT_CHECK");
+                              execution_discard::get_subrelation_label(execution_discard::SR_IS_DYING_CONTEXT_CHECK));
 
     // Negative test: wrong is_dying_context when not equal
     trace.set(C::execution_is_dying_context, 1, 1); // Reset
     trace.set(C::execution_is_dying_context, 2, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_IS_DYING_CONTEXT_CHECK),
-                              "IS_DYING_CONTEXT_CHECK");
+                              execution_discard::get_subrelation_label(execution_discard::SR_IS_DYING_CONTEXT_CHECK));
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardPropagationOfZeroDiscard)
@@ -177,18 +179,18 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationOfZeroDiscard)
 
     // Negative test: doesn't propagate but it should.
     trace.set(C::execution_discard, 2, 42);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace,
-                                                                execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
-                                                                execution_discard::SR_DYING_CONTEXT_PROPAGATION),
-                              "DISCARD_IFF_DYING_CONTEXT");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(
+            trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION),
+        execution_discard::get_subrelation_label(execution_discard::SR_DISCARD_IFF_DYING_CONTEXT));
 
     // Second try: adapt dying_context_id to make SR_DISCARD_IFF_DYING_CONTEXT valid.
     trace.set(C::execution_dying_context_id, 2, 1);
     trace.set(C::execution_dying_context_id_inv, 2, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace,
-                                                                execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
-                                                                execution_discard::SR_DYING_CONTEXT_PROPAGATION),
-                              "DYING_CONTEXT_PROPAGATION");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(
+            trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION),
+        execution_discard::get_subrelation_label(execution_discard::SR_DYING_CONTEXT_PROPAGATION));
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardPropagationOfNonzeroDiscard)
@@ -225,18 +227,18 @@ TEST(ExecutionDiscardConstrainingTest, DiscardPropagationOfNonzeroDiscard)
 
     // Negative test: doesn't propagate but it should.
     trace.set(C::execution_discard, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace,
-                                                                execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
-                                                                execution_discard::SR_DYING_CONTEXT_PROPAGATION),
-                              "DISCARD_IFF_DYING_CONTEXT");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(
+            trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION),
+        execution_discard::get_subrelation_label(execution_discard::SR_DISCARD_IFF_DYING_CONTEXT));
 
     // Second try: adapt dying_context_id to make SR_DISCARD_IFF_DYING_CONTEXT valid.
     trace.set(C::execution_dying_context_id, 2, 0);
     trace.set(C::execution_dying_context_id_inv, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace,
-                                                                execution_discard::SR_DISCARD_IFF_DYING_CONTEXT,
-                                                                execution_discard::SR_DYING_CONTEXT_PROPAGATION),
-                              "DYING_CONTEXT_PROPAGATION");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(
+            trace, execution_discard::SR_DISCARD_IFF_DYING_CONTEXT, execution_discard::SR_DYING_CONTEXT_PROPAGATION),
+        execution_discard::get_subrelation_label(execution_discard::SR_DYING_CONTEXT_PROPAGATION));
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardPropagationLiftedEndOfEnqueuedCall)
@@ -351,7 +353,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardDyingContextMustError)
     trace.set(C::execution_sel_execute_return, 1, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DYING_CONTEXT_MUST_FAIL),
-                              "DYING_CONTEXT_MUST_FAIL");
+                              execution_discard::get_subrelation_label(execution_discard::SR_DYING_CONTEXT_MUST_FAIL));
 }
 
 TEST(ExecutionDiscardConstrainingTest, DiscardComplexScenario)
@@ -520,7 +522,9 @@ TEST(ExecutionDiscardConstrainingTest, ExploitRaiseDiscardWithWrongDyingContext)
     });
 
     // If the exploit works, this check will pass.
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace), "ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(trace),
+        execution_discard::get_subrelation_label(execution_discard::SR_ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT));
 }
 
 TEST(ExecutionDiscardConstrainingTest, ExploitAvoidDiscardByDelayingRaise)
@@ -611,7 +615,9 @@ TEST(ExecutionDiscardConstrainingTest, ExploitAvoidDiscardByDelayingRaise)
     });
 
     // If the exploit works, this check will pass.
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace), "ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(trace),
+        execution_discard::get_subrelation_label(execution_discard::SR_ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT));
 }
 
 TEST(ExecutionDiscardConstrainingTest, ExploitChangesDyingContextAfterResolution)
@@ -694,7 +700,9 @@ TEST(ExecutionDiscardConstrainingTest, ExploitChangesDyingContextAfterResolution
     });
 
     // If the exploit works, this check will pass.
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace), "DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<execution_discard>(trace),
+        execution_discard::get_subrelation_label(execution_discard::SR_DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD));
 }
 
 } // namespace

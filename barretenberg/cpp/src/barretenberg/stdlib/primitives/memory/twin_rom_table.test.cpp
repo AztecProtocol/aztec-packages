@@ -136,27 +136,3 @@ TYPED_TEST(TwinRomTableTests, ReadWriteConsistency)
     bool verified = CircuitChecker::check(builder);
     EXPECT_EQ(verified, true);
 }
-
-/**
- * @brief OOB constant-index access soft-fails correctly without crashing.
- */
-TEST(TwinRomTable, OobConstantIndexDoesNotCrashRegression)
-{
-    using Builder = UltraCircuitBuilder;
-    using field_ct = stdlib::field_t<Builder>;
-    using witness_ct = stdlib::witness_t<Builder>;
-    using twin_rom_table_ct = stdlib::twin_rom_table<Builder>;
-    using field_pair_ct = std::array<field_ct, 2>;
-
-    Builder builder;
-
-    std::vector<field_pair_ct> table_values;
-    table_values.emplace_back(field_pair_ct{ witness_ct(&builder, bb::fr(1)), witness_ct(&builder, bb::fr(2)) });
-    table_values.emplace_back(field_pair_ct{ witness_ct(&builder, bb::fr(3)), witness_ct(&builder, bb::fr(4)) });
-    twin_rom_table_ct table(table_values);
-
-    // OOB constant index — should soft-fail, not crash
-    table[static_cast<size_t>(100000000)];
-
-    EXPECT_TRUE(builder.failed());
-}

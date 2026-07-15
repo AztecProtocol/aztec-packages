@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +13,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 5, 3, 4, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 3, 4, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,16 +34,20 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
     static constexpr const std::string_view NAME = "bc_retrieval";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_NO_REMAINING_BYTECODES = 2;
-    static constexpr size_t SR_NEW_CLASS_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 3;
-    static constexpr size_t SR_ERROR_CHECK = 4;
-    static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_ERROR = 5;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED_IF_ERROR = 6;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED_IF_ERROR = 7;
+    static constexpr size_t SR_INSTANCE_EXISTS_ON_SEL = 1;
+    static constexpr size_t SR_NO_REMAINING_BYTECODES = 3;
+    static constexpr size_t SR_NEW_CLASS_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 4;
+    static constexpr size_t SR_ERROR_CHECK = 5;
+    static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_ERROR = 6;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED_IF_ERROR = 7;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED_IF_ERROR = 8;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_INSTANCE_EXISTS_ON_SEL:
+            return "INSTANCE_EXISTS_ON_SEL";
         case SR_NO_REMAINING_BYTECODES:
             return "NO_REMAINING_BYTECODES";
         case SR_NEW_CLASS_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST:
@@ -58,6 +61,7 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
         case SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED_IF_ERROR:
             return "RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED_IF_ERROR";
         }
+#endif
         return std::to_string(index);
     }
 };

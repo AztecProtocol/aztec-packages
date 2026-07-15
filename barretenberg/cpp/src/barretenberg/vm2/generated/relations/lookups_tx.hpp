@@ -337,18 +337,20 @@ using lookup_tx_balance_slot_poseidon2_relation = lookup_relation_base<FF_, look
 struct lookup_tx_balance_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_BALANCE_READ";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
     static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_tx_balance_read_counts;
     static constexpr Column INVERSES = Column::lookup_tx_balance_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::tx_fee_payer_balance,
         ColumnAndShifts::tx_fee_juice_contract_address,
         ColumnAndShifts::tx_fee_juice_balance_slot,
         ColumnAndShifts::tx_prev_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::public_data_check_write,
         ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_address,
         ColumnAndShifts::public_data_check_slot,
