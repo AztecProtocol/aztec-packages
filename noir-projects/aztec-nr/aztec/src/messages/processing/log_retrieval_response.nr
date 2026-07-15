@@ -1,5 +1,8 @@
 use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
-use crate::protocol::{constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN}, traits::Deserialize};
+use crate::protocol::{
+    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN},
+    traits::{Deserialize, Serialize},
+};
 
 pub global MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION: u32 = MAX_NOTE_PACKED_LEN;
 
@@ -11,7 +14,7 @@ pub(crate) global MAX_LOG_CONTENT_LEN: u32 = std::cmp::max(
 /// A response to a `LogRetrievalRequest`, containing the payload of a log (i.e. the content minus the tag, called
 /// plaintext for public logs and ciphertext for private), plus contextual information about the transaction in which
 /// the log was emitted. This is the data required in order to discover notes that are being delivered in a log.
-#[derive(Deserialize, Eq)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct LogRetrievalResponse {
     pub log_payload: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,
     pub tx_hash: Field,
