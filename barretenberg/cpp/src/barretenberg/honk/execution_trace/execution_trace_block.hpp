@@ -30,7 +30,12 @@ struct BbStackTrace : backward::StackTrace {
 struct StackTraces {
     std::vector<BbStackTrace> stack_traces;
     void populate() { stack_traces.emplace_back(); }
-    void print(size_t gate_idx) const { backward::Printer{}.print(stack_traces.at(gate_idx)); }
+    void print(size_t gate_idx) const
+    {
+        if (gate_idx < stack_traces.size()) {
+            backward::Printer{}.print(stack_traces[gate_idx]);
+        }
+    }
     // Don't interfere with equality semantics of structs that include this in debug builds
     bool operator==(const StackTraces& other) const
     {
@@ -397,6 +402,9 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         , tiles(other.tiles)
         , num_rows_(other.num_rows_)
     {
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        stack_traces = other.stack_traces;
+#endif
         copy_gate_columns_from(other);
     }
     ExecutionTraceBlock& operator=(const ExecutionTraceBlock& other)
@@ -404,6 +412,9 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         if (this == &other) {
             return *this;
         }
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        stack_traces = other.stack_traces;
+#endif
         cached_size_ = other.cached_size_;
         data_freed_ = other.data_freed_;
         trace_offset_ = other.trace_offset_;
@@ -419,6 +430,9 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         , tiles(std::move(other.tiles))
         , num_rows_(other.num_rows_)
     {
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        stack_traces = std::move(other.stack_traces);
+#endif
         copy_gate_columns_from(other);
     }
     ExecutionTraceBlock& operator=(ExecutionTraceBlock&& other) noexcept
@@ -426,6 +440,9 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         cached_size_ = other.cached_size_;
         data_freed_ = other.data_freed_;
         trace_offset_ = other.trace_offset_;
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        stack_traces = std::move(other.stack_traces);
+#endif
         tiles = std::move(other.tiles);
         num_rows_ = other.num_rows_;
         copy_gate_columns_from(other);

@@ -559,8 +559,9 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
     auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
+    // Remove the synthesized gate while leaving the builder's witness map internally valid.
+    builder.blocks.arithmetic.tiles.clear();
+    builder.blocks.arithmetic.num_rows_ = 0;
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
