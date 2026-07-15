@@ -21,6 +21,8 @@ repo_root=$(git rev-parse --show-toplevel)
 codegen_dir="$repo_root/protocol/constants-codegen"
 cpp_output="$repo_root/barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp"
 pil_output="$repo_root/barretenberg/cpp/pil/vm2/constants_gen.pil"
+cpp_selection="$repo_root/barretenberg/cpp/scripts/constants-codegen/cpp.json"
+pil_selection="$repo_root/barretenberg/cpp/scripts/constants-codegen/pil.json"
 
 temp_dir=""
 if [ "$check" -eq 1 ]; then
@@ -40,7 +42,9 @@ fi
 node "$codegen_dir/dest/cli.js" \
   --input "$repo_root/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr" \
   --cpp "$cpp_output" \
-  --pil "$pil_output"
+  --cpp-selection "$cpp_selection" \
+  --pil "$pil_output" \
+  --pil-selection "$pil_selection"
 
 clang-format-20 --style="file:$repo_root/barretenberg/cpp/.clang-format" -i "$cpp_output"
 

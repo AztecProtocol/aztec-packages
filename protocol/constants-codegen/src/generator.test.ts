@@ -49,37 +49,43 @@ export enum DomainSeparator {
   );
 });
 
-test('generates the existing C++ subset', () => {
+test('generates C++ constants and domain separators', () => {
   const output = generateToString(generateCppConstants);
 
+  assert.match(output, /#define MAX_FIELD_VALUE/);
   assert.match(output, /#define MAX_ETH_ADDRESS_VALUE "0x0{24}f{40}"/);
   assert.match(output, /#define ARCHIVE_HEIGHT 30/);
   assert.match(output, /#define DOM_SEP__MERKLE_HASH 2982624097UL/);
-  assert.doesNotMatch(output, /MAX_FIELD_VALUE/);
 });
 
-test('generates the existing PIL subset', () => {
+test('generates PIL constants and domain separators', () => {
   const output = generateToString(generatePilConstants);
 
+  assert.match(
+    output,
+    /pol MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616;/,
+  );
   assert.match(output, /pol MAX_ETH_ADDRESS_VALUE = 1461501637330902918203684832716283019655932542975;/);
+  assert.match(output, /pol ARCHIVE_HEIGHT = 30;/);
   assert.match(output, /pol DOM_SEP__MERKLE_HASH = 2982624097;/);
-  assert.doesNotMatch(output, /ARCHIVE_HEIGHT/);
 });
 
-test('generates the existing Solidity subset', () => {
+test('generates Solidity constants', () => {
   const output = generateToString(generateSolidityConstants);
 
   assert.match(
     output,
     /uint256 internal constant MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616;/,
   );
-  assert.doesNotMatch(output, /ARCHIVE_HEIGHT/);
+  assert.match(output, /uint256 internal constant ARCHIVE_HEIGHT = 30;/);
 });
 
 test('the CLI generates multiple requested outputs', () => {
   const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
   const inputPath = join(tempDir, 'constants.nr');
   const includedInputPath = join(tempDir, 'additional.nr');
+  const typescriptSelectionPath = join(tempDir, 'typescript-selection.json');
+  const cppSelectionPath = join(tempDir, 'cpp-selection.json');
   const typescriptPath = join(tempDir, 'typescript', 'constants.ts');
   const cppPath = join(tempDir, 'cpp', 'constants.hpp');
   const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.js');
@@ -92,6 +98,14 @@ test('the CLI generates multiple requested outputs', () => {
 pub global EXCLUDED_CONSTANT: u32 = 100;
 `,
     );
+    writeFileSync(
+      typescriptSelectionPath,
+      JSON.stringify({ constants: ['ARCHIVE_HEIGHT', 'INCLUDED_CONSTANT'], domainSeparators: [] }),
+    );
+    writeFileSync(
+      cppSelectionPath,
+      JSON.stringify({ constants: ['MAX_ETH_ADDRESS_VALUE'], domainSeparators: ['MERKLE_HASH'] }),
+    );
     execFileSync(
       process.execPath,
       [
@@ -102,16 +116,56 @@ pub global EXCLUDED_CONSTANT: u32 = 100;
         `${includedInputPath}:INCLUDED_CONSTANT`,
         '--typescript',
         typescriptPath,
+        '--typescript-selection',
+        typescriptSelectionPath,
         '--cpp',
         cppPath,
+        '--cpp-selection',
+        cppSelectionPath,
       ],
       { stdio: 'pipe' },
     );
 
     assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = 30;/);
     assert.match(readFileSync(typescriptPath, 'utf8'), /export const INCLUDED_CONSTANT = 31;/);
+    assert.doesNotMatch(readFileSync(typescriptPath, 'utf8'), /MAX_ETH_ADDRESS_VALUE/);
     assert.doesNotMatch(readFileSync(typescriptPath, 'utf8'), /EXCLUDED_CONSTANT/);
-    assert.match(readFileSync(cppPath, 'utf8'), /#define ARCHIVE_HEIGHT 30/);
+    assert.match(readFileSync(cppPath, 'utf8'), /#define MAX_ETH_ADDRESS_VALUE/);
+    assert.match(readFileSync(cppPath, 'utf8'), /#define DOM_SEP__MERKLE_HASH 2982624097UL/);
+    assert.doesNotMatch(readFileSync(cppPath, 'utf8'), /ARCHIVE_HEIGHT/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('the CLI rejects unknown selected symbols', () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
+  const inputPath = join(tempDir, 'constants.nr');
+  const selectionPath = join(tempDir, 'selection.json');
+  const outputPath = join(tempDir, 'constants.ts');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.js');
+
+  try {
+    writeFileSync(inputPath, noirFixture);
+    writeFileSync(selectionPath, JSON.stringify({ constants: ['UNKNOWN_CONSTANT'], domainSeparators: [] }));
+
+    assert.throws(
+      () =>
+        execFileSync(
+          process.execPath,
+          [
+            cliPath,
+            '--input',
+            inputPath,
+            '--typescript',
+            outputPath,
+            '--typescript-selection',
+            selectionPath,
+          ],
+          { encoding: 'utf8', stdio: 'pipe' },
+        ),
+      error => error instanceof Error && error.message.includes("unknown constant 'UNKNOWN_CONSTANT'"),
+    );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

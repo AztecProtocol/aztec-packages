@@ -20,6 +20,7 @@ esac
 repo_root=$(git rev-parse --show-toplevel)
 codegen_dir="$repo_root/protocol/constants-codegen"
 solidity_output="$repo_root/l1-contracts/src/core/libraries/ConstantsGen.sol"
+solidity_selection="$repo_root/l1-contracts/scripts/constants-codegen/solidity.json"
 
 temp_dir=""
 if [ "$check" -eq 1 ]; then
@@ -37,7 +38,8 @@ fi
 
 node "$codegen_dir/dest/cli.js" \
   --input "$repo_root/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr" \
-  --solidity "$solidity_output"
+  --solidity "$solidity_output" \
+  --solidity-selection "$solidity_selection"
 
 (cd "$repo_root/l1-contracts" && forge fmt "$solidity_output")
 

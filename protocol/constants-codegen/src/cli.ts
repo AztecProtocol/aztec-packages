@@ -12,11 +12,13 @@ import {
   generateTypescriptConstants,
   parseNoirFile,
 } from './generator.js';
+import { readSymbolSelection, selectSymbols } from './selection.js';
 
 type GenerateOutput = (content: ParsedContent, targetPath: string) => void;
 
 interface RequestedOutput {
   path: string;
+  selectionPath: string | undefined;
   generate: GenerateOutput;
 }
 
@@ -38,9 +40,13 @@ function run(args: string[]): void {
       input: { type: 'string' },
       include: { type: 'string', multiple: true },
       typescript: { type: 'string' },
+      'typescript-selection': { type: 'string' },
       cpp: { type: 'string' },
+      'cpp-selection': { type: 'string' },
       pil: { type: 'string' },
+      'pil-selection': { type: 'string' },
       solidity: { type: 'string' },
+      'solidity-selection': { type: 'string' },
     },
     strict: true,
   });
@@ -50,11 +56,33 @@ function run(args: string[]): void {
   }
 
   const outputs = [
-    values.typescript ? { path: values.typescript, generate: generateTypescriptConstants } : undefined,
-    values.cpp ? { path: values.cpp, generate: generateCppConstants } : undefined,
-    values.pil ? { path: values.pil, generate: generatePilConstants } : undefined,
-    values.solidity ? { path: values.solidity, generate: generateSolidityConstants } : undefined,
+    values.typescript
+      ? {
+          path: values.typescript,
+          selectionPath: values['typescript-selection'],
+          generate: generateTypescriptConstants,
+        }
+      : undefined,
+    values.cpp
+      ? { path: values.cpp, selectionPath: values['cpp-selection'], generate: generateCppConstants }
+      : undefined,
+    values.pil
+      ? { path: values.pil, selectionPath: values['pil-selection'], generate: generatePilConstants }
+      : undefined,
+    values.solidity
+      ? { path: values.solidity, selectionPath: values['solidity-selection'], generate: generateSolidityConstants }
+      : undefined,
   ].filter((output): output is RequestedOutput => output !== undefined);
+
+  const unpairedSelection = [
+    ['typescript', values.typescript, values['typescript-selection']],
+    ['cpp', values.cpp, values['cpp-selection']],
+    ['pil', values.pil, values['pil-selection']],
+    ['solidity', values.solidity, values['solidity-selection']],
+  ].find(([, output, selection]) => selection && !output);
+  if (unpairedSelection) {
+    throw new Error(`--${unpairedSelection[0]}-selection requires --${unpairedSelection[0]}`);
+  }
 
   if (outputs.length === 0) {
     throw new Error('at least one output option is required');
@@ -80,7 +108,10 @@ function run(args: string[]): void {
 
   for (const output of outputs) {
     mkdirSync(dirname(output.path), { recursive: true });
-    output.generate(parsedContent, output.path);
+    const outputContent = output.selectionPath
+      ? selectSymbols(parsedContent, readSymbolSelection(output.selectionPath))
+      : parsedContent;
+    output.generate(outputContent, output.path);
   }
 }
 

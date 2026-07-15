@@ -11,23 +11,32 @@ requested combination of the four outputs produced by the existing generator.
 constants-codegen \
   --input <constants.nr> \
   [--include <file.nr>:<symbol>]... \
-  [--typescript <output.ts>] \
-  [--cpp <output.hpp>] \
-  [--pil <output.pil>] \
-  [--solidity <output.sol>]
+  [--typescript <output.ts> [--typescript-selection <selection.json>]] \
+  [--cpp <output.hpp> [--cpp-selection <selection.json>]] \
+  [--pil <output.pil> [--pil-selection <selection.json>]] \
+  [--solidity <output.sol> [--solidity-selection <selection.json>]]
 ```
 
 - `--input` is required.
 - `--include` adds one named constant from another Noir file before evaluating expressions. It may be repeated.
 - At least one output option is required, and any combination of output options may be used in one invocation.
+- Each output may have its own selection file. Without one, that output contains every supported symbol from the input.
 - Relative paths are resolved from the caller's working directory. The tool does not infer paths from the monorepo
   layout.
 - Invalid arguments, an unreadable input, an unsupported expression, or an output failure produce a diagnostic on
   stderr and a nonzero exit status.
 
-Version 1 preserves the existing renderer behavior, including each language's current embedded symbol allowlist.
-TypeScript emits all parsed constants and domain separators; C++, PIL, and Solidity retain their current selected
-subsets and formatting.
+A selection file names Noir source symbols and has the following shape:
+
+```json
+{
+  "constants": ["ARCHIVE_HEIGHT"],
+  "domainSeparators": ["MERKLE_HASH"]
+}
+```
+
+Both properties are required. Domain separator names omit the `DOM_SEP__` output prefix. Duplicate, invalid, or
+unknown symbols are rejected.
 
 ## Compatibility target
 
