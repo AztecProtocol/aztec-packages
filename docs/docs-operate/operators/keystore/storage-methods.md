@@ -1,6 +1,7 @@
 ---
 title: Key storage methods
 description: Learn about different methods for storing and accessing private keys in Aztec keystores, including inline keys, remote signers, JSON V3 keystores, and mnemonics.
+displayed_sidebar: operatorsSidebar
 ---
 
 ## Overview

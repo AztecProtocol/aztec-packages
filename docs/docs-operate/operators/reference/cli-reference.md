@@ -26,37 +26,33 @@ tags:
 **Configuration notes:**
 
 - The environment variable name corresponding to each flag is shown as $ENV_VAR on the right hand side.
-- If two subsystems can contain the same configuration option, only one needs to be provided. For example, `--archiver.blobSinkUrl` and `--sequencer.blobSinkUrl` point to the same value.
+- If two subsystems can contain the same configuration option, only one needs to be provided. For example, `--archiver.blobSinkUrl` and `--sequencer.blobSinkUrl` point to the same value if the node is started with both the `--archiver` and `--sequencer` options.
 
 ```bash
-
   MISC
 
     --network <value>                                                                                                                      ($NETWORK)
           Network to run Aztec on
 
-    --enable-auto-shutdown                                                   (default: false)                                              ($ENABLE_AUTO_SHUTDOWN)
-          Soft-shutdown the node when the canonical rollup is no longer compatible (protocol constants diverge), keeping the health server up so K8s probes keep passing. Only applies to nodes following the canonical rollup.
+    --auto-update <value>                                                    (default: disabled)                                           ($AUTO_UPDATE)
+          The auto update mode for this node
+
+    --auto-update-url <value>                                                                                                              ($AUTO_UPDATE_URL)
+          Base URL to check for updates
 
     --sync-mode <value>                                                      (default: snapshot)                                           ($SYNC_MODE)
           Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.
 
-    --snapshots-urls <value>                                                 (default: )                                                   ($SYNC_SNAPSHOTS_URLS)
-          Base URLs for snapshots index, comma-separated.
+    --snapshots-url <value>                                                                                                                ($SYNC_SNAPSHOTS_URL)
+          Base URL for snapshots index.
 
-    --fisherman-mode                                                                                                                       ($FISHERMAN_MODE)
-          Whether to run in fisherman mode.
+  LOCAL NETWORK
 
-  LOCAL_NETWORK
+    --local-network
+          Starts Aztec local network (also exposes the AztecNodeDebug endpoints on the node - just like if --node-debug was set)
 
-    --local-network                                                                                                                        
-          Starts Aztec Local Network
-
-    --local-network.l1Mnemonic <value>                                       (default: test test test test test test test test test test test junk)($MNEMONIC)
-          Mnemonic for L1 accounts. Will be used 
-
-    --local-network.testAccounts                                             (default: true)                                               ($TEST_ACCOUNTS)
-          Deploy test accounts on local network start
+    --local-network.l1Mnemonic <value>                                             (default: test test test test test test test test test test test junk)($MNEMONIC)
+          Mnemonic for L1 accounts. Will be used
 
   API
 
@@ -66,26 +62,11 @@ tags:
     --admin-port <value>                                                     (default: 8880)                                               ($AZTEC_ADMIN_PORT)
           Port to run admin APIs of Aztec Services on
 
-    --admin-api-key-hash <value>                                                                                                           ($AZTEC_ADMIN_API_KEY_HASH)
-          SHA-256 hex hash of a pre-generated admin API key. When set, the node uses this hash for authentication instead of auto-generating a key.
-
-    --disable-admin-api-key                                                                                                                ($AZTEC_DISABLE_ADMIN_API_KEY)
-          Disable API key authentication on the admin RPC endpoint. By default, a key is auto-generated, displayed once, and its hash is persisted.
-
-    --reset-admin-api-key                                                                                                                  ($AZTEC_RESET_ADMIN_API_KEY)
-          Force-generate a new admin API key, replacing any previously persisted key hash. The new key is displayed once at startup.
-
-    --node-debug                                                                                                                           ($AZTEC_NODE_DEBUG)
+    --node-debug                                                             (default: false)                                              ($AZTEC_NODE_DEBUG)
           Expose debug endpoints (e.g. mineBlock) on the main RPC port
 
     --api-prefix <value>                                                                                                                   ($API_PREFIX)
           Prefix for API routes on any service that is started
-
-    --rpcMaxBatchSize <value>                                                (default: 100)                                                ($RPC_MAX_BATCH_SIZE)
-          Maximum allowed batch size for JSON RPC batch requests.
-
-    --rpcMaxBodySize <value>                                                 (default: 1mb)                                                ($RPC_MAX_BODY_SIZE)
-          Maximum allowed batch size for JSON RPC batch requests.
 
   ETHEREUM
 
@@ -128,35 +109,26 @@ tags:
     --world-state-db-map-size-kb <value>                                                                                                   ($WS_DB_MAP_SIZE_KB)
           The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.
 
-    --world-state-checkpoint-history <value>                                 (default: 64)                                                 ($WS_NUM_HISTORIC_CHECKPOINTS)
-          The number of historic checkpoints worth of blocks to maintain. Values less than 1 mean all history is maintained
+    --world-state-block-history <value>                                      (default: 64)                                                 ($WS_NUM_HISTORIC_BLOCKS)
+          The number of historic blocks to maintain. Values less than 1 mean all history is maintained
 
   AZTEC NODE
 
-    --node                                                                                                                                 
+    --node
           Starts Aztec Node with options
 
   ARCHIVER
 
-    --archiver                                                                                                                             
+    --archiver
           Starts Aztec Archiver with options
+
+    --archiver.blobSinkUrl <value>                                                                                                         ($BLOB_SINK_URL)
+          The URL of the blob sink
 
     --archiver.blobSinkMapSizeKb <value>                                                                                                   ($BLOB_SINK_MAP_SIZE_KB)
           The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
 
-    --archiver.blobAllowEmptySources <value>                                                                                               ($BLOB_ALLOW_EMPTY_SOURCES)
-          Whether to allow having no blob sources configured during startup
-
-    --archiver.blobFileStoreUrls <value>                                                                                                   ($BLOB_FILE_STORE_URLS)
-          URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.
-
-    --archiver.blobFileStoreUploadUrl <value>                                                                                              ($BLOB_FILE_STORE_UPLOAD_URL)
-          URL for uploading blobs to filestore (s3://, gs://, file://)
-
-    --archiver.blobHealthcheckUploadIntervalMinutes <value>                                                                                ($BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES)
-          Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)
-
-    --archiver.archiveApiUrl <value>                                                                                                       ($BLOB_ARCHIVE_API_URL)
+    --archiver.archiveApiUrl <value>                                                                                                       ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
 
     --archiver.archiverPollingIntervalMS <value>                             (default: 500)                                                ($ARCHIVER_POLLING_INTERVAL_MS)
@@ -171,18 +143,12 @@ tags:
     --archiver.archiverStoreMapSizeKb <value>                                                                                              ($ARCHIVER_STORE_MAP_SIZE_KB)
           The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.
 
-    --archiver.skipValidateCheckpointAttestations <value>                                                                                  
-          Skip validating checkpoint attestations (for testing purposes only)
-
-    --archiver.maxAllowedEthClientDriftSeconds <value>                       (default: 300)                                                ($MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS)
-          Maximum allowed drift in seconds between the Ethereum client and current time.
-
-    --archiver.ethereumAllowNoDebugHosts <value>                             (default: true)                                               ($ETHEREUM_ALLOW_NO_DEBUG_HOSTS)
-          Whether to allow starting the archiver without debug/trace method support on Ethereum hosts
+    --archiver.skipValidateBlockAttestations <value>
+          Whether to skip validating block attestations (use only for testing).
 
   SEQUENCER
 
-    --sequencer                                                                                                                            
+    --sequencer
           Starts Aztec Sequencer with options
 
     --sequencer.validatorPrivateKeys <value>                                 (default: [Redacted])                                         ($VALIDATOR_PRIVATE_KEYS)
@@ -194,7 +160,7 @@ tags:
     --sequencer.disableValidator <value>                                                                                                   ($VALIDATOR_DISABLED)
           Do not run the validator
 
-    --sequencer.disabledValidators <value>                                   (default: )                                                   
+    --sequencer.disabledValidators <value>                                   (default: )
           Temporarily disable these specific validator addresses
 
     --sequencer.attestationPollingIntervalMs <value>                         (default: 200)                                                ($VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS)
@@ -203,89 +169,29 @@ tags:
     --sequencer.validatorReexecute <value>                                   (default: true)                                               ($VALIDATOR_REEXECUTE)
           Re-execute transactions before attesting
 
-    --sequencer.alwaysReexecuteBlockProposals <value>                        (default: true)                                               
+    --sequencer.validatorReexecuteDeadlineMs <value>                         (default: 6000)                                               ($VALIDATOR_REEXECUTE_DEADLINE_MS)
+          Will re-execute until this many milliseconds are left in the slot
+
+    --sequencer.alwaysReexecuteBlockProposals <value>                                                                                      ($ALWAYS_REEXECUTE_BLOCK_PROPOSALS)
           Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).
 
-    --sequencer.skipCheckpointProposalValidation <value>                                                                                   
-          Skip checkpoint proposal validation and always attest (default: false)
+    --sequencer.transactionPollingIntervalMS <value>                         (default: 500)                                                ($SEQ_TX_POLLING_INTERVAL_MS)
+          The number of ms to wait between polling for pending txs.
 
-    --sequencer.skipPushProposedBlocksToArchiver <value>                                                                                   
-          Skip pushing proposed blocks to archiver (default: true)
-
-    --sequencer.attestToEquivocatedProposals <value>                                                                                       
-          Agree to attest to equivocated checkpoint proposals (for testing purposes only)
-
-    --sequencer.validateMaxL2BlockGas <value>                                                                                              ($VALIDATOR_MAX_L2_BLOCK_GAS)
-          Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.
-
-    --sequencer.validateMaxDABlockGas <value>                                                                                              ($VALIDATOR_MAX_DA_BLOCK_GAS)
-          Maximum DA block gas for validation. Proposals exceeding this limit are rejected.
-
-    --sequencer.validateMaxTxsPerBlock <value>                                                                                             ($VALIDATOR_MAX_TX_PER_BLOCK)
-          Maximum transactions per block for validation. Proposals exceeding this limit are rejected.
-
-    --sequencer.validateMaxTxsPerCheckpoint <value>                                                                                        ($VALIDATOR_MAX_TX_PER_CHECKPOINT)
-          Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.
-
-    --sequencer.haSigningEnabled <value>                                                                                                   ($VALIDATOR_HA_SIGNING_ENABLED)
-          Whether HA signing / slashing protection is enabled
-
-    --sequencer.nodeId <value>                                                                                                             ($VALIDATOR_HA_NODE_ID)
-          The unique identifier for this node
-
-    --sequencer.pollingIntervalMs <value>                                    (default: 100)                                                ($VALIDATOR_HA_POLLING_INTERVAL_MS)
-          The number of ms to wait between polls when a duty is being signed
-
-    --sequencer.signingTimeoutMs <value>                                     (default: 3000)                                               ($VALIDATOR_HA_SIGNING_TIMEOUT_MS)
-          The maximum time to wait for a duty being signed to complete
-
-    --sequencer.maxStuckDutiesAgeMs <value>                                                                                                ($VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS)
-          The maximum age of a stuck duty in ms (defaults to 2x Aztec slot duration)
-
-    --sequencer.cleanupOldDutiesAfterHours <value>                                                                                         ($VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H)
-          Optional: clean up old duties after this many hours (disabled if not set)
-
-    --sequencer.databaseUrl <value>                                                                                                        ($VALIDATOR_HA_DATABASE_URL)
-          PostgreSQL connection string for validator HA signer (format: postgresql://user:password@host:port/database)
-
-    --sequencer.poolMaxCount <value>                                         (default: 10)                                                 ($VALIDATOR_HA_POOL_MAX)
-          Maximum number of clients in the pool
-
-    --sequencer.poolMinCount <value>                                                                                                       ($VALIDATOR_HA_POOL_MIN)
-          Minimum number of clients in the pool
-
-    --sequencer.poolIdleTimeoutMs <value>                                    (default: 10000)                                              ($VALIDATOR_HA_POOL_IDLE_TIMEOUT_MS)
-          Idle timeout in milliseconds
-
-    --sequencer.poolConnectionTimeoutMs <value>                                                                                            ($VALIDATOR_HA_POOL_CONNECTION_TIMEOUT_MS)
-          Connection timeout in milliseconds (0 means no timeout)
-
-    --sequencer.sequencerPollingIntervalMS <value>                           (default: 500)                                                ($SEQ_POLLING_INTERVAL_MS)
-          The number of ms to wait between polling for checking to build on the next slot.
-
-    --sequencer.maxTxsPerCheckpoint <value>                                                                                                ($SEQ_MAX_TX_PER_CHECKPOINT)
-          The maximum number of txs across all blocks in a checkpoint.
+    --sequencer.maxTxsPerBlock <value>                                       (default: 32)                                                 ($SEQ_MAX_TX_PER_BLOCK)
+          The maximum number of txs to include in a block.
 
     --sequencer.minTxsPerBlock <value>                                       (default: 1)                                                  ($SEQ_MIN_TX_PER_BLOCK)
           The minimum number of txs to include in a block.
 
-    --sequencer.minValidTxsPerBlock <value>                                                                                                
-          The minimum number of valid txs (after execution) to include in a block. If not set, falls back to minTxsPerBlock.
-
     --sequencer.publishTxsWithProposals <value>                                                                                            ($SEQ_PUBLISH_TXS_WITH_PROPOSALS)
           Whether to publish txs with proposals.
 
-    --sequencer.maxL2BlockGas <value>                                                                                                      ($SEQ_MAX_L2_BLOCK_GAS)
+    --sequencer.maxL2BlockGas <value>                                        (default: 10000000000)                                        ($SEQ_MAX_L2_BLOCK_GAS)
           The maximum L2 block gas.
 
-    --sequencer.maxDABlockGas <value>                                                                                                      ($SEQ_MAX_DA_BLOCK_GAS)
+    --sequencer.maxDABlockGas <value>                                        (default: 10000000000)                                        ($SEQ_MAX_DA_BLOCK_GAS)
           The maximum DA block gas.
-
-    --sequencer.perBlockAllocationMultiplier <value>                         (default: 1.2)                                                ($SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER)
-          Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier. Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.
-
-    --sequencer.redistributeCheckpointBudget <value>                         (default: true)                                               ($SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET)
-          Redistribute remaining checkpoint budget evenly across remaining blocks instead of allowing a single block to consume the entire remaining budget.
 
     --sequencer.coinbase <value>                                                                                                           ($COINBASE)
           Recipient of block reward.
@@ -299,14 +205,17 @@ tags:
     --sequencer.acvmBinaryPath <value>                                                                                                     ($ACVM_BINARY_PATH)
           The path to the ACVM binary
 
+    --sequencer.maxBlockSizeInBytes <value>                                  (default: 1048576)                                            ($SEQ_MAX_BLOCK_SIZE_IN_BYTES)
+          Max block size
+
     --sequencer.enforceTimeTable <value>                                     (default: true)                                               ($SEQ_ENFORCE_TIME_TABLE)
           Whether to enforce the time table when building blocks
 
-    --sequencer.governanceProposerPayload <value>                                                                                          ($GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS)
+    --sequencer.governanceProposerPayload <value>                            (default: 0x0000000000000000000000000000000000000000)         ($GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS)
           The address of the payload for the governanceProposer
 
-    --sequencer.l1PublishingTime <value>                                                                                                   ($SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT)
-          How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).
+    --sequencer.maxL1TxInclusionTimeIntoSlot <value>                                                                                       ($SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT)
+          How many seconds into an L1 slot we can still send a tx and get it mined.
 
     --sequencer.attestationPropagationTime <value>                           (default: 2)                                                  ($SEQ_ATTESTATION_PROPAGATION_TIME)
           How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way)
@@ -317,75 +226,47 @@ tags:
     --sequencer.secondsBeforeInvalidatingBlockAsNonCommitteeMember <value>   (default: 432)                                                ($SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER)
           How many seconds to wait before trying to invalidate a block from the pending chain as a non-committee member (zero to never invalidate). The next proposer is expected to invalidate, then the committee, so other sequencers act as a fallback.
 
-    --sequencer.broadcastInvalidBlockProposal <value>                                                                                      
-          Broadcast invalid block proposals with corrupted state (for testing only)
-
-    --sequencer.injectFakeAttestation <value>                                                                                              
-          Inject a fake attestation (for testing only)
-
-    --sequencer.injectHighSValueAttestation <value>                                                                                        
-          Inject a malleable attestation with a high-s value (for testing only)
-
-    --sequencer.injectUnrecoverableSignatureAttestation <value>                                                                            
-          Inject an attestation with an unrecoverable signature (for testing only)
-
-    --sequencer.shuffleAttestationOrdering <value>                                                                                         
-          Shuffle attestation ordering to create invalid ordering (for testing only)
-
-    --sequencer.blockDurationMs <value>                                                                                                    ($SEQ_BLOCK_DURATION_MS)
-          Duration per block in milliseconds when building multiple blocks per slot. If undefined (default), builds a single block per slot using the full slot duration.
-
-    --sequencer.expectedBlockProposalsPerSlot <value>                                                                                      ($SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT)
-          Expected number of block proposals per slot for P2P peer scoring. 0 (default) disables block proposal scoring. Set to a positive value to enable.
-
-    --sequencer.maxTxsPerBlock <value>                                                                                                     ($SEQ_MAX_TX_PER_BLOCK)
-          The maximum number of txs to include in a block.
-
-    --sequencer.buildCheckpointIfEmpty <value>                                                                                             ($SEQ_BUILD_CHECKPOINT_IF_EMPTY)
-          Have sequencer build and publish an empty checkpoint if there are no txs
-
-    --sequencer.minBlocksForCheckpoint <value>                                                                                             
-          Minimum number of blocks required for a checkpoint proposal (test only)
-
-    --sequencer.skipPublishingCheckpointsPercent <value>                                                                                   ($SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT)
-          Percent probability (0 - 100) of sequencer skipping checkpoint publishing (testing only)
-
-    --sequencer.txPublicSetupAllowListExtend <value>                                                                                       ($TX_PUBLIC_SETUP_ALLOWLIST)
-          Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
+    --sequencer.txPublicSetupAllowList <value>                                                                                             ($TX_PUBLIC_SETUP_ALLOWLIST)
+          The list of functions calls allowed to run in setup
 
     --sequencer.keyStoreDirectory <value>                                                                                                  ($KEY_STORE_DIRECTORY)
           Location of key store directory
 
-    --sequencer.sequencerPublisherPrivateKeys <value>                        (default: )                                                   ($SEQ_PUBLISHER_PRIVATE_KEYS)
-          The private keys to be used by the sequencer publisher.
+    --sequencer.publisherPrivateKeys <value>                                 (default: )                                                   ($SEQ_PUBLISHER_PRIVATE_KEYS)
+          The private keys to be used by the publisher.
 
-    --sequencer.sequencerPublisherAddresses <value>                          (default: )                                                   ($SEQ_PUBLISHER_ADDRESSES)
+    --sequencer.publisherAddresses <value>                                   (default: )                                                   ($SEQ_PUBLISHER_ADDRESSES)
           The addresses of the publishers to use with remote signers
 
-    --sequencer.blobAllowEmptySources <value>                                                                                              ($BLOB_ALLOW_EMPTY_SOURCES)
-          Whether to allow having no blob sources configured during startup
+    --sequencer.l1PublishRetryIntervalMS <value>                             (default: 1000)                                               ($SEQ_PUBLISH_RETRY_INTERVAL_MS)
+          The interval to wait between publish retries.
 
-    --sequencer.blobFileStoreUrls <value>                                                                                                  ($BLOB_FILE_STORE_URLS)
-          URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.
-
-    --sequencer.blobFileStoreUploadUrl <value>                                                                                             ($BLOB_FILE_STORE_UPLOAD_URL)
-          URL for uploading blobs to filestore (s3://, gs://, file://)
-
-    --sequencer.blobHealthcheckUploadIntervalMinutes <value>                                                                               ($BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES)
-          Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)
-
-    --sequencer.archiveApiUrl <value>                                                                                                      ($BLOB_ARCHIVE_API_URL)
-          The URL of the archive API
-
-    --sequencer.sequencerPublisherAllowInvalidStates <value>                 (default: true)                                               ($SEQ_PUBLISHER_ALLOW_INVALID_STATES)
+    --sequencer.publisherAllowInvalidStates <value>                                                                                        ($SEQ_PUBLISHER_ALLOW_INVALID_STATES)
           True to use publishers in invalid states (timed out, cancelled, etc) if no other is available
 
-    --sequencer.sequencerPublisherForwarderAddress <value>                                                                                 ($SEQ_PUBLISHER_FORWARDER_ADDRESS)
-          Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
+    --sequencer.blobSinkUrl <value>                                                                                                        ($BLOB_SINK_URL)
+          The URL of the blob sink
+
+    --sequencer.archiveApiUrl <value>                                                                                                      ($BLOB_SINK_ARCHIVE_API_URL)
+          The URL of the archive API
+
+  BLOB SINK
+
+    --blob-sink
+          Starts Aztec Blob Sink with options
+
+    --blobSink.port <value>                                                                                                                ($BLOB_SINK_PORT)
+          The port to run the blob sink server on
+
+    --blobSink.blobSinkMapSizeKb <value>                                                                                                   ($BLOB_SINK_MAP_SIZE_KB)
+          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
+
+    --blobSink.archiveApiUrl <value>                                                                                                       ($BLOB_SINK_ARCHIVE_API_URL)
+          The URL of the archive API
 
   PROVER NODE
 
-    --prover-node                                                                                                                          
+    --prover-node
           Starts Aztec Prover Node with options
 
     --proverNode.keyStoreDirectory <value>                                                                                                 ($KEY_STORE_DIRECTORY)
@@ -407,7 +288,7 @@ tags:
           Whether to skip cleanup of bb temporary files
 
     --proverNode.numConcurrentIVCVerifiers <value>                           (default: 8)                                                  ($BB_NUM_IVC_VERIFIERS)
-          Max number of chonk verifiers to run concurrently
+          Max number of client IVC verifiers to run concurrently
 
     --proverNode.bbIVCConcurrency <value>                                    (default: 1)                                                  ($BB_IVC_CONCURRENCY)
           Number of threads to use for IVC verification
@@ -421,37 +302,16 @@ tags:
     --proverNode.failedProofStore <value>                                                                                                  ($PROVER_FAILED_PROOF_STORE)
           Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.
 
-    --proverNode.enqueueConcurrency <value>                                  (default: 50)                                                 ($PROVER_ENQUEUE_CONCURRENCY)
-          Max concurrent jobs the orchestrator serializes and enqueues to the broker.
+    --proverNode.l1PublishRetryIntervalMS <value>                            (default: 1000)                                               ($PROVER_PUBLISH_RETRY_INTERVAL_MS)
+          The interval to wait between publish retries.
 
-    --proverNode.blobSinkMapSizeKb <value>                                                                                                 ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
-
-    --proverNode.blobAllowEmptySources <value>                                                                                             ($BLOB_ALLOW_EMPTY_SOURCES)
-          Whether to allow having no blob sources configured during startup
-
-    --proverNode.blobFileStoreUrls <value>                                                                                                 ($BLOB_FILE_STORE_URLS)
-          URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.
-
-    --proverNode.blobFileStoreUploadUrl <value>                                                                                            ($BLOB_FILE_STORE_UPLOAD_URL)
-          URL for uploading blobs to filestore (s3://, gs://, file://)
-
-    --proverNode.blobHealthcheckUploadIntervalMinutes <value>                                                                              ($BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES)
-          Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)
-
-    --proverNode.archiveApiUrl <value>                                                                                                     ($BLOB_ARCHIVE_API_URL)
-          The URL of the archive API
-
-    --proverNode.proverPublisherAllowInvalidStates <value>                   (default: true)                                               ($PROVER_PUBLISHER_ALLOW_INVALID_STATES)
+    --proverNode.publisherAllowInvalidStates <value>                                                                                       ($PROVER_PUBLISHER_ALLOW_INVALID_STATES)
           True to use publishers in invalid states (timed out, cancelled, etc) if no other is available
 
-    --proverNode.proverPublisherForwarderAddress <value>                                                                                   ($PROVER_PUBLISHER_FORWARDER_ADDRESS)
-          Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)
+    --proverNode.publisherPrivateKeys <value>                                (default: )                                                   ($PROVER_PUBLISHER_PRIVATE_KEYS)
+          The private keys to be used by the publisher.
 
-    --proverNode.proverPublisherPrivateKeys <value>                          (default: )                                                   ($PROVER_PUBLISHER_PRIVATE_KEYS)
-          The private keys to be used by the prover publisher.
-
-    --proverNode.proverPublisherAddresses <value>                            (default: )                                                   ($PROVER_PUBLISHER_ADDRESSES)
+    --proverNode.publisherAddresses <value>                                  (default: )                                                   ($PROVER_PUBLISHER_ADDRESSES)
           The addresses of the publishers to use with remote signers
 
     --proverNode.proverNodeMaxPendingJobs <value>                            (default: 10)                                                 ($PROVER_NODE_MAX_PENDING_JOBS)
@@ -460,13 +320,13 @@ tags:
     --proverNode.proverNodePollingIntervalMs <value>                         (default: 1000)                                               ($PROVER_NODE_POLLING_INTERVAL_MS)
           The interval in milliseconds to poll for new jobs
 
-    --proverNode.proverNodeMaxParallelBlocksPerEpoch <value>                                                                               ($PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH)
+    --proverNode.proverNodeMaxParallelBlocksPerEpoch <value>                 (default: 32)                                                 ($PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH)
           The Maximum number of blocks to process in parallel while proving an epoch
 
     --proverNode.proverNodeFailedEpochStore <value>                                                                                        ($PROVER_NODE_FAILED_EPOCH_STORE)
           File store where to upload node state when an epoch fails to be proven
 
-    --proverNode.proverNodeEpochProvingDelayMs <value>                                                                                     
+    --proverNode.proverNodeEpochProvingDelayMs <value>
           Optional delay in milliseconds to wait before proving a new epoch
 
     --proverNode.txGatheringIntervalMs <value>                               (default: 1000)                                               ($PROVER_NODE_TX_GATHERING_INTERVAL_MS)
@@ -481,15 +341,9 @@ tags:
     --proverNode.txGatheringTimeoutMs <value>                                (default: 120000)                                             ($PROVER_NODE_TX_GATHERING_TIMEOUT_MS)
           How long to wait for tx data to be available before giving up
 
-    --proverNode.proverNodeDisableProofPublish <value>                                                                                     ($PROVER_NODE_DISABLE_PROOF_PUBLISH)
-          Whether the prover node skips publishing proofs to L1
-
-    --proverNode.web3SignerUrl <value>                                                                                                     ($WEB3_SIGNER_URL)
-          URL of the Web3Signer instance
-
   PROVER BROKER
 
-    --prover-broker                                                                                                                        
+    --prover-broker
           Starts Aztec proving job broker
 
     --proverBroker.proverBrokerJobTimeoutMs <value>                          (default: 30000)                                              ($PROVER_BROKER_JOB_TIMEOUT_MS)
@@ -513,12 +367,9 @@ tags:
     --proverBroker.proverBrokerStoreMapSizeKb <value>                                                                                      ($PROVER_BROKER_STORE_MAP_SIZE_KB)
           The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.
 
-    --proverBroker.proverBrokerDebugReplayEnabled <value>                                                                                  ($PROVER_BROKER_DEBUG_REPLAY_ENABLED)
-          Enable debug replay mode for replaying proving jobs from stored inputs
-
   PROVER AGENT
 
-    --prover-agent                                                                                                                         
+    --prover-agent
           Starts Aztec Prover Agent with options
 
     --proverAgent.proverAgentCount <value>                                   (default: 1)                                                  ($PROVER_AGENT_COUNT)
@@ -545,40 +396,16 @@ tags:
     --proverAgent.proverTestDelayFactor <value>                              (default: 1)                                                  ($PROVER_TEST_DELAY_FACTOR)
           If using realistic delays, what percentage of realistic times to apply.
 
-    --proverAgent.proverTestVerificationDelayMs <value>                      (default: 10)                                                 ($PROVER_TEST_VERIFICATION_DELAY_MS)
-          The delay (ms) to inject during fake proof verification
-
-    --proverAgent.cancelJobsOnStop <value>                                                                                                 ($PROVER_CANCEL_JOBS_ON_STOP)
-          Whether to abort pending proving jobs when the orchestrator is cancelled. When false (default), jobs remain in the broker queue and can be reused on restart/reorg.
-
-    --proverAgent.proofStore <value>                                                                                                       ($PROVER_PROOF_STORE)
-          Optional proof input store for the prover
-
   P2P SUBSYSTEM
 
     --p2p-enabled [value]                                                                                                                  ($P2P_ENABLED)
           Enable P2P subsystem
-
-    --p2p.validateMaxTxsPerBlock <value>                                                                                                   ($VALIDATOR_MAX_TX_PER_BLOCK)
-          Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.
-
-    --p2p.validateMaxTxsPerCheckpoint <value>                                                                                              ($VALIDATOR_MAX_TX_PER_CHECKPOINT)
-          Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.
-
-    --p2p.validateMaxL2BlockGas <value>                                                                                                    ($VALIDATOR_MAX_L2_BLOCK_GAS)
-          Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.
-
-    --p2p.validateMaxDABlockGas <value>                                                                                                    ($VALIDATOR_MAX_DA_BLOCK_GAS)
-          Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.
 
     --p2p.p2pDiscoveryDisabled <value>                                                                                                     ($P2P_DISCOVERY_DISABLED)
           A flag dictating whether the P2P discovery system should be disabled.
 
     --p2p.blockCheckIntervalMS <value>                                       (default: 100)                                                ($P2P_BLOCK_CHECK_INTERVAL_MS)
           The frequency in which to check for new L2 blocks.
-
-    --p2p.slotCheckIntervalMS <value>                                        (default: 1000)                                               ($P2P_SLOT_CHECK_INTERVAL_MS)
-          The frequency in which to check for new L2 slots.
 
     --p2p.debugDisableColocationPenalty <value>                                                                                            ($DEBUG_P2P_DISABLE_COLOCATION_PENALTY)
           DEBUG: Disable colocation penalty - NEVER set to true in production
@@ -682,11 +509,14 @@ tags:
     --p2p.p2pStoreMapSizeKb <value>                                                                                                        ($P2P_STORE_MAP_SIZE_KB)
           The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.
 
-    --p2p.txPublicSetupAllowListExtend <value>                                                                                             ($TX_PUBLIC_SETUP_ALLOWLIST)
-          Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.
+    --p2p.txPublicSetupAllowList <value>                                                                                                   ($TX_PUBLIC_SETUP_ALLOWLIST)
+          The list of functions calls allowed to run in setup
 
-    --p2p.maxPendingTxCount <value>                                          (default: 1000)                                               ($P2P_MAX_PENDING_TX_COUNT)
-          The maximum number of pending txs before evicting lower priority txs.
+    --p2p.maxTxPoolSize <value>                                              (default: 100000000)                                          ($P2P_MAX_TX_POOL_SIZE)
+          The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.
+
+    --p2p.txPoolOverflowFactor <value>                                       (default: 1.1)                                                ($P2P_TX_POOL_OVERFLOW_FACTOR)
+          How much the tx pool can overflow before it starts evicting txs. Must be greater than 1
 
     --p2p.seenMessageCacheSize <value>                                       (default: 100000)                                             ($P2P_SEEN_MSG_CACHE_SIZE)
           The number of messages to keep in the seen message cache
@@ -704,34 +534,13 @@ tags:
           True to simulate discarding transactions. - For testing purposes only
 
     --p2p.dropTransactionsProbability <value>                                                                                              ($P2P_DROP_TX_CHANCE)
-          The probability that a transaction is discarded (0 - 1). - For testing purposes only
+          The probability that a transaction is discarded. - For testing purposes only
 
     --p2p.disableTransactions <value>                                                                                                      ($TRANSACTIONS_DISABLED)
           Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers.
 
     --p2p.txPoolDeleteTxsAfterReorg <value>                                                                                                ($P2P_TX_POOL_DELETE_TXS_AFTER_REORG)
           Whether to delete transactions from the pool after a reorg instead of moving them back to pending.
-
-    --p2p.debugP2PInstrumentMessages <value>                                                                                               ($DEBUG_P2P_INSTRUMENT_MESSAGES)
-          Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY
-
-    --p2p.broadcastEquivocatedProposals <value>                                                                                            
-          Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).
-
-    --p2p.minTxPoolAgeMs <value>                                             (default: 2000)                                               ($P2P_MIN_TX_POOL_AGE_MS)
-          Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.
-
-    --p2p.priceBumpPercentage <value>                                        (default: 10)                                                 ($P2P_RPC_PRICE_BUMP_PERCENTAGE)
-          Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.
-
-    --p2p.blockDurationMs <value>                                                                                                          ($SEQ_BLOCK_DURATION_MS)
-          Duration per block in milliseconds when building multiple blocks per slot. If undefined (default), builds a single block per slot using the full slot duration.
-
-    --p2p.expectedBlockProposalsPerSlot <value>                                                                                            ($SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT)
-          Expected number of block proposals per slot for P2P peer scoring. 0 (default) disables block proposal scoring. Set to a positive value to enable.
-
-    --p2p.maxTxsPerBlock <value>                                                                                                           ($SEQ_MAX_TX_PER_BLOCK)
-          The maximum number of txs to include in a block.
 
     --p2p.overallRequestTimeoutMs <value>                                    (default: 10000)                                              ($P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS)
           The overall timeout for a request response operation.
@@ -744,18 +553,6 @@ tags:
 
     --p2p.p2pOptimisticNegotiation <value>                                                                                                 ($P2P_REQRESP_OPTIMISTIC_NEGOTIATION)
           Whether to use optimistic protocol negotiation when dialing to another peer (opposite of `negotiateFully`).
-
-    --p2p.batchTxRequesterSmartParallelWorkerCount <value>                   (default: 10)                                                 ($P2P_BATCH_TX_REQUESTER_SMART_PARALLEL_WORKER_COUNT)
-          Max concurrent requests to smart peers for batch tx requester.
-
-    --p2p.batchTxRequesterDumbParallelWorkerCount <value>                    (default: 10)                                                 ($P2P_BATCH_TX_REQUESTER_DUMB_PARALLEL_WORKER_COUNT)
-          Max concurrent requests to dumb peers for batch tx requester.
-
-    --p2p.batchTxRequesterTxBatchSize <value>                                (default: 8)                                                  ($P2P_BATCH_TX_REQUESTER_TX_BATCH_SIZE)
-          Max transactions per request / chunk size for batch tx requester.
-
-    --p2p.batchTxRequesterBadPeerThreshold <value>                           (default: 2)                                                  ($P2P_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD)
-          Failures before a peer is considered bad (see > threshold logic).
 
     --p2p.txCollectionFastNodesTimeoutBeforeReqRespMs <value>                (default: 200)                                                ($TX_COLLECTION_FAST_NODES_TIMEOUT_BEFORE_REQ_RESP_MS)
           How long to wait before starting reqresp for fast collection
@@ -787,51 +584,9 @@ tags:
     --p2p.txCollectionNodeRpcMaxBatchSize <value>                            (default: 50)                                                 ($TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE)
           Maximum number of transactions to request from a node in a single batch
 
-    --p2p.txCollectionMissingTxsCollectorType <value>                        (default: new)                                                ($TX_COLLECTION_MISSING_TXS_COLLECTOR_TYPE)
-          Which collector implementation to use for missing txs collection (new or old)
-
-    --p2p.txCollectionFileStoreUrls <value>                                  (default: )                                                   ($TX_COLLECTION_FILE_STORE_URLS)
-          A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection
-
-    --p2p.txCollectionFileStoreSlowDelayMs <value>                           (default: 24000)                                              ($TX_COLLECTION_FILE_STORE_SLOW_DELAY_MS)
-          Delay before file store collection starts after slow collection
-
-    --p2p.txCollectionFileStoreFastDelayMs <value>                           (default: 2000)                                               ($TX_COLLECTION_FILE_STORE_FAST_DELAY_MS)
-          Delay before file store collection starts after fast collection
-
-    --p2p.txCollectionFileStoreFastWorkerCount <value>                       (default: 5)                                                  ($TX_COLLECTION_FILE_STORE_FAST_WORKER_COUNT)
-          Number of concurrent workers for fast file store collection
-
-    --p2p.txCollectionFileStoreSlowWorkerCount <value>                       (default: 2)                                                  ($TX_COLLECTION_FILE_STORE_SLOW_WORKER_COUNT)
-          Number of concurrent workers for slow file store collection
-
-    --p2p.txCollectionFileStoreFastBackoffBaseMs <value>                     (default: 1000)                                               ($TX_COLLECTION_FILE_STORE_FAST_BACKOFF_BASE_MS)
-          Base backoff time in ms for fast file store collection retries
-
-    --p2p.txCollectionFileStoreSlowBackoffBaseMs <value>                     (default: 5000)                                               ($TX_COLLECTION_FILE_STORE_SLOW_BACKOFF_BASE_MS)
-          Base backoff time in ms for slow file store collection retries
-
-    --p2p.txCollectionFileStoreFastBackoffMaxMs <value>                      (default: 5000)                                               ($TX_COLLECTION_FILE_STORE_FAST_BACKOFF_MAX_MS)
-          Max backoff time in ms for fast file store collection retries
-
-    --p2p.txCollectionFileStoreSlowBackoffMaxMs <value>                      (default: 30000)                                              ($TX_COLLECTION_FILE_STORE_SLOW_BACKOFF_MAX_MS)
-          Max backoff time in ms for slow file store collection retries
-
-    --p2p.txFileStoreUrl <value>                                                                                                           ($TX_FILE_STORE_URL)
-          URL for uploading txs to file storage (s3://, gs://, file://)
-
-    --p2p.txFileStoreUploadConcurrency <value>                               (default: 10)                                                 ($TX_FILE_STORE_UPLOAD_CONCURRENCY)
-          Maximum number of concurrent tx uploads
-
-    --p2p.txFileStoreMaxQueueSize <value>                                    (default: 1000)                                               ($TX_FILE_STORE_MAX_QUEUE_SIZE)
-          Maximum queue size for pending uploads (oldest dropped when exceeded)
-
-    --p2p.txFileStoreEnabled <value>                                                                                                       ($TX_FILE_STORE_ENABLED)
-          Enable uploading transactions to file storage
-
   P2P BOOTSTRAP
 
-    --p2p-bootstrap                                                                                                                        
+    --p2p-bootstrap
           Starts Aztec P2P Bootstrap with options
 
     --p2pBootstrap.p2pBroadcastPort <value>                                                                                                ($P2P_BROADCAST_PORT)
@@ -839,9 +594,6 @@ tags:
 
     --p2pBootstrap.peerIdPrivateKeyPath <value>                                                                                            ($PEER_ID_PRIVATE_KEY_PATH)
           An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
-
-    --p2pBootstrap.queryForIp <value>                                                                                                      ($P2P_QUERY_FOR_IP)
-          If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
 
   TELEMETRY
 
@@ -863,9 +615,6 @@ tags:
     --tel.otelExcludeMetrics <value>                                         (default: )                                                   ($OTEL_EXCLUDE_METRICS)
           A list of metric prefixes to exclude from export
 
-    --tel.otelIncludeMetrics <value>                                         (default: )                                                   ($OTEL_INCLUDE_METRICS)
-          A list of metric prefixes to include in export (ignored if OTEL_EXCLUDE_METRICS is set)
-
     --tel.publicMetricsCollectorUrl <value>                                                                                                ($PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
           A URL to publish a subset of metrics for public consumption
 
@@ -875,12 +624,12 @@ tags:
     --tel.publicIncludeMetrics <value>                                       (default: )                                                   ($PUBLIC_OTEL_INCLUDE_METRICS)
           A list of metric prefixes to publicly export
 
-    --tel.publicMetricsOptOut <value>                                        (default: true)                                               ($PUBLIC_OTEL_OPT_OUT)
+    --tel.publicMetricsOptOut <value>                                                                                                      ($PUBLIC_OTEL_OPT_OUT)
           Whether to opt out of sharing optional telemetry
 
   BOT
 
-    --bot                                                                                                                                  
+    --bot
           Starts Aztec Bot with options
 
     --bot.nodeUrl <value>                                                                                                                  ($AZTEC_NODE_URL)
@@ -919,9 +668,6 @@ tags:
     --bot.feePaymentMethod <value>                                           (default: fee_juice)                                          ($BOT_FEE_PAYMENT_METHOD)
           How to handle fee payments. (Options: fee_juice)
 
-    --bot.minFeePadding <value>                                              (default: 3)                                                  ($BOT_MIN_FEE_PADDING)
-          How much is the bot willing to overpay vs. the current base fee
-
     --bot.noStart <value>                                                                                                                  ($BOT_NO_START)
           True to not automatically setup or start the bot on initialization.
 
@@ -938,10 +684,10 @@ tags:
           Make a request for the sequencer to build a block after each setup transaction.
 
     --bot.l2GasLimit <value>                                                                                                               ($BOT_L2_GAS_LIMIT)
-          L2 gas limit for the tx (empty to let the bot's wallet estimate).
+          L2 gas limit for the tx (empty to have the bot trigger an estimate gas).
 
     --bot.daGasLimit <value>                                                                                                               ($BOT_DA_GAS_LIMIT)
-          DA gas limit for the tx (empty to let the bot's wallet estimate).
+          DA gas limit for the tx (empty to have the bot trigger an estimate gas).
 
     --bot.contract <value>                                                   (default: TokenContract)                                      ($BOT_TOKEN_CONTRACT)
           Token contract to use
@@ -952,31 +698,34 @@ tags:
     --bot.stopWhenUnhealthy <value>                                                                                                        ($BOT_STOP_WHEN_UNHEALTHY)
           Stops the bot if service becomes unhealthy
 
-    --bot.botMode <value>                                                    (default: transfer)                                           ($BOT_MODE)
-          Bot mode: transfer, amm, or crosschain
-
-    --bot.l2ToL1MessagesPerTx <value>                                        (default: 1)                                                  ($BOT_L2_TO_L1_MESSAGES_PER_TX)
-          Number of L2→L1 messages per tx (crosschain mode)
-
-    --bot.l1ToL2SeedCount <value>                                            (default: 1)                                                  ($BOT_L1_TO_L2_SEED_COUNT)
-          Max L1→L2 messages to keep in-flight (crosschain mode)
+    --bot.ammTxs <value>                                                                                                                   ($BOT_AMM_TXS)
+          Deploy an AMM and send swaps to it
 
   PXE
+
+    --pxe
+          Starts Aztec PXE with options
 
     --pxe.l2BlockBatchSize <value>                                           (default: 50)                                                 ($PXE_L2_BLOCK_BATCH_SIZE)
           Maximum amount of blocks to pull from the stream in one request when synchronizing
 
+    --pxe.bbBinaryPath <value>                                                                                                             ($BB_BINARY_PATH)
+          Path to the BB binary
+
+    --pxe.bbWorkingDirectory <value>                                                                                                       ($BB_WORKING_DIRECTORY)
+          Working directory for the BB binary
+
+    --pxe.bbSkipCleanup <value>                                                                                                            ($BB_SKIP_CLEANUP)
+          True to skip cleanup of temporary files for debugging purposes
+
     --pxe.proverEnabled <value>                                              (default: true)                                               ($PXE_PROVER_ENABLED)
           Enable real proofs
-
-    --pxe.syncChainTip <value>                                               (default: proposed)                                           ($PXE_SYNC_CHAIN_TIP)
-          Which chain tip to sync to (proposed, checkpointed, proven, finalized)
 
     --pxe.nodeUrl <value>                                                                                                                  ($AZTEC_NODE_URL)
           Custom Aztec Node URL to connect to
 
   TXE
 
-    --txe                                                                                                                                  
+    --txe
           Starts Aztec TXE with options
 ```

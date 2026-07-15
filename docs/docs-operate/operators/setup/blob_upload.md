@@ -3,6 +3,7 @@ id: blob_upload
 sidebar_position: 5
 title: Blob upload
 description: Learn how to host a blob file store to contribute to the Aztec network.
+displayed_sidebar: operatorsSidebar
 ---
 
 ## Overview

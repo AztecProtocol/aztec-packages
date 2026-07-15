@@ -1,0 +1,26 @@
+---
+id: index
+title: Run a Node
+description: Pick what you want to run on Aztec (full node, solo sequencer, staking provider, or prover). Each role has its own setup path.
+displayed_sidebar: operatorsSidebar
+slug: /operators
+---
+
+import RolePicker from "@site/src/components/RolePicker";
+import PopularQuestions from "@site/src/components/PopularQuestions";
+
+# Run a Node
+
+Aztec is a permissionless network. Anyone can sync a node, propose blocks, or generate proofs. Pick the role that fits what you want to do, and the docs will walk you through it.
+
+<RolePicker />
+
+## Popular questions
+
+<PopularQuestions />
+
+## What comes after picking a role
+
+- The **guided setup** is opinionated and personalized: paste your RPC URLs and keys once, every command on every page auto-fills with your values.
+- The **advanced operations** section in the sidebar covers everything the playbook doesn't: high-availability topologies, deep keystore management, monitoring stack, governance signalling, provider tooling.
+- The **reference** section is for when you know what you're looking for: CLI flags, env vars, JSON-RPC, the Ethereum-RPC requirements.

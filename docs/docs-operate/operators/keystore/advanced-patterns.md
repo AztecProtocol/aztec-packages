@@ -1,6 +1,7 @@
 ---
 title: Sample configuration patterns
 description: Learn about advanced keystore patterns including multiple publishers, multiple sequencers, and infrastructure provider scenarios.
+displayed_sidebar: operatorsSidebar
 ---
 
 ## Overview
