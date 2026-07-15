@@ -92,9 +92,11 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
-    request.loaded_circuit_name = circuit.name;
-    request.loaded_circuit_constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
-    request.loaded_circuit_vk = circuit.verification_key;
+    auto constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
+
+    request.loaded_circuit_name = std::move(circuit.name);
+    request.loaded_circuit_constraints = std::move(constraints);
+    request.loaded_circuit_vk = std::move(circuit.verification_key);
     request.loaded_circuit_kind = kind;
 
     info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");

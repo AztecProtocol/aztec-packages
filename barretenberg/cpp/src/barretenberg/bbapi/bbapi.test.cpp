@@ -135,6 +135,27 @@ TEST(BBApiInputValidation, ChonkBatchVerifyWrongVkSizeReturnsInvalid)
     EXPECT_FALSE(response.valid);
 }
 
+TEST(BBApiInputValidation, ChonkLoadFailureKeepsExistingLoadedState)
+{
+    bbapi::BBApiRequest request;
+    bbapi::ChonkStart{
+        .kinds = { CircuitKind::App, CircuitKind::Kernel, CircuitKind::Kernel, CircuitKind::HidingKernel }
+    }.execute(request);
+    request.loaded_circuit_name = "old";
+    request.loaded_circuit_constraints = acir_format::AcirFormat{};
+    request.loaded_circuit_vk = { 1, 2, 3 };
+    request.loaded_circuit_kind = CircuitKind::Kernel;
+
+    bbapi::ChonkLoad load{ .circuit = { .name = "new", .bytecode = { 0xff }, .verification_key = { 4, 5, 6 } },
+                           .kind = CircuitKind::HidingKernel };
+
+    EXPECT_ANY_THROW(std::move(load).execute(request));
+    EXPECT_EQ(request.loaded_circuit_name, "old");
+    EXPECT_TRUE(request.loaded_circuit_constraints.has_value());
+    EXPECT_EQ(request.loaded_circuit_vk, std::vector<uint8_t>({ 1, 2, 3 }));
+    EXPECT_EQ(request.loaded_circuit_kind, CircuitKind::Kernel);
+}
+
 // Helper: pack a vector of PrivateExecutionStepRaw into a byte buffer via msgpack.
 namespace {
 std::vector<uint8_t> pack_steps(const std::vector<PrivateExecutionStepRaw>& steps)
