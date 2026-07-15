@@ -1,4 +1,5 @@
 use super::TestBuilder;
+use bignum::bignum::BigNum;
 use protocol_test_utils::pad_end;
 use types::{
     abis::fee_recipient::FeeRecipient, address::EthAddress,
@@ -256,6 +257,16 @@ fn mismatch_final_blob_challenges_z() {
 
     // Tweak the final_blob_challenges of the right rollup.
     builder.right_rollup.final_blob_challenges.z += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched final blob challenges of an epoch in checkpoint rollups")]
+fn mismatch_final_blob_challenges_gamma() {
+    let mut builder = TestBuilder::default();
+
+    // Tweak the final_blob_challenges of the right rollup.
+    builder.right_rollup.final_blob_challenges.gamma = BigNum::from_limbs([1, 2, 3]);
 
     builder.execute_and_fail();
 }
