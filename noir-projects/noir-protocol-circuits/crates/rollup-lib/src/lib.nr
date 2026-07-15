@@ -10,3 +10,6 @@ pub mod parity;
 pub mod checkpoint_root;
 pub mod checkpoint_merge;
 pub mod root;
+
+// Benchmark-only circuit bodies (FI-06 / A-1376). Not production circuits; see `bench/mod.nr`.
+pub mod bench;
