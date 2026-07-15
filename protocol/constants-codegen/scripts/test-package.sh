@@ -6,7 +6,7 @@ package_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
 
-(cd "$package_dir" && npm pack --pack-destination "$work_dir" --quiet >/dev/null)
+(cd "$package_dir" && npm pack --ignore-scripts --pack-destination "$work_dir" --quiet >/dev/null)
 
 shopt -s nullglob
 tarballs=("$work_dir"/*.tgz)
@@ -27,4 +27,8 @@ mkdir "$work_dir/consumer"
   ./node_modules/.bin/constants-codegen --input "$input" --typescript "$output"
 )
 
-grep -Fq 'export const ARCHIVE_HEIGHT = 30;' "$output"
+if ! grep -Fq 'export const ARCHIVE_HEIGHT = 30;' "$output"; then
+  echo "installed constants-codegen produced unexpected TypeScript output:" >&2
+  cat "$output" >&2
+  exit 1
+fi
