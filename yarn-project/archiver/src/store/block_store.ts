@@ -537,20 +537,40 @@ export class BlockStore {
   }
 
   /** Deletes a block and all associated data (tx effects, indices). */
-  private async deleteBlock(block: L2Block): Promise<void> {
+  private async deleteBlock(blockNumber: number, blockStorage: BlockStorage): Promise<void> {
     // Delete the block from the main blocks map
-    await this.#blocks.delete(block.number);
+    await this.#blocks.delete(blockNumber);
 
-    // Delete all tx effects for this block
-    await Promise.all(block.body.txEffects.map(tx => this.#txEffects.delete(tx.txHash.toString())));
+    const blockHash = bufferToHex(blockStorage.blockHash);
+
+    // Delete the tx effects of the block's txs, skipping entries that no longer point at this block: a tx
+    // also present in another stored block (e.g. re-included after its original proposal expired) has had
+    // its entry overwritten, and deleting it here would orphan that block's index.
+    const blockTxsBuffer = await this.#blockTxs.getAsync(blockHash);
+    if (blockTxsBuffer !== undefined) {
+      const reader = BufferReader.asReader(blockTxsBuffer);
+      const txHashes: string[] = [];
+      while (!reader.isEmpty()) {
+        txHashes.push(reader.readObject(TxHash).toString());
+      }
+      await Promise.all(txHashes.map(txHash => this.deleteTxEffectIfOwnedBy(txHash, blockStorage.blockHash)));
+    }
 
     // Delete block txs mapping
-    const blockHash = (await block.hash()).toString();
     await this.#blockTxs.delete(blockHash);
 
     // Clean up indices
     await this.#blockHashIndex.delete(blockHash);
-    await this.#blockArchiveIndex.delete(block.archive.root.toString());
+    await this.#blockArchiveIndex.delete(AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive).root.toString());
+  }
+
+  /** Deletes a tx effect only if it is still owned by (points at) the given block. */
+  private async deleteTxEffectIfOwnedBy(txHash: string, blockHash: Buffer): Promise<void> {
+    const stored = await this.#txEffects.getAsync(txHash);
+    // An IndexedTxEffect starts with the owning block hash (32 bytes) — see getTxLocation.
+    if (stored && Buffer.from(stored.buffer, stored.byteOffset, 32).equals(blockHash)) {
+      await this.#txEffects.delete(txHash);
+    }
   }
 
   /**
@@ -749,16 +769,24 @@ export class BlockStore {
 
       // Iterate from blockNumber + 1 to latestBlockNumber
       for (let bn = blockNumber + 1; bn <= latestBlockNumber; bn++) {
-        const block = await this.getBlock({ number: BlockNumber(bn) });
+        const blockStorage = await this.#blocks.getAsync(bn);
 
-        if (block === undefined) {
+        if (blockStorage === undefined) {
           this.#log.warn(`Cannot remove block ${bn} from the store since we don't have it`);
           continue;
         }
 
-        removedBlocks.push(block);
-        await this.deleteBlock(block);
-        this.#log.debug(`Removed block ${bn} ${(await block.hash()).toString()}`);
+        // Load the full block for the returned list when possible, but clean up from the raw row regardless:
+        // a block whose body can no longer be fully loaded must still release its row, tx effects, and indices,
+        // or later inserts at this number leave stale tx-effect entries pointing into the new chain.
+        const block = await this.getBlockFromBlockStorage(bn, blockStorage);
+        if (block !== undefined) {
+          removedBlocks.push(block);
+        } else {
+          this.#log.warn(`Removing block ${bn} whose body could not be fully loaded`);
+        }
+        await this.deleteBlock(bn, blockStorage);
+        this.#log.debug(`Removed block ${bn} ${bufferToHex(blockStorage.blockHash)}`);
       }
 
       return removedBlocks;
