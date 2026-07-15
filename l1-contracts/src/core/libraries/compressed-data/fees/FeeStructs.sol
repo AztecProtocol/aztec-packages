@@ -106,10 +106,9 @@ library FeeHeaderLib {
     // Cap excessMana to uint48 max to prevent overflow during compression.
     value |= Math.min(_feeHeader.excessMana, MASK_48_BITS) << 32;
     value |= uint256(_feeHeader.ethPerFeeAsset.toUint48()) << 80;
-    // Cap congestionCost to uint64 max to prevent overflow during compression.
-    // The uncapped value is still used for fee validation; this only affects storage.
+    // Keep compression defensive; fee validation should already use capped component values.
     value |= Math.min(_feeHeader.congestionCost, MASK_64_BITS) << 128;
-    // Cap proverCost to uint63 max to prevent overflow during compression.
+    // Keep compression defensive; fee validation should already use capped component values.
     value |= Math.min(_feeHeader.proverCost, MASK_63_BITS) << 192;
 
     // Preheat

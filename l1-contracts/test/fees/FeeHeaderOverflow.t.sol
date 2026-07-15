@@ -130,9 +130,8 @@ contract FeeHeaderOverflowTest is DecoderBase {
   /**
    * @notice FeeConfig stores provingCostPerMana as uint64, but FeeHeader compresses
    *         proverCost as 63 bits. Setting provingCostPerMana between 2^63 and 2^64-1
-   *         produces a proverCost that always overflows during compression.
-   *         This demonstrates that governance can set a valid-looking config value
-   *         that permanently bricks proposal submission.
+   *         would produce a proverCost above the compressed field width unless the
+   *         user-facing fee component is capped before validation.
    *         The brick can occur even if the "actual" provercostPerMana is in the range,
    *         because the final proving prover cost also includes the L1 component.
    */
@@ -163,18 +162,19 @@ contract FeeHeaderOverflowTest is DecoderBase {
     // Warp to slot 1
     vm.warp(block.timestamp + SLOT_DURATION);
 
-    // The fee computation succeeds because intermediate values are uint256
+    // The fee computation succeeds because intermediate values are uint256, and the
+    // user-facing fee component is capped to the same value stored for proof time.
     ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
     uint256 manaMinFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
 
-    assertTrue(components.proverCost > MAX_PROVER_COST, "proverCost should exceed 63-bit limit");
+    assertEq(components.proverCost, MAX_PROVER_COST, "proverCost should be capped at 63-bit limit");
 
     (ProposeArgs memory proposeArgs, CommitteeAttestations memory attestations, address[] memory signers) =
       _buildProposal(rollup, manaMinFee);
 
     skipBlobCheck(address(rollup));
 
-    // propose succeeds because compress() caps proverCost at 63-bit max instead of reverting.
+    // propose succeeds because fee validation and storage use the same capped prover cost.
     rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
 
     // Verify the stored fee header has capped proverCost
@@ -228,11 +228,12 @@ contract FeeHeaderOverflowTest is DecoderBase {
     // Warp to slot 1
     vm.warp(block.timestamp + SLOT_DURATION);
 
-    // Fee computation succeeds (uint256 intermediates), but congestionCost exceeds uint64
+    // Fee computation succeeds (uint256 intermediates), and the user-facing component is capped
+    // to the same value that can be stored for proof-time reward distribution.
     ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
     uint256 manaMinFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
 
-    assertTrue(components.congestionCost > MAX_CONGESTION_COST, "congestionCost should exceed 64-bit limit");
+    assertEq(components.congestionCost, MAX_CONGESTION_COST, "congestionCost should be capped at 64-bit limit");
     assertTrue(components.proverCost <= MAX_PROVER_COST, "proverCost should still fit in 63 bits");
 
     (ProposeArgs memory proposeArgs, CommitteeAttestations memory attestations, address[] memory signers) =
@@ -240,7 +241,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     skipBlobCheck(address(rollup));
 
-    // propose succeeds because compress() caps congestionCost at 64-bit max instead of reverting.
+    // propose succeeds because fee validation and storage use the same capped congestion cost.
     rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
 
     // Verify the stored fee header has capped congestionCost
@@ -261,8 +262,8 @@ contract FeeHeaderOverflowTest is DecoderBase {
    *
    *         After fix: Three caps work together to keep the system live:
    *         1. congestionMultiplier() caps the exponent at 100 (prevents Taylor series overflow)
-   *         2. summedMinFee() caps the total fee at uint128 max (ensures header representability)
-   *         3. compress() caps individual fields (prevents fee header compression overflow)
+   *         2. getManaMinFeeComponentsAt() caps fee-asset components to their storage widths
+   *         3. summedMinFee() caps the total fee at uint128 max if the remaining sum still exceeds it
    *
    *         We simulate the accumulated excess by directly writing to the genesis fee header's
    *         storage slot, which is equivalent to ~1000 consecutive max-capacity checkpoints.
@@ -307,11 +308,12 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     // The congestion multiplier is capped (excessMana > denominator * 100 threshold)
     assertTrue(components.congestionMultiplier > 0, "congestionMultiplier should be non-zero");
-    // Individual components exceed their compressed field widths
-    assertTrue(components.congestionCost > MAX_CONGESTION_COST, "congestionCost exceeds 64-bit limit");
+    // Individual components are capped to their compressed field widths before fee validation.
+    assertEq(components.congestionCost, MAX_CONGESTION_COST, "congestionCost should be capped at 64-bit limit");
 
-    // summedMinFee caps the total at uint128 max, ensuring the header can represent it
-    assertEq(manaMinFee, type(uint128).max, "mana min fee should be capped at uint128 max");
+    // The capped components keep this scenario below the header's uint128 total-fee ceiling.
+    assertEq(manaMinFee, FeeLib.summedMinFee(components), "mana min fee mismatch");
+    assertLt(manaMinFee, type(uint128).max, "mana min fee should stay below uint128 max");
 
     // Propose succeeds: all three caps work together
     (ProposeArgs memory proposeArgs, CommitteeAttestations memory attestations, address[] memory signers) =
@@ -319,8 +321,8 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
     skipBlobCheck(address(rollup));
 
-    // propose succeeds because congestionMultiplier is capped (no Taylor overflow),
-    // summedMinFee is capped at uint128 max (valid header), and compress caps individual fields.
+    // propose succeeds because congestionMultiplier is capped (no Taylor overflow), and
+    // fee validation already uses values that fit the compressed fee header.
     rollup.propose(proposeArgs, attestations, signers, Signature({v: 0, r: 0, s: 0}), full.checkpoint.blobCommitments);
 
     // Verify the stored fee header has capped values

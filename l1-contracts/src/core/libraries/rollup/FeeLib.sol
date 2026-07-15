@@ -93,6 +93,8 @@ uint256 constant MIN_PROVING_COST_PER_MANA = 2;
 // time to correct from. At the time of this writing, deployed value is 2.5e7, and it is expected
 // that proving costs will go down.
 uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 2e8;
+uint256 constant MAX_FEE_HEADER_CONGESTION_COST = type(uint64).max;
+uint256 constant MAX_FEE_HEADER_PROVER_COST = (1 << 63) - 1;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;
@@ -312,7 +314,7 @@ library FeeLib {
       FeeLib.clampedAdd(parentFeeHeader.getExcessMana() + parentFeeHeader.getManaUsed(), -int256(manaTarget));
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
 
-    EthValue congestionCost =
+    EthValue congestionCostPerMana =
     EthValue.wrap(
         Math.mulDiv(EthValue.unwrap(total), congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor)
       ) - total;
@@ -321,10 +323,18 @@ library FeeLib {
       ? FeeLib.getEthPerFeeAssetAtCheckpoint(_checkpointOfInterest)
       : EthPerFeeAssetE12.wrap(ETH_PER_FEE_ASSET_PRECISION);
 
+    uint256 proverCost = FeeAssetValue.unwrap(proverCostPerMana.toFeeAsset(ethPerFeeAsset));
+    uint256 congestionCost = FeeAssetValue.unwrap(congestionCostPerMana.toFeeAsset(ethPerFeeAsset));
+
+    if (_inFeeAsset) {
+      proverCost = Math.min(proverCost, MAX_FEE_HEADER_PROVER_COST);
+      congestionCost = Math.min(congestionCost, MAX_FEE_HEADER_CONGESTION_COST);
+    }
+
     return ManaMinFeeComponents({
       sequencerCost: FeeAssetValue.unwrap(sequencerCostPerMana.toFeeAsset(ethPerFeeAsset)),
-      proverCost: FeeAssetValue.unwrap(proverCostPerMana.toFeeAsset(ethPerFeeAsset)),
-      congestionCost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(ethPerFeeAsset)),
+      proverCost: proverCost,
+      congestionCost: congestionCost,
       congestionMultiplier: congestionMultiplier_
     });
   }
