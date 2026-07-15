@@ -30,7 +30,7 @@ This matches the internal representation of `stdlib::bigfield` which uses four 6
 | Codec | Enforcement | Method |
 |-------|-------------|--------|
 | `FrCodec` | Native assertion | `BB_ASSERT_LT(value, fq::modulus)` |
-| `StdlibCodec` | In-circuit constraint | `bigfield::assert_is_in_field()` |
+| `StdlibCodec` | In-circuit constraint | `bigfield::assert_is_in_field()` / `goblin_field::assert_is_in_field()` |
 
 This ensures consistent behavior whether verification happens natively or in-circuit.
 
@@ -66,7 +66,8 @@ The downstream range constraints in Translator ensure that only canonical `(0,0)
 | Aspect | Ultra | Mega (Goblin) |
 |--------|-------|---------------|
 | Base field type | `bigfield` | `goblin_field` |
-| Range constraints | In-circuit | Deferred to Translator |
+| Transcript canonicality | In-circuit `< q` | In-circuit `< q` |
+| Queued operation range constraints | In-circuit | Deferred to Translator |
 | On-curve check | In-circuit | Deferred to ECCVM |
 | Point type | `element_default` | `goblin_element` |
 
@@ -128,50 +129,36 @@ Both `FrCodec` (native) and `StdlibCodec` (circuit) must:
 
 ## Security Properties
 
-These properties hold for **Native and Ultra** verification paths:
+These properties hold for **Native, Ultra, and Mega recursive transcript decoding**:
 
 1. **No alias acceptance**: Values ≥ modulus are rejected
 2. **Unique infinity**: Only canonical `(0,0)` with zero limbs represents infinity
-3. **Consistent native/Ultra circuit**: Both paths reject the same malformed inputs
-
-**Known issue**: Goblin (Mega) accepts aliased non-infinity coordinates in range [q, 2^254) due to
-Translator only enforcing <254-bit checks, not $<q$. See below
+3. **Consistent native/recursive circuit decoding**: Native, Ultra, and Mega codec paths reject the same malformed
+   transcript field encodings
 
 ## Mega/Goblin Specifics
 
 ### Mega/Goblin Validation Flow
 
 For `goblin_field` and `goblin_element`:
-1. Limbs stored as-is during deserialization (no in-circuit range check)
-2. Values flow to op queue as ECC operations
-3. **Translator** enforces limb range constraints (<254 bits)
-4. **ECCVM** enforces on-curve property via `ECCVMTranscriptRelationImpl`
+1. `StdlibCodec` reconstructs transcript limbs and enforces strict `< q` canonicality with
+   `goblin_field::assert_is_in_field()`
+2. Values flow to the op queue as ECC operations
+3. **Translator** enforces queued limb range constraints
+4. **ECCVM** enforces the on-curve property via `ECCVMTranscriptRelationImpl`
 
-### Deferred Validation and Known Inconsistency
-
-In Mega circuits, `StdlibCodec` deserializes points into `goblin_field`/`goblin_element` without
-immediate in-circuit range or modulus checks. This is intentional for efficiency - expensive
-checks are deferred to specialized Translator/ECCVM circuits.
-
-TODO(https://github.com/AztecProtocol/barretenberg/issues/1607): Translator enforces <254-bit
-range constraints on coordinates from the `EccOpQueue`, but does NOT enforce strict <q (modulus)
-checks. This creates a verification inconsistency:
+### Transcript Canonicality
 
 | Verification Path | Check | Result on Aliased Coords |
 |-------------------|-------|--------------------------|
 | Native | Strict <q | **REJECT** |
 | Ultra Recursive | Strict <q (via `assert_is_in_field()`) | **REJECT** |
-| Goblin (Mega+Merge+ECCVM+Translator) | Only <254 bits | **ACCEPT** ⚠️ |
-
-**Impact**: A prover could craft a proof using aliased $\mathbb{F}_q$ representations that:
-- **Passes** Goblin verification (Mega recursive → Merge → ECCVM → Translator)
-- **Fails** native or Ultra recursive verification
-
-This violates the consistency requirement that all verification paths accept/reject the same proofs.
+| Goblin (Mega+Merge+ECCVM+Translator) | Strict <q at transcript decoding | **REJECT** |
 
 #### Partial Mitigation: `assert_equal` Constraints
 
-The `assert_equal` constraints in `biggroup_goblin.hpp` provide partial protection:
+The `assert_equal` constraints in `biggroup_goblin.hpp` also bind queued ECCVM operations to the transcript-decoded
+limbs:
 
 ```cpp
 // biggroup_goblin.hpp:181-190
@@ -179,10 +166,6 @@ op_tuple = builder->queue_ecc_add_accum(other.get_value());
 x_lo.assert_equal(other._x.limbs[0]);
 x_hi.assert_equal(other._x.limbs[1]);
 ```
-
-For an honest prover, `get_value()` auto-reduces field values, so aliased inputs would cause
-these constraints to fail. However, **these constraints can be avoided**.
-
 
 ### Relevant Code Locations
 

@@ -121,12 +121,10 @@ template <typename Field> class StdlibCodec {
      * then `assert_is_in_field()` is called to reject aliased values (>= Fq::modulus). This ensures consistency with
      * native FrCodec which also rejects aliases. Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
      *
-     * - \ref  bb::stdlib::goblin_field< Builder > "goblin field element" — stores limbs as-is without in-circuit
-     * modulus check. Range constraints are deferred to Translator circuit (see \ref
-     * TranslatorDeltaRangeConstraintRelationImpl "Translator Range Constraint" relation).
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1607): Translator only enforces <254-bit constraints,
-     * NOT strict <q checks, creating verification inconsistency with native/Ultra.
-     * Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
+     * - \ref  bb::stdlib::goblin_field< Builder > "goblin field element" — reconstruct from the 2-limb encoding and
+     * call `assert_is_in_field()` to reject aliased values (>= Fq::modulus). This keeps Mega recursive transcript
+     * decoding consistent with native and Ultra verification while ECCVM/Translator continue to validate queued
+     * arithmetic operations. Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
      *
      * - \ref bb::stdlib::element_goblin::goblin_element< Builder_, Fq, Fr, NativeGroup > "bn254 goblin point"  — input
      * vector of size 4 is transformed into a pair of `goblin_field` elements, which are fed into the 2-arg constructor.
@@ -168,8 +166,11 @@ template <typename Field> class StdlibCodec {
             result.assert_is_in_field();
             return result;
         } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
-            // Case 3: goblin_field stores limbs as-is; range validation is deferred to Translator circuit.
-            return T(fr_vec[0], fr_vec[1]);
+            // Case 3: goblin_field is reconstructed from low and high limbs with in-field validation.
+            // This ensures aliased values (>= Fq::modulus) are rejected before they can enter transcript state.
+            T result(fr_vec[0], fr_vec[1]);
+            result.assert_is_in_field();
+            return result;
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             // Case 4 and 5: Convert a vector of frs to a group element
             using Basefield = typename T::BaseField;
@@ -179,10 +180,8 @@ template <typename Field> class StdlibCodec {
             Basefield x = deserialize_from_fields<Basefield>(fr_vec.subspan(0, base_field_frs));
             Basefield y = deserialize_from_fields<Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
 
-            // Construct the group element (validates the point is on curve).
-            // The 2-arg constructor auto-detects infinity from (x == 0 && y == 0).
-            // For goblin_element (bn254 with Mega arithmetization), the on-curve check is delegated to ECCVM, see
-            // `on_curve_check` in `ECCVMTranscriptRelationImpl`.
+            // Construct the group element. The default element validates the point in this circuit; goblin_element
+            // delegates the on-curve check to ECCVM, see `on_curve_check` in `ECCVMTranscriptRelationImpl`.
             return T(x, y, /*assert_on_curve=*/true);
         } else {
             // Case 6: Array or Univariate

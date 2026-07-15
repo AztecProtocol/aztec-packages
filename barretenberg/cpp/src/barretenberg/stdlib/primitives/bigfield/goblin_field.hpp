@@ -18,9 +18,9 @@ namespace bb::stdlib {
  * @details this class exists because we do not want to parametrise goblin bn254 coordinates with bigfield.
  *          bigfield generates a large number of constraints to apply checks that are not needed for goblin coordinates
  *          This is because, in the goblin context we can apply the following heuristics:
- *          1. goblin coordinate field elements are range-constrained in the Translator circuit (no need to range
- * constrain here)
- *          2. field elements that come out of the ECCVM are well-formed, we do not need to call `assert_is_in_field`
+ *          1. transcript-decoded goblin coordinates call `assert_is_in_field`; queued ECCVM coordinates are
+ *             range-constrained in the Translator circuit
+ *          2. field elements that come out of the ECCVM are well-formed
  *          3. there should be no need to apply arithmetic to goblin coordinate field elements in-circuit
  *          Having a distinct class for `goblin_field` allows us to harvest these optimisations without a proliferation
  * of edge cases and bloated logic in other classes
@@ -146,8 +146,11 @@ template <class Builder> class goblin_field {
         return limbs[1].get_context();
     }
 
-    // done in the translator circuit
-    void assert_is_in_field() {};
+    void assert_is_in_field(std::string const& msg = "goblin_field::assert_is_in_field") const
+    {
+        bigfield<Builder, bb::Bn254FqParams> value(limbs[0], limbs[1]);
+        value.assert_is_in_field(msg);
+    };
 
     OriginTag get_origin_tag() const { return OriginTag(limbs[0].get_origin_tag(), limbs[1].get_origin_tag()); }
 

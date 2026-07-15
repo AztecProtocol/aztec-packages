@@ -414,8 +414,8 @@ TYPED_TEST(stdlib_field_conversion, GateCountBN254PointDeserialization)
 {
     using Builder = TypeParam;
     // Ultra: full bigfield construction + on-curve validation + assert_is_in_field for x and y
-    // Mega: no in-circuit checks; range constraint and on_curve validation deferred to ECCVM and Translator
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3865 : 0;
+    // Mega: strict goblin_field canonicality checks; on_curve validation deferred to ECCVM
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3865 : 3559;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected);
 }
@@ -427,7 +427,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 {
     using Builder = TypeParam;
 
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5746 : 0;
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5746 : 4354;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected, 10);
 }
@@ -522,8 +522,8 @@ TYPED_TEST(stdlib_field_conversion, BigfieldDeserializationFailsOnLimbOverflow)
 /**
  * @brief Test that both codecs reject point with alias coordinates.
  * @details Specific case from audit: (x=modulus, y=modulus) should be rejected by both.
- * For Ultra, the on-curve check is in the main circuit. For Mega (goblin), the on-curve check
- * is delegated to ECCVM (see ECCVMTranscriptRelationImpl), so the main circuit will pass.
+ * For Ultra, the on-curve check is in the main circuit. For Mega (goblin), strict coordinate
+ * canonicality is checked in the main circuit while the on-curve check is delegated to ECCVM.
  */
 TYPED_TEST(stdlib_field_conversion, BothCodecsRejectPointAtInfinityAlias)
 {
@@ -545,14 +545,107 @@ TYPED_TEST(stdlib_field_conversion, BothCodecsRejectPointAtInfinityAlias)
         EXPECT_THROW(FrCodec::deserialize_from_fields<curve::BN254::AffineElement>(native_fields), std::runtime_error);
     }
 
-    // Test 2: Circuit codec rejects (Ultra only - Mega delegates on-curve check to ECCVM)
-    if constexpr (IsAnyOf<Builder, UltraCircuitBuilder>) {
+    // Test 2: Circuit codec rejects aliases.
+    BB_DISABLE_ASSERTS();
+    Builder builder;
+    std::vector<field_t<Builder>> circuit_fields = { field_t<Builder>::from_witness(&builder, bb::fr(x_lo)),
+                                                     field_t<Builder>::from_witness(&builder, bb::fr(x_hi)),
+                                                     field_t<Builder>::from_witness(&builder, bb::fr(x_lo)),
+                                                     field_t<Builder>::from_witness(&builder, bb::fr(x_hi)) };
+    [[maybe_unused]] auto point = Codec::template deserialize_from_fields<bn254_element>(circuit_fields);
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Mega/Goblin codec rejects non-canonical BN254 Fq field encodings.
+ */
+TYPED_TEST(stdlib_field_conversion, GoblinFieldRejectsNonCanonicalEncoding)
+{
+    using Builder = TypeParam;
+
+    if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        using Codec = StdlibCodec<field_t<Builder>>;
+        using goblin_fq = goblin_field<Builder>;
+
+        constexpr uint64_t NUM_LIMB_BITS = 68;
+        constexpr uint64_t LOW_BITS = NUM_LIMB_BITS * 2;
+        const uint256_t LOW_MASK = (uint256_t(1) << LOW_BITS) - 1;
+
+        auto split_to_limbs = [&](const uint256_t& value) -> std::pair<uint256_t, uint256_t> {
+            return { value & LOW_MASK, value >> LOW_BITS };
+        };
+
+        {
+            const uint256_t value = bb::fq::modulus - 1;
+            const auto [low_limb, high_limb] = split_to_limbs(value);
+
+            Builder builder;
+            std::vector<field_t<Builder>> circuit_fields = {
+                field_t<Builder>::from_witness(&builder, bb::fr(low_limb)),
+                field_t<Builder>::from_witness(&builder, bb::fr(high_limb)),
+            };
+            [[maybe_unused]] auto decoded = Codec::template deserialize_from_fields<goblin_fq>(circuit_fields);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+        }
+        {
+            BB_DISABLE_ASSERTS();
+            const uint256_t value = bb::fq::modulus;
+            const auto [low_limb, high_limb] = split_to_limbs(value);
+
+            Builder builder;
+            std::vector<field_t<Builder>> circuit_fields = {
+                field_t<Builder>::from_witness(&builder, bb::fr(low_limb)),
+                field_t<Builder>::from_witness(&builder, bb::fr(high_limb)),
+            };
+            [[maybe_unused]] auto decoded = Codec::template deserialize_from_fields<goblin_fq>(circuit_fields);
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+    }
+}
+
+/**
+ * @brief Recursive BN254 commitment decoding rejects non-canonical Mega/Goblin coordinates.
+ */
+TYPED_TEST(stdlib_field_conversion, BN254CommitmentRejectsCoordinatePlusModulus)
+{
+    using Builder = TypeParam;
+    using Codec = StdlibCodec<field_t<Builder>>;
+    using fq = bigfield<Builder, bb::Bn254FqParams>;
+    using bn254_element = element<Builder, fq, field_t<Builder>, curve::BN254::Group>;
+
+    constexpr uint64_t NUM_LIMB_BITS = 68;
+    constexpr uint64_t LOW_BITS = NUM_LIMB_BITS * 2;
+    const uint256_t LOW_MASK = (uint256_t(1) << LOW_BITS) - 1;
+
+    auto split_to_limbs = [&](const uint256_t& value) -> std::pair<uint256_t, uint256_t> {
+        return { value & LOW_MASK, value >> LOW_BITS };
+    };
+    auto make_circuit_fields = [&](Builder& builder, const uint256_t& x, const uint256_t& y) {
+        const auto [x_lo, x_hi] = split_to_limbs(x);
+        const auto [y_lo, y_hi] = split_to_limbs(y);
+        return std::vector<field_t<Builder>>{
+            field_t<Builder>::from_witness(&builder, bb::fr(x_lo)),
+            field_t<Builder>::from_witness(&builder, bb::fr(x_hi)),
+            field_t<Builder>::from_witness(&builder, bb::fr(y_lo)),
+            field_t<Builder>::from_witness(&builder, bb::fr(y_hi)),
+        };
+    };
+
+    const curve::BN254::AffineElement generator = curve::BN254::AffineElement::one();
+    const uint256_t canonical_x(generator.x);
+    const uint256_t canonical_y(generator.y);
+    const uint256_t alias_x = canonical_x + bb::fq::modulus;
+
+    {
+        Builder builder;
+        auto circuit_fields = make_circuit_fields(builder, canonical_x, canonical_y);
+        [[maybe_unused]] auto point = Codec::template deserialize_from_fields<bn254_element>(circuit_fields);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+    {
         BB_DISABLE_ASSERTS();
         Builder builder;
-        std::vector<field_t<Builder>> circuit_fields = { field_t<Builder>::from_witness(&builder, bb::fr(x_lo)),
-                                                         field_t<Builder>::from_witness(&builder, bb::fr(x_hi)),
-                                                         field_t<Builder>::from_witness(&builder, bb::fr(x_lo)),
-                                                         field_t<Builder>::from_witness(&builder, bb::fr(x_hi)) };
+        auto circuit_fields = make_circuit_fields(builder, alias_x, canonical_y);
         [[maybe_unused]] auto point = Codec::template deserialize_from_fields<bn254_element>(circuit_fields);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
