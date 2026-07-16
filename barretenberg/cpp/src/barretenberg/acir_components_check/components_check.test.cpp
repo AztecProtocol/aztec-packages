@@ -544,25 +544,35 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
-    Acir::Circuit circuit = make_circuit({
-        Acir::Opcode{ .value = Acir::Opcode::AssertZero{
-                          .value = Acir::Expression{
-                              .linear_combinations =
-                                  {
-                                      { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
-                                  },
-                              .q_c = bb::fr::zero().to_buffer(),
-                          } } },
-    });
+    auto linear_link = [](uint32_t lhs, uint32_t rhs) {
+        return Acir::Opcode{ .value = Acir::Opcode::AssertZero{
+                                 .value = Acir::Expression{
+                                     .linear_combinations =
+                                         {
+                                             { bb::fr::one().to_buffer(), make_witness(lhs) },
+                                             { bb::fr(-1).to_buffer(), make_witness(rhs) },
+                                         },
+                                     .q_c = bb::fr::zero().to_buffer(),
+                                 } } };
+    };
+
+    Acir::Circuit circuit = make_circuit({ linear_link(8, 9) });
 
     auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
 
-    acir_components_check::ComponentsChecker checker(circuit, builder);
+    // Check against an ACIR circuit that links w8 to a witness the builder never allocated a variable
+    // for, so that witness has no circuit-side component. The witness index is derived from the
+    // builder so it stays out of range regardless of how many variables circuit construction adds.
+    //
+    // The out-of-range witness has to come from the ACIR side: real_variable_index is an indirection
+    // that the connected components analysis reads through as well, so repointing an entry here would
+    // simply move the gate's variable along with it rather than orphaning the witness.
+    auto orphan_witness = static_cast<uint32_t>(builder.real_variable_index.size());
+    Acir::Circuit circuit_with_orphan = make_circuit({ linear_link(8, 9), linear_link(8, orphan_witness) });
+
+    acir_components_check::ComponentsChecker checker(circuit_with_orphan, builder);
     auto errors = checker.check();
     expect_single_error_type(errors, acir_components_check::Error::Type::UNCONSTRAINED);
 }
