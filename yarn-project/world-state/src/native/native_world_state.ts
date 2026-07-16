@@ -4,6 +4,7 @@ import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import type { IpcClientAsync } from '@aztec/ipc-runtime';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import type {
@@ -16,6 +17,7 @@ import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTree
 import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 import { EMPTY_GENESIS_DATA, type GenesisData, WorldStateRevision } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
+import { AsyncApi } from '@aztec/wsdb';
 
 import assert from 'assert/strict';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
@@ -184,6 +186,21 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
     await worldState.init();
     return worldState;
+  }
+
+  /**
+   * Build a world state over an arbitrary async byte transport (an {@link IpcClientAsync}) rather than a spawned
+   * process — e.g. an in-process NAPI backend that drives a co-hosted WorldState with no child process. The
+   * transport is wrapped in a generated {@link AsyncApi}; there is no IPC path or clear()/recreate support.
+   */
+  static fromWsdbBackend(
+    backend: IpcClientAsync,
+    genesis: GenesisData = EMPTY_GENESIS_DATA,
+    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+    bindings?: LoggerBindings,
+    cleanup = () => Promise.resolve(),
+  ): Promise<NativeWorldStateService> {
+    return this.fromIpc(new AsyncApi(backend), instrumentation, bindings, genesis, cleanup);
   }
 
   protected async init() {

@@ -1,4 +1,10 @@
 export { AvmSimulatorPool, type AvmSimulatorPoolOptions } from './avm_simulator_pool.js';
+export {
+  NapiAvmSimulator,
+  NapiWsdbBackend,
+  createInProcessWsdb,
+  type InProcessWsdbHandle,
+} from './napi_avm_simulator.js';
 export type { PublicContractsDBInterface } from './db_interfaces.js';
 export { PublicContractsDB } from './public_db_sources.js';
 export { GuardedMerkleTreeOperations } from './public_processor/guarded_merkle_tree.js';

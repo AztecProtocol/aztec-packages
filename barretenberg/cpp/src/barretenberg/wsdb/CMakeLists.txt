@@ -52,27 +52,44 @@ target_link_libraries(
     ipc_runtime
 )
 
+# The world state database as a transport-agnostic library: the WorldState, the
+# per-fork scheduler, the generated dispatch + command handlers, and a plain-C
+# FFI entry (wsdb_ffi.h). The out-of-process aztec-wsdb executable and any
+# in-process host (a NAPI wrapper generated up the stack, or a co-linked AVM
+# sharing the same WorldState) link it and drive the same dispatch — the
+# executable over a socket, the host over a direct call. Barretenberg stays free
+# of any Node/NAPI code.
+add_library(
+    wsdb_ffi STATIC
+    wsdb_ffi.cpp
+    wsdb_handlers.cpp
+)
+add_dependencies(wsdb_ffi wsdb_ipc_generated)
+target_include_directories(
+    wsdb_ffi
+    PUBLIC
+    ${WSDB_GEN_DIR}
+)
+target_link_libraries(
+    wsdb_ffi
+    PUBLIC
+    barretenberg
+    world_state
+    ipc_runtime
+    env
+)
+
 # aztec-wsdb binary (standalone world state database server)
 add_executable(
     aztec-wsdb
     main.cpp
     cli.cpp
-    wsdb_handlers.cpp
     wsdb_ipc_server.cpp
-)
-add_dependencies(aztec-wsdb wsdb_ipc_generated)
-target_include_directories(
-    aztec-wsdb
-    PRIVATE
-    ${WSDB_GEN_DIR}
 )
 target_link_libraries(
     aztec-wsdb
     PRIVATE
-    barretenberg
-    world_state
-    ipc_runtime
-    env
+    wsdb_ffi
 )
 if(ENABLE_STACKTRACES)
     target_link_libraries(

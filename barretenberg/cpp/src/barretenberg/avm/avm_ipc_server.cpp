@@ -50,7 +50,9 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
         }
     }
 
-    AvmRequest request{ .cdb_client = *cdb_client, .wsdb_client = *wsdb_client };
+    AvmRequest request{ .cdb_client = *cdb_client,
+                        .wsdb_client = *wsdb_client,
+                        .set_fork_id = [c = cdb_client.get()](uint64_t fork_id) { c->set_fork_id(fork_id); } };
 
     ipc::ServerOptions opts;
     opts.max_shm_clients = 1;

@@ -1,137 +1,27 @@
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/thread_pool.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/world_state/world_state.hpp"
-#include "barretenberg/wsdb/generated/wsdb_ipc_server.hpp"
-#include "barretenberg/wsdb/wsdb_handlers.hpp"
-#include "barretenberg/wsdb/wsdb_request.hpp"
-#include "barretenberg/wsdb/wsdb_scheduler.hpp"
+#include "barretenberg/wsdb/wsdb_ffi.h"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
 
-#include <algorithm>
 #include <cstdint>
-#include <functional>
-#include <iostream>
 #include <memory>
-#include <sstream>
+#include <span>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace bb::wsdb {
 
-using namespace bb::world_state;
-using namespace bb::crypto::merkle_tree;
-
 // ---------------------------------------------------------------------------
-// Simple JSON-like parsing for config maps
-// Parses "{0:1024,1:2048,...}" into unordered_map<uint32_t, uint64_t>
-// ---------------------------------------------------------------------------
-
-static std::unordered_map<world_state::MerkleTreeId, uint64_t> parse_tree_uint64_map(const std::string& json)
-{
-    std::unordered_map<world_state::MerkleTreeId, uint64_t> result;
-    if (json.empty()) {
-        return result;
-    }
-    std::string cleaned;
-    for (char c : json) {
-        if (c != '{' && c != '}' && c != ' ') {
-            cleaned += c;
-        }
-    }
-    std::istringstream ss(cleaned);
-    std::string pair;
-    while (std::getline(ss, pair, ',')) {
-        auto colon_pos = pair.find(':');
-        if (colon_pos != std::string::npos) {
-            auto key = static_cast<world_state::MerkleTreeId>(std::stoi(pair.substr(0, colon_pos)));
-            auto value = static_cast<uint64_t>(std::stoull(pair.substr(colon_pos + 1)));
-            result[key] = value;
-        }
-    }
-    return result;
-}
-
-static std::unordered_map<world_state::MerkleTreeId, uint32_t> parse_tree_uint32_map(const std::string& json)
-{
-    std::unordered_map<world_state::MerkleTreeId, uint32_t> result;
-    if (json.empty()) {
-        return result;
-    }
-    auto u64_map = parse_tree_uint64_map(json);
-    for (const auto& [k, v] : u64_map) {
-        result[k] = static_cast<uint32_t>(v);
-    }
-    return result;
-}
-
-static std::unordered_map<world_state::MerkleTreeId, index_t> parse_tree_index_map(const std::string& json)
-{
-    std::unordered_map<world_state::MerkleTreeId, index_t> result;
-    if (json.empty()) {
-        return result;
-    }
-    auto u64_map = parse_tree_uint64_map(json);
-    for (const auto& [k, v] : u64_map) {
-        result[k] = static_cast<index_t>(v);
-    }
-    return result;
-}
-
-// ---------------------------------------------------------------------------
-// Parse prefilled public data from JSON: [["slot_hex","value_hex"],...]
-// Each hex string is a 64-char (32-byte) hex-encoded field element.
-// ---------------------------------------------------------------------------
-
-static fr hex_to_fr(const std::string& hex)
-{
-    std::string cleaned = hex;
-    if (cleaned.size() >= 2 && cleaned[0] == '0' && (cleaned[1] == 'x' || cleaned[1] == 'X')) {
-        cleaned = cleaned.substr(2);
-    }
-    return fr(cleaned);
-}
-
-static std::vector<PublicDataLeafValue> parse_prefilled_public_data(const std::string& json)
-{
-    std::vector<PublicDataLeafValue> result;
-    if (json.empty() || json == "[]") {
-        return result;
-    }
-
-    // Simple state-machine parser for [["hex","hex"],["hex","hex"],...]
-    std::vector<std::string> hex_values;
-    std::string current;
-    bool in_string = false;
-
-    for (char c : json) {
-        if (c == '"') {
-            in_string = !in_string;
-        } else if (in_string) {
-            current += c;
-        } else if ((c == ',' || c == ']') && !current.empty()) {
-            hex_values.push_back(std::move(current));
-            current.clear();
-        }
-    }
-
-    // hex_values should have pairs: slot, value, slot, value, ...
-    if (hex_values.size() % 2 != 0) {
-        std::cerr << "Warning: odd number of hex values in prefilled public data, ignoring last" << '\n';
-    }
-    for (size_t i = 0; i + 1 < hex_values.size(); i += 2) {
-        result.emplace_back(hex_to_fr(hex_values[i]), hex_to_fr(hex_values[i + 1]));
-    }
-    return result;
-}
-
-// ---------------------------------------------------------------------------
-// IPC server execution
+// Socket transport adapter over the wsdb FFI.
+//
+// The WorldState, scheduler, and dispatch live behind the plain-C `wsdb_ffi`
+// ABI (wsdb_create / wsdb_call / wsdb_destroy). This server owns only the
+// transport: it builds the IPC server, then feeds each wire frame into
+// `wsdb_call` and bridges the (async) response back onto the connection. An
+// in-process host (NAPI wrapper, or a co-linked AVM) drives the same ABI without
+// a socket.
 // ---------------------------------------------------------------------------
 
 int execute_wsdb_server(const std::string& input_path,
@@ -146,46 +36,6 @@ int execute_wsdb_server(const std::string& input_path,
                         size_t request_ring_size,
                         size_t response_ring_size)
 {
-    const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
-
-    // Parse config
-    auto tree_height = parse_tree_uint32_map(tree_heights_json);
-    auto tree_prefill = parse_tree_index_map(tree_prefill_json);
-
-    std::unordered_map<world_state::MerkleTreeId, uint64_t> map_size{
-        { world_state::MerkleTreeId::ARCHIVE, DEFAULT_MAP_SIZE },
-        { world_state::MerkleTreeId::NULLIFIER_TREE, DEFAULT_MAP_SIZE },
-        { world_state::MerkleTreeId::NOTE_HASH_TREE, DEFAULT_MAP_SIZE },
-        { world_state::MerkleTreeId::PUBLIC_DATA_TREE, DEFAULT_MAP_SIZE },
-        { world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE, DEFAULT_MAP_SIZE },
-    };
-    if (!map_sizes_json.empty()) {
-        auto parsed = parse_tree_uint64_map(map_sizes_json);
-        for (const auto& [k, v] : parsed) {
-            map_size[k] = v;
-        }
-    }
-
-    // Parse prefilled public data: JSON array of ["slot_hex","value_hex"] pairs
-    std::vector<PublicDataLeafValue> prefilled_public_data;
-    if (!prefilled_public_data_json.empty()) {
-        prefilled_public_data = parse_prefilled_public_data(prefilled_public_data_json);
-        std::cerr << "Parsed " << prefilled_public_data.size() << " prefilled public data entries" << '\n';
-    }
-
-    // Create WorldState
-    std::cerr << "Creating WorldState at " << data_dir << " with " << threads << " threads" << '\n';
-    auto ws = std::make_unique<WorldState>(threads,
-                                           data_dir,
-                                           map_size,
-                                           tree_height,
-                                           tree_prefill,
-                                           prefilled_public_data,
-                                           initial_header_generator_point,
-                                           genesis_timestamp);
-
-    WsdbRequest request{ .world_state = *ws };
-
     // Pick UDS vs MPSC-SHM by path suffix; install the runtime's default
     // lifecycle signal handlers (SIGTERM/SIGINT → request_shutdown, SIGBUS/SIGSEGV
     // → close+exit, plus parent-death monitoring via prctl/kqueue).
@@ -199,50 +49,55 @@ int execute_wsdb_server(const std::string& input_path,
     opts.shm_response_ring_size = response_ring_size;
     auto server = ipc::make_server(input_path, opts);
     if (!server) {
-        std::cerr << "Error: --input path must end with .sock or .shm: " << input_path << '\n';
+        info("Error: --input path must end with .sock or .shm: ", input_path);
         return 1;
     }
-    std::cerr << "aztec-wsdb listening on " << input_path << '\n';
+    info("aztec-wsdb listening on ", input_path);
     ipc::install_default_signal_handlers(*server);
 
     if (!server->listen()) {
-        std::cerr << "Error: Could not start IPC server" << '\n';
+        info("Error: Could not start IPC server");
         return 1;
     }
 
-    std::cerr << "aztec-wsdb IPC server ready" << '\n';
+    // Build the WorldState + scheduler + dispatch behind the FFI. The scheduler's
+    // inline fast path is gated on the server's own has_pending_request(): a
+    // synchronous single-in-flight client runs on the dispatch thread, but once a
+    // second request is queued we hand off to the pool so reads run concurrently.
+    wsdb_instance_t* instance = wsdb_create(
+        data_dir.c_str(),
+        tree_heights_json.c_str(),
+        tree_prefill_json.c_str(),
+        map_sizes_json.c_str(),
+        threads,
+        initial_header_generator_point,
+        prefilled_public_data_json.c_str(),
+        genesis_timestamp,
+        [](void* ctx) -> int { return static_cast<ipc::IpcServer*>(ctx)->has_pending_request() ? 1 : 0; },
+        server.get());
+    if (instance == nullptr) {
+        info("Error: Could not create WorldState");
+        return 1;
+    }
 
-    // Dispatch pool: services requests concurrently so parallel reads aren't
-    // serialized through the single reactor thread. It is deliberately DISTINCT
-    // from WorldState's own intra-op pool (the `threads` arg above): mutating
-    // handlers enqueue subtasks onto that pool and wait() on them, so dispatching
-    // those handlers onto the SAME pool could deadlock (bb::ThreadPool is
-    // blocking and non-work-stealing).
-    //
-    // Sized from the caller-provided `threads` budget (the same value used for
-    // the WorldState pool), NOT std::thread::hardware_concurrency() — the latter
-    // ignores cgroup CPU limits and reports the host core count (e.g. 192 in a
-    // 2-CPU CI container), which would spawn a huge pool per wsdb process and
-    // exhaust the per-UID thread limit (pthread_create EAGAIN).
-    uint32_t dispatch_threads = std::max<uint32_t>(2, threads);
-    bb::ThreadPool dispatch_pool(dispatch_threads);
+    info("aztec-wsdb IPC server ready");
 
-    // Server-side ordering: the database, not the client, guarantees per-fork
-    // read/write consistency. Each handler hands its work to this scheduler via
-    // schedule_read / schedule_write (which run reads concurrently and serialize
-    // writes per fork — see WsdbScheduler), so the context carries it.
-    auto scheduler = std::make_shared<WsdbScheduler>(dispatch_pool, *server);
-    request.scheduler = scheduler.get();
-
-    // Async dispatch: the reactor reads each request and hands it to the
-    // generated handler with a respond callback; the handler decodes, schedules
-    // its work, and responds when done (possibly from a pool thread).
-    auto handler = make_wsdb_handler(request);
-    server->run_reactor([&handler](int /*client_id*/, std::span<const uint8_t> raw, ipc::IpcServer::Respond respond) {
-        handler(raw, std::move(respond));
+    // Async dispatch: the reactor reads each request and hands it to wsdb_call
+    // with a respond callback; the FFI decodes, schedules its work, and responds
+    // when done (possibly from a pool thread). The connection's Respond is boxed
+    // onto the heap and freed by the trampoline once fired, so it outlives the
+    // reactor callback for deferred (pool-thread) responses.
+    server->run_reactor([instance](int /*client_id*/, std::span<const uint8_t> raw, ipc::IpcServer::Respond respond) {
+        auto* boxed = new ipc::IpcServer::Respond(std::move(respond));
+        wsdb_call(instance, raw.data(), raw.size(), boxed, [](void* ctx, const uint8_t* resp, size_t resp_len) {
+            auto* r = static_cast<ipc::IpcServer::Respond*>(ctx);
+            (*r)(std::vector<uint8_t>(resp, resp + resp_len));
+            delete r;
+        });
     });
 
     server->close();
+    wsdb_destroy(instance);
     return 0;
 }
 
