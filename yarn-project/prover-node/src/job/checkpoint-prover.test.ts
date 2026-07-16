@@ -99,7 +99,7 @@ describe('CheckpointProver', () => {
       expect(prover.attestations).toEqual([]);
       expect(prover.l1ToL2Messages).toEqual([]);
       expect(prover.isCancelled()).toBe(false);
-      expect(prover.isCompleted()).toBe(false);
+      expect(prover.isFailed()).toBe(false);
       await cleanup(prover);
     });
 
@@ -286,7 +286,7 @@ describe('CheckpointProver', () => {
 
   describe('data-plane reorg fault', () => {
     it('rejects whenBlockProofsReady when a world-state fork faults mid-proof', async () => {
-      // Models the data-plane prune race (A-1290): gather succeeds and the sub-tree starts, but the
+      // Models the data-plane prune race: gather succeeds and the sub-tree starts, but the
       // world-state synchronizer has already unwound the base block, so forking it faults inside
       // executeCheckpoint. The fault must reject whenBlockProofsReady() AND mark the prover failed, so
       // the SessionManager won't build (or rebuild) an EpochSession over it until a re-add replaces it.
@@ -314,7 +314,6 @@ describe('CheckpointProver', () => {
       // never yields proofs. (The raw fork error is logged; the promise settles as not-completed.)
       await expect(prover.whenBlockProofsReady()).rejects.toThrow(/did not complete block processing/);
       expect(dbProvider.fork).toHaveBeenCalled();
-      expect(prover.isCompleted()).toBe(false);
       expect(prover.isFailed()).toBe(true);
       // The owner is notified exactly once, with this prover, so it can upload a checkpoint post-mortem.
       expect(onFailed).toHaveBeenCalledTimes(1);

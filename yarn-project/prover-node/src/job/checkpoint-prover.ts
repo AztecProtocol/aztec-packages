@@ -40,8 +40,7 @@ export type CheckpointProverDeps = {
   deadline: Date | undefined;
   /**
    * Fired once when the prover's block proofs reject for a genuine (non-cancel) reason — a sub-tree
-   * fault or a prune-induced fork fault. The owner uploads a post-mortem for this single checkpoint.
-   * Fired for prune-induced faults too; that is intentional and harmless.
+   * fault or a prune-induced fork fault. Useful for performing post mortem on failures.
    */
   onFailed?: (prover: CheckpointProver) => void;
   /**
@@ -106,10 +105,18 @@ export class CheckpointProver {
   /** Resolved by the sub-tree on success, rejected on cancel/failure. */
   private readonly blockProofs: PromiseWithResolvers<SubTreeResult['blockProofOutputs']> = promiseWithResolvers();
 
-  private cancelled = false;
-  private failed = false;
-  private subTree?: CheckpointSubTreeOrchestrator;
+  // Three independent lifecycle facts — deliberately not collapsed into one status enum, because several
+  // combinations are legal and relied on: a prover can be `completed` and then `cancelled` (routine
+  // teardown of an already-proven checkpoint), or `completed` and then `failed` (block proving was
+  // enqueued, but the sub-tree subsequently faulted). Only `failed` + `cancelled` is excluded — a cancel
+  // is not a failure (enforced in `failBlockProofs`).
+  /** Block-level proving was fully *enqueued* (a progress marker; the sub-tree may still be proving). */
   private completed = false;
+  /** Block proofs rejected for a genuine (non-cancel) reason — a sub-tree or prune-induced fork fault. */
+  private failed = false;
+  /** The prover was torn down (prune / reap / shutdown). */
+  private cancelled = false;
+  private subTree?: CheckpointSubTreeOrchestrator;
   private readonly abortController = new AbortController();
 
   /** Tracks the eager gather+execute task so `cancel()` and `whenDone()` can await its unwind. */
@@ -165,11 +172,6 @@ export class CheckpointProver {
    */
   public isFailed(): boolean {
     return this.failed;
-  }
-
-  /** True once block-level proving has been fully *enqueued* (sub-tree completion may still be pending). */
-  public isCompleted(): boolean {
-    return this.completed;
   }
 
   /** AbortSignal that fires on cancel — for callers that want to wire their own tasks. */

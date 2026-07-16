@@ -471,7 +471,6 @@ function makeStubProver(checkpoint: Checkpoint, opts: { blockProofsError?: Error
     isCancelled: () => false,
     // A prover configured with a blockProofsError is one whose block proofs rejected — i.e. failed.
     isFailed: () => opts.blockProofsError !== undefined,
-    isCompleted: () => false,
     cancel: () => {},
     whenDone: () => Promise.resolve(),
     getAbortSignal: () => new AbortController().signal,
