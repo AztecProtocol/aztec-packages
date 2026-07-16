@@ -324,12 +324,14 @@ describe('oracle type mappings', () => {
       expect(EPHEMERAL_ARRAY(FIELD).label).toBe('ephemeral-array(field)');
     });
 
-    it('renders struct fields in Noir snake_case', () => {
+    it('renders a struct namelessly, splicing nested structs into the parent', () => {
+      const inner = STRUCT([{ name: 'blockNumber', type: U32 }]);
       const struct = STRUCT([
         { name: 'txHash', type: TX_HASH },
-        { name: 'blockNumber', type: U32 },
+        { name: 'origin', type: inner },
+        { name: 'wrapped', type: OPTION(inner) },
       ]);
-      expect(struct.label).toBe('{tx_hash:field,block_number:u32}');
+      expect(struct.label).toBe('{field,u32,option({u32})}');
     });
   });
 });

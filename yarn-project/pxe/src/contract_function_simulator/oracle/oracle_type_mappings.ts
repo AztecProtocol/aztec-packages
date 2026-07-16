@@ -52,7 +52,12 @@ import {
   TxHash,
 } from '@aztec/stdlib/tx';
 
-import type { OriginBlock, RetractableFactOrigin } from '../../storage/fact_store/index.js';
+import {
+  type OriginBlock,
+  type OriginBlockState,
+  type RetractableFactOrigin,
+  originBlockStateFromNumber,
+} from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
@@ -125,11 +130,13 @@ export interface TypeMapping<T = any> {
    */
   kind: string;
   /**
-   * The canonical Noir type string the oracle interface hash is computed from:
+   * The wire-structural Noir type string the oracle interface hash is computed from:
    * - a scalar's is its bare `kind` (`'field'`);
-   * - a combinator's is built from its inner mappings' labels (`'array(field,4)'`, `'{tx_hash:field}'` in snake_case).
+   * - a combinator's is built from its inner mappings' labels (`'array(field,4)'`, `'option(u32)'`);
+   * - a struct's is a nameless `'{field,u32}'`, with nested struct labels spliced into the parent.
    *
-   * A TS wrapper over a Noir primitive (e.g. `TX_HASH` over `Field`) keeps the primitive's label, so mappings sharing a
+   * The label encodes exactly what the wire does, so anything the wire tolerates (field names, struct-in-struct
+   * nesting, a TS wrapper over a Noir primitive like `TX_HASH` over `Field`) shares a label — and mappings sharing a
    * label must be wire-equivalent.
    */
   label: string;
@@ -560,11 +567,17 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = STRUCT([
   { name: 'blockHash', type: FIELD },
 ]);
 
+const ORIGIN_BLOCK_STATE: TypeMapping<OriginBlockState> = SCALAR({
+  kind: 'origin-block-state',
+  serialization: { fn: v => [new Fr(v)] },
+  deserialization: { fn: ([reader]) => originBlockStateFromNumber(reader.readField().toNumber()) },
+});
+
 /** Read-side origin of a retractable fact, carrying the chain state of its origin block. */
 export const RETRACTABLE_FACT_ORIGIN: TypeMapping<RetractableFactOrigin> = STRUCT([
   { name: 'blockNumber', type: U32 },
   { name: 'blockHash', type: FIELD },
-  { name: 'blockState', type: U32 },
+  { name: 'blockState', type: ORIGIN_BLOCK_STATE },
 ]);
 
 export const FACT: TypeMapping<Fact> = STRUCT([
@@ -833,7 +846,7 @@ export type StructField<TName extends string = string, T = any> = { name: TName;
 export function STRUCT<T>(fields: readonly StructField[]): StructMapping<T> {
   return {
     kind: 'struct',
-    label: `{${fields.map(f => `${camelToSnake(f.name)}:${f.type.label}`).join(',')}}`,
+    label: `{${structFieldLabels(fields)}}`,
     fields,
     serialization: fields.every(f => f.type.serialization)
       ? {
@@ -915,12 +928,13 @@ export function isEphemeralArrayMapping(type: TypeMapping<any>): type is Ephemer
   return type.kind === 'ephemeral-array';
 }
 
-/** camelCase field name to Noir snake_case. Field names must be plain camelCase: the result is part of the interface hash. */
-function camelToSnake(name: string): string {
-  return name
-    .replace(/([A-Z])/g, '_$1')
-    .replace(/^_/, '')
-    .toLowerCase();
+/**
+ * The comma-joined labels of a struct's fields, with nested struct labels spliced into the parent: nesting affects
+ * neither the wire (struct slots concatenate) nor the interface, so the label treats nested and flat declarations as
+ * the same type.
+ */
+function structFieldLabels(fields: readonly StructField[]): string {
+  return fields.map(f => (isStructMapping(f.type) ? structFieldLabels(f.type.fields) : f.type.label)).join(',');
 }
 
 /** The field's value as a bigint, asserted to fit a `bits`-wide uint. */
