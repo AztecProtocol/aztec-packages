@@ -36,6 +36,13 @@ export class TXEArchiver extends ArchiverDataSourceBase {
 
   public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<void> {
     await this.updater.addCheckpoints(checkpoints, result);
+    // The TXE has no L1 and no proving, so every checkpoint is proven and finalized the moment it is added. Advancing
+    // the store markers keeps store-backed tag resolution ('proven'/'finalized') consistent with getL2Tips below.
+    const last = checkpoints.at(-1);
+    if (last) {
+      await this.updater.setProvenCheckpointNumber(last.checkpoint.number);
+      await this.updater.setFinalizedCheckpointNumber(last.checkpoint.number);
+    }
   }
 
   public getRollupAddress(): Promise<EthAddress> {
@@ -47,8 +54,8 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   }
 
   public getL1Constants(): Promise<L1RollupConstants> {
-    // The TXE has no L1, so it serves the empty constants (epochDuration=1) used throughout the TXE state machine
-    // (see mock_epoch_cache). The node calls this when assembling a mined tx receipt to derive the epoch number.
+    // The TXE has no L1, so it serves the empty constants (epochDuration=1). The node calls this when assembling
+    // a mined tx receipt to derive the epoch number.
     return Promise.resolve(EmptyL1RollupConstants);
   }
 

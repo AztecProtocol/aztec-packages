@@ -17,27 +17,16 @@ import { redirectsPlugin } from './esbuild/plugins/redirects.mjs';
 import { enforceSizeLimits } from './esbuild/plugins/size_guard.mjs';
 import { stripArtifactDebugPlugin } from './esbuild/plugins/strip_artifact_debug.mjs';
 
-// `@aztec/*` packages that AztecNodeService imports transitively but the TXE worker never
-// actually constructs or executes — sequencer/validator/prover/etc. are passed in as `undefined`,
-// so the imported symbols are only used inside AztecNodeService methods TXE never calls. The
-// Proxy-based `empty_stub.cjs` throws on access, surfacing any false assumption loudly.
+// `@aztec/*` packages that `@aztec/archiver` imports transitively but the TXE worker never
+// actually constructs or executes — TXEArchiver only uses the archiver's data-store layer, so the
+// L1-facing symbols are never reached. The Proxy-based `empty_stub.cjs` throws on access,
+// surfacing any false assumption loudly.
 //
 // NOTE: `@aztec/archiver` is intentionally NOT stubbed — TXEArchiver extends ArchiverDataSourceBase
 //       and uses createArchiverDataStores at runtime.
 // NOTE: `@aztec/blob-lib` is NOT stubbed — stdlib's tx_effect calls getNumTxBlobFields at runtime
 //       when serializing transactions.
-const fullyStubbedAztecPackages = [
-  '@aztec/p2p',
-  '@aztec/sequencer-client',
-  '@aztec/validator-client',
-  '@aztec/prover-client',
-  '@aztec/prover-node',
-  '@aztec/slasher',
-  '@aztec/epoch-cache',
-  '@aztec/blob-client',
-  '@aztec/node-keystore',
-  '@aztec/node-lib',
-];
+const fullyStubbedAztecPackages = ['@aztec/epoch-cache', '@aztec/blob-client'];
 
 // Each row redirects a specifier match to a stub file under `esbuild/stubs/`. The local stub
 // re-exports only the surface the bundled code reaches at runtime, or throws on call for code
@@ -60,7 +49,6 @@ const redirects = [
   { filter: /^@aztec\/protocol-contracts\/providers\/bundle$/, stub: 'protocol_contracts_bundle_stub.ts' },
   { filter: /^@aztec\/archiver$/, stub: 'archiver_stub.ts' },
   { filter: /^@aztec\/bb-prover$/, stub: 'bb_prover_stub.ts' },
-  { filter: /^@aztec\/bb-prover\/test$/, stub: 'bb_prover_test_stub.ts' },
   { filter: /^@aztec\/world-state$/, stub: 'world_state_stub.ts' },
   { filter: /^@noble\/curves\/secp256k1$/, stub: 'noble_secp256k1_stub.ts' },
   { filter: /^@noble\/curves\/bls12-381$/, stub: 'noble_bls12_stub.ts' },
@@ -69,28 +57,10 @@ const redirects = [
   // otherwise pull in heavy unused code, but we can't wholesale stub the package (it has live
   // siblings TXE still needs).
   //
-  // - aztec-node/.../node_metrics.js: constructed by AztecNodeService but never observed
-  //   because TXE's meter is the Noop client.
-  // - aztec-node/.../sentinel/{factory,sentinel}.js: only reached via `AztecNodeService.start()`,
-  //   which TXE never invokes.
   // - telemetry-client/.../start.js: contains `await import('./otel.js')` which forces emission
   //   of a large OpenTelemetry SDK chunk even though TXE never starts telemetry.
   // - zod/.../locales/index.js: barrel re-exports every i18n bundle; TXE only needs `en`.
-  {
-    filter: /^\.\/node_metrics\.(js|ts)$/,
-    importerContains: '/aztec-node/',
-    stub: 'aztec_node_node_metrics_stub.ts',
-  },
-  {
-    filter: /^\.\.\/sentinel\/factory\.(js|ts)$/,
-    importerContains: '/aztec-node/',
-    stub: 'aztec_node_sentinel_factory_stub.ts',
-  },
-  {
-    filter: /^\.\.\/sentinel\/sentinel\.(js|ts)$/,
-    importerContains: '/aztec-node/',
-    stub: 'aztec_node_sentinel_stub.ts',
-  },
+  //
   // start.js arrives as a resolved absolute path from outside the package…
   { filter: /telemetry-client\/(dest|src)\/start\.(js|ts)$/, stub: 'telemetry_start_stub.ts' },
   // …and as a relative `./start.js` from siblings inside the package.
@@ -174,9 +144,9 @@ const result = await build({
     // bundled), viem, abitype, and the rest of the L1 client surface.
     '@aztec/ethereum',
     '@aztec/l1-artifacts',
-    // Same reasoning: stdlib/p2p/signature_utils, archiver/l1, and aztec-node/config all
-    // statically import `viem` for L1 RPC + signing primitives. None of those code paths execute
-    // in TXE, so externalize the whole tree.
+    // Same reasoning: stdlib/p2p/signature_utils and archiver/l1 statically import `viem` for
+    // L1 RPC + signing primitives. Neither code path executes in TXE, so externalize the whole
+    // tree.
     'viem',
     'abitype',
     'ox',
