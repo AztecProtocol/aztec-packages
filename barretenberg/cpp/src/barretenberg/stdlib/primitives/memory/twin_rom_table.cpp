@@ -20,14 +20,7 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
 {
     // get the builder context
     for (const auto& entry : table_entries) {
-        if (entry[0].get_context() != nullptr) {
-            context = entry[0].get_context();
-            break;
-        }
-        if (entry[1].get_context() != nullptr) {
-            context = entry[1].get_context();
-            break;
-        }
+        context = validate_context(context, entry[0].get_context(), entry[1].get_context());
     }
 
     // We do not initialize the table yet. The input entries might all be constant,
@@ -129,32 +122,25 @@ template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::op
 template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t index) const
 {
-    if (index >= length) {
-        BB_ASSERT(context != nullptr);
-        context->failure("twin_rom_table: ROM array access out of bounds");
-        return raw_entries[0];
-    }
-
+    BB_ASSERT_LT(index, length, "twin_rom_table: ROM array access out of bounds");
     return raw_entries[index];
 }
 
 template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_pt& index) const
 {
+    const auto native_index = uint256_t(index.get_value());
+    BB_ASSERT_LT(native_index, length, "twin_rom_table: ROM array access out of bounds");
+
     if (index.is_constant()) {
-        return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
+        // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
+        return operator[](static_cast<size_t>(static_cast<uint64_t>(native_index)));
     }
     if (context == nullptr) {
         context = index.get_context();
     }
 
     initialize_table();
-    if (uint256_t(index.get_value()) >= length) {
-        // Set a failure when the index is out of bounds. Return early to avoid OOB vector access.
-        context->failure("twin_rom_table: ROM array access out of bounds");
-        return { field_pt::from_witness_index(context, context->zero_idx()),
-                 field_pt::from_witness_index(context, context->zero_idx()) };
-    }
 
     auto output_indices = context->read_ROM_array_pair(rom_id, index.get_witness_index());
     auto pair = field_pair_pt{
@@ -162,7 +148,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
         field_pt::from_witness_index(context, output_indices[1]),
     };
 
-    const auto native_index = uint256_t(index.get_value());
+    // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
     // In case of a legitimate lookup, restore the tags of the original entries to the output
     if (native_index < length) {

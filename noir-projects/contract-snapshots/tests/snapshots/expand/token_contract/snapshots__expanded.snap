@@ -4048,6 +4048,18 @@ mod test {
             utils::check_private_balance(env, token_contract_address, recipient, amount);
         }
 
+        /// A partial note can be completed more than once (`complete` only existence-checks its validity commitment, which is
+        /// never consumed), so both finalizes emit a completion log under the same tag. Discovery tolerates the two logs
+        /// rather than failing: it completes with the first (recovering that note) and ignores the rest.
+        #[test]
+        unconstrained fn discovery_tolerates_a_partial_note_completed_twice() {
+            let (env, token_contract_address, owner, recipient, _): (aztec::test::helpers::test_environment::TestEnvironment, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, u128) = utils::setup_and_mint_to_public(false);
+            let partial_uint_note: PartialUintNote = env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+            env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(1_u128, partial_uint_note));
+            env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(1_u128, partial_uint_note));
+            utils::check_private_balance(env, token_contract_address, recipient, 1_u128);
+        }
+
         #[test(should_fail_with = "Invalid partial note or completer")]
         unconstrained fn transfer_to_private_transfer_not_prepared() {
             let (env, token_contract_address, owner, _, amount): (aztec::test::helpers::test_environment::TestEnvironment, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress, u128) = utils::setup_and_mint_to_public(false);

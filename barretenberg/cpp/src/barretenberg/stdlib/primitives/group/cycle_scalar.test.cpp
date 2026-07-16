@@ -282,7 +282,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
         BigScalarField sum = scalar1 + scalar2;
 
         // Verify that limb0's maximum_value exceeds the default maximum
-        EXPECT_GT(sum.binary_basis_limbs[0].maximum_value, BigScalarField::DEFAULT_MAXIMUM_LIMB);
+        EXPECT_GT(sum.get_limb(0).maximum_value, BigScalarField::DEFAULT_MAXIMUM_LIMB);
 
         // Now construct a cycle_scalar from this sum - this should trigger the overflow handling
         cycle_scalar scalar(sum);

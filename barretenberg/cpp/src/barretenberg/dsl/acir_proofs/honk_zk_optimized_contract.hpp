@@ -1231,12 +1231,12 @@ contract HonkVerifier is IVerifier {
                     let contribution_0 :=
                         addmod(identity, mulmod(addmod(q_arith, P_SUB_1, p), mload(W4_SHIFT_EVAL_LOC), p), p)
                     contribution_0 := mulmod(mulmod(contribution_0, q_arith, p), mload(POW_PARTIAL_EVALUATION_LOC), p)
-                    mstore(SUBRELATION_EVAL_0_LOC, contribution_0)
+                    mstore(SUBRELATION_EVAL_6_LOC, contribution_0)
 
                     let contribution_1 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, P_SUB_1, p), p)
                     contribution_1 := mulmod(contribution_1, q_arith, p)
                     contribution_1 := mulmod(contribution_1, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                    mstore(SUBRELATION_EVAL_1_LOC, contribution_1)
+                    mstore(SUBRELATION_EVAL_7_LOC, contribution_1)
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1305,14 +1305,14 @@ contract HonkVerifier is IVerifier {
                         )
 
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_2_LOC, acc)
+                        mstore(SUBRELATION_EVAL_0_LOC, acc)
 
                         acc := mulmod(
                             mulmod(mload(LAGRANGE_LAST_EVAL_LOC), mload(Z_PERM_SHIFT_EVAL_LOC), p),
                             mload(POW_PARTIAL_EVALUATION_LOC),
                             p
                         )
-                        mstore(SUBRELATION_EVAL_3_LOC, acc)
+                        mstore(SUBRELATION_EVAL_1_LOC, acc)
 
 
                         // zperm initialization (lagrange_first * z_perm = 0)
@@ -1323,7 +1323,7 @@ contract HonkVerifier is IVerifier {
                                 p),
                             mload(POW_PARTIAL_EVALUATION_LOC),
                             p)
-                        mstore(SUBRELATION_EVAL_4_LOC, acc)
+                        mstore(SUBRELATION_EVAL_2_LOC, acc)
                     }
                 }
 
@@ -1388,9 +1388,9 @@ contract HonkVerifier is IVerifier {
                     let read_tag_boolean_relation := mulmod(read_tag, addmod(read_tag, P_SUB_1, p), p)
                     read_tag_boolean_relation := mulmod(read_tag_boolean_relation, mload(POW_PARTIAL_EVALUATION_LOC), p)
 
-                    mstore(SUBRELATION_EVAL_5_LOC, accumulator_none)
-                    mstore(SUBRELATION_EVAL_6_LOC, accumulator_one)
-                    mstore(SUBRELATION_EVAL_7_LOC, read_tag_boolean_relation)
+                    mstore(SUBRELATION_EVAL_3_LOC, accumulator_none)
+                    mstore(SUBRELATION_EVAL_4_LOC, accumulator_one)
+                    mstore(SUBRELATION_EVAL_5_LOC, read_tag_boolean_relation)
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -2328,170 +2328,151 @@ contract HonkVerifier is IVerifier {
             //     mem.batchingChallenge = mem.batchingChallenge * tp.rho;
             // }
 
-            // Calculate the scalars and batching challenge for the unshifted entities
-            // 0: GEMINI_MASKING_EVAL_LOC (ZK entity index 0)
+            // Calculate the scalars and batching challenge for the unshifted entities.
+            // Iteration order matches UltraFlavor_Generated::EntityId. Scalar slot N+1 pairs with vk[N].
+            // 0: GEMINI_MASKING_EVAL_LOC
             mstore(BATCH_SCALAR_1_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(GEMINI_MASKING_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 1: QM_EVAL_LOC
+            // 1: SIGMA1_EVAL_LOC
             mstore(BATCH_SCALAR_2_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QM_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 2: QC_EVAL_LOC
-            mstore(BATCH_SCALAR_3_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QC_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 3: QL_EVAL_LOC
-            mstore(BATCH_SCALAR_4_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QL_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 4: QR_EVAL_LOC
-            mstore(BATCH_SCALAR_5_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QR_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 5: QO_EVAL_LOC
-            mstore(BATCH_SCALAR_6_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QO_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 6: Q4_EVAL_LOC
-            mstore(BATCH_SCALAR_7_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(Q4_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 7: QLOOKUP_EVAL_LOC
-            mstore(BATCH_SCALAR_8_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QLOOKUP_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 8: QARITH_EVAL_LOC
-            mstore(BATCH_SCALAR_9_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QARITH_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 9: QRANGE_EVAL_LOC
-            mstore(BATCH_SCALAR_10_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QRANGE_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 10: QELLIPTIC_EVAL_LOC
-            mstore(BATCH_SCALAR_11_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(
-                batched_evaluation,
-                mulmod(mload(QELLIPTIC_EVAL_LOC), batching_challenge, p),
-                p
-            )
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 11: QMEMORY_EVAL_LOC
-            mstore(BATCH_SCALAR_12_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QMEMORY_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 12: QNNF_EVAL_LOC
-            mstore(BATCH_SCALAR_13_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QNNF_EVAL_LOC), batching_challenge, p), p)
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 13: QPOSEIDON2_EXTERNAL_EVAL_LOC
-            mstore(BATCH_SCALAR_14_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(
-                batched_evaluation,
-                mulmod(mload(QPOSEIDON2_EXTERNAL_EVAL_LOC), batching_challenge, p),
-                p
-            )
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 14: QPOSEIDON2_INTERNAL_EVAL_LOC
-            mstore(BATCH_SCALAR_15_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(
-                batched_evaluation,
-                mulmod(mload(QPOSEIDON2_INTERNAL_EVAL_LOC), batching_challenge, p),
-                p
-            )
-            batching_challenge := mulmod(batching_challenge, rho, p)
-
-            // 15: SIGMA1_EVAL_LOC
-            mstore(BATCH_SCALAR_16_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(SIGMA1_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 16: SIGMA2_EVAL_LOC
-            mstore(BATCH_SCALAR_17_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 2: SIGMA2_EVAL_LOC
+            mstore(BATCH_SCALAR_3_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(SIGMA2_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 17: SIGMA3_EVAL_LOC
-            mstore(BATCH_SCALAR_18_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 3: SIGMA3_EVAL_LOC
+            mstore(BATCH_SCALAR_4_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(SIGMA3_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 18: SIGMA4_EVAL_LOC
-            mstore(BATCH_SCALAR_19_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 4: SIGMA4_EVAL_LOC
+            mstore(BATCH_SCALAR_5_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(SIGMA4_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 19: ID1_EVAL_LOC
-            mstore(BATCH_SCALAR_20_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 5: ID1_EVAL_LOC
+            mstore(BATCH_SCALAR_6_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(ID1_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 20: ID2_EVAL_LOC
-            mstore(BATCH_SCALAR_21_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 6: ID2_EVAL_LOC
+            mstore(BATCH_SCALAR_7_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(ID2_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 21: ID3_EVAL_LOC
-            mstore(BATCH_SCALAR_22_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 7: ID3_EVAL_LOC
+            mstore(BATCH_SCALAR_8_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(ID3_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 22: ID4_EVAL_LOC
-            mstore(BATCH_SCALAR_23_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 8: ID4_EVAL_LOC
+            mstore(BATCH_SCALAR_9_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(ID4_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 23: TABLE1_EVAL_LOC
-            mstore(BATCH_SCALAR_24_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 9: LAGRANGE_FIRST_EVAL_LOC
+            mstore(BATCH_SCALAR_10_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LAGRANGE_FIRST_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 10: LAGRANGE_LAST_EVAL_LOC
+            mstore(BATCH_SCALAR_11_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LAGRANGE_LAST_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 11: QLOOKUP_EVAL_LOC
+            mstore(BATCH_SCALAR_12_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QLOOKUP_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 12: TABLE1_EVAL_LOC
+            mstore(BATCH_SCALAR_13_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(TABLE1_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 24: TABLE2_EVAL_LOC
-            mstore(BATCH_SCALAR_25_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 13: TABLE2_EVAL_LOC
+            mstore(BATCH_SCALAR_14_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(TABLE2_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 25: TABLE3_EVAL_LOC
-            mstore(BATCH_SCALAR_26_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 14: TABLE3_EVAL_LOC
+            mstore(BATCH_SCALAR_15_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(TABLE3_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 26: TABLE4_EVAL_LOC
-            mstore(BATCH_SCALAR_27_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            // 15: TABLE4_EVAL_LOC
+            mstore(BATCH_SCALAR_16_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(TABLE4_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 27: LAGRANGE_FIRST_EVAL_LOC
-            mstore(BATCH_SCALAR_28_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(
-                batched_evaluation,
-                mulmod(mload(LAGRANGE_FIRST_EVAL_LOC), batching_challenge, p),
-                p
-            )
+            // 16: QM_EVAL_LOC
+            mstore(BATCH_SCALAR_17_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QM_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 28: LAGRANGE_LAST_EVAL_LOC
+            // 17: QR_EVAL_LOC
+            mstore(BATCH_SCALAR_18_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QR_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 18: QO_EVAL_LOC
+            mstore(BATCH_SCALAR_19_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QO_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 19: QC_EVAL_LOC
+            mstore(BATCH_SCALAR_20_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QC_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 20: QL_EVAL_LOC
+            mstore(BATCH_SCALAR_21_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QL_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 21: Q4_EVAL_LOC
+            mstore(BATCH_SCALAR_22_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(Q4_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 22: QARITH_EVAL_LOC
+            mstore(BATCH_SCALAR_23_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QARITH_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 23: QRANGE_EVAL_LOC
+            mstore(BATCH_SCALAR_24_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QRANGE_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 24: QELLIPTIC_EVAL_LOC
+            mstore(BATCH_SCALAR_25_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QELLIPTIC_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 25: QMEMORY_EVAL_LOC
+            mstore(BATCH_SCALAR_26_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QMEMORY_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 26: QNNF_EVAL_LOC
+            mstore(BATCH_SCALAR_27_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QNNF_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 27: QPOSEIDON2_EXTERNAL_EVAL_LOC
+            mstore(BATCH_SCALAR_28_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QPOSEIDON2_EXTERNAL_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 28: QPOSEIDON2_INTERNAL_EVAL_LOC
             mstore(BATCH_SCALAR_29_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(
-                batched_evaluation,
-                mulmod(mload(LAGRANGE_LAST_EVAL_LOC), batching_challenge, p),
-                p
-            )
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QPOSEIDON2_INTERNAL_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
             // 29: W1_EVAL_LOC
@@ -2521,29 +2502,17 @@ contract HonkVerifier is IVerifier {
 
             // 34: LOOKUP_INVERSES_EVAL_LOC
             mstore(BATCH_SCALAR_35_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(
-                batched_evaluation,
-                mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), batching_challenge, p),
-                p
-            )
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
             // 35: LOOKUP_READ_COUNTS_EVAL_LOC
             mstore(BATCH_SCALAR_36_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(
-                batched_evaluation,
-                mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), batching_challenge, p),
-                p
-            )
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
             // 36: LOOKUP_READ_TAGS_EVAL_LOC
             mstore(BATCH_SCALAR_37_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
-            batched_evaluation := addmod(
-                batched_evaluation,
-                mulmod(mload(LOOKUP_READ_TAGS_EVAL_LOC), batching_challenge, p),
-                p
-            )
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LOOKUP_READ_TAGS_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
             // Unrolled for NUMBER_OF_SHIFTED_ENTITIES = 5
@@ -2692,50 +2661,63 @@ contract HonkVerifier is IVerifier {
                 }
             }
 
-            // Libra polynomial batching (ZK addition)
-            // denominators[0] = 1/(shplonkZ - geminiR) = POS_INVERTED_DENOM_0 (already computed)
-            // denominators[1] = 1/(shplonkZ - SUBGROUP_GENERATOR * geminiR) (new, compute inline)
-            // denominators[2] = denominators[0]
-            // denominators[3] = denominators[0]
+            // Libra polynomial batching: five opening claims for (G, A, A, A, Q) at points {r, g*r, r, 1, r}.
             {
                 let shplonk_nu := mload(SHPLONK_NU_CHALLENGE)
 
-                let libra_denom_0 := mload(POS_INVERTED_DENOM_0_LOC)
+                let libra_denom_0 := mload(POS_INVERTED_DENOM_0_LOC)        // 1/(z - r)
+                let libra_denom_1 := mload(LIBRA_SUBGROUP_DENOM_LOC)        // 1/(z - g*r)
 
-                // 1/(shplonkZ - SUBGROUP_GENERATOR * geminiR)
-                // Already batch-inverted in the shplemini batch inversion above
-                let libra_denom_1 := mload(LIBRA_SUBGROUP_DENOM_LOC)
+                // 1/(z - 1): boundary denominator, computed inline via the modexp precompile.
+                let shplonk_z := mload(SHPLONK_Z_CHALLENGE)
+                mstore(0x00, 0x20)
+                mstore(0x20, 0x20)
+                mstore(0x40, 0x20)
+                mstore(0x60, addmod(shplonk_z, sub(p, 1), p))
+                mstore(0x80, sub(p, 2))
+                mstore(0xa0, p)
+                if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
+                    mstore(0x00, MODEXP_FAILED_SELECTOR)
+                    revert(0x00, 0x04)
+                }
+                let libra_denom_3 := mload(0x00)
+                if iszero(libra_denom_3) {
+                    mstore(0x00, MODEXP_FAILED_SELECTOR)
+                    revert(0x00, 0x04)
+                }
 
-                // i=0: denom[0], libraPolyEvals[0]
+                // i=0: G(r)
                 let scaling_factor := mulmod(libra_denom_0, batching_challenge, p)
                 let libra_scalar_0 := sub(p, scaling_factor)
                 constant_term_acc := addmod(constant_term_acc, mulmod(scaling_factor, mload(LIBRA_POLY_EVAL_0_LOC), p), p)
                 batching_challenge := mulmod(batching_challenge, shplonk_nu, p)
 
-                // i=1: denom[1], libraPolyEvals[1]
+                // i=1: A(g*r)
                 scaling_factor := mulmod(libra_denom_1, batching_challenge, p)
                 let libra_scalar_1 := sub(p, scaling_factor)
                 constant_term_acc := addmod(constant_term_acc, mulmod(scaling_factor, mload(LIBRA_POLY_EVAL_1_LOC), p), p)
                 batching_challenge := mulmod(batching_challenge, shplonk_nu, p)
 
-                // i=2: denom[0], libraPolyEvals[2]
+                // i=2: A(r)
                 scaling_factor := mulmod(libra_denom_0, batching_challenge, p)
                 let libra_scalar_2 := sub(p, scaling_factor)
                 constant_term_acc := addmod(constant_term_acc, mulmod(scaling_factor, mload(LIBRA_POLY_EVAL_2_LOC), p), p)
                 batching_challenge := mulmod(batching_challenge, shplonk_nu, p)
 
-                // i=3: denom[0], libraPolyEvals[3]
-                scaling_factor := mulmod(libra_denom_0, batching_challenge, p)
+                // i=3: A(1), boundary opening with hardcoded value 0.
+                scaling_factor := mulmod(libra_denom_3, batching_challenge, p)
                 let libra_scalar_3 := sub(p, scaling_factor)
+                batching_challenge := mulmod(batching_challenge, shplonk_nu, p)
+
+                // i=4: Q(r)
+                scaling_factor := mulmod(libra_denom_0, batching_challenge, p)
+                let libra_scalar_4 := sub(p, scaling_factor)
                 constant_term_acc := addmod(constant_term_acc, mulmod(scaling_factor, mload(LIBRA_POLY_EVAL_3_LOC), p), p)
 
-                // Store commitment scalars:
-                // scalars[52] = batchingScalars[0] (for libraCommitments[0] = libraConcat)
+                // Group scalars by underlying commitment: [G], [A] (sum of three openings), [Q].
                 mstore(BATCH_SCALAR_{{ LIBRA_BATCH_SCALAR_0 }}_LOC, libra_scalar_0)
-                // scalars[53] = batchingScalars[1] + batchingScalars[2] (for libraCommitments[1] = libraGrandProduct)
-                mstore(BATCH_SCALAR_{{ LIBRA_BATCH_SCALAR_1 }}_LOC, addmod(libra_scalar_1, libra_scalar_2, p))
-                // scalars[54] = batchingScalars[3] (for libraCommitments[2] = libraQuotient)
-                mstore(BATCH_SCALAR_{{ LIBRA_BATCH_SCALAR_2 }}_LOC, libra_scalar_3)
+                mstore(BATCH_SCALAR_{{ LIBRA_BATCH_SCALAR_1 }}_LOC, addmod(addmod(libra_scalar_1, libra_scalar_2, p), libra_scalar_3, p))
+                mstore(BATCH_SCALAR_{{ LIBRA_BATCH_SCALAR_2 }}_LOC, libra_scalar_4)
             }
 
             /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -2978,8 +2960,12 @@ contract HonkVerifier is IVerifier {
             // Accumulate vk points
             loadVk()
             {
-                // Accumulator = accumulator + scalar[2] * vk[0] (Q_M)
-                mcopy(G1_LOCATION, Q_M_X_LOC, 0x40)
+                // VK batchMul order matches UltraFlavor_Generated::EntityId precomputed layout.
+                // Note: ZK proof has gemini_masking_poly at sumcheckEvaluations[0] paired with SCALAR_1
+                // (handled separately above), so the precomputed VK entries pair with SCALAR_2..SCALAR_29.
+
+                // Accumulator = accumulator + scalar[2] * vk[0] (sigma_1)
+                mcopy(G1_LOCATION, SIGMA_1_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_2_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -2990,8 +2976,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[2] * vk[1]
-                mcopy(G1_LOCATION, Q_C_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[3] * vk[1] (sigma_2)
+                mcopy(G1_LOCATION, SIGMA_2_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_3_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3002,8 +2988,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[3] * vk[2]
-                mcopy(G1_LOCATION, Q_L_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[4] * vk[2] (sigma_3)
+                mcopy(G1_LOCATION, SIGMA_3_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_4_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3014,8 +3000,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[4] * vk[3]
-                mcopy(G1_LOCATION, Q_R_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[5] * vk[3] (sigma_4)
+                mcopy(G1_LOCATION, SIGMA_4_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_5_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3026,8 +3012,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[5] * vk[4]
-                mcopy(G1_LOCATION, Q_O_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[6] * vk[4] (id_1)
+                mcopy(G1_LOCATION, ID_1_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_6_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3038,8 +3024,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[6] * vk[5]
-                mcopy(G1_LOCATION, Q_4_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[7] * vk[5] (id_2)
+                mcopy(G1_LOCATION, ID_2_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_7_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3050,8 +3036,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[7] * vk[6]
-                mcopy(G1_LOCATION, Q_LOOKUP_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[8] * vk[6] (id_3)
+                mcopy(G1_LOCATION, ID_3_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_8_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3062,8 +3048,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[8] * vk[7]
-                mcopy(G1_LOCATION, Q_ARITH_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[9] * vk[7] (id_4)
+                mcopy(G1_LOCATION, ID_4_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_9_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3074,8 +3060,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[9] * vk[8]
-                mcopy(G1_LOCATION, Q_DELTA_RANGE_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[10] * vk[8] (lagrange_first)
+                mcopy(G1_LOCATION, LAGRANGE_FIRST_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_10_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3086,8 +3072,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[10] * vk[9]
-                mcopy(G1_LOCATION, Q_ELLIPTIC_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[11] * vk[9] (lagrange_last)
+                mcopy(G1_LOCATION, LAGRANGE_LAST_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_11_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3098,8 +3084,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[11] * vk[10]
-                mcopy(G1_LOCATION, Q_MEMORY_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[12] * vk[10] (q_lookup)
+                mcopy(G1_LOCATION, Q_LOOKUP_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_12_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3110,8 +3096,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[12] * vk[11]
-                mcopy(G1_LOCATION, Q_NNF_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[13] * vk[11] (table_1)
+                mcopy(G1_LOCATION, TABLE_1_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_13_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3122,8 +3108,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[13] * vk[12]
-                mcopy(G1_LOCATION, Q_POSEIDON_2_EXTERNAL_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[14] * vk[12] (table_2)
+                mcopy(G1_LOCATION, TABLE_2_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_14_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3134,8 +3120,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[14] * vk[13]
-                mcopy(G1_LOCATION, Q_POSEIDON_2_INTERNAL_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[15] * vk[13] (table_3)
+                mcopy(G1_LOCATION, TABLE_3_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_15_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3146,8 +3132,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[15] * vk[14]
-                mcopy(G1_LOCATION, SIGMA_1_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[16] * vk[14] (table_4)
+                mcopy(G1_LOCATION, TABLE_4_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_16_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3158,8 +3144,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[16] * vk[15]
-                mcopy(G1_LOCATION, SIGMA_2_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[17] * vk[15] (q_m)
+                mcopy(G1_LOCATION, Q_M_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_17_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3170,8 +3156,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[17] * vk[16]
-                mcopy(G1_LOCATION, SIGMA_3_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[18] * vk[16] (q_r)
+                mcopy(G1_LOCATION, Q_R_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_18_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3182,8 +3168,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[18] * vk[17]
-                mcopy(G1_LOCATION, SIGMA_4_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[19] * vk[17] (q_o)
+                mcopy(G1_LOCATION, Q_O_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_19_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3194,8 +3180,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[19] * vk[18]
-                mcopy(G1_LOCATION, ID_1_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[20] * vk[18] (q_c)
+                mcopy(G1_LOCATION, Q_C_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_20_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3206,8 +3192,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[20] * vk[19]
-                mcopy(G1_LOCATION, ID_2_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[21] * vk[19] (q_l)
+                mcopy(G1_LOCATION, Q_L_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_21_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3218,8 +3204,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[21] * vk[20]
-                mcopy(G1_LOCATION, ID_3_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[22] * vk[20] (q_4)
+                mcopy(G1_LOCATION, Q_4_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_22_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3230,8 +3216,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[22] * vk[21]
-                mcopy(G1_LOCATION, ID_4_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[23] * vk[21] (q_arith)
+                mcopy(G1_LOCATION, Q_ARITH_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_23_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3242,8 +3228,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[23] * vk[22]
-                mcopy(G1_LOCATION, TABLE_1_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[24] * vk[22] (q_delta_range)
+                mcopy(G1_LOCATION, Q_DELTA_RANGE_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_24_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3254,8 +3240,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[24] * vk[23]
-                mcopy(G1_LOCATION, TABLE_2_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[25] * vk[23] (q_elliptic)
+                mcopy(G1_LOCATION, Q_ELLIPTIC_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_25_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3266,8 +3252,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[25] * vk[24]
-                mcopy(G1_LOCATION, TABLE_3_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[26] * vk[24] (q_memory)
+                mcopy(G1_LOCATION, Q_MEMORY_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_26_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3278,8 +3264,8 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[26] * vk[25]
-                mcopy(G1_LOCATION, TABLE_4_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[27] * vk[25] (q_nnf)
+                mcopy(G1_LOCATION, Q_NNF_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_27_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
@@ -3290,9 +3276,21 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[27] * vk[26]
-                mcopy(G1_LOCATION, LAGRANGE_FIRST_X_LOC, 0x40)
+                // Accumulator = accumulator + scalar[28] * vk[26] (q_poseidon2_external)
+                mcopy(G1_LOCATION, Q_POSEIDON_2_EXTERNAL_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_28_LOC))
+                precomp_success_flag := and(
+                    precomp_success_flag,
+                    staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
+                )
+                precomp_success_flag := and(
+                    precomp_success_flag,
+                    staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
+                )
+
+                // Accumulator = accumulator + scalar[29] * vk[27] (q_poseidon2_internal)
+                mcopy(G1_LOCATION, Q_POSEIDON_2_INTERNAL_X_LOC, 0x40)
+                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_29_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
                     staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
@@ -3306,18 +3304,6 @@ contract HonkVerifier is IVerifier {
                 mstore(G1_LOCATION, 0x01)   // G1 generator x
                 mstore(G1_Y_LOCATION, 0x02) // G1 generator y
                 mstore(SCALAR_LOCATION, constant_term_acc)
-                precomp_success_flag := and(
-                    precomp_success_flag,
-                    staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
-                )
-                precomp_success_flag := and(
-                    precomp_success_flag,
-                    staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
-                )
-
-                // Accumulator = accumulator + scalar[28] * vk[27]
-                mcopy(G1_LOCATION, LAGRANGE_LAST_X_LOC, 0x40)
-                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_29_LOC))
                 precomp_success_flag := and(
                     precomp_success_flag,
                     staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)

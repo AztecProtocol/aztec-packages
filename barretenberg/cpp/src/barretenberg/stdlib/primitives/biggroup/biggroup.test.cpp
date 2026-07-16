@@ -291,8 +291,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
                 // Manipulate the limbs to create an invalid value
                 // Set the highest limb to a very large value that would make the total >= modulus
-                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
-                x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+                stdlib::bigfield_test_access::set_limb_element(
+                    x_coord, 3, field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68)));
+                x_coord.set_limb_max(3, uint256_t(1) << 68);
 
                 // Skip curve check since we're intentionally creating an invalid point
                 // Note: is_infinity is auto-detected as false since coords are non-zero
@@ -313,8 +314,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
                 // Manipulate the limbs to create an invalid value
                 // Set the highest limb to a very large value that would make the total >= modulus
-                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
-                y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+                stdlib::bigfield_test_access::set_limb_element(
+                    y_coord, 3, field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68)));
+                y_coord.set_limb_max(3, uint256_t(1) << 68);
 
                 // Skip curve check since we're intentionally creating an invalid point
                 // Note: is_infinity is auto-detected as false since coords are non-zero
@@ -1050,28 +1052,31 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_compute_naf_zero()
     {
-        Builder builder = Builder();
-        size_t length = fr::modulus.get_msb() + 1;
+        for (size_t max_num_bits : { 0UL, 1UL, 2UL, 64UL, 128UL }) {
+            Builder builder = Builder();
 
-        // Our algorithm for input 0 outputs the NAF representation of r (the field modulus)
-        fr scalar_val(0);
+            scalar_ct scalar = scalar_ct::from_witness(&builder, fr(0));
+            auto naf = element_ct::compute_naf(scalar, max_num_bits);
+            ASSERT_FALSE(naf.empty());
 
-        scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
-        auto naf = element_ct::compute_naf(scalar, length);
+            // For scalar = 0, the canonical NAF encoding is [MSB=0, 1, ..., 1, skew=1] (bool semantics: 0 ⟶ +1, 1 ⟶ −1)
+            const size_t length = naf.size() - 1;
+            EXPECT_FALSE(naf[0].get_value());     // msm 0
+            EXPECT_TRUE(naf[length].get_value()); // lsb 1
+            for (size_t k = 1; k < length; ++k) { //
+                EXPECT_TRUE(naf[k].get_value());  // rest all bits 1
+            }
 
-        // scalar = -naf[L] + \sum_{i=0}^{L-1}(1-2*naf[i]) 2^{L-1-i}
-        fr reconstructed_val(0);
-        uint256_t reconstructed_u256(0);
-        for (size_t i = 0; i < length; i++) {
-            reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
-            reconstructed_u256 +=
-                (uint256_t(1) - uint256_t(2) * uint256_t(naf[i].get_value())) * (uint256_t(1) << (length - 1 - i));
-        };
-        reconstructed_val -= fr(naf[length].get_value());
-        EXPECT_EQ(scalar_val, reconstructed_val);
-        EXPECT_EQ(reconstructed_u256, uint256_t(fr::modulus));
+            // Field reconstruction: scalar = -naf[L] + Σ_{i=0..L-1} (1 - 2·naf[i]) · 2^{L-1-i}.
+            fr reconstructed(0);
+            for (size_t i = 0; i < length; ++i) {
+                reconstructed += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
+            }
+            reconstructed -= fr(naf[length].get_value());
+            EXPECT_EQ(reconstructed, fr(0));
 
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
     }
 
     static void test_compute_naf_overflow_lower_half()
@@ -1111,6 +1116,94 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    // Regression test: overwrite the naf witnesses with the malicious top-bit-flipped
+    // assignment (plus the `field_t::accumulate` intermediates that keep the big_add_gate chain
+    // satisfied) and check the circuit is rejected.
+    static void test_compute_naf_top_bit_rejects_malicious_witness()
+    {
+        if constexpr (scalar_ct::is_composite) {
+            GTEST_SKIP() << "composite-Fr reconstruction uses a different witness layout";
+        } else {
+            // `is_write_vk_mode = true` permits witness mutation via `set_variable`.
+            Builder builder(/*is_write_vk_mode=*/true);
+            const size_t num_rounds = fr::modulus.get_msb() + 1;
+            const uint256_t top_pow = uint256_t(1) << (num_rounds - 1);
+            const uint256_t range_size = uint256_t(1) << num_rounds;
+
+            fr scalar_val = fr::random_element();
+            while (scalar_val == fr::zero()) {
+                scalar_val = fr::random_element();
+            }
+
+            // Create a scalar witness
+            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+            auto naf = element_ct::compute_naf(scalar, num_rounds);
+            EXPECT_TRUE(CircuitChecker::check(builder)) << "honest circuit must verify before mutation";
+
+            // Rebalance: with `naf[0] = 1`, the integer reconstruction needs
+            // `lower_bits + skew ≡ scalar (mod r)`. Let `shifted_scalar ≡ (scalar + top_pow) (mod r)`
+            // reduced into `[0, range_size - 1]`; pick `skew` for parity, then
+            // `lower_bits_int = (range_size - 1 - shifted_scalar - skew) / 2` gives
+            // `naf[k] = bit_{num_rounds-1-k}(lower_bits_int)` for k ∈ [1, num_rounds - 1].
+            const uint256_t target_int = static_cast<uint256_t>(scalar_val + fr(top_pow));
+            const uint256_t shifted_scalar =
+                (target_int < top_pow) ? target_int + top_pow : target_int + top_pow - fr::modulus;
+            const uint64_t skew = shifted_scalar.get_bit(0) ? 0 : 1;
+            const uint256_t lower_bits_int = (range_size - 1 - shifted_scalar - skew) / 2;
+
+            // Overwrite naf witnesses with the malicious assignment.
+            builder.set_variable(naf[0].get_witness_index(), fr(1));
+            builder.set_variable(naf[num_rounds].get_witness_index(), fr(skew));
+            for (size_t k = 1; k < num_rounds; ++k) {
+                builder.set_variable(naf[k].get_witness_index(),
+                                     fr(lower_bits_int.get_bit(num_rounds - 1 - k) ? 1 : 0));
+            }
+
+            // Recompute the intermediate accumulator witnesses from the malicious naf bits.
+            const size_t num_inputs = num_rounds + 1;
+            const size_t num_gates = (num_inputs + 2) / 3;
+            const size_t padded_size = num_gates * 3;
+            const uint32_t accumulate_start_idx = naf[0].get_witness_index() + 1;
+
+            std::vector<fr> summands(padded_size, fr(0));
+            for (size_t i = 0; i < num_rounds; ++i) {
+                const fr naf_bit = builder.get_variable(naf[num_rounds - 1 - i].get_witness_index());
+                summands[i] = (fr(1) - fr(2) * naf_bit) * fr(uint256_t(1) << i);
+            }
+            summands[num_rounds] = -builder.get_variable(naf[num_rounds].get_witness_index());
+
+            fr accumulator = std::accumulate(summands.begin(), summands.end(), fr(0));
+            EXPECT_EQ(accumulator, scalar_val) << "rebalance arithmetic should give a field-equivalent reconstruction";
+            builder.set_variable(accumulate_start_idx, accumulator);
+            for (size_t gate_idx = 0; gate_idx + 1 < num_gates; ++gate_idx) {
+                accumulator -= summands[3 * gate_idx] + summands[(3 * gate_idx) + 1] + summands[(3 * gate_idx) + 2];
+                builder.set_variable(accumulate_start_idx + 1 + static_cast<uint32_t>(gate_idx), accumulator);
+            }
+
+            EXPECT_FALSE(CircuitChecker::check(builder))
+                << "compute_naf must reject the malicious top-bit-flipped NAF assignment";
+        }
+    }
+
+    // Regression test: compute_naf must not depend on witness values for its circuit shape.
+    // Previously it did — with `max_num_bits < field_size`, passing a zero-valued scalar witness
+    // forced `num_rounds = fr::modulus.get_msb() + 1`, producing more NAF entries
+    // (and a larger circuit) than a non-zero scalar with the same `max_num_bits`.
+    static void test_compute_naf_witness_value_independence()
+    {
+        constexpr size_t max_num_bits = 128;
+        const std::array<fr, 2> scalar_values{ fr(42), fr::zero() };
+
+        std::array<Builder, 2> builders;
+        for (size_t k = 0; k < 2; ++k) {
+            Builder& builder = builders[k];
+            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_values[k]);
+            (void)element_ct::compute_naf(scalar, max_num_bits);
+        }
+
+        EXPECT_EQ(builders[0].blocks, builders[1].blocks);
+    }
+
     static void test_mul(InputType scalar_type = InputType::WITNESS, InputType point_type = InputType::WITNESS)
     {
         Builder builder;
@@ -1121,7 +1214,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P * x;
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
+            std::cerr << "builder after mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x().get_value().lo);
@@ -1226,7 +1319,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             // Multiply using specified scalar length
             element_ct c = P.scalar_mul(x, i);
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
+            std::cerr << "builder after mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x().get_value().lo);
@@ -1242,47 +1335,37 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_short_scalar_mul_infinity()
     {
-        // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against
-        // a short scalar and also check that the number of gates in this case is more than the number of gates
-        // spent on a finite point.
+        // A point at infinity must preserve `is_point_at_infinity()` after multiplication by a
+        // short scalar. The gate count must also be identical to the finite-point case:
+        // `handle_points_at_infinity` rewrites (∞, s) as (G, 0) in-circuit, the small path's
+        // `compute_naf` handles the zero scalar at `max_num_bits` width, and `batch_mul_internal`
+        // routes by compile-time facts only, so the circuit shape does not depend on whether
+        // the input point is infinity.
 
-        // Populate test points.
         std::vector<element> points(2);
-
         points[0] = element::infinity();
         points[1] = element::random_element();
-        // Containter for gate counts.
         std::vector<size_t> gates(2);
 
-        // We initialize this flag as `true`, because the first result is expected to be the point at infinity.
         bool expect_infinity = true;
-
         for (auto [point, num_gates] : zip_view(points, gates)) {
             Builder builder;
 
             const size_t max_num_bits = 128;
-            // Get a random 256-bit integer
-            uint256_t scalar_raw = engine.get_random_uint256();
-            // Produce a length =< max_num_bits scalar.
-            scalar_raw = scalar_raw >> (256 - max_num_bits);
+            uint256_t scalar_raw = engine.get_random_uint256() >> (256 - max_num_bits);
             fr scalar = fr(scalar_raw);
 
             element_ct P = element_ct::from_witness(&builder, point);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
-            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P.scalar_mul(x, max_num_bits);
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             num_gates = builder.get_num_finalized_gates_inefficient();
 
             EXPECT_EQ(is_infinity(c), expect_infinity);
             EXPECT_CIRCUIT_CORRECTNESS(builder);
-            // The second point is finite, hence we flip the flag
             expect_infinity = false;
         }
-        // Check that the numbers of gates are greater when multiplying by point at infinity,
-        // because we transform (s * ∞) into (0 * G), and NAF representation of 0 ≡ NAF(r) which is 254 bits long.
-        EXPECT_GT(gates[0], gates[1]);
+        EXPECT_EQ(gates[0], gates[1]);
     }
 
     static void test_twin_mul()
@@ -1437,6 +1520,69 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder, false);
         EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
+    }
+
+    // Regression test for the offset-generator as point at infinity in `mask_points`.
+    static void test_offset_generator_infinity_is_rejected()
+    {
+        // is_write_vk_mode=true so `set_variable` (used below to poison the offset generator's witness) is
+        // permitted; outside VK mode, the builder asserts to prevent accidental witness overwrites.
+        Builder builder(/*is_write_vk_mode=*/true);
+        using BaseField = typename element_ct::BaseField;
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+        for (size_t i = 0; i < 2; ++i) {
+            circuit_points.push_back(get_random_point(&builder, InputType::WITNESS).second);
+            circuit_scalars.push_back(get_random_scalar(&builder, InputType::WITNESS).second);
+        }
+
+        // Call mask_points via the test accessor (it is a private member of element).
+        auto [_masked_points, _masked_scalars, offset_G] = stdlib::element_default::element_test_accessor::
+            mask_points<Builder, typename element_ct::BaseField, scalar_ct, typename Curve::GroupNative>(
+                circuit_points, circuit_scalars);
+
+        // Sanity: with the honest random offset generator, mask_points's non-infinity constraint is satisfied.
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Set offset generator to be a point at infinity: (0, 0) with is_infinity = 1.
+        for (size_t i = 0; i < BaseField::NUM_LIMBS; ++i) {
+            builder.set_variable(offset_G.x().get_limb(i).element.get_witness_index(), 0);
+            builder.set_variable(offset_G.y().get_limb(i).element.get_witness_index(), 0);
+        }
+        builder.set_variable(offset_G.is_point_at_infinity().get_witness_index(), 1);
+
+        // The non-infinity assertion inside mask_points must catch the malicious witness substitution.
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
+    // Regression test for a masked point p_i + 2ⁱ·G being the point at infinity in `mask_points`.
+    static void test_masked_point_infinity_is_rejected()
+    {
+        Builder builder(/*is_write_vk_mode=*/true);
+        using BaseField = typename element_ct::BaseField;
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+        for (size_t i = 0; i < 2; ++i) {
+            circuit_points.push_back(get_random_point(&builder, InputType::WITNESS).second);
+            circuit_scalars.push_back(get_random_scalar(&builder, InputType::WITNESS).second);
+        }
+
+        auto [masked_points, _masked_scalars, _offset_G] = stdlib::element_default::element_test_accessor::
+            mask_points<Builder, typename element_ct::BaseField, scalar_ct, typename Curve::GroupNative>(
+                circuit_points, circuit_scalars);
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Set the first masked point to be a point at infinity: (0, 0) with is_infinity = 1.
+        for (size_t i = 0; i < BaseField::NUM_LIMBS; ++i) {
+            builder.set_variable(masked_points[0].x().get_limb(i).element.get_witness_index(), 0);
+            builder.set_variable(masked_points[0].y().get_limb(i).element.get_witness_index(), 0);
+        }
+        builder.set_variable(masked_points[0].is_point_at_infinity().get_witness_index(), 1);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
 
     static void test_one()
@@ -1805,6 +1951,56 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(fq(result_y), expected_affine.y);
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    // Regression test: the batch_mul partition must not depend on witness values. Build the
+    // same source program with two scalar assignments (all non-zero vs. alternating zeros) and
+    // assert the resulting execution-trace blocks (selectors + wire indices) are identical.
+    static void test_batch_mul_short_scalars_witness_value_independence()
+    {
+        constexpr size_t max_num_bits = 128;
+        constexpr size_t num_points = 4;
+
+        std::vector<affine_element> input_points;
+        std::array<std::vector<fr>, 2> scalar_assignments;
+        for (size_t i = 0; i < num_points; ++i) {
+            input_points.push_back(affine_element(element::random_element()));
+            const uint256_t s_raw = engine.get_random_uint256() >> (256 - max_num_bits);
+            scalar_assignments[0].push_back(fr(s_raw));
+            scalar_assignments[1].push_back((i % 2 == 0) ? fr::zero() : fr(s_raw));
+        }
+
+        std::array<Builder, 2> builders;
+        for (size_t k = 0; k < 2; ++k) {
+            Builder& builder = builders[k];
+            std::vector<element_ct> circuit_points;
+            std::vector<scalar_ct> circuit_scalars;
+            for (size_t i = 0; i < num_points; ++i) {
+                circuit_points.push_back(element_ct::from_witness(&builder, input_points[i]));
+                circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalar_assignments[k][i]));
+            }
+
+            element_ct circuit_result =
+                element_ct::batch_mul(circuit_points, circuit_scalars, max_num_bits, /*with_edgecases=*/false);
+
+            element expected = element::infinity();
+            for (size_t i = 0; i < num_points; ++i) {
+                expected += (element(input_points[i]) * scalar_assignments[k][i]);
+            }
+            affine_element expected_affine = affine_element(expected);
+            if (expected_affine.is_point_at_infinity()) {
+                EXPECT_TRUE(is_infinity(circuit_result));
+            } else {
+                const uint256_t result_x = circuit_result.x().get_value().lo;
+                const uint256_t result_y = circuit_result.y().get_value().lo;
+                EXPECT_EQ(fq(result_x), expected_affine.x);
+                EXPECT_EQ(fq(result_y), expected_affine.y);
+            }
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+
+        // Ensure the blocks are equal for both builders
+        EXPECT_EQ(builders[0].blocks, builders[1].blocks);
     }
 
     // Test batch_mul with mixed infinity and valid points
@@ -2684,6 +2880,24 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_overflow_lower_half)
     }
 }
 
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_top_bit_rejects_malicious_witness)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_top_bit_rejects_malicious_witness();
+    } else {
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_witness_value_independence)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_witness_value_independence();
+    } else {
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
+    }
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 {
     TestFixture::test_mul();
@@ -2819,6 +3033,24 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators_failur
     }
 }
 
+HEAVY_TYPED_TEST(stdlib_biggroup, offset_generator_infinity_is_rejected)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mask_points is only used on the ultra path";
+    } else {
+        TestFixture::test_offset_generator_infinity_is_rejected();
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, masked_point_infinity_is_rejected)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mask_points is only used on the ultra path";
+    } else {
+        TestFixture::test_masked_point_infinity_is_rejected();
+    }
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, one)
 {
     TestFixture::test_one();
@@ -2857,6 +3089,15 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_all_zero_scalars)
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_zero_scalars)
 {
     TestFixture::test_batch_mul_mixed_zero_scalars();
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_short_scalars_witness_value_independence)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mega builder uses goblin_element batch_mul; the witness-value partition is in the ultra path";
+    } else {
+        TestFixture::test_batch_mul_short_scalars_witness_value_independence();
+    }
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_mixed_infinity)

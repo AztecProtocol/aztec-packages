@@ -17,7 +17,6 @@ unconstrained fn main(
     private_call: PrivateCallDataWithoutPublicInputs,
     app_public_inputs: PrivateCircuitPublicInputs,
     is_private_only: bool,
-    first_nullifier_hint: Field,
     revertible_counter_hint: u32,
 ) -> pub PrivateKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelInitCircuitPrivateInputs {
@@ -26,7 +25,6 @@ unconstrained fn main(
         protocol_contracts,
         private_call: private_call.to_private_call_data(app_public_inputs),
         is_private_only,
-        first_nullifier_hint,
         revertible_counter_hint,
     };
     private_kernel_init::execute(private_inputs)

@@ -212,20 +212,39 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static FF scale_and_batch_elements(auto& tuple, const SubrelationSeparators& subrelation_separators)
+    /**
+     * @brief Scale per-subrelation evaluations by α powers and row-disabling factors, then sum.
+     *
+     * @details Returns
+     * \f[
+     *   \sum_R \Lambda_R \cdot \sum_j \alpha_{R,j} \cdot v_{R,j}
+     * \f]
+     * where `v_{R,j}` are the per-subrelation claimed evaluations, `α_{R,j}` are the α powers
+     * (with `α_{0,0} = 1`), and `Λ_R ∈ {main_factor, offset_factor}` selected by
+     * `IsOffsetOnlyRelation<R>`. Defaults `(main_factor, offset_factor) = (1, 0)` encode
+     * "no row disabling": main relations pass through unscaled and offset-only relations
+     * collapse to zero. For the row-disabling path pass `main_factor = (1 - L)(u)` and
+     * `offset_factor = L(u)`.
+     */
+    static FF scale_and_batch_elements(auto& tuple,
+                                       const SubrelationSeparators& subrelation_separators,
+                                       const FF& main_factor = FF{ 1 },
+                                       const FF& offset_factor = FF{ 0 })
     {
-        // Initialize result with the contribution from the first subrelation
-        FF result = std::get<0>(tuple)[0];
-
+        FF result{ 0 };
         size_t idx = 0;
 
-        auto scale_by_challenges_and_accumulate = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
-            if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
-                // Accumulate scaled subrelation contribution
-                result += element * subrelation_separators[idx++];
+        auto process = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            using Relation = std::tuple_element_t<outer_idx, Relations>;
+            const FF& rd_factor = IsOffsetOnlyRelation<Relation> ? offset_factor : main_factor;
+            if constexpr (outer_idx == 0 && inner_idx == 0) {
+                // α_{0,0} = 1 by convention.
+                result += element * rd_factor;
+            } else {
+                result += element * subrelation_separators[idx++] * rd_factor;
             }
         };
-        apply_to_tuple_of_arrays_elements(scale_by_challenges_and_accumulate, tuple);
+        apply_to_tuple_of_arrays_elements(process, tuple);
         return result;
     }
 

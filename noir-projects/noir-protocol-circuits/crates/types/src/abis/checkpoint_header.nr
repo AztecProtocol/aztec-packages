@@ -54,14 +54,17 @@ impl Empty for CheckpointHeader {
 
 impl CheckpointHeader {
     pub fn to_be_bytes(self) -> [u8; CHECKPOINT_HEADER_SIZE_IN_BYTES] {
-        let mut bytes = [0; CHECKPOINT_HEADER_SIZE_IN_BYTES];
-
         let last_archive_root_bytes: [u8; 32] = self.last_archive_root.to_be_bytes();
         let block_headers_hash_bytes: [u8; 32] = self.block_headers_hash.to_be_bytes();
         let blobs_hash_bytes: [u8; 32] = self.blobs_hash.to_be_bytes();
         let in_hash_bytes: [u8; 32] = self.in_hash.to_be_bytes();
         let epoch_out_hash_bytes: [u8; 32] = self.epoch_out_hash.to_be_bytes();
         let slot_number_bytes: [u8; 32] = self.slot_number.to_be_bytes();
+        let timestamp_bytes: [u8; 8] = (self.timestamp as Field).to_be_bytes();
+        // `coinbase` originates as an unchecked `EthAddress` field in `GlobalVariables`. Validate that
+        // it fits in 20 bytes before truncating; otherwise the high bits would be silently dropped here
+        // while the L1 contract reconstructs the hash from the full 20-byte coinbase, rejecting the proof.
+        self.coinbase.validate();
         let coinbase_bytes: [u8; 20] = self.coinbase.to_be_bytes();
         let fee_recipient_bytes: [u8; 32] = self.fee_recipient.to_field().to_be_bytes();
         let gas_fees_per_da_gas_bytes: [u8; 16] =
@@ -71,56 +74,19 @@ impl CheckpointHeader {
         let total_mana_used_bytes: [u8; 32] = self.total_mana_used.to_be_bytes();
         let accumulated_fees_bytes: [u8; 32] = self.accumulated_fees.to_be_bytes();
 
-        let mut offset = 0;
-        for i in 0..32 {
-            offset = 0;
-            bytes[i] = last_archive_root_bytes[i];
-            offset += last_archive_root_bytes.len();
-            bytes[i + offset] = block_headers_hash_bytes[i];
-            offset += block_headers_hash_bytes.len();
-            bytes[i + offset] = blobs_hash_bytes[i];
-            offset += blobs_hash_bytes.len();
-            bytes[i + offset] = in_hash_bytes[i];
-            offset += in_hash_bytes.len();
-            bytes[i + offset] = epoch_out_hash_bytes[i];
-            offset += epoch_out_hash_bytes.len();
-            bytes[i + offset] = slot_number_bytes[i];
-            offset += slot_number_bytes.len();
-        }
-
-        let mut timestamp = self.timestamp;
-        offset += 8;
-        for i in 0..8 {
-            bytes[offset - 1 - i] = timestamp as u8;
-            timestamp = timestamp >> 8;
-        }
-
-        for i in 0..20 {
-            bytes[i + offset] = coinbase_bytes[i];
-        }
-        offset += coinbase_bytes.len();
-
-        for i in 0..32 {
-            bytes[i + offset] = fee_recipient_bytes[i];
-        }
-        offset += fee_recipient_bytes.len();
-
-        for i in 0..16 {
-            bytes[i + offset] = gas_fees_per_da_gas_bytes[i];
-            bytes[i + offset + 16] = gas_fees_per_l2_gas_bytes[i];
-        }
-        offset += gas_fees_per_da_gas_bytes.len() + gas_fees_per_l2_gas_bytes.len();
-
-        for i in 0..32 {
-            bytes[i + offset] = total_mana_used_bytes[i];
-        }
-        offset += total_mana_used_bytes.len();
-
-        for i in 0..32 {
-            bytes[i + offset] = accumulated_fees_bytes[i];
-        }
-
-        bytes
+        last_archive_root_bytes
+            .concat(block_headers_hash_bytes)
+            .concat(blobs_hash_bytes)
+            .concat(in_hash_bytes)
+            .concat(epoch_out_hash_bytes)
+            .concat(slot_number_bytes)
+            .concat(timestamp_bytes)
+            .concat(coinbase_bytes)
+            .concat(fee_recipient_bytes)
+            .concat(gas_fees_per_da_gas_bytes)
+            .concat(gas_fees_per_l2_gas_bytes)
+            .concat(total_mana_used_bytes)
+            .concat(accumulated_fees_bytes)
     }
 }
 
@@ -201,4 +167,24 @@ fn checkpoint_header_hash_large_values_matches_ts() {
         0x0077f763e5840cc3f24686ac79f58ef8a7f08c6418fd757e7e84566dc2eb032a;
 
     assert_eq(header.hash(), checkpoint_header_hash_large_values_from_ts);
+}
+
+#[test]
+fn checkpoint_header_hash_accepts_max_20_byte_coinbase() {
+    // The largest value that fits in 20 bytes is valid and must hash without panicking.
+    let max_20_bytes = 2.pow_32(160) - 1;
+    let mut header = CheckpointHeader::empty();
+    header.coinbase = EthAddress::from_field(max_20_bytes);
+    let _ = header.hash();
+}
+
+#[test(should_fail)]
+fn checkpoint_header_hash_rejects_oversized_coinbase() {
+    // A coinbase that does not fit in 20 bytes must be rejected by `coinbase.validate()` before the
+    // value is truncated and hashed. `deserialize` bypasses `from_field`'s range check, so we can
+    // construct an out-of-range coinbase (2^160 needs 161 bits).
+    let over_20_bytes = 2.pow_32(160);
+    let mut header = CheckpointHeader::empty();
+    header.coinbase = EthAddress::deserialize([over_20_bytes]);
+    let _ = header.hash();
 }

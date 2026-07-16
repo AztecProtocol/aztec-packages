@@ -1,12 +1,17 @@
 #include "barretenberg/vm2/tooling/debugger.hpp"
 
+// We only build the debugger conditionally.
+#ifdef AVM_INCLUDE_DEBUGGER
+
 #include <iostream>
 #include <optional>
 #include <regex>
 #include <string>
 #include <vector>
 
+#include "barretenberg/common/std_string.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
@@ -216,3 +221,4 @@ void InteractiveDebugger::test_relation(const std::string& relation_name, std::o
 }
 
 } // namespace bb::avm2
+#endif

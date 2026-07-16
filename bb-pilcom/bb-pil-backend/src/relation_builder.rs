@@ -4,12 +4,11 @@ use powdr_ast::analyzed::AlgebraicUnaryOperation;
 use powdr_ast::analyzed::Analyzed;
 use powdr_ast::analyzed::Identity;
 use powdr_ast::analyzed::{AlgebraicExpression, IdentityKind};
-use powdr_ast::parsed::SelectedExpressions;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 
-use powdr_number::{DegreeType, FieldElement};
+use powdr_number::FieldElement;
 
 use handlebars::Handlebars;
 use serde_json::json;

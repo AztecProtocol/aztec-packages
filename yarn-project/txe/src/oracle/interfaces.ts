@@ -81,6 +81,10 @@ export interface ITxeExecutionOracle {
     unconstrainedStrategy: Option<TaggingSecretStrategy>,
     constrainedStrategy: Option<TaggingSecretStrategy>,
   ): void;
+  /**
+   * Configures whether the test's simulated wallet authorizes every cross-contract utility call target.
+   */
+  setAuthorizeAllUtilityCallTargets(authorizeAll: boolean): void;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
     txHash: TxHash;

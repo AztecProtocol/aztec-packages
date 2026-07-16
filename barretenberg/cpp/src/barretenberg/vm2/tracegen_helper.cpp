@@ -128,8 +128,9 @@ template <typename T> inline void clear_events(T& c)
     c.shrink_to_fit();
 }
 
-void print_trace_stats(const TraceContainer& trace)
+void print_trace_stats([[maybe_unused]] const TraceContainer& trace)
 {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
     constexpr auto main_relation_names = [] {
         constexpr size_t size = std::tuple_size_v<AvmFlavor::MainRelations>;
         std::array<std::string_view, size> names{};
@@ -166,6 +167,9 @@ void print_trace_stats(const TraceContainer& trace)
     }
     vinfo(
         "Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
+#else
+    vinfo("Tracegen column stats unavailable. Build with AVM_INCLUDE_COLUMN_INFORMATION=1 to enable.");
+#endif
 }
 
 } // namespace

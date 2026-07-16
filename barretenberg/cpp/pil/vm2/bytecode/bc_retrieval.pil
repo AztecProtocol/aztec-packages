@@ -133,7 +133,13 @@ pol commit next_retrieved_bytecodes_tree_size;
 // Contract Retrieval
 ///////////////////////////////
 
-pol commit instance_exists; // @boolean (by lookup into contract_instance_retrieval on an active trace)
+// Boolean by lookup into contract_instance_retrieval on active rows.
+// Forced to zero on inactive rows by #[INSTANCE_EXISTS_ON_SEL].
+// Therefore, unconditionally boolean — required as a lookup source selector.
+pol commit instance_exists; // @boolean
+
+#[INSTANCE_EXISTS_ON_SEL]
+(1 - sel) * instance_exists = 0;
 
 // This constrains the existence/non-existence of the contract. The contract_instance_retrieval circuit also
 // constrains the required nullifier, address, and update checks (see above description for details).
@@ -244,8 +250,7 @@ sel * (retrieved_bytecodes_merkle_separator - constants.DOM_SEP__RETRIEVED_BYTEC
 
 // This constrains that is_new_class is on iff the bytecode does not exist in the transient tree (i.e. this
 // bytecode has not been used in this tx).
-// Note: instance_exists can be on for inactive rows, but this lookup below not create side effects, so
-// it is safe to gate by instance_exists rather than sel && instance_exists.
+// Note: instance_exists can only be non-zero on active rows.
 #[IS_NEW_CLASS_CHECK]
 instance_exists {
     is_new_class, // not_exists

@@ -64,6 +64,7 @@ template <typename Builder> class straus_lookup_table {
   private:
     Builder* _context;
     size_t rom_id = 0; // Ultra ROM array ID
+    size_t _table_bits = 0;
     OriginTag tag;
 };
 

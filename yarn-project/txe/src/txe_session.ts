@@ -63,7 +63,7 @@ import {
 } from './oracle/tagging_secret_strategy.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { callTxeLegacyHandler } from './oracle/txe_oracle_registry.js';
-import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
+import { TXEOracleTopLevelContext, authorizeAllUtilityCallsHook } from './oracle/txe_oracle_top_level_context.js';
 import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './oracle/txe_oracle_version.js';
 import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
 import { RPCTranslator, UnavailableOracleError } from './rpc_translator.js';
@@ -241,6 +241,7 @@ export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
   private taggingSecretStrategies: TXETaggingSecretStrategies = new Map();
+  private authorizeAllUtilityCallTargets = false;
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -361,6 +362,7 @@ export class TXESession implements TXESessionStateHandler {
       chainId,
       new Map(),
       new Map(),
+      false, // authorizeAllUtilityCallTargets
       artifactResolver,
       rootPath,
       packageName,
@@ -691,6 +693,7 @@ export class TXESession implements TXESessionStateHandler {
       this.chainId,
       this.authwits,
       this.taggingSecretStrategies,
+      this.authorizeAllUtilityCallTargets,
       this.artifactResolver,
       this.rootPath,
       this.packageName,
@@ -743,6 +746,7 @@ export class TXESession implements TXESessionStateHandler {
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
+      txRequestSalt: Fr.ZERO,
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlockHeader: anchorBlock!,
       utilityExecutor,
@@ -770,6 +774,7 @@ export class TXESession implements TXESessionStateHandler {
       simulator: new WASMSimulator(),
       hooks: composeHooks({
         resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
+        authorizeUtilityCall: this.authorizeAllUtilityCallTargets ? authorizeAllUtilityCallsHook : undefined,
       }),
       transientArrayService,
     });
@@ -870,6 +875,9 @@ export class TXESession implements TXESessionStateHandler {
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
       utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
+      hooks: composeHooks({
+        authorizeUtilityCall: this.authorizeAllUtilityCallTargets ? authorizeAllUtilityCallsHook : undefined,
+      }),
       // Execution-tree root (top-level utility run): own store; nested frames inherit it.
       transientArrayService: new TransientArrayService(),
     });
@@ -898,9 +906,12 @@ export class TXESession implements TXESessionStateHandler {
     // TODO: persisting authwits this way is quite unfortunate: they create a temporary utility context that would
     // otherwise reset them, so we'd not be able to pass more than one per execution. Ideally authwits would be passed
     // alongside a contract call instead of pre-seeded.
-    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategies] = (
-      this.oracleHandler as TXEOracleTopLevelContext
-    ).close();
+    ({
+      nextBlockTimestamp: this.nextBlockTimestamp,
+      authwits: this.authwits,
+      taggingSecretStrategies: this.taggingSecretStrategies,
+      authorizeAllUtilityCallTargets: this.authorizeAllUtilityCallTargets,
+    } = (this.oracleHandler as TXEOracleTopLevelContext).close());
   }
 
   private async exitPrivateState() {

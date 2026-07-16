@@ -36,7 +36,7 @@ TEST(CtrlFlowConstrainingTest, Jump)
     // Negative test: pc on next row is incorrect
     trace.set(C::execution_pc, 2, 121);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_PC_NEXT_ROW_INT_CALL_JUMP),
-                              "PC_NEXT_ROW_INT_CALL_JUMP");
+                              execution::get_subrelation_label(execution::SR_PC_NEXT_ROW_INT_CALL_JUMP));
 }
 
 TEST(CtrlFlowConstrainingTest, JumpiTrueCondition)
@@ -55,7 +55,8 @@ TEST(CtrlFlowConstrainingTest, JumpiTrueCondition)
 
     // Negative test: pc on next row is incorrect
     trace.set(C::execution_pc, 2, 220);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_PC_NEXT_ROW_JUMPI), "PC_NEXT_ROW_JUMPI");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_PC_NEXT_ROW_JUMPI),
+                              execution::get_subrelation_label(execution::SR_PC_NEXT_ROW_JUMPI));
 }
 
 TEST(CtrlFlowConstrainingTest, JumpiFalseCondition)
@@ -74,7 +75,8 @@ TEST(CtrlFlowConstrainingTest, JumpiFalseCondition)
 
     // Negative test: pc on next row is incorrect
     trace.set(C::execution_pc, 2, 120);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_PC_NEXT_ROW_JUMPI), "PC_NEXT_ROW_JUMPI");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_PC_NEXT_ROW_JUMPI),
+                              execution::get_subrelation_label(execution::SR_PC_NEXT_ROW_JUMPI));
 }
 
 } // namespace

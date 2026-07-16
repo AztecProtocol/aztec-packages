@@ -11,9 +11,9 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "wnaf.hpp"
 #include <array>
 #include <random>
+#include <span>
 #include <vector>
 
 namespace bb::group_elements {
@@ -126,6 +126,13 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     static void batch_affine_add(const std::span<affine_element<Fq, Fr, Params>>& first_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& second_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& results) noexcept;
+
+    /**
+     * @brief Straus-style multi-scalar multiplication.
+     * @details Computes Σ_i scalars[i] * points[i], efficient when num points is small (~64 or less)
+     */
+    static element straus_msm(std::span<const affine_element<Fq, Fr, Params>> points,
+                              std::span<const Fr> scalars) noexcept;
     static std::vector<affine_element<Fq, Fr, Params>> batch_mul_with_endomorphism(
         const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
 

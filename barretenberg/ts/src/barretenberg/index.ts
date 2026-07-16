@@ -53,7 +53,11 @@ export class Barretenberg extends AsyncApi {
     if (options.backend) {
       // Explicit backend required - no fallback
       const backend = await createAsyncBackend(options.backend, options, logger);
-      if (!options.skipSrsInit && (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)) {
+      await configureMsmBackend(backend, options);
+      if (
+        !options.skipSrsInit &&
+        (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)
+      ) {
         await backend.initSRSChonk(options.srsSize);
       }
       return backend;
@@ -61,10 +65,13 @@ export class Barretenberg extends AsyncApi {
 
     if (typeof window === 'undefined') {
       try {
-        return await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
+        const backend = await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
+        await configureMsmBackend(backend, options);
+        return backend;
       } catch (err: any) {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
         const backend = await createAsyncBackend(BackendType.Wasm, options, logger);
+        await configureMsmBackend(backend, options);
         if (!options.skipSrsInit) {
           await backend.initSRSChonk(options.srsSize);
         }
@@ -73,6 +80,7 @@ export class Barretenberg extends AsyncApi {
     } else {
       logger(`In browser, using WASM over worker backend.`);
       const backend = await createAsyncBackend(BackendType.WasmWorker, options, logger);
+      await configureMsmBackend(backend, options);
       if (!options.skipSrsInit) {
         await backend.initSRSChonk(options.srsSize);
       }
@@ -103,7 +111,11 @@ export class Barretenberg extends AsyncApi {
     // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
     // Use `self` instead of `window` so this check also works inside Web Workers.
-    if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
+    if (
+      typeof self !== 'undefined' &&
+      typeof self.navigator !== 'undefined' &&
+      /iPad|iPhone/.test(self.navigator.userAgent)
+    ) {
       return IOS_BB_CRS_SIZE;
     }
     return DEFAULT_BB_CRS_SIZE;
@@ -196,17 +208,23 @@ export class BarretenbergSync extends SyncApi {
     const logger = options.logger ?? (() => {});
 
     if (options.backend) {
-      return await createSyncBackend(options.backend, options, logger);
+      const backend = await createSyncBackend(options.backend, options, logger);
+      configureSyncMsmBackend(backend, options);
+      return backend;
     }
 
     // Try native, fallback to WASM.
     try {
-      return await createSyncBackend(BackendType.NativeSharedMemory, options, logger);
+      const backend = await createSyncBackend(BackendType.NativeSharedMemory, options, logger);
+      configureSyncMsmBackend(backend, options);
+      return backend;
     } catch (err: any) {
       logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
     }
 
-    return await createSyncBackend(BackendType.Wasm, options, logger);
+    const backend = await createSyncBackend(BackendType.Wasm, options, logger);
+    configureSyncMsmBackend(backend, options);
+    return backend;
   }
 
   /**
@@ -235,5 +253,17 @@ export class BarretenbergSync extends SyncApi {
       throw new Error('First call BarretenbergSync.initSingleton() on @aztec/bb.js module.');
     }
     return barretenbergSyncSingleton;
+  }
+}
+
+async function configureMsmBackend(backend: Barretenberg, options: BackendOptions) {
+  if (options.legacyMsm !== undefined) {
+    await backend.setMsmLegacy({ enabled: options.legacyMsm });
+  }
+}
+
+function configureSyncMsmBackend(backend: BarretenbergSync, options: BackendOptions) {
+  if (options.legacyMsm !== undefined) {
+    backend.setMsmLegacy({ enabled: options.legacyMsm });
   }
 }

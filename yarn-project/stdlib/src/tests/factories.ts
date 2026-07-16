@@ -6,7 +6,7 @@ import {
 } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
@@ -692,6 +692,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     anchorBlockHeader: makeBlockHeader(seed + 0xd00),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,
+    txRequestSalt: fr(seed + 0x1500),
   });
 }
 
@@ -1162,11 +1163,7 @@ export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
     makePublicChonkVerifierPublicInputs,
     RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   );
-  const avmProofData = makeProofDataForFixedVk(
-    seed + 0x100,
-    makeAvmCircuitPublicInputs,
-    AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  );
+  const avmProofData = makeProofDataForFixedVk(seed + 0x100, makeAvmCircuitPublicInputs, AVM_V2_PROOF_LENGTH_IN_FIELDS);
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicTxBaseRollupPrivateInputs.from({

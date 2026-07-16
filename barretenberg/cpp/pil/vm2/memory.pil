@@ -220,6 +220,8 @@ sel * (1 - sel) = 0; // Ensures mutual exclusivity of the permutation selectors 
 last_access * (1 - last_access) = 0;
 rw * (1 - rw) = 0; // Some source sub-trace relies on this constraint (e.g., keccak_memory.pil).
 sel_tag_is_ff * (1 - sel_tag_is_ff) = 0;
+// Both boolean conditions for `rw` and `sel_tag_is_ff` ensure that `sel_rng_write` is unconditionally
+// boolean which is crucial as a lookup selector.
 
 ////////////////////////////////////////////////
 // Trace Continuity and Structure

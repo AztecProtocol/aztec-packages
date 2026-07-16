@@ -55,25 +55,17 @@ class AvmRecursiveTests : public ::testing::Test {
     }
 };
 
-// Parameterized test class for testing with and without proof padding
-class AvmRecursiveTestsParameterized : public AvmRecursiveTests, public ::testing::WithParamInterface<bool> {};
-
 /**
  * @brief A test of the Two Layer AVM recursive verifier.
  * @details Constructs a simple AVM circuit for which a proof is verified using the Two Layer AVM recursive verifier. A
  * proof is constructed and verified for the outer (Ultra) circuit produced by this algorithm. See the documentation in
  * TwoLayerAvmRecursiveVerifier for details of the recursive verification algorithm.
- *
- * When pad_proof=true (Padded variant), the proof is padded to AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED to match production
- * behavior where TypeScript pads the proof before passing it to noir circuits.
  */
-TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
+TEST_F(AvmRecursiveTests, TwoLayerAvmRecursion)
 {
     if (testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
-
-    const bool pad_proof = GetParam();
 
     // Type aliases specific to TwoLayerAvmRecursion test
     using OuterBuilder = typename UltraFlavor::CircuitBuilder;
@@ -89,14 +81,6 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
               << "s" << std::endl;
 
     auto [proof, public_inputs_cols] = proof_result;
-
-    // Optionally pad the proof to match production behavior
-    if (pad_proof) {
-        std::cout << "Padding proof from " << proof.size() << " to " << AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED
-                  << " fields" << std::endl;
-        ASSERT_LE(proof.size(), AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) << "Proof exceeds padded length";
-        proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, 0);
-    }
 
     // Construct stdlib representations of the proof, public inputs and verification key
     OuterBuilder outer_circuit;
@@ -116,8 +100,7 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
     // Construct the AVM recursive verifier and verify the proof
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
-        std::cout << "Constructing AvmRecursiveVerifier and verifying " << (pad_proof ? "padded " : "") << "proof..."
-                  << std::endl;
+        std::cout << "Constructing AvmRecursiveVerifier and verifying proof..." << std::endl;
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
         TwoLayerAvmRecursiveVerifier avm_rec_verifier(outer_circuit);
         auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
@@ -137,10 +120,7 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
     ASSERT_TRUE(verifier_output.points_accumulator.check()) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
-    vinfo("Recursive verifier",
-          (pad_proof ? " (padded proof)" : ""),
-          ": finalized num gates = ",
-          outer_circuit.num_gates());
+    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates());
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
@@ -164,15 +144,13 @@ TEST_P(AvmRecursiveTestsParameterized, TwoLayerAvmRecursion)
 
 // Test that the transcript operations performed during AVM recursive verification match the ones performed by the
 // function defined in the AvmRecursiveFlavor::Transcript class
-TEST_P(AvmRecursiveTestsParameterized, TranscriptOperations)
+TEST_F(AvmRecursiveTests, TranscriptOperations)
 {
     if (testing::skip_slow_tests()) {
         GTEST_SKIP() << "Skipping slow test";
     }
 
     using FF = stdlib::field_t<MegaCircuitBuilder>;
-
-    const bool pad_proof = GetParam();
 
     NativeProofResult proof_result;
     std::cout << "Creating and verifying native proof..." << std::endl;
@@ -183,14 +161,6 @@ TEST_P(AvmRecursiveTestsParameterized, TranscriptOperations)
               << "s" << std::endl;
 
     auto [proof, public_inputs_cols] = proof_result;
-
-    // Optionally pad the proof to match production behavior
-    if (pad_proof) {
-        std::cout << "Padding proof from " << proof.size() << " to " << AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED
-                  << " fields" << std::endl;
-        ASSERT_LE(proof.size(), AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) << "Proof exceeds padded length";
-        proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, 0);
-    }
 
     // Construct stdlib representations of the proof, public inputs and verification key
     MegaCircuitBuilder builder;
@@ -220,7 +190,7 @@ TEST_P(AvmRecursiveTestsParameterized, TranscriptOperations)
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "
                   << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << "s" << std::endl;
-        final_state_full_verification = avm_rec_verifier.hash_avm_transcript(stdlib_proof);
+        final_state_full_verification = avm_rec_verifier.hash_avm_transcript();
     };
 
     // Perform only transcript operations
@@ -250,11 +220,6 @@ TEST_P(AvmRecursiveTestsParameterized, TranscriptOperations)
     EXPECT_TRUE(CircuitChecker::check(builder));
     EXPECT_TRUE(!builder.failed());
 }
-
-INSTANTIATE_TEST_SUITE_P(PaddingVariants,
-                         AvmRecursiveTestsParameterized,
-                         ::testing::Values(false, true),
-                         [](const auto& info) { return info.param ? "Padded" : "Unpadded"; });
 
 // Ensures that the recursive verifier fails with wrong PIs.
 TEST_F(AvmRecursiveTests, TwoLayerAvmRecursionFailsWithWrongPIs)

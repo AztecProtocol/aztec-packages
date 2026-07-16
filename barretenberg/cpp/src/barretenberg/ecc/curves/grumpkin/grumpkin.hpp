@@ -67,8 +67,10 @@ class Grumpkin {
     static constexpr bool is_stdlib_type = false;
 
     // Required by SmallSubgroupIPA argument. This constant needs to divide the size of the multiplicative subgroup of
-    // the ScalarField and satisfy SUBGROUP_SIZE > CONST_PROOF_SIZE_LOG_N * 3, since in every round of Sumcheck, the
-    // prover sends 3 elements to the verifier.
+    // the ScalarField and accommodate the concatenated Libra polynomial:
+    // SUBGROUP_SIZE > CONST_ECCVM_LOG_N * LIBRA_UNIVARIATES_LENGTH + 1 = 15 * 4 + 1 = 61. The committed sumcheck over
+    // Grumpkin only runs at the fixed size CONST_ECCVM_LOG_N = 15; reusing it with d rounds requires
+    // d * LIBRA_UNIVARIATES_LENGTH + 1 < SUBGROUP_SIZE (guarded at runtime in SmallSubgroupIPA).
     static constexpr size_t SUBGROUP_SIZE = 87;
     // The generator below was derived by factoring r - 1 into primes, where r is the modulus of the Grumkin scalar
     // field. A random field element was sampled and raised to the power (r - 1) / (3 * 29). We verified that the
@@ -78,9 +80,10 @@ class Grumpkin {
         ScalarField(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
     static constexpr ScalarField subgroup_generator_inverse =
         ScalarField("0x0c68e27477b5e78cfab790bd3b59806fa871771f71ec7452cde5384f6e3a1988");
-    // The length of the polynomials used to mask the Sumcheck Round Univariates. In the ECCVM Sumcheck, the prover only
-    // sends 3 elements in every round - a commitment to the round univariate and its evaluations at 0 and 1. Therefore,
-    // length 3 is sufficient.
-    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 3;
+    // The length of the polynomials used to mask the Sumcheck Round Univariates in the committed (ECCVM) sumcheck.
+    // Per round, the verifier's view exposes three Libra-sensitive functionals of the round univariate U_i — the
+    // evaluation U_i(0), the chained target T_{i+1} = U_i(u_i), and the non-hiding commitment [U_i] — and the pair-sum
+    // bookkeeping U_i(0) + U_i(1) = T_i consumes one Libra coefficient, so the required length is 4.
+    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 4;
 };
 } // namespace bb::curve
