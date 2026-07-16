@@ -104,8 +104,14 @@ setup_project() {
     yarn init -y > /dev/null 2>&1
     yarn config set nodeLinker node-modules > /dev/null 2>&1
 
-    # Set package type to module for ESM
-    node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
+    # Set package type to module for ESM, and force typescript to the monorepo's
+    # 5.x line across the *entire* dependency graph before the first `yarn add`.
+    # The linked @aztec packages pull typescript transitively; unpinned it now
+    # resolves to the 7.x native port, whose package layout has no lib/_tsc.js,
+    # so yarn 4's builtin compat patch fails to apply and the install aborts. A
+    # `resolutions` entry covers transitive deps too, which the direct
+    # devDependency add below does not.
+    node -e "const pkg = require('./package.json'); pkg.type = 'module'; pkg.resolutions = Object.assign({}, pkg.resolutions, { typescript: '^5.3.3' }); require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
 
     # Read dependencies from config.yaml and install
     parse_dependencies config.yaml "$REPO_ROOT"
