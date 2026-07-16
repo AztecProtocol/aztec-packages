@@ -146,15 +146,15 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
         scalar.self_reduce();
     }
 
-    field_t limb0 = scalar.binary_basis_limbs[0].element;
-    field_t limb1 = scalar.binary_basis_limbs[1].element;
-    field_t limb2 = scalar.binary_basis_limbs[2].element;
-    field_t limb3 = scalar.binary_basis_limbs[3].element;
+    field_t limb0 = scalar.get_limb(0).element;
+    field_t limb1 = scalar.get_limb(1).element;
+    field_t limb2 = scalar.get_limb(2).element;
+    field_t limb3 = scalar.get_limb(3).element;
 
-    uint256_t limb1_max = scalar.binary_basis_limbs[1].maximum_value;
+    uint256_t limb1_max = scalar.get_limb(1).maximum_value;
 
     // Step 2: Ensure that limb0 only contains at most NUM_LIMB_BITS. If not, slice off the excess and add it into limb1
-    uint256_t limb0_max = scalar.binary_basis_limbs[0].maximum_value;
+    uint256_t limb0_max = scalar.get_limb(0).maximum_value;
     if (limb0_max > BigScalarField::DEFAULT_MAXIMUM_LIMB) {
 
         // Split limb0 into lo (NUM_LIMB_BITS) and hi (remaining bits) slices. Note that no_wrap_split_at enforces range

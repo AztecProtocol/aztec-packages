@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -43,6 +42,7 @@ template <typename FF> class emit_notehash : public Relation<emit_notehashImpl<F
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_MAX_NOTE_HASHES_REACHED:
             return "MAX_NOTE_HASHES_REACHED";
@@ -55,6 +55,7 @@ template <typename FF> class emit_notehash : public Relation<emit_notehashImpl<F
         case SR_EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE:
             return "EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE";
         }
+#endif
         return std::to_string(index);
     }
 };

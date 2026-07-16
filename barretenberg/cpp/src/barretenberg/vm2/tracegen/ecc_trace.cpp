@@ -260,6 +260,11 @@ void EccTraceBuilder::process_add_with_memory(
 {
     using C = Column;
 
+    // We use the canonical infinity representation of (0, 0). The below is to mirror the circuit's
+    // INFINITY_X/INFINITY_Y for ease of reading:
+    FF inf_x = EmbeddedCurvePoint::infinity().x();
+    FF inf_y = EmbeddedCurvePoint::infinity().y();
+
     uint32_t row = 0;
 
     // Each event corresponds to one memory aware add operation (P + Q = R). Using a single row, it constrains the
@@ -325,6 +330,11 @@ void EccTraceBuilder::process_add_with_memory(
                       // Input - Infinity flags required for ECC trace
                       { C::ecc_add_mem_p_is_inf, event.p.is_infinity() ? 1 : 0 },
                       { C::ecc_add_mem_q_is_inf, event.q.is_infinity() ? 1 : 0 },
+                      // Witnesses for (#[P/Q_NOT_INF_CHECK])
+                      { C::ecc_add_mem_p_x_inf_diff_inv, event.p.x() - inf_x }, // Will be inverted in batch later
+                      { C::ecc_add_mem_p_y_inf_diff_inv, event.p.y() - inf_y }, // Will be inverted in batch later
+                      { C::ecc_add_mem_q_x_inf_diff_inv, event.q.x() - inf_x }, // Will be inverted in batch later
+                      { C::ecc_add_mem_q_y_inf_diff_inv, event.q.y() - inf_y }, // Will be inverted in batch later
                       // Output
                       { C::ecc_add_mem_sel_should_exec, error ? 0 : 1 },
                       { C::ecc_add_mem_res_x, event.result.x() },
@@ -333,6 +343,11 @@ void EccTraceBuilder::process_add_with_memory(
 
         row++;
     }
+
+    trace.invert_columns({ { C::ecc_add_mem_p_x_inf_diff_inv,
+                             C::ecc_add_mem_p_y_inf_diff_inv,
+                             C::ecc_add_mem_q_x_inf_diff_inv,
+                             C::ecc_add_mem_q_y_inf_diff_inv } });
 }
 
 const InteractionDefinition EccTraceBuilder::interactions =

@@ -60,6 +60,12 @@ Fr constant SUBGROUP_GENERATOR_INVERSE = Fr.wrap(0x204bd3277422fad364751ad938e2b
 Fr constant MINUS_ONE = Fr.wrap(MODULUS - 1);
 Fr constant ONE = Fr.wrap(1);
 Fr constant ZERO = Fr.wrap(0);
+
+// SmallSubgroupIPA opening-claim layout — mirrors SMALL_IPA_CLAIMS in
+// barretenberg/cpp/src/barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp.
+uint256 constant NUM_SMALL_IPA_OPENING_CLAIMS = 5;
+uint256 constant SMALL_IPA_BOUNDARY_OPENING_IDX = 3;
+uint256 constant NUM_SMALL_IPA_TRANSCRIPT_EVALS = 4;
 // Instantiation
 
 library FrLib {
@@ -216,22 +222,8 @@ uint256 constant GROUP_ELEMENT_SIZE = 0x40;
 // Powers of alpha used to batch subrelations (alpha, alpha^2, ..., alpha^(NUM_SUBRELATIONS-1))
 uint256 constant NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
 
-// ENUM FOR WIRES
+// Must match UltraFlavor_Generated::EntityId order.
 enum WIRE {
-    Q_M,
-    Q_C,
-    Q_L,
-    Q_R,
-    Q_O,
-    Q_4,
-    Q_LOOKUP,
-    Q_ARITH,
-    Q_RANGE,
-    Q_ELLIPTIC,
-    Q_MEMORY,
-    Q_NNF,
-    Q_POSEIDON2_EXTERNAL,
-    Q_POSEIDON2_INTERNAL,
     SIGMA_1,
     SIGMA_2,
     SIGMA_3,
@@ -240,12 +232,26 @@ enum WIRE {
     ID_2,
     ID_3,
     ID_4,
+    LAGRANGE_FIRST,
+    LAGRANGE_LAST,
+    Q_LOOKUP,
     TABLE_1,
     TABLE_2,
     TABLE_3,
     TABLE_4,
-    LAGRANGE_FIRST,
-    LAGRANGE_LAST,
+    Q_M,
+    Q_R,
+    Q_O,
+    Q_C,
+    Q_L,
+    Q_4,
+    Q_ARITH,
+    Q_RANGE,
+    Q_ELLIPTIC,
+    Q_MEMORY,
+    Q_NNF,
+    Q_POSEIDON2_EXTERNAL,
+    Q_POSEIDON2_INTERNAL,
     W_L,
     W_R,
     W_O,
@@ -870,7 +876,7 @@ library RelationsLib {
             accum = accum + (q_arith - ONE) * wire(p, WIRE.W_4_SHIFT);
             accum = accum * q_arith;
             accum = accum * domainSep;
-            evals[0] = accum;
+            evals[6] = accum;
         }
 
         // Relation 1
@@ -880,7 +886,7 @@ library RelationsLib {
             accum = accum * (q_arith - ONE);
             accum = accum * q_arith;
             accum = accum * domainSep;
-            evals[1] = accum;
+            evals[7] = accum;
         }
     }
 
@@ -918,19 +924,19 @@ library RelationsLib {
                 - ((wire(p, WIRE.Z_PERM_SHIFT) + (wire(p, WIRE.LAGRANGE_LAST) * rp.publicInputsDelta))
                     * grand_product_denominator);
             acc = acc * domainSep;
-            evals[2] = acc;
+            evals[0] = acc;
         }
 
         // Contribution 3
         {
             Fr acc = (wire(p, WIRE.LAGRANGE_LAST) * wire(p, WIRE.Z_PERM_SHIFT)) * domainSep;
-            evals[3] = acc;
+            evals[1] = acc;
         }
 
         // Contribution 4: z_perm initialization check (lagrange_first * z_perm = 0)
         {
             Fr acc = (wire(p, WIRE.LAGRANGE_FIRST) * wire(p, WIRE.Z_PERM)) * domainSep;
-            evals[4] = acc;
+            evals[2] = acc;
         }
     }
 
@@ -981,9 +987,9 @@ library RelationsLib {
 
         Fr read_tag_boolean_relation = read_tag * read_tag - read_tag;
 
-        evals[5] = accumulatorNone;
-        evals[6] = accumulatorOne;
-        evals[7] = read_tag_boolean_relation * domainSep;
+        evals[3] = accumulatorNone;
+        evals[4] = accumulatorOne;
+        evals[5] = read_tag_boolean_relation * domainSep;
     }
 
     function accumulateDeltaRangeRelation(
@@ -1471,8 +1477,8 @@ library CommitmentSchemeLib {
         Fr batchingChallenge;
         // Linear combination of multilinear (sumcheck) evaluations and powers of rho
         Fr batchedEvaluation;
-        Fr[4] denominators;
-        Fr[4] batchingScalars;
+        Fr[NUM_SMALL_IPA_OPENING_CLAIMS] denominators;
+        Fr[NUM_SMALL_IPA_OPENING_CLAIMS] batchingScalars;
         // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
         Fr posInvertedDenominator;
         // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
@@ -2066,34 +2072,34 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         commitments[1] = proof.geminiMaskingPoly;
 
-        commitments[2] = vk.qm;
-        commitments[3] = vk.qc;
-        commitments[4] = vk.ql;
-        commitments[5] = vk.qr;
-        commitments[6] = vk.qo;
-        commitments[7] = vk.q4;
-        commitments[8] = vk.qLookup;
-        commitments[9] = vk.qArith;
-        commitments[10] = vk.qDeltaRange;
-        commitments[11] = vk.qElliptic;
-        commitments[12] = vk.qMemory;
-        commitments[13] = vk.qNnf;
-        commitments[14] = vk.qPoseidon2External;
-        commitments[15] = vk.qPoseidon2Internal;
-        commitments[16] = vk.s1;
-        commitments[17] = vk.s2;
-        commitments[18] = vk.s3;
-        commitments[19] = vk.s4;
-        commitments[20] = vk.id1;
-        commitments[21] = vk.id2;
-        commitments[22] = vk.id3;
-        commitments[23] = vk.id4;
-        commitments[24] = vk.t1;
-        commitments[25] = vk.t2;
-        commitments[26] = vk.t3;
-        commitments[27] = vk.t4;
-        commitments[28] = vk.lagrangeFirst;
-        commitments[29] = vk.lagrangeLast;
+        commitments[2] = vk.s1;
+        commitments[3] = vk.s2;
+        commitments[4] = vk.s3;
+        commitments[5] = vk.s4;
+        commitments[6] = vk.id1;
+        commitments[7] = vk.id2;
+        commitments[8] = vk.id3;
+        commitments[9] = vk.id4;
+        commitments[10] = vk.lagrangeFirst;
+        commitments[11] = vk.lagrangeLast;
+        commitments[12] = vk.qLookup;
+        commitments[13] = vk.t1;
+        commitments[14] = vk.t2;
+        commitments[15] = vk.t3;
+        commitments[16] = vk.t4;
+        commitments[17] = vk.qm;
+        commitments[18] = vk.qr;
+        commitments[19] = vk.qo;
+        commitments[20] = vk.qc;
+        commitments[21] = vk.ql;
+        commitments[22] = vk.q4;
+        commitments[23] = vk.qArith;
+        commitments[24] = vk.qDeltaRange;
+        commitments[25] = vk.qElliptic;
+        commitments[26] = vk.qMemory;
+        commitments[27] = vk.qNnf;
+        commitments[28] = vk.qPoseidon2External;
+        commitments[29] = vk.qPoseidon2Internal;
 
         // Accumulate proof points
         commitments[30] = proof.w1;
@@ -2174,21 +2180,41 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         boundary += $LOG_N - 1;
 
-        // Finalize the batch opening claim
-        mem.denominators[0] = Fr.wrap(1).div(tp.shplonkZ - tp.geminiR);
-        mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
+        // Denominators 1/(z - point_i) for the five opening points {r, g*r, r, 1, r}.
+        mem.denominators[0] = ONE.div(tp.shplonkZ - tp.geminiR);
+        mem.denominators[1] = ONE.div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
         mem.denominators[2] = mem.denominators[0];
-        mem.denominators[3] = mem.denominators[0];
+        mem.denominators[SMALL_IPA_BOUNDARY_OPENING_IDX] = ONE.div(tp.shplonkZ - ONE);
+        mem.denominators[NUM_SMALL_IPA_OPENING_CLAIMS - 1] = mem.denominators[0];
 
-        for (uint256 i = 0; i < LIBRA_EVALUATIONS; i++) {
+        // Iterate the opening claims in three segments — the inner loops can't be merged without an extra induction
+        // variable, which pushes us into stack-too-deep.
+        for (uint256 i = 0; i < SMALL_IPA_BOUNDARY_OPENING_IDX; i++) {
             Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
             mem.batchingScalars[i] = scalingFactor.neg();
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
             mem.constantTermAccumulator = mem.constantTermAccumulator + scalingFactor * proof.libraPolyEvals[i];
         }
+
+        // Boundary slot: claimed value is hardcoded 0, so no constantTermAccumulator contribution.
+        {
+            Fr scalingFactor = mem.denominators[SMALL_IPA_BOUNDARY_OPENING_IDX] * mem.batchingChallenge;
+            mem.batchingScalars[SMALL_IPA_BOUNDARY_OPENING_IDX] = scalingFactor.neg();
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+        }
+
+        for (uint256 i = SMALL_IPA_BOUNDARY_OPENING_IDX + 1; i < NUM_SMALL_IPA_OPENING_CLAIMS; i++) {
+            Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
+            mem.batchingScalars[i] = scalingFactor.neg();
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+            mem.constantTermAccumulator = mem.constantTermAccumulator + scalingFactor * proof.libraPolyEvals[i - 1];
+        }
+
+        // Group per-claim batching scalars by commitment: [G], [A] (three openings), [Q].
         scalars[boundary] = mem.batchingScalars[0];
-        scalars[boundary + 1] = mem.batchingScalars[1] + mem.batchingScalars[2];
-        scalars[boundary + 2] = mem.batchingScalars[3];
+        scalars[boundary + 1] =
+            mem.batchingScalars[1] + mem.batchingScalars[2] + mem.batchingScalars[SMALL_IPA_BOUNDARY_OPENING_IDX];
+        scalars[boundary + 2] = mem.batchingScalars[NUM_SMALL_IPA_OPENING_CLAIMS - 1];
 
         for (uint256 i = 0; i < LIBRA_COMMITMENTS; i++) {
             commitments[boundary++] = proof.libraCommitments[i];

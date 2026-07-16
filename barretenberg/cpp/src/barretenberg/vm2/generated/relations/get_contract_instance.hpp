@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -44,6 +43,7 @@ template <typename FF> class get_contract_instance : public Relation<get_contrac
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_WRITE_OUT_OF_BOUNDS_CHECK:
             return "WRITE_OUT_OF_BOUNDS_CHECK";
@@ -58,6 +58,7 @@ template <typename FF> class get_contract_instance : public Relation<get_contrac
         case SR_MEMBER_WRITE_OFFSET:
             return "MEMBER_WRITE_OFFSET";
         }
+#endif
         return std::to_string(index);
     }
 };

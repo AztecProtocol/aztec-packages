@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,9 +13,9 @@ template <typename FF_> class to_radix_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 36> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 5, 4, 3, 5, 3, 5, 7, 4,
-                                                                            3, 3, 5, 3, 3, 3, 4, 6, 4, 3, 3, 3 };
+    static constexpr std::array<size_t, 37> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 5, 4, 3, 5, 3, 5, 7, 3, 4, 3,
+                                                                            3, 5, 3, 3, 3, 4, 6, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -48,18 +47,20 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
     static constexpr size_t SR_IS_OUTPUT_BITS_IMPLY_RADIX_2 = 17;
     static constexpr size_t SR_ZERO_CHECK_NUM_LIMBS = 19;
     static constexpr size_t SR_ZERO_CHECK_VALUE = 21;
-    static constexpr size_t SR_SEL_SHOULD_DECOMPOSE_CONTINUITY = 24;
-    static constexpr size_t SR_ERR_COMPUTATION = 26;
-    static constexpr size_t SR_DECR_NUM_LIMBS = 27;
-    static constexpr size_t SR_INCR_DST_ADDRESS = 28;
-    static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 29;
-    static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 30;
-    static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 31;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_CONTINUITY = 33;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL = 34;
+    static constexpr size_t SR_SHOULD_DECOMPOSE_ON_SEL = 23;
+    static constexpr size_t SR_SEL_SHOULD_DECOMPOSE_CONTINUITY = 25;
+    static constexpr size_t SR_ERR_COMPUTATION = 27;
+    static constexpr size_t SR_DECR_NUM_LIMBS = 28;
+    static constexpr size_t SR_INCR_DST_ADDRESS = 29;
+    static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 30;
+    static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 31;
+    static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 32;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_CONTINUITY = 34;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL = 35;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_SEL_ON_START_OR_END:
             return "SEL_ON_START_OR_END";
@@ -83,6 +84,8 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
             return "ZERO_CHECK_NUM_LIMBS";
         case SR_ZERO_CHECK_VALUE:
             return "ZERO_CHECK_VALUE";
+        case SR_SHOULD_DECOMPOSE_ON_SEL:
+            return "SHOULD_DECOMPOSE_ON_SEL";
         case SR_SEL_SHOULD_DECOMPOSE_CONTINUITY:
             return "SEL_SHOULD_DECOMPOSE_CONTINUITY";
         case SR_ERR_COMPUTATION:
@@ -102,6 +105,7 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
         case SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL:
             return "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL";
         }
+#endif
         return std::to_string(index);
     }
 };

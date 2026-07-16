@@ -163,7 +163,8 @@ TEST(MemoryConstrainingTest, ContiguousTrace)
 
     // Mutate the trace to make it non-contiguous.
     trace.set(C::memory_sel, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEM_CONTINUITY), "MEM_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEM_CONTINUITY),
+                              memory::get_subrelation_label(memory::SR_MEM_CONTINUITY));
 }
 
 // Boolean selector for range check is active at all active rows except the last one.
@@ -180,21 +181,24 @@ TEST(MemoryConstrainingTest, SelRngChk)
 
     // Disable the range check for the penultimate row.
     trace.set(C::memory_sel_rng_chk, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK), "SEL_RNG_CHK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK),
+                              memory::get_subrelation_label(memory::SR_SEL_RNG_CHK));
 
     // Reset
     trace.set(C::memory_sel_rng_chk, 1, 1);
 
     // Disable the range check at the first row.
     trace.set(C::memory_sel_rng_chk, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK), "SEL_RNG_CHK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK),
+                              memory::get_subrelation_label(memory::SR_SEL_RNG_CHK));
 
     // Reset
     trace.set(C::memory_sel_rng_chk, 0, 1);
 
     // Enable the range check at the last active row.
     trace.set(C::memory_sel_rng_chk, 2, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK), "SEL_RNG_CHK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK),
+                              memory::get_subrelation_label(memory::SR_SEL_RNG_CHK));
 }
 
 // last_access is derived from whether the next row has the same (space_id, address).
@@ -222,7 +226,8 @@ TEST(MemoryConstrainingTest, LastAccess)
 
     // Mutate the trace to make the last access incorrect (last_access == 0 instead of 1).
     trace.set(C::memory_last_access, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS), "LAST_ACCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS),
+                              memory::get_subrelation_label(memory::SR_LAST_ACCESS));
 
     // Reset
     trace.set(C::memory_last_access, 0, 1);
@@ -230,7 +235,8 @@ TEST(MemoryConstrainingTest, LastAccess)
 
     // Mutate glob_addr_diff_inv == 0.
     trace.set(C::memory_glob_addr_diff_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS), "LAST_ACCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS),
+                              memory::get_subrelation_label(memory::SR_LAST_ACCESS));
 
     // Reset
     trace.set(C::memory_glob_addr_diff_inv, 0, 1);
@@ -238,7 +244,8 @@ TEST(MemoryConstrainingTest, LastAccess)
 
     // Mutate the trace to make the last access == 1, instead of 0.
     trace.set(C::memory_last_access, 2, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS), "LAST_ACCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS),
+                              memory::get_subrelation_label(memory::SR_LAST_ACCESS));
 }
 
 // diff is derived as GLOBAL_ADDR_DIFF when last_access == 1.
@@ -272,7 +279,8 @@ TEST(MemoryConstrainingTest, DiffWithLastAccess)
 
     // Mutate the trace to make the diff incorrect.
     trace.set(C::memory_diff, 1, trace.get(C::memory_diff, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF), "DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF),
+                              memory::get_subrelation_label(memory::SR_DIFF));
 }
 
 // diff is derived as TIMESTAMP_DIFF - rw' * rw when last_access == 0.
@@ -298,7 +306,8 @@ TEST(MemoryConstrainingTest, DiffWithoutLastAccess)
 
     // Mutate the trace to make the diff incorrect.
     trace.set(C::memory_diff, 0, trace.get(C::memory_diff, 0) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF), "DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF),
+                              memory::get_subrelation_label(memory::SR_DIFF));
 
     // Reset
     trace.set(C::memory_diff, 0, trace.get(C::memory_diff, 0) - 1);
@@ -306,7 +315,8 @@ TEST(MemoryConstrainingTest, DiffWithoutLastAccess)
 
     // Mutate the trace to make the diff incorrect.
     trace.set(C::memory_diff, 1, trace.get(C::memory_diff, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF), "DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF),
+                              memory::get_subrelation_label(memory::SR_DIFF));
 }
 
 // diff correct decomposition into 3 16-bit limbs.
@@ -332,7 +342,8 @@ TEST(MemoryConstrainingTest, DiffDecomp)
 
     // Mutate the trace to make the diff decomposition incorrect.
     trace.set(C::memory_limb_0_, 0, trace.get(C::memory_limb_0_, 0) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP), "DIFF_DECOMP");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP),
+                              memory::get_subrelation_label(memory::SR_DIFF_DECOMP));
 
     // Reset
     trace.set(C::memory_limb_0_, 0, trace.get(C::memory_limb_0_, 0) - 1);
@@ -340,7 +351,8 @@ TEST(MemoryConstrainingTest, DiffDecomp)
 
     // Mutate the trace to make the diff decomposition incorrect.
     trace.set(C::memory_limb_1_, 1, trace.get(C::memory_limb_1_, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP), "DIFF_DECOMP");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP),
+                              memory::get_subrelation_label(memory::SR_DIFF_DECOMP));
 
     // Reset
     trace.set(C::memory_limb_1_, 1, trace.get(C::memory_limb_1_, 1) - 1);
@@ -348,7 +360,8 @@ TEST(MemoryConstrainingTest, DiffDecomp)
 
     // Mutate the trace to make the diff decomposition incorrect.
     trace.set(C::memory_limb_2_, 2, trace.get(C::memory_limb_2_, 2) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP), "DIFF_DECOMP");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP),
+                              memory::get_subrelation_label(memory::SR_DIFF_DECOMP));
 }
 
 // Correct memory value (and tag) initialization after first row.
@@ -363,7 +376,8 @@ TEST(MemoryConstrainingTest, MemoryInitValueFirstRow)
 
     // Mutate the trace to make the memory value incorrect.
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_VALUE), "MEMORY_INIT_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_VALUE),
+                              memory::get_subrelation_label(memory::SR_MEMORY_INIT_VALUE));
 
     // Reset
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) - 1);
@@ -371,7 +385,8 @@ TEST(MemoryConstrainingTest, MemoryInitValueFirstRow)
 
     // Mutate the trace to make the memory tag incorrect.
     trace.set(C::memory_tag, 1, static_cast<uint8_t>(MemoryTag::U16));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_TAG), "MEMORY_INIT_TAG");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_TAG),
+                              memory::get_subrelation_label(memory::SR_MEMORY_INIT_TAG));
 }
 
 // Correct memory value (and tag) initialization after last_access == 1.
@@ -386,7 +401,8 @@ TEST(MemoryConstrainingTest, MemoryInitValueLastAccess)
 
     // Mutate the trace to make the memory value incorrect.
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_VALUE), "MEMORY_INIT_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_VALUE),
+                              memory::get_subrelation_label(memory::SR_MEMORY_INIT_VALUE));
 
     // Reset
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) - 1);
@@ -394,7 +410,8 @@ TEST(MemoryConstrainingTest, MemoryInitValueLastAccess)
 
     // Mutate the trace to make the memory tag incorrect.
     trace.set(C::memory_tag, 1, static_cast<uint8_t>(MemoryTag::U1));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_TAG), "MEMORY_INIT_TAG");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_TAG),
+                              memory::get_subrelation_label(memory::SR_MEMORY_INIT_TAG));
 }
 
 // Correct read-write consistency for memory value (and tag).
@@ -433,7 +450,7 @@ TEST(MemoryConstrainingTest, ReadWriteConsistency)
     // Mutate the trace to make the first read value (row 1) incorrect.
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_READ_WRITE_CONSISTENCY_VALUE),
-                              "READ_WRITE_CONSISTENCY_VALUE");
+                              memory::get_subrelation_label(memory::SR_READ_WRITE_CONSISTENCY_VALUE));
 
     // Reset
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) - 1);
@@ -442,7 +459,7 @@ TEST(MemoryConstrainingTest, ReadWriteConsistency)
     // Mutate the trace to make the first read tag (row 1) incorrect.
     trace.set(C::memory_tag, 1, static_cast<uint8_t>(MemoryTag::U16));
     EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_READ_WRITE_CONSISTENCY_TAG),
-                              "READ_WRITE_CONSISTENCY_TAG");
+                              memory::get_subrelation_label(memory::SR_READ_WRITE_CONSISTENCY_TAG));
 }
 
 // Selector on tag == FF.
@@ -488,11 +505,13 @@ TEST(MemoryConstrainingTest, TagIsFF)
 
     // Attempt to de-activate sel_tag_is_ff when tag == FF.
     trace.set(C::memory_sel_tag_is_ff, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF),
+                              memory::get_subrelation_label(memory::SR_TAG_IS_FF));
 
     // Try to change value for diff_inv
     trace.set(C::memory_tag_ff_diff_inv, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF),
+                              memory::get_subrelation_label(memory::SR_TAG_IS_FF));
 
     // Reset
     trace.set(C::memory_sel_tag_is_ff, 0, 1);
@@ -501,11 +520,13 @@ TEST(MemoryConstrainingTest, TagIsFF)
 
     // Attempt to activate sel_tag_is_ff when tag != FF.
     trace.set(C::memory_sel_tag_is_ff, 1, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF),
+                              memory::get_subrelation_label(memory::SR_TAG_IS_FF));
 
     // Try to modify value for tag_ff_diff_inv
     trace.set(C::memory_tag_ff_diff_inv, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF),
+                              memory::get_subrelation_label(memory::SR_TAG_IS_FF));
 }
 
 // Boolean selector sel_rng_write is active for write operations and tag != FF.

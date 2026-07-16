@@ -7,7 +7,7 @@
  * including circuit input types and proof system settings.
  */
 
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -24,6 +24,11 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+
+namespace bb::scalar_multiplication {
+[[nodiscard]] bool use_legacy_msm() noexcept;
+void set_legacy_msm_override(bool enabled) noexcept;
+} // namespace bb::scalar_multiplication
 
 namespace bb::bbapi {
 
@@ -176,9 +181,7 @@ class ChonkBatchVerifierService;
 #endif
 
 struct BBApiRequest {
-    // Current depth of the IVC stack for this request
-    uint32_t ivc_stack_depth = 0;
-    std::shared_ptr<IVCBase> ivc_in_progress;
+    std::shared_ptr<ChonkStepProcessor> ivc_in_progress;
     // Name of the last loaded circuit
     std::string loaded_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate
@@ -225,6 +228,26 @@ struct Shutdown {
     void msgpack(auto&& pack_fn) { pack_fn(); }
     Response execute(const BBApiRequest&) && { return {}; }
     bool operator==(const Shutdown&) const = default;
+};
+
+struct SetMsmLegacy {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "SetMsmLegacy";
+    bool enabled = false;
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "SetMsmLegacyResponse";
+        bool enabled = false;
+        SERIALIZATION_FIELDS(enabled);
+        bool operator==(const Response&) const = default;
+    };
+
+    SERIALIZATION_FIELDS(enabled);
+    Response execute(const BBApiRequest&) const
+    {
+        scalar_multiplication::set_legacy_msm_override(enabled);
+        return { .enabled = scalar_multiplication::use_legacy_msm() };
+    }
+    bool operator==(const SetMsmLegacy&) const = default;
 };
 
 /**

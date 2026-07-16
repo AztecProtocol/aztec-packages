@@ -138,9 +138,9 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // SEL_NO_ERROR
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::keccakf1600_sel)) *
-                   ((static_cast<View>(in.get(C::keccakf1600_sel_no_error)) - FF(1)) +
-                    static_cast<View>(in.get(C::keccakf1600_error)));
+        auto tmp =
+            (static_cast<View>(in.get(C::keccakf1600_sel_no_error)) -
+             static_cast<View>(in.get(C::keccakf1600_sel)) * (FF(1) - static_cast<View>(in.get(C::keccakf1600_error))));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {

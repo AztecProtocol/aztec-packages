@@ -81,7 +81,7 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_quad_internal.is_zero();
+        return in[AllEntities::EntityId::q_poseidon2_quad_internal].is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -95,30 +95,31 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
 
         // Wire values: current row's committed lane-0 chain (state[0] at the four rounds covered
         // by this quad).
-        const auto w_l = CoeffAcc(in.w_l); // s_0^(0): row's lane-0 at round 4i
-        const auto w_r = CoeffAcc(in.w_r); // s_0^(1): row's lane-0 at round 4i+1
-        const auto w_o = CoeffAcc(in.w_o); // s_0^(2): row's lane-0 at round 4i+2
-        const auto w_4 = CoeffAcc(in.w_4); // s_0^(3): row's lane-0 at round 4i+3
+        const auto w_l = CoeffAcc(in[AllEntities::EntityId::w_l]); // s_0^(0): row's lane-0 at round 4i
+        const auto w_r = CoeffAcc(in[AllEntities::EntityId::w_r]); // s_0^(1): row's lane-0 at round 4i+1
+        const auto w_o = CoeffAcc(in[AllEntities::EntityId::w_o]); // s_0^(2): row's lane-0 at round 4i+2
+        const auto w_4 = CoeffAcc(in[AllEntities::EntityId::w_4]); // s_0^(3): row's lane-0 at round 4i+3
 
         // Next row's committed lane-0 chain.
-        const auto w_l_shift = CoeffAcc(in.w_l_shift); // next row's s_0^(0) (= state[0] at round 4(i+1))
-        const auto w_r_shift = CoeffAcc(in.w_r_shift); // next row's s_0^(1)
-        const auto w_o_shift = CoeffAcc(in.w_o_shift); // next row's s_0^(2)
-        const auto w_4_shift = CoeffAcc(in.w_4_shift); // next row's s_0^(3)
+        const auto w_l_shift =
+            CoeffAcc(in[AllEntities::EntityId::w_l_shift]); // next row's s_0^(0) (= state[0] at round 4(i+1))
+        const auto w_r_shift = CoeffAcc(in[AllEntities::EntityId::w_r_shift]); // next row's s_0^(1)
+        const auto w_o_shift = CoeffAcc(in[AllEntities::EntityId::w_o_shift]); // next row's s_0^(2)
+        const auto w_4_shift = CoeffAcc(in[AllEntities::EntityId::w_4_shift]); // next row's s_0^(3)
 
         // Round constants (current row), used to compute u_0..u_3.
-        const auto q_l = CoeffAcc(in.q_l); // c_{4i}
-        const auto q_r = CoeffAcc(in.q_r); // c_{4i+1}
-        const auto q_o = CoeffAcc(in.q_o); // c_{4i+2}
-        const auto q_4 = CoeffAcc(in.q_4); // c_{4i+3}
+        const auto q_l = CoeffAcc(in[AllEntities::EntityId::q_l]); // c_{4i}
+        const auto q_r = CoeffAcc(in[AllEntities::EntityId::q_r]); // c_{4i+1}
+        const auto q_o = CoeffAcc(in[AllEntities::EntityId::q_o]); // c_{4i+2}
+        const auto q_4 = CoeffAcc(in[AllEntities::EntityId::q_4]); // c_{4i+3}
         // Next quad's first three round constants. Needed to compute u_0', u_1', u_2', which
         // appear in the b'-formulas (RHS of the cross-row encoding equation). Carried on the
         // current row in q_m, q_c, q_5 because Mega has no shifted selectors.
-        const auto q_m = CoeffAcc(in.q_m); // c_{4(i+1)}
-        const auto q_c = CoeffAcc(in.q_c); // c_{4(i+1)+1}
-        const auto q_5 = CoeffAcc(in.q_5); // c_{4(i+1)+2}
+        const auto q_m = CoeffAcc(in[AllEntities::EntityId::q_m]); // c_{4(i+1)}
+        const auto q_c = CoeffAcc(in[AllEntities::EntityId::q_c]); // c_{4(i+1)+1}
+        const auto q_5 = CoeffAcc(in[AllEntities::EntityId::q_5]); // c_{4(i+1)+2}
 
-        const auto q_sel = CoeffAcc(in.q_poseidon2_quad_internal);
+        const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_quad_internal]);
 
         // Helper: compute fifth power as Accumulator (degree 5 in the input wire).
         auto pow5 = [](const Accumulator& x) -> Accumulator {
