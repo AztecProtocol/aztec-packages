@@ -172,8 +172,7 @@ stateDiagram-v2
   failed --> [*]
 ```
 
-A fault settles the `EpochSession` in one of two terminal states, and the difference is the whole
-point:
+A fault settles the `EpochSession` in one of two terminal states:
 
 - **`stopped`** — a `CheckpointProver` under the session failed (its block proofs rejected). This may
   be a prune-induced fork fault, so it is *not* a verdict on the epoch and is *not* uploaded. The
@@ -209,7 +208,7 @@ Outcome → state mapping:
 |---|---|
 | `published` | `completed` |
 | `superseded` | `superseded` |
-| `failed` | `failed` (genuine failure — provers were healthy) |
+| `failed` | `failed` |
 | `expired` | `timed-out` |
 | `withdrawn` | `cancelled` |
 
@@ -365,15 +364,13 @@ sequenceDiagram
 ```
 
 The sweep is driven solely by the `expiryTicker` (a `RunningPromise` armed in `start()`), which
-fires `checkEpochExpiry()` every poll interval whether or not block-stream events arrive. It is
+calls `checkEpochExpiry()` every poll interval whether or not block-stream events arrive. It is
 deliberately **not** run from `handleBlockStreamEvent` — expiry is a background sweep keyed off the
 archiver's synced slot, not part of event processing — and because a `RunningPromise` never overlaps
 its own runs, no two sweeps can race. An epoch `E` is expired once the chain reaches the start of epoch
 `E + proofSubmissionEpochs + 1` — the deadline beyond which an L1 submission for `E` would be rejected.
-Expiry only releases the chonk cache and reaps `E`'s provers; it does **not** upload a post-mortem. A
-missed-window epoch's provers may already have been pruned by the time it expires, so there would be
-nothing to upload — the post-mortem instead fires eagerly and race-free when a full session reports its
-own failure (see below). A monotonic high-water mark (`lastExpiredEpoch`) makes the sweep cheap: it only
+Expiry only releases the chonk cache and reaps `E`'s provers.
+A monotonic high-water mark (`lastExpiredEpoch`) makes the sweep cheap: it only
 advances after a sweep completes and never revisits an epoch. It is seeded at `start()` from the last
 fully-proven epoch (`resolveLastFullyProvenEpoch`), so on a restart we never re-sweep epochs that already
 reached L1.

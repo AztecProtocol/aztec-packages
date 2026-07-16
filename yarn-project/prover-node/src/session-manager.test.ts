@@ -246,10 +246,10 @@ describe('SessionManager', () => {
   });
 
   it('skips opening a full session while a checkpoint prover in the set has failed', async () => {
-    // A checkpoint prover fault (a sub-tree fault or a prune-induced fork fault) marks the prover failed.
+    // A checkpoint prover fault (a sub-tree fault or a prune-induced fork fault) marks the checkpoint prover failed.
     // A session over it can never produce its block proofs, so openFullSessionIfReady skips it — on both
     // the tick and checkpoint triggers, cheaply and with no bookkeeping. It stays skipped until a
-    // prune/re-add replaces the failed prover (see the recovery tests below) or the epoch expires.
+    // prune/re-add replaces the failed checkpoint (see the recovery tests below) or the epoch expires.
     mockNextUnprovenSlot(2, 6);
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
@@ -265,7 +265,7 @@ describe('SessionManager', () => {
 
   it('retains a full session that failed on its own account, uploads once, and does not re-prove it', async () => {
     // A session-level failure (top-tree prove or L1 submit) with every checkpoint prover healthy ends the
-    // session in 'failed'. Because healthy provers rule out a prune, this is a genuine, race-free failure:
+    // session in 'failed'. Because healthy checkpoint provers rule out a prune, this is a race free failure:
     // it uploads a post-mortem exactly once, and the failed session is retained so the tick does not
     // re-prove a deterministically-failing epoch.
     mockNextUnprovenSlot(2, 6);

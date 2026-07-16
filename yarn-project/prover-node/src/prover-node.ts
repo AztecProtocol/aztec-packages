@@ -461,10 +461,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
 
   /**
    * Releases chonk-cache entries for every block in the supplied epoch (best-effort) and reaps every
-   * CheckpointProver in the store whose epoch is at or below it. The post-mortem upload for a failed
-   * epoch does NOT happen here — a missed-window epoch's provers may already be pruned by the time it
-   * expires, so it would have nothing to upload. The upload fires earlier and race-free, when a full
-   * session ends in its own genuine failure (see `createSessionManager`'s `onSessionFailed`).
+   * CheckpointProver in the store whose epoch is at or below it.
    */
   private async expireEpoch(epoch: EpochNumber): Promise<void> {
     try {

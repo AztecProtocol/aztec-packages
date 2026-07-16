@@ -275,8 +275,7 @@ describe('ProverNode', () => {
   // ---------------- expiry only reaps; the failure upload is not on this path ----------------
 
   it('expireEpoch reaps the store but never uploads a post-mortem', async () => {
-    // The post-mortem upload fires from the session-failure path (onSessionFailed), not expiry — a
-    // missed-window epoch's provers may already be pruned by the time it expires. Expiry just reaps.
+    // The post-mortem upload fires from the session-failure path (onSessionFailed)
     setupNotFullyProven();
     await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(3, 3, 3)));
     expect(proverNode.getCheckpointStore().listAll().length).toBe(1);
@@ -311,11 +310,10 @@ describe('ProverNode', () => {
     expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber.ZERO);
   });
 
-  it('leaves the tips store unadvanced when a handler propagates an error (A-1041)', async () => {
+  it('leaves the tips store unadvanced when a handler propagates an error', async () => {
     // The prune handler throws when it cannot resolve the prune target's block data. That failure
     // propagates before the tips-store update, so the error surfaces to the L2BlockStream and the
-    // tips stay put for a retry on the next poll. (Expiry is no longer on this path — it is driven
-    // solely by the periodic ticker.)
+    // tips stay put for a retry on the next poll.
     l2BlockSource.getBlockData.mockResolvedValue(undefined);
 
     const event: L2BlockStreamEvent = {

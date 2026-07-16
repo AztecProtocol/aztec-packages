@@ -78,7 +78,7 @@ describe('single-node/proving/upload_failed_proof', () => {
     });
 
     // Track when the epoch failure upload is complete. It fires eagerly when a full session fails with
-    // healthy provers (a top-tree failure here), not at expiry.
+    // healthy provers (a top-tree failure here).
     const { promise: epochUploaded, resolve: onEpochUploaded } = promiseWithResolvers<string>();
     const origTryUploadEpochFailure = proverNode.tryUploadEpochFailure.bind(proverNode);
     proverNode.tryUploadEpochFailure = async (epoch: any, checkpoints: any) => {
