@@ -14,6 +14,7 @@ import { SqliteCorruptionError, SqliteEncryptionError, isCorruptionMessage } fro
 import { SQLiteOPFSAztecMap } from './map.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 import { SQLiteOPFSAztecMultiMap } from './multi_map.js';
+import { quarantineDuplicatePool } from './pool_integrity.js';
 import { type PoolLockLease, acquirePoolLock, normalizePoolDirectory } from './pool_lock.js';
 import { SQLiteOPFSAztecSet } from './set.js';
 import { SQLiteOPFSAztecSingleton } from './singleton.js';
@@ -114,6 +115,12 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     const poolLock = effectivePoolDirectory ? await acquirePoolLock(effectivePoolDirectory) : undefined;
     let worker: Worker | undefined;
     try {
+      if (effectivePoolDirectory) {
+        const quarantine = await quarantineDuplicatePool(effectivePoolDirectory);
+        if (quarantine) {
+          log.warn(`Quarantined SQLite-OPFS pool with duplicate logical file mappings`, quarantine);
+        }
+      }
       worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
       const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral, poolLock);
       // Transfer (not clone) the key buffer to the worker so we don't leave a
