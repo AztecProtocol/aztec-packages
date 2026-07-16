@@ -13,10 +13,10 @@
 export const ORACLE_VERSION_MAJOR = 30;
 export const ORACLE_VERSION_MINOR = 8;
 
-/// This hash is computed from the `ORACLE_REGISTRY` declaration (each oracle's name, ordered parameter names and
+/// This hash is computed from `ORACLE_REGISTRY` (each oracle's name, ordered parameter names and
 /// types, and return type) and is used to detect when the oracle interface changes. When it does, you need to either:
 /// - increment `ORACLE_VERSION_MAJOR` and reset `ORACLE_VERSION_MINOR` to zero if the change is breaking, or
 /// - increment only `ORACLE_VERSION_MINOR` if the change is additive (a new oracle was added).
 ///
 /// These constants must be kept in sync between this file and `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
-export const ORACLE_INTERFACE_HASH = 'b302a8e65d37043c0a0dc08a39895603122dce334843f0442462edb3f56e32e2';
+export const ORACLE_INTERFACE_HASH = 'b1bcd3a71cb7142001d914f63d43be25d8508aacb99fe89c611a4b6e410d423f';

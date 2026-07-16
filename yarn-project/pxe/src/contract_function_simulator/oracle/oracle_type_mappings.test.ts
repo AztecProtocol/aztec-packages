@@ -13,7 +13,6 @@ import {
   ARRAY,
   AZTEC_ADDRESS,
   BOUNDED_VEC,
-  BYTE,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   FIELD,
@@ -21,14 +20,15 @@ import {
   MEMBERSHIP_WITNESS,
   OPTION,
   POINT,
-  PROVIDED_SECRET,
   RESOLVED_TAGGING_STRATEGY,
   type SlotShape,
   type TypeMapping,
+  U8,
   U32,
   makeEntry,
   slotsOf,
 } from './oracle_registry.js';
+import { FIXED_ARRAY, FIXED_BOUNDED_VEC, LEAF, SCALAR, STRUCT, TX_HASH } from './oracle_type_mappings.js';
 
 /**
  * Tests for the oracle type mappings: how the PXE encodes values to, and decodes them from, the flat field arrays that
@@ -63,21 +63,21 @@ describe('oracle type mappings', () => {
     });
 
     it('rejects a value above the maximum', () => {
-      expect(() => deserialize(U32, new Fr(0x100000000n))).toThrow('U32 overflow');
+      expect(() => deserialize(U32, new Fr(0x100000000n))).toThrow('u32 overflow');
     });
   });
 
-  describe('BYTE', () => {
+  describe('U8', () => {
     it('deserializes a value in range', () => {
-      expect(deserialize(BYTE, new Fr(0))).toBe(0);
+      expect(deserialize(U8, new Fr(0))).toBe(0);
     });
 
     it('deserializes the maximum value', () => {
-      expect(deserialize(BYTE, new Fr(255))).toBe(255);
+      expect(deserialize(U8, new Fr(255))).toBe(255);
     });
 
     it('rejects a value above the maximum', () => {
-      expect(() => deserialize(BYTE, new Fr(256))).toThrow('BYTE overflow');
+      expect(() => deserialize(U8, new Fr(256))).toThrow('u8 overflow');
     });
   });
 
@@ -94,18 +94,6 @@ describe('oracle type mappings', () => {
 
     it('rejects an invalid value', () => {
       expect(() => deserialize(DELIVERY_MODE, new Fr(1))).toThrow('Unrecognized delivery mode for tagging');
-    });
-  });
-
-  describe('PROVIDED_SECRET', () => {
-    it('deserializes a secret and delivery mode from a two-field slot', () => {
-      const provided = PROVIDED_SECRET.deserialization!.fn([new FieldReader([new Fr(42), new Fr(3)])]);
-      expect(provided.secret).toEqual(new Fr(42));
-      expect(provided.mode).toBe(AppTaggingSecretKind.CONSTRAINED);
-    });
-
-    it('declares the two-field wire shape', () => {
-      expect(PROVIDED_SECRET.shape).toEqual([{ len: 2 }]);
     });
   });
 
@@ -162,7 +150,7 @@ describe('oracle type mappings', () => {
         Fr.ZERO,
         [Fr.ZERO, Fr.ZERO, Fr.ZERO],
       ]);
-      expect(OPTION(BOUNDED_VEC(BYTE)).serialization!.fn(Option.none<BoundedVec<number>>({ maxLength: 2 }))).toEqual([
+      expect(OPTION(BOUNDED_VEC(U8)).serialization!.fn(Option.none<BoundedVec<number>>({ maxLength: 2 }))).toEqual([
         Fr.ZERO,
         [Fr.ZERO, Fr.ZERO],
         Fr.ZERO,
@@ -224,8 +212,8 @@ describe('oracle type mappings', () => {
     it('fully consumes a partially-full vec as an oracle param', () => {
       // The registry rejects a param whose slots aren't fully read. A partially-full vec leaves zero padding in its
       // storage slot, so this checks the deserializer drains that padding instead of tripping the consumption check.
-      const entry = makeEntry({ params: [{ name: 'ciphertext', type: BOUNDED_VEC(BYTE) }] });
-      const inputs = toInputSlots(BOUNDED_VEC(BYTE).serialization!.fn(BoundedVec.from({ data: [1, 2], maxLength: 4 })));
+      const entry = makeEntry({ params: [{ name: 'ciphertext', type: BOUNDED_VEC(U8) }] });
+      const inputs = toInputSlots(BOUNDED_VEC(U8).serialization!.fn(BoundedVec.from({ data: [1, 2], maxLength: 4 })));
       const [{ value }] = entry.deserializeParams(inputs);
       expect(value.data).toEqual([1, 2]);
       expect(value.maxLength).toBe(4);
@@ -321,10 +309,34 @@ describe('oracle type mappings', () => {
       expect(shapeOf(witness.serialization!.fn(MembershipWitness.random(4)))).toEqual(witness.shape);
     });
   });
+
+  describe('label', () => {
+    it('renders a scalar leaf as its kind', () => {
+      expect(FIELD.label).toBe('field');
+      expect(TX_HASH.label).toBe('field');
+      expect(AZTEC_ADDRESS.label).toBe('aztec-address');
+    });
+
+    it('recurses through composites, including numeric generics', () => {
+      expect(OPTION(ARRAY(FIELD)).label).toBe('option(array(field))');
+      expect(FIXED_ARRAY(FIELD, 4).label).toBe('array(field,4)');
+      expect(FIXED_BOUNDED_VEC(AZTEC_ADDRESS, 8).label).toBe('bounded-vec(aztec-address,8)');
+      expect(EPHEMERAL_ARRAY(FIELD).label).toBe('ephemeral-array(field)');
+    });
+
+    it('renders struct fields in Noir snake_case', () => {
+      const struct = STRUCT([
+        { name: 'txHash', type: TX_HASH },
+        { name: 'blockNumber', type: U32 },
+      ]);
+      expect(struct.label).toBe('{tx_hash:field,block_number:u32}');
+    });
+  });
 });
 
 /** A field mapping that throws on a zero, proving a None skips its zero-padded inner instead of parsing it. */
-const REJECTS_ZERO_FIELD_TYPE: TypeMapping<Fr> = {
+const REJECTS_ZERO_FIELD_TYPE: TypeMapping<Fr> = SCALAR({
+  kind: 'field',
   serialization: { fn: v => [v] },
   deserialization: {
     fn: ([reader]) => {
@@ -335,14 +347,14 @@ const REJECTS_ZERO_FIELD_TYPE: TypeMapping<Fr> = {
       return field;
     },
   },
-  shape: ['scalar'],
-};
+});
 
 /** A mapping whose shape claims two fields but whose fn reads only one, leaving a trailing field unread. */
-const UNDER_READS_SLOT_TYPE: TypeMapping<Fr> = {
+const UNDER_READS_SLOT_TYPE: TypeMapping<Fr> = LEAF({
+  kind: 'field',
   deserialization: { fn: ([reader]) => reader.readField() },
   shape: [{ len: 2 }],
-};
+});
 
 /** Round-trips a value through a bidirectional mapping: serialize to wire slots, then deserialize back. */
 function roundTrip<T>(mapping: TypeMapping<T>, value: T): T {
@@ -356,7 +368,7 @@ function toInputSlots(slots: (Fr | Fr[])[]): string[][] {
   return slots.map(slot => (Array.isArray(slot) ? slot : [slot]).map(f => f.toString()));
 }
 
-/** Deserializes a single-slot scalar mapping (U32, BYTE, ...) from one field. */
+/** Deserializes a single-slot scalar mapping (U32, U8, ...) from one field. */
 function deserialize<T>(mapping: TypeMapping<T>, value: Fr): T {
   return mapping.deserialization!.fn([new FieldReader([value])]);
 }
