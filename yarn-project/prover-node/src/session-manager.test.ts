@@ -331,6 +331,37 @@ describe('SessionManager', () => {
     expect(sessionFailures).toEqual([]);
   });
 
+  it('does not churn sessions after a stopped session while the failed prover remains canonical', async () => {
+    const epoch = EpochNumber(3);
+    mockNextUnprovenSlot(2, 6);
+    l2BlockSource.isEpochComplete.mockResolvedValue(true);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+    store.listInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
+
+    await manager.onTick();
+    expect(stubs.length).toBe(1);
+
+    stubs[0].terminate('stopped');
+    await flushSessionCompletion();
+
+    // The same canonical prover is now sticky-failed. Reconcile should delete the terminal stopped
+    // session, but the failed-prover guard must prevent constructing/proving/deleting a new one on
+    // repeated triggers.
+    store.listInSlotRange.mockReturnValue([failedProverForCheckpoint(1, 6)]);
+
+    await manager.onTick();
+    expect(manager.getFullSession(epoch)).toBeUndefined();
+    expect(stubs.length).toBe(1);
+
+    await manager.onTick();
+    await manager.onCheckpointAdded(epoch);
+    await manager.onPrune([epoch]);
+
+    expect(manager.getFullSession(epoch)).toBeUndefined();
+    expect(stubs.length).toBe(1);
+    expect(sessionFailures).toEqual([]);
+  });
+
   it('onTick does not reopen an epoch once the proven height advances past it', async () => {
     // Once the epoch is proven, the proven tip advances so nextUnprovenEpoch moves on and the tick no
     // longer selects the proven epoch.
@@ -696,6 +727,20 @@ describe('SessionManager', () => {
   it('startProof throws when the epoch has no canonical content', async () => {
     store.listForEpoch.mockResolvedValue([]);
     await expect(manager.startProof(EpochNumber(7))).rejects.toThrow(/No blocks found/);
+  });
+
+  it('startProof does not construct a partial session over a failed canonical prover', async () => {
+    const epoch = EpochNumber(7);
+    const failed = failedProverForCheckpoint(1, 14);
+    store.listForEpoch.mockResolvedValue([failed]);
+    store.listInSlotRange.mockReturnValue([failed]);
+
+    await expect(manager.startProof(epoch)).rejects.toThrow(/Failed to schedule partial proof/);
+    await expect(manager.startProof(epoch)).rejects.toThrow(/Failed to schedule partial proof/);
+
+    expect(stubs).toHaveLength(0);
+    expect(manager.getJobs()).toEqual([]);
+    expect(sessionFailures).toEqual([]);
   });
 
   it('startProof refuses to re-prove an epoch the proven chain already encompasses', async () => {
