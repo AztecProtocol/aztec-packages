@@ -18,6 +18,7 @@ describe('Public TX simulator apps tests: AMM Contract', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

@@ -2,12 +2,14 @@ import type { AvmStat } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  type MeasuredSimulatorFactory,
   PublicTxSimulationTester,
   SimpleContractDataSource,
   type TestEnqueuedCall,
   type TestExecutorMetrics,
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
+import { AvmSimulatorPool, MeasuredPublicTxSimulator } from '@aztec/simulator/server';
 import type { PublicTxResult } from '@aztec/simulator/server';
 import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -44,9 +46,9 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     merkleTrees: MerkleTreeWriteOperations,
     globals?: GlobalVariables,
     metrics?: TestExecutorMetrics,
+    simulatorFactory?: MeasuredSimulatorFactory,
   ) {
-    // simulator factory is undefined because for proving, we use the default C++ simulator
-    super(merkleTrees, contractDataSource, globals, metrics, /*simulatorFactory=*/ undefined, provingConfig);
+    super(merkleTrees, contractDataSource, globals, metrics, simulatorFactory, provingConfig);
   }
 
   static async new(
@@ -57,7 +59,29 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   ) {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await worldStateService.fork();
-    return new AvmProvingTester(checkCircuitOnly, contractDataSource, merkleTrees, globals, metrics);
+
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
+    const simulatorFactory: MeasuredSimulatorFactory = (mt, cdb, g, m, c) =>
+      new MeasuredPublicTxSimulator(avmSimulator, g, cdb, mt.getRevision().forkId, m, c, undefined);
+
+    const tester = new AvmProvingTester(
+      checkCircuitOnly,
+      contractDataSource,
+      merkleTrees,
+      globals,
+      metrics,
+      simulatorFactory,
+    );
+    tester.avmSimulator = avmSimulator;
+    return tester;
+  }
+
+  public override async close(): Promise<void> {
+    const results = await Promise.allSettled([super.close(), this.bbJsFactory.destroy()]);
+    const errors = results.flatMap(result => (result.status === 'rejected' ? [result.reason] : []));
+    if (errors.length > 0) {
+      throw new AggregateError(errors, `Failed to close AVM proving tester`);
+    }
   }
 
   /**

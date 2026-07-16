@@ -119,6 +119,7 @@ describe('AVM Integration', () => {
   });
 
   afterEach(async () => {
+    await simTester.close();
     await worldStateService.close();
   });
 

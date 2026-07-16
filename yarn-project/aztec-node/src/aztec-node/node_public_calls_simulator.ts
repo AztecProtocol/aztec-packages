@@ -14,7 +14,7 @@ import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { isErrorClass } from '@aztec/foundation/types';
-import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
+import { type AvmSimulator, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
@@ -59,6 +59,11 @@ export interface NodePublicCallsSimulatorDeps {
   epochCache: EpochCacheInterface;
   signatureContext: CoordinationSignatureContext;
   config: NodePublicCallsSimulatorConfig;
+  /**
+   * AVM execution backend the public processor drives to run public calls. Optional because unit/TXE nodes
+   * that never call {@link simulate} are constructed without one; asserted at the simulation call site.
+   */
+  avmSimulator?: AvmSimulator;
   telemetry?: TelemetryClient;
   log?: Logger;
 }
@@ -89,6 +94,7 @@ export class NodePublicCallsSimulator {
   private readonly epochCache: EpochCacheInterface;
   private readonly signatureContext: CoordinationSignatureContext;
   private readonly config: NodePublicCallsSimulatorConfig;
+  private readonly avmSimulator?: AvmSimulator;
   private readonly telemetry: TelemetryClient;
   private readonly log: Logger;
 
@@ -102,6 +108,7 @@ export class NodePublicCallsSimulator {
     this.epochCache = deps.epochCache;
     this.signatureContext = deps.signatureContext;
     this.config = deps.config;
+    this.avmSimulator = deps.avmSimulator;
     this.telemetry = deps.telemetry ?? getTelemetryClient();
     this.log = deps.log ?? createLogger('node:public-calls-simulator');
   }
@@ -156,8 +163,12 @@ export class NodePublicCallsSimulator {
       ? await this.buildGlobalVariablesForNewCheckpoint(l2Tips, proposedCheckpointData, blockNumber)
       : { globalVariables: await this.copyGlobalVariablesFromLatestProposedBlock(latestBlockNumber, blockNumber) };
 
+    if (!this.avmSimulator) {
+      throw new Error('NodePublicCallsSimulator.simulate requires an AVM simulator, but none was configured');
+    }
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
+      this.avmSimulator,
       new DateProvider(),
       this.telemetry,
       this.log.getBindings(),

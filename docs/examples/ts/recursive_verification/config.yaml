@@ -26,10 +26,13 @@ dependencies:
   - "link:@aztec/noir-acvm_js:noir/packages/acvm_js"
   - "link:@aztec/noir-noirc_abi:noir/packages/noirc_abi"
   - "link:@aztec/noir-types:noir/packages/types"
-  # Runtime deps of @aztec/bb.js (linked, so its own deps are not auto-installed)
+  # Runtime deps of @aztec/bb.js (linked, so its own deps are not auto-installed).
+  # Version ranges must mirror bb.js's package.json: these are bare `yarn add`s, so leaving them
+  # unversioned installs the latest major and breaks when a dep ships a breaking release (e.g. pako 3.0.0
+  # dropped the ESM default export that bb.js's `import pako from 'pako'` relies on).
   - "npm:pako@^2.1.0"
-  - "npm:msgpackr"
-  - "npm:comlink"
-  - "npm:idb-keyval"
-  - "npm:commander"
-  - "npm:tslib"
+  - "npm:msgpackr@^1.11.2"
+  - "npm:comlink@^4.4.1"
+  - "npm:idb-keyval@^6.2.1"
+  - "npm:commander@^12.1.0"
+  - "npm:tslib@^2.4.0"

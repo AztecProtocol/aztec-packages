@@ -55,7 +55,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     this.log = createLogger('simulator:contracts-data-source', bindings);
   }
 
-  /** Parses raw log data from the C++/NAPI bridge and inserts the resulting contracts into the current checkpoint. */
+  /** Parses raw contract deployment data and inserts the resulting contracts into the current checkpoint. */
   public addContractsFromLogs(contractDeploymentData: ContractDeploymentData): void {
     const currentState = this.getCurrentState();
 
