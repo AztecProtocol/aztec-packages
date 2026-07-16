@@ -50,8 +50,11 @@ auto& engine = numeric::get_debug_randomness();
  * an in-circuit boolean value which bears witness to whether the signature verification was successfull or not. The
  * boolean is NOT constrained to be equal to bool_t(true).
  *
- * @note There is one case in which the circuit will be unsatisfiable even if the witness values are correct: for the
- * curve Secp256R1 when the public key is plus or minus the generator point. This is due to our usage of lookup tables.
+ * @note For secp256r1 the verification routine uses the "fake GLV" two-2-MSM construction. When the public key is
+ * off-curve the native multiplication T₂ = u₂·pubkey would produce an off-curve witness that `from_witness`
+ * rejects, so we substitute the public key with 2·G in that case; the verifier then reports the signature as
+ * invalid because the substituted MSM result no longer matches the signature's r component, and the original
+ * `is_point_on_curve` bit still flows into the validity output.
  *
  * @tparam Builder
  * @tparam Curve
@@ -124,16 +127,22 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr u1 = z.div_without_denominator_check(corrected_s);
     Fr u2 = r.div_without_denominator_check(corrected_s);
 
+    // Default to true for paths without a u₂ restriction (secp256k1 via real GLV, generic batch_mul).
+    bool_ct is_u2_acceptable = bool_ct(true);
+
     G1 result;
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(corrected_public_key, u1, u2);
+    } else if constexpr (Curve::type == bb::CurveType::SECP256R1) {
+        // Substitute off-curve pubkeys with 2·G so `secp256r1_ecdsa_mul`'s `from_witness(u₂·Q)` doesn't fail.
+        // `is_point_on_curve` is already in the validity AND-chain, so rejection is unaffected.
+        G1 fake_glv_pubkey = G1::conditional_assign(!is_point_on_curve, double_generator, corrected_public_key);
+        // `secp256r1_ecdsa_mul` returns a wrong result for u₂ ∈ {0, ±1} (it substitutes internally to keep
+        // witness gen alive). `u2_is_acceptable` flags this and must flow into validity.
+        const auto mul_out = G1::secp256r1_ecdsa_mul(fake_glv_pubkey, u1, u2);
+        result = mul_out.result;
+        is_u2_acceptable = mul_out.u2_is_acceptable;
     } else {
-        // This error comes from the lookup tables used in batch_mul. We could get rid of it by setting with_edgecase =
-        // true. However, this would increase the gate count, and it would handle a case that should not appear in
-        // general: someone using plus or minus the generator as a public key.
-        if ((corrected_public_key.get_value().x == Curve::GroupNative::affine_one.x) && (!builder->failed())) {
-            builder->failure("ECDSA input validation: the public key is equal to plus or minus the generator point.");
-        }
         result = G1::batch_mul(
             { G1::one(builder), corrected_public_key }, { u1, u2 }, /*max_num_bits=*/0, /*with_edgecases=*/false);
     }
@@ -145,20 +154,20 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     result.x().reduce_mod_target_modulus();
 
     // Transfer Fq value result.x() to Fr (this is just moving from a C++ class to another)
-    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x().binary_basis_limbs[0].element,
-                                                        result.x().binary_basis_limbs[1].element,
-                                                        result.x().binary_basis_limbs[2].element,
-                                                        result.x().binary_basis_limbs[3].element);
+    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x().get_limb(0).element,
+                                                        result.x().get_limb(1).element,
+                                                        result.x().get_limb(2).element,
+                                                        result.x().get_limb(3).element);
     // Copy maximum limb values from Fq to Fr: this is needed by the subtraction happening in the == operator
     for (size_t idx = 0; idx < 4; idx++) {
-        result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x().binary_basis_limbs[idx].maximum_value;
+        result_x_mod_r.set_limb_max(idx, result.x().get_limb(idx).maximum_value);
     }
 
     // Check result.x() = r mod n AND that no other check failed
     bool_ct x_matches = result_x_mod_r == r;
     bool_ct is_signature_valid = x_matches && !is_point_at_infinity && !result_is_infinity && is_r_in_range &&
                                  !is_r_zero && is_s_in_range && !is_s_zero && is_point_on_curve &&
-                                 is_x_less_than_modulus && is_y_less_than_modulus;
+                                 is_x_less_than_modulus && is_y_less_than_modulus && is_u2_acceptable;
 
     // Logging
     if (is_signature_valid.get_value()) {

@@ -14,7 +14,7 @@ export * from './private_kernel_inner_2_circuit_private_inputs.js';
 export * from './private_kernel_inner_3_circuit_private_inputs.js';
 export * from './private_kernel_reset_circuit_private_inputs.js';
 export * from './private_kernel_reset_dimensions.js';
-export * from './private_kernel_tail_circuit_private_inputs.js';
+export * from './private_kernel_reset_tail_circuit_private_inputs.js';
 export * from './private_kernel_tail_circuit_public_inputs.js';
 export * from './private_to_avm_accumulated_data.js';
 export * from './private_to_public_accumulated_data.js';

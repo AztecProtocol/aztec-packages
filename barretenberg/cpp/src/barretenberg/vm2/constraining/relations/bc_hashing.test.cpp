@@ -291,7 +291,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeLatchNotSel)
     check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_ON_START_OR_END);
     trace.set(C::bc_hashing_sel, 0, 0); // Mutate to wrong value
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_ON_START_OR_END),
-                              "SEL_ON_START_OR_END");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_SEL_ON_START_OR_END));
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidStartAfterLatch)
@@ -307,7 +307,8 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidStartAfterLatch)
 
     // Row = 2 is the start of the hashing for bytecode id = 2
     trace.set(Column::bc_hashing_start, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_START_AFTER_LATCH), "START_AFTER_LATCH");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_START_AFTER_LATCH),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_START_AFTER_LATCH));
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidPCIncrement)
@@ -326,15 +327,18 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidPCIncrement)
 
     // This is the last row of the bytecode hashing, pc_index should be 62
     trace.set(Column::bc_hashing_pc_index, 2, 10);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS), "PC_INCREMENTS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PC_INCREMENTS));
     trace.set(Column::bc_hashing_pc_index, 2, 62);
     trace.set(Column::bc_hashing_pc_index_1, 2, 97);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_1), "PC_INCREMENTS_1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_1),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PC_INCREMENTS_1));
     trace.set(Column::bc_hashing_pc_index_1, 2, 93);
     // The next pc_index should be 124 = pc_index_1 + 31
     check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_2);
     trace.set(Column::bc_hashing_pc_index_2, 2, 10);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_2), "PC_INCREMENTS_2");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_2),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PC_INCREMENTS_2));
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeStartIsSeparator)
@@ -349,7 +353,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeStartIsSeparator)
     // Row = 1 is the start of the hashing for bytecode id = 1
     trace.set(Column::bc_hashing_packed_fields_0, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_START_IS_FIRST_FIELD),
-                              "START_IS_FIRST_FIELD");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_START_IS_FIRST_FIELD));
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
@@ -429,20 +433,23 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingSelectors)
     // Row = 2 constrains the hashing for the last field of the bytecode, plus 2 padding fields
     // We cannot have padding anywhere but the last hashing row (= latch):
     trace.set(Column::bc_hashing_end, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_END), "PADDING_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_END),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PADDING_END));
     trace.set(Column::bc_hashing_end, 2, 1);
 
     // We cannot have packed_fields_1 is padding, but packed_fields_2 is not:
     trace.set(Column::bc_hashing_sel_not_padding_2, 2, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_CONSISTENCY),
-                              "PADDING_CONSISTENCY");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PADDING_CONSISTENCY));
     trace.set(Column::bc_hashing_sel_not_padding_2, 2, 0);
 
     // We cannot have any padding with non-zero values:
     trace.set(Column::bc_hashing_packed_fields_1, 2, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDED_BY_ZERO_1), "PADDED_BY_ZERO_1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDED_BY_ZERO_1),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PADDED_BY_ZERO_1));
     trace.set(Column::bc_hashing_packed_fields_2, 2, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDED_BY_ZERO_2), "PADDED_BY_ZERO_2");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDED_BY_ZERO_2),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PADDED_BY_ZERO_2));
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingUnder)
@@ -463,7 +470,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     trace.set(Column::bc_hashing_sel_not_padding_1, 2, 1);
     // This will initially fail, because pc_at_final_field does not correspond to the pc at field 1...
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_COMPUTATION),
-                              "PADDING_COMPUTATION");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PADDING_COMPUTATION));
     // ...setting it to that padding = 1 and input_len = 5 will make all relations to pass...
     trace.set(Column::bc_hashing_padding, 2, 1);
     trace.set(Column::bc_hashing_padding, 1, 1);
@@ -495,7 +502,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingOver)
     trace.set(Column::bc_hashing_sel_not_padding_1, 2, 0);
     // Padding computation will fail:
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_COMPUTATION),
-                              "PADDING_COMPUTATION");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PADDING_COMPUTATION));
     // If we set padding = 2, fields_1 = 0, and input_len = 4, all relations will pass.
     trace.set(Column::bc_hashing_padding, 2, 2);
     trace.set(Column::bc_hashing_padding, 1, 2);
@@ -512,7 +519,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingOver)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<bc_decomposition>(trace, bc_decomposition::SR_PACKED_ROW_NEEDS_PERM_SELECTOR),
-        "PACKED_ROW_NEEDS_PERM_SELECTOR");
+        bc_decomposition::get_subrelation_label(bc_decomposition::SR_PACKED_ROW_NEEDS_PERM_SELECTOR));
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeInputLen)
@@ -536,7 +543,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeInputLen)
     // Set the incorrect input_len at the start row, and the constraining length check will fail:
     trace.set(Column::bc_hashing_input_len, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_BYTECODE_LENGTH_FIELDS),
-                              "BYTECODE_LENGTH_FIELDS");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_BYTECODE_LENGTH_FIELDS));
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeRounds)
@@ -551,11 +558,13 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeRounds)
 
     // Setting the incorrect number of rounds remaining will fail relative to the next row...
     trace.set(Column::bc_hashing_rounds_rem, 1, 3);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_ROUNDS_DECREMENT), "ROUNDS_DECREMENT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_ROUNDS_DECREMENT),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_ROUNDS_DECREMENT));
 
     // ...and even if decremented correctly, will fail at latch if rounds_rem != 1:
     trace.set(Column::bc_hashing_rounds_rem, 2, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_ROUNDS_DECREMENT), "ROUNDS_DECREMENT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_ROUNDS_DECREMENT),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_ROUNDS_DECREMENT));
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeOutputHash)
@@ -614,7 +623,8 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashIncrements)
     builder.process_decomposition(
         { { .bytecode_id = bad_hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS), "PC_INCREMENTS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PC_INCREMENTS));
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
@@ -675,7 +685,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
         "LOOKUP_BC_HASHING_POSEIDON2_HASH");
     // At the final row, the length check will fail:
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_BYTECODE_LENGTH_FIELDS),
-                              "BYTECODE_LENGTH_FIELDS");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_BYTECODE_LENGTH_FIELDS));
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLengthBytes)
@@ -762,14 +772,16 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeGhostRowInjectionBlocked)
     });
 
     // The fix: sel_not_padding_1 * (1 - sel) = 0
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_SEL_NOT_PADDING_REQUIRES_SEL));
 
     // Reset and try with sel_not_padding_2
     trace.set(C::bc_hashing_sel_not_padding_1, 1, 0);
     trace.set(C::bc_hashing_sel_not_padding_2, 1, 1);
 
     // The fix: sel_not_padding_2 * (1 - sel) = 0
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace),
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_SEL_NOT_PADDING_REQUIRES_SEL));
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingPropagationMultiRow)
@@ -788,7 +800,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingPropagationMul
     // Rows 1, 2, 3 are the three rounds. Changing padding on the middle row should break propagation.
     trace.set(C::bc_hashing_padding, 2, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_PROPAGATION),
-                              "PADDING_PROPAGATION");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_PADDING_PROPAGATION));
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeBytecodeFieldLengthViaPadding)
@@ -810,7 +822,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeBytecodeFieldLengthVi
     // Set padding to 0 at start (should be 2). Now 3 * 2 - 0 - 4 = 2 ≠ 0
     trace.set(C::bc_hashing_padding, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_BYTECODE_LENGTH_FIELDS),
-                              "BYTECODE_LENGTH_FIELDS");
+                              bc_hashing::get_subrelation_label(bc_hashing::SR_BYTECODE_LENGTH_FIELDS));
 }
 
 } // namespace

@@ -17,6 +17,11 @@ pub fn splice_at_count<T, let N: u32>(array1: [T; N], count: u32, array2: [T; N]
 where
     T: Eq,
 {
+    // `count` is the splice point: `result[0..count]` comes from `array1` and `result[count..N]` from
+    // `array2`. A `count` greater than `N` is not a valid splice point, so reject it rather than
+    // silently returning `array1` unchanged (the helper loop would be skipped). `count == N` is valid.
+    assert(count <= N, "Invalid count: splice_at_count requires count <= N");
+
     // Safety: result is constrained below by `validate_splice_at_count_result`.
     let result = unsafe { splice_at_count_helper(array1, count, array2) };
 
@@ -90,6 +95,26 @@ mod tests {
         let array2 = [10, 20, 30, 40, 50];
         let result = splice_at_count(array1, 5, array2);
         assert_eq(result, [1, 2, 3, 4, 5]);
+    }
+
+    #[test(should_fail_with = "Invalid count: splice_at_count requires count <= N")]
+    fn count_out_of_bounds_fails() {
+        let array1 = [1, 2, 3, 4, 5];
+        let array2 = [10, 20, 30, 40, 50];
+        let _ = splice_at_count(array1, 6, array2);
+    }
+
+    #[test(should_fail_with = "Invalid count: splice_at_count requires count <= N")]
+    fn count_far_out_of_bounds_fails() {
+        let array1 = [1, 2, 3, 4, 5];
+        let array2 = [10, 20, 30, 40, 50];
+        let _ = splice_at_count(array1, 100, array2);
+    }
+
+    #[test]
+    fn splice_single_element_arrays() {
+        assert_eq(splice_at_count([1], 0, [9]), [9]); // count 0: all from array2
+        assert_eq(splice_at_count([1], 1, [9]), [1]); // count == N: all from array1
     }
 
     #[test]

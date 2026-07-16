@@ -64,59 +64,36 @@ where
     dest.length = source.length;
 }
 
-// This only exists for the quirk of the first nullifier of a tx conditionally being a
-// protocol nullifier (injected by the private kernel init).
-pub fn append_and_scope_to_index_0_or_1<T, let N: u32, let M: u32>(
+/// Appends `source`, scoped to `contract_address`, after the index-0 protocol nullifier, so source
+/// items land at index 1 onwards.
+pub fn append_and_scope_after_protocol_nullifier<T, let N: u32, let M: u32>(
     dest: &mut ClaimedLengthArray<Scoped<T>, N>,
     source: ClaimedLengthArray<T, M>,
-    insert_at_index_1: bool, // inserts at `0` if false
     contract_address: AztecAddress,
 )
 where
     T: Empty,
 {
-    // This inequality is strict, to ensure there's always 1 extra index in the dest array, due to
-    // how we lazily construct both possible output dest arrays below. There currently isn't a configuration
-    // of Init circuit for which the number of nullifiers from a call matches the number propagated
-    // by the kernel. If that changes, this static assertion will bite, and you'll need to update the
-    // way this function conditionally assigns to either index 0 or 1.
+    // The inequality is strict because index 0 is reserved for the protocol nullifier, so the source
+    // must leave room for it.
     std::static_assert(M < N, "Source array larger than dest array");
 
-    // We compute both possible `dest` results, and then conditionally assign the whole array.
-    let mut dest0 = ClaimedLengthArray::<Scoped<T>, N>::empty();
+    assert_eq(dest.length, 1, "Expected dest to have length 1 (the protocol nullifier)");
 
+    // See `append_and_scope_to_empty_dest` for why we blindly copy all source inners (the tail circuit
+    // catches any data sneaked-in beyond `source.length`). Index 0 is left untouched.
     for i in 0..M {
-        dest0.array[i].inner = source.array[i];
+        dest.array[i + 1].inner = source.array[i];
     }
 
     let mut should_copy = true;
     for i in 0..M {
         should_copy &= i != source.length;
         if should_copy {
-            dest0.array[i].contract_address = contract_address;
+            dest.array[i + 1].contract_address = contract_address;
         };
     }
 
-    let mut dest1 = ClaimedLengthArray::<Scoped<T>, N>::empty();
-
-    dest1.array[0] = dest.array[0];
-    for i in 0..M {
-        dest1.array[i + 1] = dest0.array[i];
-    }
-
-    if insert_at_index_1 {
-        assert_eq(dest.length, 1, "Expected dest to have length 1");
-    } else {
-        assert_eq(dest.length, 0, "Expected dest to have length 0");
-    }
-
-    dest.array = if insert_at_index_1 {
-        dest1.array
-    } else {
-        dest0.array
-    };
-
-    // We _increment_ (rather than assign) because the dest.length could already be 1 (rather than 0).
     dest.length += source.length;
 }
 
@@ -232,7 +209,7 @@ where
 
 mod tests {
     use super::{
-        append_and_scope_to_empty_dest, append_and_scope_to_index_0_or_1,
+        append_and_scope_after_protocol_nullifier, append_and_scope_to_empty_dest,
         append_reversed_to_empty_dest, append_to_empty_dest, assert_array_appended,
         assert_array_appended_and_scoped, assert_array_appended_reversed,
     };
@@ -432,40 +409,22 @@ mod tests {
         assert_eq(dest.length, 2);
     }
 
-    // ==================== append_and_scope_to_index_0_or_1 tests ====================
+    // ==================== append_and_scope_after_protocol_nullifier tests ====================
 
     #[test]
-    fn append_and_scope_to_index_0_succeeds() {
+    fn append_after_protocol_nullifier_succeeds() {
         let source: ClaimedLengthArray<Field, 3> =
             ClaimedLengthArray { array: [10, 20, 30], length: 3 };
         let mut dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray::empty();
+        dest.length = 1; // Protocol nullifier slot reserved.
         let contract_address = AztecAddress::from_field(999);
 
-        append_and_scope_to_index_0_or_1(&mut dest, source, false, contract_address);
+        append_and_scope_after_protocol_nullifier(&mut dest, source, contract_address);
 
-        assert_eq(dest.array[0].inner, 10);
-        assert_eq(dest.array[0].contract_address, contract_address);
-        assert_eq(dest.array[1].inner, 20);
-        assert_eq(dest.array[1].contract_address, contract_address);
-        assert_eq(dest.array[2].inner, 30);
-        assert_eq(dest.array[2].contract_address, contract_address);
-        assert_eq(dest.length, 3);
-    }
-
-    #[test]
-    fn append_and_scope_to_index_1_succeeds() {
-        let source: ClaimedLengthArray<Field, 3> =
-            ClaimedLengthArray { array: [10, 20, 30], length: 3 };
-        let mut dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray::empty();
-        dest.length = 1; // Protocol nullifier slot reserved
-        let contract_address = AztecAddress::from_field(999);
-
-        append_and_scope_to_index_0_or_1(&mut dest, source, true, contract_address);
-
-        // Index 0 is empty (reserved for protocol nullifier)
+        // Index 0 is left untouched for the protocol nullifier.
         assert_eq(dest.array[0].inner, 0);
         assert_eq(dest.array[0].contract_address, AztecAddress::empty());
-        // Items start at index 1
+        // Source items start at index 1.
         assert_eq(dest.array[1].inner, 10);
         assert_eq(dest.array[1].contract_address, contract_address);
         assert_eq(dest.array[2].inner, 20);
@@ -476,86 +435,64 @@ mod tests {
     }
 
     #[test]
-    fn append_and_scope_to_index_1_with_existing_length_succeeds() {
+    fn append_after_protocol_nullifier_with_partial_length_succeeds() {
         let source: ClaimedLengthArray<Field, 3> =
             ClaimedLengthArray { array: [10, 20, 0], length: 2 };
         let mut dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray::empty();
-        dest.length = 1; // Simulates protocol nullifier already present
+        dest.length = 1; // Protocol nullifier slot reserved.
         let contract_address = AztecAddress::from_field(999);
 
-        append_and_scope_to_index_0_or_1(&mut dest, source, true, contract_address);
+        append_and_scope_after_protocol_nullifier(&mut dest, source, contract_address);
 
-        // Length is incremented by source.length
         assert_eq(dest.length, 3); // 1 + 2
     }
 
     #[test]
-    fn append_and_scope_to_index_0_items_beyond_length_succeeds() {
+    fn append_after_protocol_nullifier_items_beyond_length_succeeds() {
         let source: ClaimedLengthArray<Field, 3> =
             ClaimedLengthArray { array: [10, 20, 30], length: 2 };
         let mut dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray::empty();
+        dest.length = 1; // Protocol nullifier slot reserved.
         let contract_address = AztecAddress::from_field(999);
 
-        append_and_scope_to_index_0_or_1(&mut dest, source, false, contract_address);
+        append_and_scope_after_protocol_nullifier(&mut dest, source, contract_address);
 
-        // Items within length get the contract address
-        assert_eq(dest.array[0].inner, 10);
-        assert_eq(dest.array[0].contract_address, contract_address);
-        assert_eq(dest.array[1].inner, 20);
+        // Items within length get the contract address.
+        assert_eq(dest.array[1].inner, 10);
         assert_eq(dest.array[1].contract_address, contract_address);
-        // Item beyond length is copied but gets empty contract address
-        assert_eq(dest.array[2].inner, 30);
-        assert_eq(dest.array[2].contract_address, AztecAddress::empty());
-        assert_eq(dest.length, 2);
+        assert_eq(dest.array[2].inner, 20);
+        assert_eq(dest.array[2].contract_address, contract_address);
+        // Item beyond length is copied but gets an empty contract address.
+        assert_eq(dest.array[3].inner, 30);
+        assert_eq(dest.array[3].contract_address, AztecAddress::empty());
+        assert_eq(dest.length, 3);
     }
 
-    #[test(should_fail_with = "Expected dest to have length 1")]
-    fn append_and_scope_to_index_1_with_wrong_dest_length_fails() {
+    #[test(should_fail_with = "Expected dest to have length 1 (the protocol nullifier)")]
+    fn append_after_protocol_nullifier_with_wrong_dest_length_fails() {
         let source: ClaimedLengthArray<Field, 3> =
             ClaimedLengthArray { array: [10, 20, 30], length: 3 };
         let mut dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray::empty();
-        // dest.length is 0, but insert_at_index_1 = true expects length 1
+        // dest.length is 0, but the function expects the reserved protocol-nullifier slot.
         let contract_address = AztecAddress::from_field(999);
 
-        append_and_scope_to_index_0_or_1(&mut dest, source, true, contract_address);
-    }
-
-    #[test(should_fail_with = "Expected dest to have length 0")]
-    fn append_and_scope_to_index_0_with_wrong_dest_length_fails() {
-        let source: ClaimedLengthArray<Field, 3> =
-            ClaimedLengthArray { array: [10, 20, 30], length: 3 };
-        let mut dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray::empty();
-        dest.length = 1; // dest.length is 1, but insert_at_index_1 = false expects length 0
-        let contract_address = AztecAddress::from_field(999);
-
-        append_and_scope_to_index_0_or_1(&mut dest, source, false, contract_address);
+        append_and_scope_after_protocol_nullifier(&mut dest, source, contract_address);
     }
 
     #[test]
-    fn append_and_scope_to_index_0_empty_source_succeeds() {
-        let source: ClaimedLengthArray<Field, 3> = ClaimedLengthArray::empty();
-        let mut dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray::empty();
-        let contract_address = AztecAddress::from_field(999);
-
-        append_and_scope_to_index_0_or_1(&mut dest, source, false, contract_address);
-
-        assert_eq(dest.length, 0);
-    }
-
-    #[test]
-    fn append_and_scope_to_index_1_empty_source_succeeds() {
+    fn append_after_protocol_nullifier_empty_source_succeeds() {
         let source: ClaimedLengthArray<Field, 3> = ClaimedLengthArray::empty();
         let mut dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray::empty();
         let first_nullifier = make_fixture(99);
         dest.array[0] = first_nullifier;
-        dest.length = 1; // Protocol nullifier slot reserved
+        dest.length = 1; // Protocol nullifier slot reserved.
         let contract_address = AztecAddress::from_field(999);
 
-        append_and_scope_to_index_0_or_1(&mut dest, source, true, contract_address);
+        append_and_scope_after_protocol_nullifier(&mut dest, source, contract_address);
 
-        // Length should remain 1 (no items added from empty source)
+        // Length should remain 1 (no items added from empty source).
         assert_eq(dest.length, 1);
-        // The first nullifier should remain the same
+        // The protocol nullifier should remain unchanged.
         assert_eq(dest.array[0], first_nullifier);
     }
 
@@ -932,6 +869,34 @@ mod tests {
                 Scoped::empty(),
             ],
             length: 3,
+        };
+
+        assert_array_appended_and_scoped(dest, source, 0, contract_address);
+    }
+
+    // kernels-audit #529 (https://github.com/AztecProtocol/aztec-claude/issues/529) reachability: the
+    // inner-kernel append constraint does NOT clear slots beyond
+    // `dest.length`. A malicious prover can leave a non-empty item there and it is accepted here; the
+    // only safety net is the tail circuit's dense-trim (see this file's `assert_array_appended` doc),
+    // which runs AFTER the reset. So a planted note-log slot beyond `logs.length` reaches the reset's
+    // `validate_log_squashing` (see its `poc_529_*` test), where it can drop a kept log before the
+    // tail check ever runs. This pins that the planted item is accepted at the inner kernel.
+    #[test]
+    fn assert_array_appended_and_scoped_nonempty_item_beyond_length_is_accepted() {
+        let source: ClaimedLengthArray<Field, 3> =
+            ClaimedLengthArray { array: [10, 20, 0], length: 2 };
+        let contract_address = AztecAddress::from_field(999);
+
+        let dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray {
+            array: [
+                Scoped { inner: 10, contract_address },
+                Scoped { inner: 20, contract_address },
+                // Planted non-empty item beyond dest.length (= 2); not caught by this constraint.
+                Scoped { inner: 999, contract_address },
+                Scoped::empty(),
+                Scoped::empty(),
+            ],
+            length: 2,
         };
 
         assert_array_appended_and_scoped(dest, source, 0, contract_address);

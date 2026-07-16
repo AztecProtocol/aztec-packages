@@ -145,6 +145,8 @@ class MultilinearBatchingFlavor {
         Commitment shifted_commitment;     // Commitment [P_shifted]
         size_t dyadic_size;                // Size of the polynomial domain
 
+        MultilinearBatchingVerifierClaim<curve::BN254> to_verifier_claim_for_testing() const;
+
 #ifndef NDEBUG
         /**
          * @brief Debug helper to compare prover claim against verifier claim.

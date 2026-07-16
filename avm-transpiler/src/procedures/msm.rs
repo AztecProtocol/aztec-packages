@@ -29,7 +29,7 @@ OUTER_BODY:     MUL d6, d13, d16; Compute the pointer to the point
                 EQ i17, d8, d19; Check if the scalar lo is zero
                 EQ i18, d8, d20; Check if the scalar hi is zero
                 AND d19, d20, d19; Check if both scalars are zero
-                JUMPI d19, OUTER_INC; If both scalar limbs are zero, continue
+                JUMPI d19, VALIDATE_ZERO_SCALAR_POINT; If both scalar limbs are zero, validate the point then continue
                 ; Decompose the scalars to an array of 254 bits
                 ; Allocate a 254 bit array
                 MOV $1, d19; Move the free memory pointer to d19, where we'll store the bits
@@ -75,6 +75,15 @@ OUTER_INC:      ADD d6, $2, d6; Increment the outer loop variable
                 JUMP OUTER_HEAD
                 ; After the outer loop we have computed the msm. We can return since we wrote the result in i3, i4
 OUTER_END:      INTERNALRETURN
+
+                ; A zero scalar skips the loop where point validation takes place (inside ECADD), but Brillig/native validates /before/ the loop. 
+                ; To mirror this we perform a 'dummy' ECADD (P + O = P) which throws if the point is not on the curve.
+VALIDATE_ZERO_SCALAR_POINT: MOV i16, d22; x
+                ADD d16, $2, d25; pointer to y
+                MOV i25, d23; y
+                ; Note: d8 (=0) used as the (0,0) infinity coords here - if the infinity rep changes, update this.
+                ECADD d22, d23, d8, d8, /*not indirect, so the result (= point) is stored in d22, d23*/ d22; Add the original point to infinity
+                JUMP OUTER_INC; Skip this zero-scalar term
 ";
 
 #[cfg(test)]

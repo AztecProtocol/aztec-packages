@@ -210,7 +210,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     EmitPublicLog emit_public_log_component(execution_id_manager, greater_than, emit_public_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
-    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
+    Sha256 sha256(execution_id_manager, bitwise, greater_than, range_check, sha256_compression_emitter);
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);

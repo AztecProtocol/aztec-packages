@@ -35,6 +35,7 @@ import {
   findPrivateKernelResetDimensions,
   getNoteHashReadRequestResetActions,
   getNullifierReadRequestResetActions,
+  kernelStateIsForPublic,
   privateKernelResetDimensionNames,
 } from '@aztec/stdlib/kernel';
 import { type PrivateCallExecutionResult, collectNested } from '@aztec/stdlib/tx';
@@ -138,10 +139,19 @@ export class PrivateKernelResetPrivateInputsBuilder {
     // The dimensions found must be big enough to reset all values, i.e. empty remainder.
     const allowRemainder = isInner;
 
+    // Terminal reset picks from the finalTail / finalTailToPublic catalogs; mid-tx resets always
+    // use the inner catalog. The public/private decision must match `kernelStateIsForPublic` - the
+    // same predicate the circuit inputs and the orchestrator use.
+    const mode = isInner
+      ? ('inner' as const)
+      : kernelStateIsForPublic(this.previousKernel)
+        ? ('finalTailToPublic' as const)
+        : ('finalTail' as const);
+
     const dimensions = findPrivateKernelResetDimensions(
       this.requestedDimensions,
       privateKernelResetDimensionsConfig,
-      isInner,
+      mode,
       allowRemainder,
     );
 

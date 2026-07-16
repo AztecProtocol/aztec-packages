@@ -47,14 +47,10 @@ static constexpr uint32_t NUM_MASKED_ROWS = 3;
 // but the gate separator vanishes there, so the first row where relations are active is TRACE_OFFSET.
 static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 
-// For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
-static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
+// Number of wires in Ultra and Mega arithmetization
+static constexpr uint32_t NUM_WIRES = 4;
 
-// The SmallSubgroupIPA is a sub-protocol used in several Flavors, to prove claimed inner product, the Prover sends 4
-// extra evaluations
-static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
-
-static constexpr uint32_t MERGE_PROOF_SIZE = 42; // used to ensure mock proofs are generated correctly
+static constexpr uint32_t MERGE_PROOF_SIZE = 41; // used to ensure mock proofs are generated correctly
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
@@ -66,7 +62,7 @@ static constexpr size_t NUM_ZERO_ROWS = 1;
 // The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
 static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
 
-static constexpr size_t CHONK_MAX_NUM_APPS = 36;
+static constexpr size_t CHONK_MAX_NUM_APPS = 34;
 static constexpr size_t compute_chonk_max_num_circuits()
 {
     return CHONK_MAX_NUM_APPS + ((CHONK_MAX_NUM_APPS + MAX_APPS_PER_KERNEL - 1) / MAX_APPS_PER_KERNEL) +
@@ -80,4 +76,6 @@ static constexpr size_t BATCH_MERGE_PROOF_SIZE =
     /*commitments*/ (4 * (4 * (CHONK_MAX_NUM_CIRCUITS + /*zk tables, merged tables*/ 2) + /*degree check*/ 1)) +
     /*evals*/ (4 * (CHONK_MAX_NUM_CIRCUITS + 2) + 1) +
     /*shplonk and kzg*/ 8;
+
+static constexpr size_t HIDING_KERNEL_ULTRA_OPS = 331;
 } // namespace bb

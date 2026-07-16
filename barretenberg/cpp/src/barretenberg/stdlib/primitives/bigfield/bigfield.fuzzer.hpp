@@ -837,7 +837,7 @@ template <typename Builder> class BigFieldBase {
                 abort();
             }
             for (size_t i = 0; i < 4; i++) {
-                auto limb = b.binary_basis_limbs[i];
+                auto limb = b.get_limb(i);
                 if (limb.maximum_value < limb.element.get_value()) {
                     info("LIMB ", i, " VALUE IS NOT PROPERLY RESTRICTED");
                     info(limb);
@@ -855,7 +855,8 @@ template <typename Builder> class BigFieldBase {
             if (b.get_value() > b.get_maximum_value()) {
                 abort();
             }
-            for (auto& limb : b.binary_basis_limbs) {
+            for (size_t i = 0; i < bigfield_t::NUM_LIMBS; ++i) {
+                const auto& limb = b.get_limb(i);
                 if (limb.maximum_value < limb.element.get_value()) {
                     abort();
                 }
@@ -871,7 +872,8 @@ template <typename Builder> class BigFieldBase {
             if (b.get_value() > b.get_maximum_value()) {
                 abort();
             }
-            for (auto& limb : b.binary_basis_limbs) {
+            for (size_t i = 0; i < bigfield_t::NUM_LIMBS; ++i) {
+                const auto& limb = b.get_limb(i);
                 if (limb.maximum_value < limb.element.get_value()) {
                     abort();
                 }
