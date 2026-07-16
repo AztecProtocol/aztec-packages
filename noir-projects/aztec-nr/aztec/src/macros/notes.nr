@@ -160,7 +160,7 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
         properties_list = properties_list.push_back(
             quote {
                 $name: aztec::note::note_getter_options::PropertySelector {
-                    index: ($accumulated_offset) as u8, // u8 cast is safe: MAX_NOTE_PACKED_LEN limits the max index
+                    index: ($accumulated_offset) as u8,
                     offset: 0,
                     length: 32,
                 }
@@ -188,7 +188,7 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
                 let note_packed_len: u32 = <$typ as aztec::protocol::traits::Packable>::N;
                 std::static_assert(
                     fields_packed_len == note_packed_len,
-                    f"{note_type_name}'s auto-generated note properties assume the #[derive(Packable)] layout ({fields_packed_len} fields), but its hand-written Packable packs to {note_packed_len}. Derive Packable, or define property selectors manually for the custom layout.",
+                    f"{note_type_name}'s auto-generated note properties assume the #[derive(Packable)] layout ({fields_packed_len} fields), but its hand-written Packable packs to {note_packed_len}. Derive Packable, or define property selectors manually for the custom layout. See https://docs.aztec.network/errors/15",
                 );
 
                 $struct_name {

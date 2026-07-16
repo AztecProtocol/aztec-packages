@@ -108,6 +108,8 @@ impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, 
     // This method adds a `Select` criterion to the options. It takes a property_selector indicating which field to
     // select, a value representing the specific value to match in that field, and a comparator (For possible values of
     // comparators, please see the Comparator enum from `utils::comparison`)
+    // Selectors from auto-generated `properties()` require the note's derived Packable layout. Manually defined
+    // selectors work with any layout.
     pub fn select<T>(&mut self, property_selector: PropertySelector<T>, comparator: u8, value: T) -> Self
     where
         T: Packable,
@@ -118,6 +120,8 @@ impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, 
 
     // This method adds a `Sort` criterion to the options. It takes a field_index indicating which field to sort by and
     // an order (SortOrder) to determine the sorting direction.
+    // Selectors from auto-generated `properties()` require the note's derived Packable layout. Manually defined
+    // selectors work with any layout.
     pub fn sort<T>(&mut self, property_selector: PropertySelector<T>, order: u8) -> Self
     where
         T: Packable,

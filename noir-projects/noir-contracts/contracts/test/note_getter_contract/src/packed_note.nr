@@ -42,11 +42,26 @@ impl PackedNote {
 
 mod test {
     use super::{Packable, PackedNote};
-    use aztec::note::note_interface::NoteProperties;
+    use aztec::{
+        note::{note_getter_options::{NoteGetterOptions, SortOrder}, note_interface::NoteProperties},
+        utils::comparison::Comparator,
+    };
 
-    #[test(should_fail_with = "PackedNote's auto-generated note properties assume the #[derive(Packable)] layout (2 fields), but its hand-written Packable packs to 1. Derive Packable, or define property selectors manually for the custom layout.")]
+    #[test(should_fail_with = "PackedNote's auto-generated note properties assume the #[derive(Packable)] layout (2 fields), but its hand-written Packable packs to 1. Derive Packable, or define property selectors manually for the custom layout. See https://docs.aztec.network/errors/15")]
     fn generated_properties_rejected_for_custom_packing() {
         let _ = PackedNote::properties();
+    }
+
+    #[test]
+    fn manual_selectors_work_with_custom_packing() {
+        let mut options: NoteGetterOptions<PackedNote, <PackedNote as Packable>::N, Field, Field> =
+            NoteGetterOptions::new();
+        let options = options.select(PackedNote::high_selector(), Comparator.EQ, 7).sort(
+            PackedNote::low_selector(),
+            SortOrder.ASC,
+        );
+        assert_eq(options.selects.len(), 1);
+        assert_eq(options.sorts.len(), 1);
     }
 
     #[test]
