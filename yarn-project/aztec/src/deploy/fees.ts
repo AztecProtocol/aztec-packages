@@ -125,6 +125,7 @@ export async function prepareFeeSession(opts: PrepareFeeSessionOpts): Promise<Fe
     const key = address.toString();
 
     if (policy.kind === 'sponsored') {
+      // Dispenser: every tx pays via the shared sponsored method; nothing to clean up after mining.
       dispensers.set(key, () => ({ fee: sponsoredFee ?? {}, onConsumed: () => {} }));
       continue;
     }
@@ -172,23 +173,26 @@ export async function prepareFeeSession(opts: PrepareFeeSessionOpts): Promise<Fe
       }
     }
 
-    let claimConsumed = false;
+    let claimConsumed = false; // One-way latch: only the account's first tx carries the claim.
     dispensers.set(key, () => {
       if (claim && !claimConsumed) {
         claimConsumed = true;
         return {
-          fee: { paymentMethod: claim },
+          fee: { paymentMethod: claim }, // first tx: pays by consuming the bridge claim
           onConsumed: () => {
+            // claim is now spent on-chain; drop its resume entry
             delete state.pendingClaims[key];
             persist();
           },
         };
       }
-      return { fee: {}, onConsumed: () => {} }; // pay from balance
+      return { fee: {}, onConsumed: () => {} }; // later txs (or already-funded): pay from the account's balance
     });
   }
 
   return {
+    // Called by the runner once per tx, keyed by sender: `fee` goes into the tx's send options; the runner must
+    // invoke `onConsumed` after that tx mines.
     next: account => {
       const dispenser = dispensers.get(account.toString());
       return dispenser ? dispenser() : { fee: {}, onConsumed: () => {} };
