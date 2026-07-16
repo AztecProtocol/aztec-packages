@@ -28,7 +28,7 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 `backport.yml` (triggered on `pull_request_target` labeled/closed) cherry-picks a merged PR onto an accumulating staging branch, then opens/updates one staging PR into a target branch. It handles two label families, both driven by `scripts/backport_to_staging.sh`:
 
 - **`backport-to-<branch>`** (e.g. `backport-to-v5-next`): target is `<branch>` (derived from the label), staging branch `backport-to-<branch>-staging`. Direction `next` → release line.
-- **`port-to-next`** (fixed, generic): target is `merge-train/spartan`, staging branch `port-to-next-staging`. Direction: forward-port an already-merged PR into the spartan train (which flows to `next`). The workflow passes `STAGING_BRANCH` / `STAGING_PR_TITLE` env overrides into the script; `port-to-next` takes precedence if both label families are present.
+- **`port-to-next`** (fixed, generic): target is `next`, staging branch `port-to-next-staging`. Direction: forward-port an already-merged PR straight into `next`. The workflow passes `STAGING_BRANCH` / `STAGING_PR_TITLE` / `STAGING_PR_LABELS` env overrides into the script; the staging PR carries `ci-no-squash` (required because `next` enforces squashed PRs). `port-to-next` takes precedence if both label families are present.
 
 On cherry-pick conflict the workflow comments on the PR, posts to `#backports`, and dispatches ClaudeBox (`.claude/claudebox/backport.md`) with the staging branch to resolve manually. Staging PRs are auto-merged by the 8-hour jobs in `merge-train-auto-merge.yml`.
 

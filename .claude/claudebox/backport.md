@@ -10,7 +10,7 @@ You will receive a prompt like:
 
 Variables you need to extract from the prompt:
 - `PR_NUMBER`: the PR number (e.g., `21829`)
-- `TARGET_BRANCH`: the target branch (e.g., `v4-next`, or `merge-train/spartan` for a `port-to-next` port)
+- `TARGET_BRANCH`: the target branch (e.g., `v4-next`, or `next` for a `port-to-next` port)
 - `STAGING_BRANCH`: `backport-to-${TARGET_BRANCH}-staging` for a backport. For a
   `port-to-next` port it is `port-to-next-staging`; the prompt states it explicitly
   (`... (staging branch port-to-next-staging) ...`) — use the branch named there.

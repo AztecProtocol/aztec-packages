@@ -42,13 +42,14 @@ jobs:
           LABELS="$LABELS_JSON"
           echo "All labels: $LABELS"
 
-          # port-to-next is a fixed-target port into the spartan merge-train
-          # (which flows to next). It takes precedence over backport-to-* if
-          # both are somehow present.
+          # port-to-next is a fixed-target port straight into next. Because next
+          # enforces squashed PRs, the staging PR carries ci-no-squash. It takes
+          # precedence over backport-to-* if both are somehow present.
           if echo "$LABELS" | jq -e 'index("port-to-next")' >/dev/null; then
-            TARGET_BRANCH="merge-train/spartan"
+            TARGET_BRANCH="next"
             STAGING_BRANCH="port-to-next-staging"
             STAGING_PR_TITLE="chore: Accumulated ports to next"
+            STAGING_PR_LABELS="ci-no-squash"
             VERB="ported"
           else
             # Extract the branch name from a backport-to-* label
@@ -59,12 +60,14 @@ jobs:
             fi
             STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
             STAGING_PR_TITLE="chore: Accumulated backports to $TARGET_BRANCH"
+            STAGING_PR_LABELS=""
             VERB="backported"
           fi
 
           echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
           echo "staging_branch=$STAGING_BRANCH" >> $GITHUB_OUTPUT
           echo "staging_pr_title=$STAGING_PR_TITLE" >> $GITHUB_OUTPUT
+          echo "staging_pr_labels=$STAGING_PR_LABELS" >> $GITHUB_OUTPUT
           echo "verb=$VERB" >> $GITHUB_OUTPUT
           echo "Target branch: $TARGET_BRANCH"
           echo "Staging branch: $STAGING_BRANCH"
@@ -76,6 +79,7 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           STAGING_BRANCH: ${{ steps.extract-branch.outputs.staging_branch }}
           STAGING_PR_TITLE: ${{ steps.extract-branch.outputs.staging_pr_title }}
+          STAGING_PR_LABELS: ${{ steps.extract-branch.outputs.staging_pr_labels }}
         run: |
           # Kludge. We should write this in Python or not checkout history.
           # Bash has an ugly footgun with changing history while running the script.
