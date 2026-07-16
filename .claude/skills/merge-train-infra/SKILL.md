@@ -32,6 +32,10 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 On cherry-pick conflict the workflow comments on the PR, posts to `#backports`, and dispatches ClaudeBox (`.claude/claudebox/backport.md`) with the staging branch to resolve manually. Staging PRs are auto-merged by the 8-hour jobs in `merge-train-auto-merge.yml`.
 
+## Scheduled Forward-Port (`port-v5-next-to-next.yml`)
+
+A daily bulk sweep (distinct from the per-PR `port-to-next` label) that keeps `next` fed with everything on the `v5-next` release line. `port-v5-next-to-next.yml` runs at 06:30 UTC (and on `workflow_dispatch`) and calls `scripts/port_to_next.sh <source>` (default `v5-next`). The script rebuilds the `port-<source>-to-next` branch fresh from `next` each run, merges the source in, and — if that produces a delta — force-pushes and opens/updates one `ci-no-squash` PR into `next`. Because the branch is rebuilt every run, the PR always reflects the current delta and self-heals after the PR is merged (a later run finds nothing left to port and closes the stale PR). Merge conflicts abort the run without touching the existing PR and post to `#backports`; they are meant to be resolved at the source, not on the port branch. This PR is intentionally left for human review — it is not added to the auto-merge patterns.
+
 ## CI Integration Details
 
 ### CI Mode Selection (`.github/ci3_labels_to_env.sh`)
@@ -104,6 +108,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `.github/workflows/merge-queue-dequeue-notify.yml` | Slack notification on merge-queue dequeue |
 | `.github/workflows/squashed-pr-check.yml` | Squash enforcement (skipped for `ci-no-squash`) |
 | `.github/workflows/backport.yml` | Cherry-picks merged PRs to staging branches for `backport-to-*` and `port-to-next` labels |
+| `.github/workflows/port-v5-next-to-next.yml` | Daily forward-port sweep of `v5-next` into `next` |
 
 ### Scripts
 
@@ -115,6 +120,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `scripts/merge-train/squash-pr.sh` | Squashes PR commits (used by `ci-squash-and-merge` label) |
 | `scripts/merge-train/wakeup-prs.sh` | Adds `ci-wakeup-pr-after-merge` label to qualifying PRs after branch recreation |
 | `scripts/backport_to_staging.sh` | Cherry-picks a merged PR to a backport staging branch; creates/updates the backport PR |
+| `scripts/port_to_next.sh` | Daily forward-port: rebuilds `port-<source>-to-next` from `next`, merges the source in, opens/updates the PR |
 
 ### CI Configuration
 
