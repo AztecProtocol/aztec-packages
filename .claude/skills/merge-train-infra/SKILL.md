@@ -13,15 +13,24 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 1. **PR Creation** (`merge-train-create-pr.yml`): Triggered on push to `merge-train/*` branches. Creates a PR targeting `next` (or `v5-next` for `-v5` trains such as `merge-train/spartan-v5` and `merge-train/fairies-v5`) with the `ci-no-squash` label (plus `private-port-next` for any train that targets `v5-next`, and `ci-full-no-test-cache` for `merge-train/spartan`, `merge-train/spartan-v5`, and `merge-train/ci`). Skips merge commits and commits already in the base branch.
 
-2. **Body Updates** (`merge-train-update-pr-body.yml`): Triggered on push to `merge-train/**` and `backport-to-*-staging` branches. Updates the PR body with meaningful commits (those containing PR references like `(#1234)`). The body wraps the commit list in `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers. Backport staging PRs also call `update-pr-body.sh` inline from `scripts/backport_to_staging.sh` to handle the first-push case (where the PR doesn't exist yet when the workflow fires).
+2. **Body Updates** (`merge-train-update-pr-body.yml`): Triggered on push to `merge-train/**`, `backport-to-*-staging`, and `port-to-next-staging` branches. Updates the PR body with meaningful commits (those containing PR references like `(#1234)`). The body wraps the commit list in `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers. Backport/port staging PRs also call `update-pr-body.sh` inline from `scripts/backport_to_staging.sh` to handle the first-push case (where the PR doesn't exist yet when the workflow fires).
 
 3. **Next Integration** (`merge-train-next-to-branches.yml`): Triggered on push to `next` and `v5-next`. A push to `next` merges `next` into each `next`-based train; a push to `v5-next` merges `v5-next` into the `-v5` trains (`merge-train/spartan-v5`, `merge-train/fairies-v5`). Both go through `scripts/merge-train/merge-next.sh`, which takes an optional second argument for the source branch (defaults to `next`). Uses `continue-on-error: true` so a conflict in one branch does not block others. Skips branches whose PR already has auto-merge enabled.
 
-4. **Auto-Merge** (`merge-train-auto-merge.yml`): Runs hourly via cron (`0 * * * *`). Calls `scripts/merge-train/auto-merge.sh` for both merge-train (4-hour inactivity) and backport-train (8-hour inactivity) branches. Uses separate GitHub tokens: `AZTEC_BOT_GITHUB_TOKEN` for API calls and `MERGE_TRAIN_GITHUB_TOKEN` for approvals. Will not auto-merge if the last merge-queue CI run failed or was cancelled.
+4. **Auto-Merge** (`merge-train-auto-merge.yml`): Runs hourly via cron (`0 * * * *`). Calls `scripts/merge-train/auto-merge.sh` for merge-train (4-hour inactivity), backport-train (`BRANCH_PATTERN=backport-to-`, 8-hour), and port-to-next (`BRANCH_PATTERN=port-to-next`, 8-hour) branches. Uses separate GitHub tokens: `AZTEC_BOT_GITHUB_TOKEN` for API calls and `MERGE_TRAIN_GITHUB_TOKEN` for approvals. Will not auto-merge if the last merge-queue CI run failed or was cancelled.
 
 5. **Recreation & Wakeup** (`merge-train-recreate.yml`): Triggered when a PR is closed (merged). If the merged PR's head branch starts with `merge-train/`, recreates the branch from the base branch (usually `next`). Then runs `scripts/merge-train/wakeup-prs.sh` to add the `ci-wakeup-pr-after-merge` label to all open PRs targeting the branch that have passed CI and have automerge enabled. This triggers a CI re-run (typically a no-op via tree-hash cache) so those PRs can proceed through the merge queue. The label is immediately removed by a step in `ci3.yml` so it can be re-applied on subsequent merges.
 
 6. **Failure Notification** (`merge-queue-dequeue-notify.yml`): Triggered when a PR is dequeued from the merge queue. If the PR's head branch starts with `merge-train/` and the PR was NOT merged, sends a Slack notification via `ci3/merge_train_failure_slack_notify`. That script also kicks off a ClaudeBox session to investigate/fix the dequeued PR (`ci3/slack_notify_with_claudebox_kickoff`), passing `--repo "$GITHUB_REPOSITORY"` so the session runs in the mode matching the repo the train lives on. When the train is on a private mirror (`…-private`), `claudebox.yml` selects private mode; otherwise it stays public. Without that repo hint a private-train fix session lands in public mode and cannot read the PR or open the fix.
+
+## Label-Driven Ports (`backport.yml`)
+
+`backport.yml` (triggered on `pull_request_target` labeled/closed) cherry-picks a merged PR onto an accumulating staging branch, then opens/updates one staging PR into a target branch. It handles two label families, both driven by `scripts/backport_to_staging.sh`:
+
+- **`backport-to-<branch>`** (e.g. `backport-to-v5-next`): target is `<branch>` (derived from the label), staging branch `backport-to-<branch>-staging`. Direction `next` → release line.
+- **`port-to-next`** (fixed, generic): target is `merge-train/spartan`, staging branch `port-to-next-staging`. Direction: forward-port an already-merged PR into the spartan train (which flows to `next`). The workflow passes `STAGING_BRANCH` / `STAGING_PR_TITLE` env overrides into the script; `port-to-next` takes precedence if both label families are present.
+
+On cherry-pick conflict the workflow comments on the PR, posts to `#backports`, and dispatches ClaudeBox (`.claude/claudebox/backport.md`) with the staging branch to resolve manually. Staging PRs are auto-merged by the 8-hour jobs in `merge-train-auto-merge.yml`.
 
 ## CI Integration Details
 
@@ -94,6 +103,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `.github/workflows/merge-train-update-pr-body.yml` | Updates PR body with commit list (merge-train and backport branches) |
 | `.github/workflows/merge-queue-dequeue-notify.yml` | Slack notification on merge-queue dequeue |
 | `.github/workflows/squashed-pr-check.yml` | Squash enforcement (skipped for `ci-no-squash`) |
+| `.github/workflows/backport.yml` | Cherry-picks merged PRs to staging branches for `backport-to-*` and `port-to-next` labels |
 
 ### Scripts
 

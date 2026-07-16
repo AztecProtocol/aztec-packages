@@ -66,7 +66,11 @@ if [[ -z "$PR_NUMBER" || -z "$TARGET_BRANCH" ]]; then
   usage
 fi
 
-STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
+# STAGING_BRANCH and STAGING_PR_TITLE may be pre-set in the environment to
+# reuse this script for non-backport ports (e.g. the port-to-next label, which
+# targets merge-train/spartan). They default to the backport naming.
+STAGING_BRANCH="${STAGING_BRANCH:-backport-to-${TARGET_BRANCH}-staging}"
+STAGING_PR_TITLE="${STAGING_PR_TITLE:-chore: Accumulated backports to $TARGET_BRANCH}"
 
 # Check for required tools
 command -v gh >/dev/null 2>&1 || { echo "Error: 'gh' CLI not found. Install from https://cli.github.com/" >&2; exit 1; }
@@ -197,7 +201,7 @@ if [[ -z "$EXISTING_PR" ]]; then
   do_or_dryrun gh pr create \
     --base "$TARGET_BRANCH" \
     --head "$STAGING_BRANCH" \
-    --title "chore: Accumulated backports to $TARGET_BRANCH" \
+    --title "$STAGING_PR_TITLE" \
     --body "Backport staging PR. Body will be updated with commit list."
   do_or_dryrun echo "Created new backport PR"
 else

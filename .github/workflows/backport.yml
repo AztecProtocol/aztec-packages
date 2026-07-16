@@ -1,4 +1,4 @@
-name: Automatic backport action
+name: Automatic backport/port action
 
 on:
   pull_request_target:
@@ -15,7 +15,7 @@ jobs:
         uses: agilepathway/label-checker@825944377ab3bce1269b38c99b718767e2ca6bbc
         with:
           prefix_mode: true
-          any_of: backport-to-
+          any_of: backport-to-,port-to-next
           repo_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           allow_failure: true
       - name: Print status
@@ -24,7 +24,7 @@ jobs:
 
   backport:
     needs: [label_checker]
-    name: Backport PR
+    name: Backport/port PR
     if: github.event.pull_request.merged == true && needs.label_checker.outputs.state == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      - name: Extract target branch from labels
+      - name: Resolve port target from labels
         id: extract-branch
         env:
           LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
@@ -42,22 +42,40 @@ jobs:
           LABELS="$LABELS_JSON"
           echo "All labels: $LABELS"
 
-          # Extract the branch name from backport-to-* label
-          TARGET_BRANCH=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
-
-          if [ -z "$TARGET_BRANCH" ]; then
-            echo "No backport-to-* label found"
-            exit 1
+          # port-to-next is a fixed-target port into the spartan merge-train
+          # (which flows to next). It takes precedence over backport-to-* if
+          # both are somehow present.
+          if echo "$LABELS" | jq -e 'index("port-to-next")' >/dev/null; then
+            TARGET_BRANCH="merge-train/spartan"
+            STAGING_BRANCH="port-to-next-staging"
+            STAGING_PR_TITLE="chore: Accumulated ports to next"
+            VERB="ported"
+          else
+            # Extract the branch name from a backport-to-* label
+            TARGET_BRANCH=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
+            if [ -z "$TARGET_BRANCH" ]; then
+              echo "No backport-to-* or port-to-next label found"
+              exit 1
+            fi
+            STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
+            STAGING_PR_TITLE="chore: Accumulated backports to $TARGET_BRANCH"
+            VERB="backported"
           fi
 
           echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          echo "staging_branch=$STAGING_BRANCH" >> $GITHUB_OUTPUT
+          echo "staging_pr_title=$STAGING_PR_TITLE" >> $GITHUB_OUTPUT
+          echo "verb=$VERB" >> $GITHUB_OUTPUT
           echo "Target branch: $TARGET_BRANCH"
+          echo "Staging branch: $STAGING_BRANCH"
 
       - name: Run backport script
         id: backport
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          STAGING_BRANCH: ${{ steps.extract-branch.outputs.staging_branch }}
+          STAGING_PR_TITLE: ${{ steps.extract-branch.outputs.staging_pr_title }}
         run: |
           # Kludge. We should write this in Python or not checkout history.
           # Bash has an ugly footgun with changing history while running the script.
@@ -72,13 +90,14 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
-          STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
+          STAGING_BRANCH="${{ steps.extract-branch.outputs.staging_branch }}"
+          VERB="${{ steps.extract-branch.outputs.verb }}"
           STAGING_PR=$(gh pr list --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json number,url --jq '.[0]')
           STAGING_PR_NUMBER=$(echo "$STAGING_PR" | jq -r '.number')
           STAGING_PR_URL=$(echo "$STAGING_PR" | jq -r '.url')
 
           gh pr comment "${{ github.event.pull_request.number }}" --body \
-            "✅ Successfully backported to [$STAGING_BRANCH #$STAGING_PR_NUMBER]($STAGING_PR_URL)."
+            "✅ Successfully $VERB to [$STAGING_BRANCH #$STAGING_PR_NUMBER]($STAGING_PR_URL)."
 
       - name: Comment on original PR (failure)
         if: steps.backport.outcome == 'failure'
@@ -91,7 +110,7 @@ jobs:
           gh pr comment "${{ github.event.pull_request.number }}" --body \
             "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. (🤖) [View backport run]($WORKFLOW_URL)."
 
-      - name: Notify Slack and dispatch ClaudeBox on backport failure
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: steps.backport.outcome == 'failure'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -101,11 +120,13 @@ jobs:
           URL: ${{ github.event.pull_request.html_url }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
           BRANCH: ${{ steps.extract-branch.outputs.target_branch }}
+          STAGING_BRANCH: ${{ steps.extract-branch.outputs.staging_branch }}
+          VERB: ${{ steps.extract-branch.outputs.verb }}
         run: |
 
           # Post single message to #backports, derive permalink from response
-          TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s` (author: %s) (🤖)' \
-            "$URL" "$PR" "$TITLE" "$BRANCH" "$AUTHOR")
+          TEXT=$(printf '⚠️ %s failed: <%s|#%s %s> → `%s` (author: %s) (🤖)' \
+            "${VERB^}" "$URL" "$PR" "$TITLE" "$BRANCH" "$AUTHOR")
           RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json" \
@@ -120,8 +141,8 @@ jobs:
           fi
 
           gh workflow run claudebox.yml \
-            -f prompt="Backport PR #$PR ($TITLE) to $BRANCH. The automatic cherry-pick failed due to conflicts. Follow .claude/claudebox/backport.md to resolve conflicts and create a PR." \
+            -f prompt="${VERB^} PR #$PR ($TITLE) to $BRANCH (staging branch $STAGING_BRANCH). The automatic cherry-pick failed due to conflicts. Follow .claude/claudebox/backport.md to resolve conflicts and create a PR." \
             -f link="${LINK:-$URL}" \
-            -f target_ref="origin/backport-to-${BRANCH}-staging" \
+            -f target_ref="origin/$STAGING_BRANCH" \
             -f slack_channel="$CHANNEL_ID" \
             -f slack_thread_ts="$TS"
