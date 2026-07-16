@@ -559,8 +559,26 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
     auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
+    const uint32_t connected_witness = 8;
+    const uint32_t disconnected_witness = 9;
+    // Corrupt the circuit side while keeping builder witness metadata structurally valid.
+    auto replace_witness = [connected_witness, disconnected_witness](auto& witness_indices) {
+        for (size_t idx = 0; idx < witness_indices.size(); ++idx) {
+            if (witness_indices[idx] == disconnected_witness) {
+                witness_indices[idx] = connected_witness;
+            }
+        }
+    };
+    for (auto& block : builder.blocks.get()) {
+        replace_witness(block.w_l());
+        replace_witness(block.w_r());
+        replace_witness(block.w_o());
+        replace_witness(block.w_4());
+    }
+    for (auto& [_, range_list] : builder.range_lists) {
+        replace_witness(range_list.variable_indices);
+    }
+    builder.real_variable_index[disconnected_witness] = builder.add_variable(bb::fr(1));
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
