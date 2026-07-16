@@ -10,7 +10,7 @@ import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { SQLiteOPFSAztecArray } from './array.js';
-import { SqliteEncryptionError } from './errors.js';
+import { SqliteCorruptionError, SqliteEncryptionError, isCorruptionMessage } from './errors.js';
 import { SQLiteOPFSAztecMap } from './map.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 import { SQLiteOPFSAztecMultiMap } from './multi_map.js';
@@ -272,11 +272,15 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
       this.#pending.set(req.id, {
         resolve: resp => {
           if (resp.type === 'err') {
-            // Re-hydrate encryption-shaped errors as the typed class so consumers
-            // can pattern-match on `instanceof SqliteEncryptionError`. Plain
-            // errors stay plain — the wire protocol only tags encryption paths.
+            // Re-hydrate typed errors so consumers can pattern-match on
+            // `instanceof`. Encryption is tagged on the wire (some cases are
+            // pre-flight throws with no message to match); corruption is a
+            // single unambiguous message, so we classify it here rather than
+            // adding a redundant wire field. Everything else stays a plain Error.
             if (resp.encryptionCode !== undefined) {
               reject(new SqliteEncryptionError(resp.encryptionCode, resp.message));
+            } else if (isCorruptionMessage(resp.message)) {
+              reject(new SqliteCorruptionError(resp.message));
             } else {
               reject(new Error(resp.message));
             }
