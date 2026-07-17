@@ -52,6 +52,26 @@ Breaking changes:
 - `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
 - Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
 
+### [Aztec.nr] Domain separators moved out of the protocol constants module
+
+Nine `DOM_SEP__*` domain separators that used to live in the protocol constants module (`aztec::protocol::constants`, generated from `noir-protocol-circuits`) have moved into the `aztec` crate, next to the code that uses them. None of them were ever protocol constants (each hash is computed per-contract), so they no longer belong on the protocol export.
+
+Two remain public, at a new path:
+
+| Constant | Old path | New path |
+| --- | --- | --- |
+| `DOM_SEP__PARTIAL_NOTE_COMMITMENT` | `aztec::protocol::constants` | `aztec::note::partial_note` |
+| `DOM_SEP__NOTE_COMPLETION_LOG_TAG` | `aztec::protocol::constants` | `aztec::note::partial_note` |
+
+```diff
+- use aztec::protocol::constants::{DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__PARTIAL_NOTE_COMMITMENT};
++ use aztec::note::partial_note::{DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__PARTIAL_NOTE_COMMITMENT};
+```
+
+The other seven are now crate-internal (`pub(crate)`) and can no longer be imported from outside the `aztec` crate: `DOM_SEP__AUTHWIT_NULLIFIER`, `DOM_SEP__TX_NULLIFIER`, `DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER`, `DOM_SEP__CONSTRAINED_MSG_NULLIFIER`, `DOM_SEP__ECDH_SUBKEY`, `DOM_SEP__ECDH_FIELD_MASK`, and `DOM_SEP__INITIALIZATION_NULLIFIER`.
+
+**Impact**: Contracts that use aztec-nr's high-level APIs (notes, authwit, state variables, message delivery, ECDH) are unaffected, since these separators are applied internally. A contract that imported one of these constants directly must either switch to the new `aztec::note::partial_note` path (for the two public ones) or, for the now-internal ones, call the corresponding aztec-nr helper instead of recomputing the hash by hand. The generated TypeScript `DomainSeparator` enum in `@aztec/constants` / `@aztec/stdlib` likewise no longer contains the seven removed members (their values were unused in TypeScript).
+
 ## 5.0.1
 
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
