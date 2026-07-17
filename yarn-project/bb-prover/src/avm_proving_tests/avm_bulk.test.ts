@@ -28,6 +28,7 @@ describe('AVM proven bulk test', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

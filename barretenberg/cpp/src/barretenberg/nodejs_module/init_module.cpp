@@ -1,4 +1,3 @@
-#include "barretenberg/nodejs_module/avm_simulate/avm_simulate_napi.hpp"
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_wrapper.hpp"
 #include "barretenberg/nodejs_module/msgpack_client/msgpack_client_async.hpp"
 #include "barretenberg/nodejs_module/msgpack_client/msgpack_client_wrapper.hpp"
@@ -11,13 +10,6 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
                 bb::nodejs::msgpack_client::MsgpackClientWrapper::get_class(env));
     exports.Set(Napi::String::New(env, "MsgpackClientAsync"),
                 bb::nodejs::msgpack_client::MsgpackClientAsync::get_class(env));
-    exports.Set(Napi::String::New(env, "avmSimulate"), Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::simulate));
-    exports.Set(Napi::String::New(env, "avmSimulateWithHintedDbs"),
-                Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::simulateWithHintedDbs));
-    exports.Set(Napi::String::New(env, "createCancellationToken"),
-                Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::createCancellationToken));
-    exports.Set(Napi::String::New(env, "cancelSimulation"),
-                Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::cancelSimulation));
     return exports;
 }
 

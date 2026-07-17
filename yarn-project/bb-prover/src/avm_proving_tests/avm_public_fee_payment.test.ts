@@ -31,6 +31,7 @@ describe('AVM check-circuit – public fee payment', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

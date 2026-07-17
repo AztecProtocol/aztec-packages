@@ -1,4 +1,5 @@
 export * from './public_tx_simulation_tester.js';
+export * from './public_processor_test_env.js';
 export * from './utils.js';
 export * from './simple_contract_data_source.js';
 export { TestExecutorMetrics } from '../test_executor_metrics.js';

@@ -25,6 +25,7 @@ export type IpcServerHandler = (
 export class UdsIpcServer {
   private server: net.Server;
   private nextClientId = 0;
+  private connections = new Set<net.Socket>();
   private readonly unlinkOnExit = () => {
     try {
       fs.unlinkSync(this.socketPath);
@@ -79,6 +80,12 @@ export class UdsIpcServer {
   }
 
   async close(): Promise<void> {
+    // Force-close live connections (matching the C++ server's shutdown) so close()
+    // resolves promptly instead of blocking until every client happens to disconnect.
+    for (const conn of this.connections) {
+      conn.destroy();
+    }
+    this.connections.clear();
     await new Promise<void>((resolve) => this.server.close(() => resolve()));
     process.removeListener("exit", this.unlinkOnExit);
     try {
@@ -90,6 +97,8 @@ export class UdsIpcServer {
 
   private handleConnection(conn: net.Socket, handler: IpcServerHandler): void {
     const clientId = this.nextClientId++;
+    this.connections.add(conn);
+    conn.on("close", () => this.connections.delete(conn));
     let buffer = Buffer.alloc(0);
     let chain: Promise<void> = Promise.resolve();
 
@@ -111,7 +120,9 @@ export class UdsIpcServer {
           return;
         }
         if (buffer.length < 4 + len) break;
-        const payload = new Uint8Array(buffer.subarray(4, 4 + len));
+        // Copy into a standalone Buffer (not a subarray view, and not a plain Uint8Array): handlers
+        // decode with msgpackr, which relies on Buffer semantics for correct string/binary decoding.
+        const payload = Buffer.from(buffer.subarray(4, 4 + len));
         buffer = buffer.subarray(4 + len);
 
         const prev = chain;
