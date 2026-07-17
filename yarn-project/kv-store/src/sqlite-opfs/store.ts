@@ -14,6 +14,7 @@ import { SqliteEncryptionError } from './errors.js';
 import { SQLiteOPFSAztecMap } from './map.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 import { SQLiteOPFSAztecMultiMap } from './multi_map.js';
+import { type PoolLockLease, acquirePoolLock, normalizePoolDirectory } from './pool_lock.js';
 import { SQLiteOPFSAztecSet } from './set.js';
 import { SQLiteOPFSAztecSingleton } from './singleton.js';
 
@@ -36,12 +37,14 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
   #nextId = 0;
   #inTx = false;
   #closed = false;
+  #workerFailed = false;
 
   private constructor(
     worker: Worker,
     name: string,
     log: Logger,
     public readonly isEphemeral: boolean,
+    private readonly poolLock?: PoolLockLease,
   ) {
     this.#worker = worker;
     this.#name = name;
@@ -57,6 +60,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
       handler.resolve(ev.data);
     };
     this.#worker.onerror = ev => {
+      this.#workerFailed = true;
       this.#log.error(`SQLite worker crashed: ${ev.message}`);
       this.#rejectPending(`SQLite worker crashed: ${ev.message}`);
     };
@@ -69,6 +73,10 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
    * Pass `poolDirectory` to place the SAH Pool in a non-default OPFS subdirectory —
    * required when multiple stores coexist in the same tab, because the SAH Pool holds
    * an exclusive lock on its directory.
+   *
+   * Persistent stores hold an origin-wide Web Lock for the pool directory until close
+   * or delete. If another store instance already owns it, open fails immediately with
+   * `SqlitePoolBusyError`.
    *
    * Pass `encryptionKey` (exactly 32 bytes) to enable at-rest encryption via sqlite3mc's
    * ChaCha20 page cipher. The key buffer is **transferred** to the worker — its
@@ -102,22 +110,26 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     log.debug(
       `Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}${encryptionKey ? 'encrypted ' : ''}database ${dbName}`,
     );
-    const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
-    const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral);
-    // Transfer (not clone) the key buffer to the worker so we don't leave a
-    // second copy on the main thread. Caveat: this detaches the caller's
-    // encryptionKey.buffer — subsequent reads from the same Uint8Array are empty.
-    const transfer = encryptionKey ? [encryptionKey.buffer as ArrayBuffer] : undefined;
+    const effectivePoolDirectory = ephemeral ? undefined : normalizePoolDirectory(poolDirectory);
+    const poolLock = effectivePoolDirectory ? await acquirePoolLock(effectivePoolDirectory) : undefined;
+    let worker: Worker | undefined;
     try {
+      worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+      const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral, poolLock);
+      // Transfer (not clone) the key buffer to the worker so we don't leave a
+      // second copy on the main thread. Caveat: this detaches the caller's
+      // encryptionKey.buffer — subsequent reads from the same Uint8Array are empty.
+      const transfer = encryptionKey ? [encryptionKey.buffer as ArrayBuffer] : undefined;
       await store.#sendRequest(
-        { type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory, encryptionKey },
+        { type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory: effectivePoolDirectory, encryptionKey },
         transfer,
       );
+      return store;
     } catch (err) {
-      worker.terminate();
+      worker?.terminate();
+      await poolLock?.release();
       throw err;
     }
-    return store;
   }
 
   openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
@@ -179,12 +191,16 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
       return;
     }
     this.#closed = true;
-    await this.#txQueue.end();
-    await this.#sendRequest({ type: 'deleteDb', id: this.#allocId(), dbName: this.#name }).catch(err =>
-      this.#log.warn(`SQLite deleteDb failed: ${err instanceof Error ? err.message : err}`),
-    );
-    this.#worker.terminate();
-    this.#rejectPending('SQLite store deleted');
+    try {
+      await this.#txQueue.end();
+      await this.#sendRequest({ type: 'deleteDb', id: this.#allocId(), dbName: this.#name }).catch(err =>
+        this.#log.warn(`SQLite deleteDb failed: ${err instanceof Error ? err.message : err}`),
+      );
+    } finally {
+      this.#worker.terminate();
+      this.#rejectPending('SQLite store deleted');
+      await this.poolLock?.release();
+    }
   }
 
   /**
@@ -204,10 +220,14 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
       return;
     }
     this.#closed = true;
-    await this.#txQueue.end();
-    await this.#sendRequest({ type: 'close', id: this.#allocId() }).catch(() => {});
-    this.#worker.terminate();
-    this.#rejectPending('SQLite store closed');
+    try {
+      await this.#txQueue.end();
+      await this.#sendRequest({ type: 'close', id: this.#allocId() }).catch(() => {});
+    } finally {
+      this.#worker.terminate();
+      this.#rejectPending('SQLite store closed');
+      await this.poolLock?.release();
+    }
   }
 
   backupTo(_dstPath: string, _compact?: boolean): Promise<void> {
@@ -268,6 +288,9 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
   }
 
   #sendRequest(req: WorkerRequest, transfer?: Transferable[]): Promise<WorkerResponse> {
+    if (this.#workerFailed) {
+      return Promise.reject(new Error('SQLite worker has crashed'));
+    }
     return new Promise<WorkerResponse>((resolve, reject) => {
       this.#pending.set(req.id, {
         resolve: resp => {
