@@ -159,6 +159,17 @@ Also grep for any old addresses that may appear elsewhere in the docs:
 grep -r "<old_address>" docs/
 ```
 
+Re-verify every figure against its source of truth before writing it — never
+carry values forward from the previous release or transcribe them by hand.
+Follow the "Re-verify every figure against its source of truth" subsection of
+`/release-docs` Step 9: EIP-55 checksum every address with
+`cast to-check-sum-address`, convert on-chain hex with `cast to-dec`, read the
+rollup version from `getVersion()` on each network's rollup, confirm the L1
+chain id with `cast chain-id`, refresh the governance parameters table from the
+Governance / Governance Proposer / Tally Slashing Proposer contracts on-chain,
+and diff against any human-owned deployment data (resolving discrepancies on
+chain, then reconciling with the owner).
+
 ### Step 5: Review Operator Docs Content (Optional)
 
 Ask the user if any content changes are needed in `docs/docs-operate/`:
