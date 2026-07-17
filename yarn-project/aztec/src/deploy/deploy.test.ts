@@ -17,10 +17,6 @@ import {
   runDeployment,
 } from './index.js';
 
-// Heavy integration test: spins up an in-process local network (anvil + node) and drives a real
-// deployment through it. Requires an aztec-up Foundry toolchain on PATH. Not part of the fast unit
-// gate (the package's CI test_cmds only covers src/cli); run explicitly with
-// `yarn workspace @aztec/aztec test src/deploy/deploy.test.ts`.
 describe('runDeployment', () => {
   it('publishes a contract, runs an action, and is idempotent on re-run', async () => {
     // Admin account: the runner derives its Schnorr initializerless address from (secret, salt),

@@ -9,7 +9,7 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import { formatList, formatWaves } from './graph.js';
+import { formatLayers, formatList } from './graph.js';
 
 /** What a unit did: publish a contract, or send an action's tx. */
 export type DeployUnitKind = 'publish' | 'action';
@@ -61,8 +61,8 @@ export interface DeployPlan {
   label: string;
   accounts: DeployPlanAccount[];
   steps: DeployPlanStep[];
-  /** Execution waves (step ids) — what will actually run, in dependency order. A wave runs parallel. */
-  waves: string[][];
+  /** Execution layers (step ids) — what will actually run, in dependency order. A layer runs parallel. */
+  layers: string[][];
 }
 
 export interface DeploySummary {
@@ -140,9 +140,9 @@ export function consoleReporter(): DeployReporter {
         ),
       );
       log(
-        formatWaves(
-          'execution waves',
-          plan.waves.map(wave => wave.map(name => ({ name }))),
+        formatLayers(
+          'execution layers',
+          plan.layers.map(layer => layer.map(name => ({ name }))),
         ),
       );
     },

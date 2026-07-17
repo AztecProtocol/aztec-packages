@@ -21,7 +21,14 @@ import { type AztecNodeDebug, createAztecNodeDebugClient } from '@aztec/stdlib/i
 import type { Hex } from 'viem';
 import { generatePrivateKey } from 'viem/accounts';
 
-const POLL_INTERVAL_MS = 1000;
+const logger = createLogger('deploy:bridging');
+
+/** Wait between availability checks in `warp` mode — each iteration also warps the clock forward. */
+const WARP_POLL_INTERVAL_MS = 1000;
+/** Wait between availability checks in `poll` mode (a real network; nothing to do but wait). */
+const POLL_INTERVAL_MS = 5_000;
+/** Throttle for the "still waiting" progress log in the poll loop. */
+const POLL_LOG_INTERVAL_MS = 30_000;
 const WARP_BY_SECONDS = 36n; // roughly one L2 slot; not derived from config, so update if the slot duration changes
 
 /** Local vs. remote L1→L2 message advancement: warp cheats time forward, poll just waits. */
@@ -106,7 +113,7 @@ export async function bridgeFeeJuice(params: BridgeFeeJuiceParams): Promise<Brid
   const l1PrivateKey: Hex = params.l1PrivateKey ?? generatePrivateKey();
   const chain = createEthereumChain([l1RpcUrl], l1ChainId);
   const l1Client = createExtendedL1Client(chain.rpcUrls, l1PrivateKey, chain.chainInfo);
-  const portalManager = await L1FeeJuicePortalManager.new(node, l1Client, createLogger('deploy:bridging'));
+  const portalManager = await L1FeeJuicePortalManager.new(node, l1Client, logger);
 
   const tokenManager = portalManager.getTokenManager();
   const hasFaucet = tokenManager.handlerAddress !== undefined;
@@ -174,10 +181,15 @@ export async function waitForL1ToL2Message(params: WaitForClaimParams): Promise<
     if (await isL1ToL2MessageReady(node, messageHash)) {
       return;
     }
-    if (Date.now() - lastLog > 30_000) {
+    if (Date.now() - lastLog > POLL_LOG_INTERVAL_MS) {
       lastLog = Date.now();
+      logger.info('Still waiting for L1→L2 message to become available', {
+        messageHash: messageHash.toString(),
+        elapsedMs: Date.now() - startedAt,
+        timeoutMs,
+      });
     }
-    await new Promise(r => setTimeout(r, 5_000));
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
   }
   throw new Error(`L1→L2 message ${messageHash.toString()} did not become available in time`);
 }
@@ -204,7 +216,7 @@ export async function warpToL1ToL2Message(
       return;
     }
     await fullNode.warpL2TimeAtLeastBy(Number(WARP_BY_SECONDS));
-    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+    await new Promise(r => setTimeout(r, WARP_POLL_INTERVAL_MS));
   }
   throw new Error(`L1→L2 message ${messageHash.toString()} did not become available in time`);
 }

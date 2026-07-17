@@ -96,7 +96,7 @@ export interface PlanRow {
 }
 
 /**
- * Render a titled flat list of plan rows (no wave grouping). Use for the declared-contracts
+ * Render a titled flat list of plan rows (no layer grouping). Use for the declared-contracts
  * overview, whose `← ...` arrows are constructor-arg references — not an execution order.
  */
 export function formatList(title: string, rows: PlanRow[]): string {
@@ -113,17 +113,17 @@ export function formatList(title: string, rows: PlanRow[]): string {
 }
 
 /**
- * Render a titled, wave-grouped section of the plan as an indented tree. A "wave" is just the
- * runner's name for a layer once it's being executed: each wave's txs are submitted in parallel.
+ * Render a titled, layer-grouped section of the plan as an indented tree. Each layer's txs are
+ * submitted in parallel.
  */
-export function formatWaves(title: string, waves: PlanRow[][]): string {
-  if (waves.length === 0) {
+export function formatLayers(title: string, layers: PlanRow[][]): string {
+  if (layers.length === 0) {
     return `${title}: (none)`;
   }
   const lines = [`${title}:`];
-  waves.forEach((wave, index) => {
-    lines.push(`  wave ${index + 1}${wave.length > 1 ? '  (parallel)' : ''}`);
-    for (const row of wave) {
+  layers.forEach((layer, index) => {
+    lines.push(`  layer ${index + 1}${layer.length > 1 ? '  (parallel)' : ''}`);
+    for (const row of layer) {
       const dependencies = row.dependencies && row.dependencies.length ? `  ← ${row.dependencies.join(', ')}` : '';
       const tag = row.tag ? `  [${row.tag}]` : '';
       lines.push(`    ${row.name}${tag}${dependencies}`);

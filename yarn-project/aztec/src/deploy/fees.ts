@@ -121,6 +121,9 @@ export async function prepareFeeSession(opts: PrepareFeeSessionOpts): Promise<Fe
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContractArtifact);
     sponsoredFee = {
       paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address),
+      // 10x headroom because this one quote is reused for every tx in the run (the wallet's default would re-quote
+      // per tx at 1.5x min): congestion pricing can push the min fee well past the starting quote over a run of
+      // parallel layers. Overstating the cap is free — txs pay the going rate, not the cap, and the FPC pays anyway.
       gasSettings: { maxFeesPerGas: (await node.getCurrentMinFees()).mul(10) },
     };
   }
