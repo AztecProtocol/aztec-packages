@@ -183,6 +183,11 @@ library EpochProofLib {
       }
     }
 
+    // The fee recipient/value below are sourced from the supplied headers, so the header hashes must be validated here
+    // as well as on the submit path - otherwise an off-chain caller of this getter would assemble public inputs from
+    // unverified fee fields and only discover the mismatch when the on-chain proof reverts.
+    verifyHeaders(_start, _end, _headers);
+
     bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
 
     // Structure of the root rollup public inputs we need to reassemble:
