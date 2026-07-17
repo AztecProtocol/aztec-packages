@@ -1,9 +1,33 @@
 import { mockLogger } from '../interfaces/utils.js';
 import { AztecSQLiteOPFSStore, SqlitePoolBusyError, SqliteWebLocksUnavailableError } from './index.js';
 import { deleteStore, listStores, storePoolDirectory } from './manage.js';
+import { OPFS_QUARANTINE_ROOT_DIRECTORY, type PoolQuarantineMetadata } from './pool_integrity.js';
 import { acquirePoolLock } from './pool_lock.js';
 
 const openByName = (name: string) => AztecSQLiteOPFSStore.open(mockLogger, name, false, storePoolDirectory(name));
+
+async function duplicateFirstAssociatedOpaqueFile(name: string): Promise<void> {
+  const root = await navigator.storage.getDirectory();
+  const pool = await root.getDirectoryHandle(storePoolDirectory(name));
+  const opaque = await pool.getDirectoryHandle('.opaque');
+  for await (const [opaqueName, handle] of opaque.entries()) {
+    if (handle.kind !== 'file') {
+      continue;
+    }
+    const source = await (handle as FileSystemFileHandle).getFile();
+    // The first 512 header bytes hold the NUL-terminated logical path; a NUL at index 0 marks an unassociated slot.
+    const pathHeader = new Uint8Array(await source.slice(0, 512).arrayBuffer());
+    if (pathHeader.indexOf(0) <= 0) {
+      continue;
+    }
+    const duplicate = await opaque.getFileHandle(`duplicate-${opaqueName}`, { create: true });
+    const writable = await duplicate.createWritable();
+    await writable.write(source);
+    await writable.close();
+    return;
+  }
+  throw new Error('No associated SAH file found to duplicate');
+}
 
 describe('sqlite-opfs store management', () => {
   it('round-trips data for a store reopened by name', async () => {
@@ -46,6 +70,50 @@ describe('sqlite-opfs store management', () => {
     const reopened = await openByName(name);
     await reopened.close();
     await deleteStore(name);
+  });
+
+  it('quarantines a pool with duplicate logical file mappings before reopening fresh', async () => {
+    const name = 'mech_duplicate_mapping';
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry(OPFS_QUARANTINE_ROOT_DIRECTORY, { recursive: true }).catch(() => {});
+    const store = await openByName(name);
+    await store.openSingleton<string>('payload').set('original');
+    await store.close();
+    await duplicateFirstAssociatedOpaqueFile(name);
+
+    let reopened: AztecSQLiteOPFSStore | undefined;
+    try {
+      reopened = await openByName(name);
+      expect(await reopened.openSingleton<string>('payload').getAsync()).toBeUndefined();
+
+      const quarantineRoot = await root.getDirectoryHandle(OPFS_QUARANTINE_ROOT_DIRECTORY);
+      const quarantineNames: string[] = [];
+      for await (const [quarantineName, handle] of quarantineRoot.entries()) {
+        if (handle.kind === 'directory') {
+          quarantineNames.push(quarantineName);
+        }
+      }
+      expect(quarantineNames).toHaveLength(1);
+
+      const quarantine = await quarantineRoot.getDirectoryHandle(quarantineNames[0]);
+      const metadataFile = await (await quarantine.getFileHandle('quarantine.json')).getFile();
+      const metadata = JSON.parse(await metadataFile.text()) as PoolQuarantineMetadata;
+      expect(metadata).toMatchObject({
+        formatVersion: 1,
+        originalPoolDirectory: storePoolDirectory(name),
+        duplicateAssociations: [{ logicalPath: `/${name}` }],
+      });
+
+      const quarantinedOpaque = await quarantine.getDirectoryHandle('.opaque');
+      for (const opaqueName of metadata.duplicateAssociations[0].opaqueFileNames) {
+        // Database content starts at byte 4096 (the pool's sector size), so a file with real data must exceed it.
+        expect((await (await quarantinedOpaque.getFileHandle(opaqueName)).getFile()).size).toBeGreaterThan(4096);
+      }
+    } finally {
+      await reopened?.close();
+      await deleteStore(name).catch(() => {});
+      await root.removeEntry(OPFS_QUARANTINE_ROOT_DIRECTORY, { recursive: true }).catch(() => {});
+    }
   });
 
   it('fails clearly when Web Locks are unavailable', async () => {
