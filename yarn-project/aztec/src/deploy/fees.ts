@@ -38,7 +38,11 @@ export interface SendFee {
   gasSettings?: { maxFeesPerGas: GasFees };
 }
 
-/** Sane fee defaults: local pays via SponsoredFPC; every other network pays from bridged Fee Juice. */
+/**
+ * Sane fee defaults: local pays via SponsoredFPC; every other network pays from bridged Fee Juice.
+ * The threshold/fundAmount pair trades off L1 round-trips (too low → frequent re-bridges) against
+ * stranding Fee Juice, which is non-transferable, on the account (too high).
+ */
 export function defaultFeePolicy(local: boolean): FeePolicy {
   if (local) {
     return { kind: 'sponsored' };
