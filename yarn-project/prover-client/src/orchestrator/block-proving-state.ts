@@ -303,6 +303,7 @@ export class BlockProvingState {
         inputs: new BlockRootSingleTxRollupPrivateInputs(
           leftRollup,
           messageBundle,
+          this.lastL1ToL2MessageTreeSnapshot,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -314,6 +315,7 @@ export class BlockProvingState {
         inputs: new BlockRootRollupPrivateInputs(
           [leftRollup, rightRollup],
           messageBundle,
+          this.lastL1ToL2MessageTreeSnapshot,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,

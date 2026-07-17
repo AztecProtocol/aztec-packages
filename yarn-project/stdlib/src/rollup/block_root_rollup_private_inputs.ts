@@ -341,11 +341,17 @@ export class BlockRootRollupPrivateInputs {
      */
     public messageBundle: L1ToL2MessageBundle,
     /**
+     * The l1 to l2 message tree snapshot this block builds on (the previous block's post-insertion snapshot). Pinned by
+     * block-merge continuity to the previous block's end state; the circuit appends this block's bundle on top and
+     * asserts the tx constants carry the resulting post-bundle snapshot.
+     */
+    public previousL1ToL2: AppendOnlyTreeSnapshot,
+    /**
      * Message sponge inherited from the previous block (checked against its `endMsgSponge` in the merge/checkpoint root).
      */
     public startMsgSponge: L1ToL2MessageSponge,
     /**
-     * Frontier hint for appending the message bundle to the l1 to l2 tree snapshot carried in the constants.
+     * Frontier hint for appending the message bundle to `previousL1ToL2`.
      */
     public l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
     /**
@@ -362,6 +368,7 @@ export class BlockRootRollupPrivateInputs {
     return [
       fields.previousRollups,
       fields.messageBundle,
+      fields.previousL1ToL2,
       fields.startMsgSponge,
       fields.l1ToL2MessageFrontierHint,
       fields.newArchiveSiblingPath,
@@ -372,6 +379,7 @@ export class BlockRootRollupPrivateInputs {
     return serializeToBuffer(
       this.previousRollups,
       this.messageBundle,
+      this.previousL1ToL2,
       this.startMsgSponge,
       this.l1ToL2MessageFrontierHint,
       this.newArchiveSiblingPath,
@@ -383,6 +391,7 @@ export class BlockRootRollupPrivateInputs {
     return new BlockRootRollupPrivateInputs(
       [ProofData.fromBuffer(reader, TxRollupPublicInputs), ProofData.fromBuffer(reader, TxRollupPublicInputs)],
       reader.readObject(L1ToL2MessageBundle),
+      AppendOnlyTreeSnapshot.fromBuffer(reader),
       reader.readObject(L1ToL2MessageSponge),
       reader.readArray(L1_TO_L2_MSG_TREE_HEIGHT, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
@@ -409,11 +418,17 @@ export class BlockRootSingleTxRollupPrivateInputs {
      */
     public messageBundle: L1ToL2MessageBundle,
     /**
+     * The l1 to l2 message tree snapshot this block builds on (the previous block's post-insertion snapshot). Pinned by
+     * block-merge continuity to the previous block's end state; the circuit appends this block's bundle on top and
+     * asserts the tx constants carry the resulting post-bundle snapshot.
+     */
+    public previousL1ToL2: AppendOnlyTreeSnapshot,
+    /**
      * Message sponge inherited from the previous block (checked against its `endMsgSponge` in the merge/checkpoint root).
      */
     public startMsgSponge: L1ToL2MessageSponge,
     /**
-     * Frontier hint for appending the message bundle to the l1 to l2 tree snapshot carried in the constants.
+     * Frontier hint for appending the message bundle to `previousL1ToL2`.
      */
     public l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
     /**
@@ -430,6 +445,7 @@ export class BlockRootSingleTxRollupPrivateInputs {
     return [
       fields.previousRollup,
       fields.messageBundle,
+      fields.previousL1ToL2,
       fields.startMsgSponge,
       fields.l1ToL2MessageFrontierHint,
       fields.newArchiveSiblingPath,
@@ -440,6 +456,7 @@ export class BlockRootSingleTxRollupPrivateInputs {
     return serializeToBuffer(
       this.previousRollup,
       this.messageBundle,
+      this.previousL1ToL2,
       this.startMsgSponge,
       this.l1ToL2MessageFrontierHint,
       this.newArchiveSiblingPath,
@@ -451,6 +468,7 @@ export class BlockRootSingleTxRollupPrivateInputs {
     return new BlockRootSingleTxRollupPrivateInputs(
       ProofData.fromBuffer(reader, TxRollupPublicInputs),
       reader.readObject(L1ToL2MessageBundle),
+      AppendOnlyTreeSnapshot.fromBuffer(reader),
       reader.readObject(L1ToL2MessageSponge),
       reader.readArray(L1_TO_L2_MSG_TREE_HEIGHT, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
