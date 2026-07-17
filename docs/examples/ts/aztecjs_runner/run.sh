@@ -115,7 +115,7 @@ setup_project() {
         [ ${#NPM_DEPS[@]} -gt 0 ] && yarn_add_with_retry "${NPM_DEPS[@]}"
     fi
 
-    yarn_add_with_retry -D typescript tsx
+    yarn_add_with_retry -D typescript@^5.3.3 tsx
 
     # Copy tsconfig
     cp "$EXAMPLES_DIR/tsconfig.template.json" tsconfig.json
