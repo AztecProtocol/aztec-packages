@@ -1,6 +1,7 @@
 import { mockLogger } from '../interfaces/utils.js';
-import { AztecSQLiteOPFSStore } from './index.js';
+import { AztecSQLiteOPFSStore, SqlitePoolBusyError, SqliteWebLocksUnavailableError } from './index.js';
 import { deleteStore, listStores, storePoolDirectory } from './manage.js';
+import { acquirePoolLock } from './pool_lock.js';
 
 const openByName = (name: string) => AztecSQLiteOPFSStore.open(mockLogger, name, false, storePoolDirectory(name));
 
@@ -29,6 +30,36 @@ describe('sqlite-opfs store management', () => {
     await b.close();
     await deleteStore('mech_concurrent_a');
     await deleteStore('mech_concurrent_b');
+  });
+
+  it('allows only one concurrent opener for a fresh store', async () => {
+    const name = 'mech_same_store';
+    const results = await Promise.allSettled([openByName(name), openByName(name)]);
+    const opened = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+    const rejected = results.filter(result => result.status === 'rejected').map(result => result.reason);
+
+    expect(opened).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]).toBeInstanceOf(SqlitePoolBusyError);
+
+    await opened[0].close();
+    const reopened = await openByName(name);
+    await reopened.close();
+    await deleteStore(name);
+  });
+
+  it('fails clearly when Web Locks are unavailable', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(navigator, 'locks');
+    Object.defineProperty(navigator, 'locks', { configurable: true, value: undefined });
+    try {
+      await expect(acquirePoolLock('mech_no_web_locks')).rejects.toThrow(SqliteWebLocksUnavailableError);
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(navigator, 'locks', descriptor);
+      } else {
+        delete (navigator as unknown as { locks?: LockManager }).locks;
+      }
+    }
   });
 
   it('lists created stores and deletes them', async () => {
@@ -61,7 +92,7 @@ describe('sqlite-opfs store management', () => {
 
   it('refuses to delete a store that is currently open', async () => {
     const store = await openByName('mech_locked');
-    await expect(deleteStore('mech_locked')).rejects.toThrow();
+    await expect(deleteStore('mech_locked')).rejects.toThrow(SqlitePoolBusyError);
     await store.close();
     await deleteStore('mech_locked');
   });

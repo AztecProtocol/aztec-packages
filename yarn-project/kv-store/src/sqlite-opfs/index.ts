@@ -3,9 +3,14 @@ import { createLogger } from '@aztec/foundation/log';
 import { AztecSQLiteOPFSStore } from './store.js';
 
 export { AztecSQLiteOPFSStore } from './store.js';
-export { SqliteCorruptionError, SqliteEncryptionError } from './errors.js';
+export {
+  SqliteCorruptionError,
+  SqliteEncryptionError,
+  SqlitePoolBusyError,
+  SqliteWebLocksUnavailableError,
+} from './errors.js';
 export type { SqliteEncryptionErrorCode } from './errors.js';
-export { OPFS_POOL_DIR_PREFIX, deleteStore, listStores, storePoolDirectory } from './manage.js';
+export { OPFS_POOL_DIR_PREFIX, deletePoolDirectory, deleteStore, listStores, storePoolDirectory } from './manage.js';
 
 export function openTmpStore(ephemeral: boolean = false): Promise<AztecSQLiteOPFSStore> {
   return AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite-opfs'), undefined, ephemeral);
