@@ -13,10 +13,12 @@ use crate::{
     utils::comparison::Comparator,
 };
 
+fn field_selector(index: u8) -> PropertySelector<Field> {
+    PropertySelector { index, offset: 0, length: 32 }
+}
+
 fn sort_criterion(index: u8, order: u8) -> Option<Sort> {
-    Option::some(
-        Sort::new(PropertySelector { index, offset: 0, length: 32 }, order),
-    )
+    Option::some(Sort::new(field_selector(index), order))
 }
 
 global storage_slot: Field = 42;
@@ -226,11 +228,7 @@ unconstrained fn confirm_notes_rejects_mismatched_selector() {
         let mut opt_notes = [Option::none(); _];
         opt_notes[0] = Option::some(note);
 
-        let options = NoteGetterOptions::new().set_owner(owner).select(
-            PropertySelector { index: 0, offset: 0, length: 32 },
-            Comparator.EQ,
-            value + 1,
-        );
+        let options = NoteGetterOptions::new().set_owner(owner).select(field_selector(0), Comparator.EQ, value + 1);
 
         let _ = confirm_hinted_notes(context, storage_slot, opt_notes, options);
     });
@@ -247,9 +245,7 @@ unconstrained fn confirm_notes_rejects_mismatched_desc_sort_order() {
         opt_notes[0] = Option::some(build_valid_hinted_note(contract_address, 1));
         opt_notes[1] = Option::some(build_valid_hinted_note(contract_address, 2));
 
-        let options = NoteGetterOptions::new()
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.DESC)
-            .set_owner(owner);
+        let options = NoteGetterOptions::new().sort(field_selector(0), SortOrder.DESC).set_owner(owner);
         let _ = confirm_hinted_notes(context, storage_slot, opt_notes, options);
     });
 }
@@ -265,9 +261,7 @@ unconstrained fn confirm_notes_rejects_mismatched_asc_sort_order() {
         opt_notes[0] = Option::some(build_valid_hinted_note(contract_address, 2));
         opt_notes[1] = Option::some(build_valid_hinted_note(contract_address, 1));
 
-        let options = NoteGetterOptions::new()
-            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC)
-            .set_owner(owner);
+        let options = NoteGetterOptions::new().sort(field_selector(0), SortOrder.ASC).set_owner(owner);
         let _ = confirm_hinted_notes(context, storage_slot, opt_notes, options);
     });
 }
