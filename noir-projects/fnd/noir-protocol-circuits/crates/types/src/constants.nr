@@ -642,15 +642,6 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 /// This is not technically a protocol constant as note hashes are computed by each contract.
 pub global DOM_SEP__NOTE_HASH: u32 = 116501019;
 
-/// Domain separator for partial note commitments.
-///
-/// This is not technically a protocol constant as partial note commitments are computed by each contract.
-///
-/// A partial note commitment is the first round of hashing of a partial note, combining the private fields before the
-/// public completion fields (storage slot and public note data) are mixed in. Distinct from [`DOM_SEP__NOTE_HASH`],
-/// which preserves the storage-slot-first invariant.
-pub global DOM_SEP__PARTIAL_NOTE_COMMITMENT: u32 = 568912195;
-
 /// Domain separator for siloed note hashes.
 ///
 /// Used by [`crate::hash::compute_siloed_note_hash`].
@@ -665,11 +656,6 @@ pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
 ///
 /// Used by [`crate::hash::compute_note_hash_nonce`].
 pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
-
-/// Domain separator for `SingleUseClaim` nullifiers.
-///
-/// This is not technically a protocol constant as these nullifiers are computed by each contract.
-pub global DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER: u32 = 1465998995;
 
 /// Domain separator for note nullifiers.
 ///
@@ -688,14 +674,10 @@ pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
 
 /// Domain separator for event log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
-/// Domain separator for partial note completion log tags. Used by [`crate::hash::compute_log_tag`].
-pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
 /// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
 /// Domain separator for constrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__CONSTRAINED_MSG_LOG_TAG: u32 = 3715244738;
-/// Domain separator for nullifiers used during constrained delivery.
-pub global DOM_SEP__CONSTRAINED_MSG_NULLIFIER: u32 = 3723577546;
 /// Domain separator for the sender-only secret folded into constrained-delivery nullifiers.
 pub global DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET: u32 = 1182889476;
 /// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
@@ -783,11 +765,8 @@ pub global DOM_SEP__EVENT_COMMITMENT: u32 = 2517418573;
 
 pub global DOM_SEP__AUTHWIT_INNER: u32 = 221354163;
 pub global DOM_SEP__AUTHWIT_OUTER: u32 = 3283595782;
-pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
 pub global DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET: u32 = 1707851664;
-pub global DOM_SEP__ECDH_SUBKEY: u32 = 4277646631;
-pub global DOM_SEP__ECDH_FIELD_MASK: u32 = 190532684;
 
 pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
@@ -795,22 +774,11 @@ pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 // TODO(F-397): move these to aztec-nr, along with note hash, note nullifier, message nullifier and single use claim
 // nullifier.
 
-/// Domain separator for state variable initialization.
-///
-/// Should not be reused for a given storage slot.
-pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
 pub global DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER: u32 = 3342006647;
 pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
 /// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
-
-/// Domain separator for transaction nullifiers.
-///
-/// Used to produce cancellable (replaceable) transactions.
-///
-/// This is not technically a protocol constant as cancellable transactions are an account contract feature.
-pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 
 /// Domain separator for account contract payloads.
 ///
