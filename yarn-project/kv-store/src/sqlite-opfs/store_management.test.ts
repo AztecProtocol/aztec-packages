@@ -15,6 +15,7 @@ async function duplicateFirstAssociatedOpaqueFile(name: string): Promise<void> {
       continue;
     }
     const source = await (handle as FileSystemFileHandle).getFile();
+    // The first 512 header bytes hold the NUL-terminated logical path; a NUL at index 0 marks an unassociated slot.
     const pathHeader = new Uint8Array(await source.slice(0, 512).arrayBuffer());
     if (pathHeader.indexOf(0) <= 0) {
       continue;
@@ -105,6 +106,7 @@ describe('sqlite-opfs store management', () => {
 
       const quarantinedOpaque = await quarantine.getDirectoryHandle('.opaque');
       for (const opaqueName of metadata.duplicateAssociations[0].opaqueFileNames) {
+        // Database content starts at byte 4096 (the pool's sector size), so a file with real data must exceed it.
         expect((await (await quarantinedOpaque.getFileHandle(opaqueName)).getFile()).size).toBeGreaterThan(4096);
       }
     } finally {

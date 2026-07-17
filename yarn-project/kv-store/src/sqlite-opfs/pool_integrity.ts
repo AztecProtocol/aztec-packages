@@ -1,7 +1,18 @@
 import { normalizePoolDirectory } from './pool_lock.js';
 
-// Mirrors the header format and flags used by the pinned SQLite opfs-sahpool VFS. The browser regression test writes
-// a real pool through that VFS before duplicating an opaque file, so changes to the upstream layout break detection.
+// The constants below mirror the opaque-file header format of the pinned opfs-sahpool VFS
+// (`yarn-project/sqlite3mc-wasm/vendor/jswasm/sqlite3.mjs`, class `OpfsSAHPool`). The pool names its files randomly
+// under `.opaque/` and prepends a header that maps each one back to its logical SQLite path:
+//
+//   bytes [0, 512)    logical path, NUL-terminated UTF-8 (HEADER_MAX_PATH_SIZE)
+//   bytes [512, 516)  SQLite open-flags of the file, big-endian uint32 (HEADER_FLAGS_SIZE)
+//   bytes [516, 524)  digest over the preceding 516 bytes, two uint32 words (HEADER_DIGEST_SIZE)
+//
+// Database content starts at byte 4096 (the pool's SECTOR_SIZE). We re-read the header ourselves rather than asking
+// the VFS because the upstream pool "repairs" anything it cannot validate by disassociating the file — destroying
+// exactly the evidence this module exists to quarantine. The browser regression test writes a real pool through the
+// pinned VFS before duplicating an opaque file, so a vendor upgrade that changes the layout breaks detection loudly
+// rather than silently.
 const OPAQUE_DIRECTORY = '.opaque';
 const HEADER_MAX_PATH_SIZE = 512;
 const HEADER_FLAGS_SIZE = 4;
@@ -9,14 +20,24 @@ const HEADER_DIGEST_SIZE = 8;
 const HEADER_CORPUS_SIZE = HEADER_MAX_PATH_SIZE + HEADER_FLAGS_SIZE;
 const HEADER_SIZE = HEADER_CORPUS_SIZE + HEADER_DIGEST_SIZE;
 
+// Standard SQLite open-flag bit values (sqlite3.h). Restated as literals because the header stores them numerically
+// and this module runs on the main thread, without the sqlite3 WASM bundle that defines `capi.SQLITE_OPEN_*`.
 const SQLITE_OPEN_DELETEONCLOSE = 0x00000008;
 const SQLITE_OPEN_MEMORY = 0x00000080;
 const SQLITE_OPEN_MAIN_DB = 0x00000100;
 const SQLITE_OPEN_MAIN_JOURNAL = 0x00000800;
 const SQLITE_OPEN_SUPER_JOURNAL = 0x00004000;
 const SQLITE_OPEN_WAL = 0x00080000;
+
+// A live association must name one of the file types the pool persists; transient types (temp DBs, statement
+// journals) never survive in a valid header.
 const PERSISTENT_FILE_TYPES =
   SQLITE_OPEN_MAIN_DB | SQLITE_OPEN_MAIN_JOURNAL | SQLITE_OPEN_SUPER_JOURNAL | SQLITE_OPEN_WAL;
+
+// The upstream VFS repurposes SQLITE_OPEN_MEMORY — meaningless for a file that exists on disk — as a header version
+// marker: headers written with it set carry a real digest, while legacy headers leave it unset and store all-zero
+// digest words.
+const FLAG_COMPUTE_DIGEST_V2 = SQLITE_OPEN_MEMORY;
 
 export const OPFS_QUARANTINE_ROOT_DIRECTORY = '.aztec-sqlite-quarantine';
 
@@ -106,6 +127,13 @@ async function findDuplicateAssociations(opaque: FileSystemDirectoryHandle): Pro
     .sort((a, b) => a.logicalPath.localeCompare(b.logicalPath));
 }
 
+/**
+ * Returns the logical SQLite path an opaque SAH file is associated with, or undefined if the file is not a live,
+ * valid association. Applies the same checks as the vendored pool's `getAssociatedPath`: a non-empty NUL-terminated
+ * path, open-flags naming a persistent file type without DELETEONCLOSE, and a matching header digest. Files failing
+ * any check are the pool's free-list or garbage entries — the VFS itself would disassociate them on open — so they
+ * cannot participate in a duplicate mapping.
+ */
 async function readAssociatedPath(handle: FileSystemFileHandle): Promise<string | undefined> {
   const file = await handle.getFile();
   if (file.size < HEADER_SIZE) {
@@ -133,10 +161,20 @@ async function readAssociatedPath(handle: FileSystemFileHandle): Promise<string 
   }
 }
 
+/**
+ * Byte-for-byte port of the vendored pool's `computeDigest`, checked against the digest words stored in the header.
+ * The hash runs two parallel xor-and-multiply mixers over the path+flags corpus; the seeds (0xdeadbeef, 0x41c6ce57)
+ * and odd multipliers (2654435761, 104729) are the upstream author's choices (a cyrb53-hash variant) and carry no
+ * meaning here beyond having to match the vendored implementation bit for bit. Legacy pre-digest headers (no
+ * FLAG_COMPUTE_DIGEST_V2) store zeros, which the zero-initialized `expected` words accept.
+ *
+ * The endianness asymmetry mirrors upstream: it writes the flags word through a DataView (big-endian default) but
+ * the digest as a raw Uint32Array, which serializes little-endian on every supported platform.
+ */
 function hasValidDigest(header: Uint8Array, flags: number): boolean {
   let expected0 = 0;
   let expected1 = 0;
-  if ((flags & SQLITE_OPEN_MEMORY) !== 0) {
+  if ((flags & FLAG_COMPUTE_DIGEST_V2) !== 0) {
     expected0 = 0xdeadbeef;
     expected1 = 0x41c6ce57;
     for (const value of header.subarray(0, HEADER_CORPUS_SIZE)) {
