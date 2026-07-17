@@ -179,10 +179,11 @@ contract Inbox is IInbox {
     uint64 bucketSeq = currentBucketSeq;
     InboxBucket memory bucket = buckets[bucketSeq % BUCKET_RING_SIZE];
 
-    // Buckets are keyed by L1 block timestamp: a strictly larger timestamp opens a new bucket. Post-merge
-    // Ethereum increases block.timestamp strictly per block, so one bucket corresponds to one L1 block. Under
-    // anvil with manual mining two blocks can share a timestamp and therefore a bucket; this is harmless
-    // because the consumption cutoff is computed over timestamps, so co-timestamped blocks are equivalent to it.
+    // Buckets are keyed by L1 block timestamp: a strictly larger timestamp opens a new bucket (a full bucket
+    // also rolls over within the same block). Post-merge Ethereum increases block.timestamp strictly per block,
+    // so messages from different L1 blocks always land in different buckets. Under anvil with manual mining two
+    // blocks can share a timestamp and therefore a bucket; this is harmless because the consumption cutoff is
+    // computed over timestamps, so co-timestamped blocks are indistinguishable to it.
     if (bucketSeq == 0 || bucket.timestamp < block.timestamp || bucket.msgCount == MAX_MSGS_PER_BUCKET) {
       bucketSeq += 1;
       currentBucketSeq = bucketSeq;

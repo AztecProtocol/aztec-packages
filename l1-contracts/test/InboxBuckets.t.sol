@@ -41,8 +41,10 @@ contract InboxBucketsTest is Test {
     return leaf;
   }
 
-  // Sends a message and returns the gas consumed by the external `sendL2Message` call alone. The
-  // recipient/content/secretHash are built before the measurement window so only the call is timed.
+  // Sends a message and returns the gas consumed by the external `sendL2Message` call. The
+  // recipient/content/secretHash are built before the measurement window so only the call is timed. The
+  // figure is warm execution gas including the CALL overhead; it excludes the 21k intrinsic tx cost, calldata
+  // gas, and the cold-access surcharge a standalone EOA transaction pays on its first touch of each slot.
   function _measureSend(InboxHarness _inbox, uint256 _salt) internal returns (uint256 gasUsed) {
     DataStructures.L2Actor memory recipient =
       DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + _salt)), version: version});
@@ -269,8 +271,9 @@ contract InboxBucketsTest is Test {
     assertEq(inbox.getCurrentBucketSeq(), 2, "rollover opened bucket 2");
   }
 
-  // Gas cost of the first-ever message against a freshly deployed Inbox: every touched slot is cold,
-  // including the state struct and bucket 1, so this is the worst-case single insert.
+  // Gas cost of the first-ever message against a freshly deployed Inbox: the state struct, bucket 1, and the
+  // first frontier-tree slots are all written cold. This is the cold-storage case, not the global worst-case
+  // insert — later frontier indices with more levels to hash can cost more.
   function testGasSendFirstEverMessage() public {
     assertEq(inbox.getCurrentBucketSeq(), 0, "no message sent yet");
 
