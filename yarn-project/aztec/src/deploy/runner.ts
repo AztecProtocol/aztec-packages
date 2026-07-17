@@ -156,6 +156,10 @@ export async function runDeployment<C extends Steps>(spec: DeploymentSpec<C>): P
   for (const [alias, step] of contractEntries) {
     const refs = new Set<string>();
     if (step.initializerArgs) {
+      // Dry-run `initializerArgs` with a resolver that records each `contract(alias)` lookup instead of resolving
+      // it. The returned args are discarded — this call only extracts references — and the ZERO addresses never
+      // leave this block. This is what requires `initializerArgs` to be pure: it runs here with fake addresses and
+      // again later (in resolveOrder) with real ones.
       const recording: Resolver = {
         account: () => AztecAddress.ZERO,
         contract: referenced => {
