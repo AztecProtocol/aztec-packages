@@ -1,6 +1,7 @@
 import { getSchnorrInitializerlessAccountContractAddress } from '@aztec/accounts/schnorr';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
+import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 
@@ -15,6 +16,7 @@ import {
   type Ctx,
   type DeployPlan,
   type DeployReporter,
+  type FundStep,
   runDeployment,
 } from './index.js';
 
@@ -92,9 +94,31 @@ describe('runDeployment', () => {
       done: async ctx => !(await ctx.ran('defToken')),
     } satisfies ActionStep;
 
+    // Provision an address that is NOT a sender in this run — the representative case (funding an
+    // FPC, or an operator account so it can pay for its own txs later): L1 bridge via anvil's dev
+    // key + faucet, warp until the message is available, then a claim tx sent from admin.
+    const FUND_AMOUNT = 5n * 10n ** 18n;
+    const operatorSecret = Fr.fromString('0x00000000000000000000000000000000000000000000000000000000cafe0001');
+    const operator = await getSchnorrInitializerlessAccountContractAddress(
+      deriveMasterMessageSigningSecretKey(operatorSecret),
+      salt,
+      operatorSecret,
+    );
+    const fundOperator = {
+      kind: 'fund',
+      recipient: () => operator,
+      threshold: 1n,
+      amount: FUND_AMOUNT,
+      from: r => r.account('admin'),
+      // The fixture's anvil binds a random port, so the local defaults don't apply.
+      l1RpcUrl: net.l1RpcUrl,
+      l1ChainId: net.l1ChainId,
+    } satisfies FundStep;
+
     let tokenAddress: string | undefined;
     let mintedBalance: bigint | undefined;
     let defBalance: bigint | undefined;
+    let operatorFeeJuice: bigint | undefined;
     // Uses only string-based accessors, so it stays valid whatever the inferred steps generic is.
     const capture = async (ctx: Ctx) => {
       const address = ctx.contract('token');
@@ -107,6 +131,10 @@ describe('runDeployment', () => {
         .methods.balance_of_public(ctx.account('admin'))
         .simulate({ from: ctx.account('admin') });
       defBalance = BigInt(defResult.toString());
+      const { result: feeJuiceResult } = await FeeJuiceContract.at(ctx.wallet)
+        .methods.balance_of_public(operator)
+        .simulate({ from: ctx.account('admin') });
+      operatorFeeJuice = BigInt(feeJuiceResult.toString());
     };
 
     const base = {
@@ -117,19 +145,23 @@ describe('runDeployment', () => {
       accounts: { admin: { secret, salt } },
       // Admin is genesis-funded well above this threshold ⇒ "funded" ⇒ pays from balance (no bridge).
       fees: { kind: 'fee-juice', threshold: 1n, fundAmount: 0n } as const,
-      steps: { ...contracts, mint, defToken, mintDef },
+      steps: { ...contracts, mint, defToken, mintDef, fundOperator },
       output: capture,
     };
 
     try {
-      // First run: publishes the token, mints, publishes the deferred contract, and seeds it.
+      // First run: publishes the token, mints, publishes the deferred contract, seeds it, and
+      // funds the operator address with bridged Fee Juice.
       await runDeployment({ ...base, reporter: {} });
       expect(tokenAddress).toBeDefined();
       expect(mintedBalance).toEqual(1000n);
       expect(defBalance).toEqual(7n);
+      // The local faucet's mint amount wins over the requested amount, so assert the floor only.
+      expect(operatorFeeJuice).toBeGreaterThanOrEqual(FUND_AMOUNT);
 
       // Second run against the same state + chain: everything is already on-chain — including the
-      // deferred contract, whose args now resolve at inventory time — so nothing runs.
+      // deferred contract, whose args now resolve at inventory time, and the funded recipient,
+      // whose balance clears the threshold — so nothing runs.
       let nothingToDo = false;
       const reporter: DeployReporter = { onNothingToDo: () => (nothingToDo = true) };
       await runDeployment({ ...base, reporter });

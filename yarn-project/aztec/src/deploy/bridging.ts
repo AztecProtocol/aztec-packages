@@ -156,9 +156,11 @@ export async function waitForL1ToL2Message(params: WaitForClaimParams): Promise<
 /**
  * Local-network helper: advances L1 + L2 time via the node debug API until the given L1→L2 message
  * shows up as available, warping by one L2 slot (read from the node's rollup constants) per check.
- * `warpL2TimeAtLeastBy` needs `AztecNode & AztecNodeDebug` (it reads the current L1 timestamp via
- * the regular API before warping); both clients target the same URL and expose their methods as own
- * properties on the rpc proxy, so a shallow merge is safe.
+ * An in-process node (e.g. a test fixture's `AztecNodeService`) implements the debug interface
+ * directly; a remote node is reached via its debug RPC at `nodeUrl` — `warpL2TimeAtLeastBy` needs
+ * `AztecNode & AztecNodeDebug` (it reads the current L1 timestamp via the regular API before
+ * warping), and both clients target the same URL and expose their methods as own properties on the
+ * rpc proxy, so a shallow merge is safe.
  */
 export async function warpToL1ToL2Message(
   node: AztecNode,
@@ -168,7 +170,10 @@ export async function warpToL1ToL2Message(
   const nodeUrl = opts.nodeUrl ?? 'http://localhost:8080';
   const timeoutMs = opts.timeoutMs ?? 120_000;
 
-  const fullNode = Object.assign({}, node, createAztecNodeDebugClient(nodeUrl)) as AztecNode & AztecNodeDebug;
+  const fullNode =
+    typeof (node as Partial<AztecNodeDebug>).warpL2TimeAtLeastBy === 'function'
+      ? (node as AztecNode & AztecNodeDebug)
+      : (Object.assign({}, node, createAztecNodeDebugClient(nodeUrl)) as AztecNode & AztecNodeDebug);
   const { slotDuration } = await node.getL1Constants();
 
   await retryUntil(

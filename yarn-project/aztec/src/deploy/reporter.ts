@@ -11,8 +11,8 @@ import type { TxHash } from '@aztec/stdlib/tx';
 
 import { formatLayers, formatList } from './graph.js';
 
-/** What a unit did: publish a contract, or send an action's tx. */
-export type DeployUnitKind = 'publish' | 'action';
+/** What a unit did: publish a contract, send an action's tx, or fund an address with Fee Juice. */
+export type DeployUnitKind = 'publish' | 'action' | 'fund';
 
 /** Identity of one execution unit (a single tx), as reported by the unit lifecycle hooks. */
 export interface DeployUnitInfo {
@@ -47,12 +47,12 @@ export interface DeployPlanAccount {
 
 export interface DeployPlanStep {
   id: string;
-  kind: 'contract' | 'action';
+  kind: 'contract' | 'action' | 'fund';
   /**
    * Status at the start of the run: a contract is `published` / `to publish` (public) or
-   * `registered` (private); an action is `done` / `to run`.
+   * `registered` (private); an action is `done` / `to run`; a fund step is `funded` / `to fund`.
    */
-  status: 'published' | 'to publish' | 'registered' | 'done' | 'to run';
+  status: 'published' | 'to publish' | 'registered' | 'done' | 'to run' | 'funded' | 'to fund';
   /** Steps it depends on (constructor-arg refs and explicit `dependsOn`). */
   dependsOn: string[];
 }

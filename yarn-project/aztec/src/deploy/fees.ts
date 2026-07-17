@@ -52,6 +52,16 @@ export function defaultFeePolicy(local: boolean): FeePolicy {
   };
 }
 
+/** The public Fee Juice balance of `address` (any address — contract or account), read via `from`. */
+export async function publicFeeJuiceBalance(
+  wallet: Wallet,
+  address: AztecAddress,
+  from: AztecAddress,
+): Promise<bigint> {
+  const { result } = await FeeJuiceContract.at(wallet).methods.balance_of_public(address).simulate({ from });
+  return BigInt(result.toString());
+}
+
 /**
  * Resolves an account's funding posture under `policy` — what the plan reports and what
  * {@link prepareFeeSession} acts on. `idle` accounts (no pending work) are never funded; sponsored
@@ -70,12 +80,101 @@ export async function accountFunding(
   if (policy.kind === 'sponsored') {
     return { kind: 'sponsored' };
   }
-  const feeJuice = FeeJuiceContract.at(wallet);
-  const { result } = await feeJuice.methods.balance_of_public(account).simulate({ from: account });
-  const balance = BigInt(result.toString());
+  const balance = await publicFeeJuiceBalance(wallet, account, account);
   return balance >= policy.threshold
     ? { kind: 'funded', balance }
     : { kind: 'not-funded', balance, fundAmount: policy.fundAmount };
+}
+
+/**
+ * Resolves the L1 connection + funder for a bridge from caller-supplied config, defaulting to anvil
+ * on local. The funder key falls back to anvil's dev key on local (its faucet `mint` is owner-gated,
+ * so an ephemeral key is rejected there); elsewhere an omitted key means an ephemeral key + the
+ * public faucet. Deliberately no env fallback — the framework never reads the environment.
+ */
+function resolveL1Config(
+  local: boolean,
+  cfg: { l1RpcUrl?: string; l1ChainId?: number; l1FunderKey?: Hex },
+): { l1RpcUrl: string; l1ChainId: number; l1PrivateKey?: Hex } {
+  const l1RpcUrl = cfg.l1RpcUrl ?? (local ? DEFAULT_LOCAL_L1_RPC_URL : undefined);
+  const l1ChainId = cfg.l1ChainId ?? (local ? DEFAULT_LOCAL_L1_CHAIN_ID : undefined);
+  if (l1RpcUrl === undefined || l1ChainId === undefined) {
+    throw new Error('Bridging on a non-local network requires `l1RpcUrl` and `l1ChainId` (no hardcoded defaults).');
+  }
+  return { l1RpcUrl, l1ChainId, l1PrivateKey: cfg.l1FunderKey ?? (local ? ANVIL_DEV_KEY : undefined) };
+}
+
+/** What {@link obtainFeeJuiceClaim} needs to produce a consumable claim for a recipient. */
+export interface ObtainFeeJuiceClaimOpts {
+  /** Whether the target is a local (anvil) network — drives warp-vs-poll + L1 defaults. */
+  local: boolean;
+  node: AztecNode;
+  /** The node's URL — reaches its debug API for local time-warping while the bridge settles. */
+  nodeUrl?: string;
+  recipient: AztecAddress;
+  /** Amount to bridge (wei). */
+  amount: bigint;
+  /** L1 connection + funder, defaulted per {@link resolveL1Config}. */
+  l1: { l1FunderKey?: Hex; l1RpcUrl?: string; l1ChainId?: number };
+  state: DeployState;
+  persist: () => void;
+  reporter: DeployReporter;
+}
+
+/**
+ * A single-use Fee Juice claim for `recipient` (used by `fund` steps): resumes the persisted claim
+ * when present, else bridges `amount` from L1 and waits for the L1→L2 message. The claim persists
+ * before the wait, so a crash mid-wait resumes it instead of stranding the bridged funds. The
+ * caller consumes it (e.g. via `FeeJuice.claim`) and calls `onConsumed` once that tx mines.
+ */
+export async function obtainFeeJuiceClaim(opts: ObtainFeeJuiceClaimOpts): Promise<{
+  claimAmount: bigint;
+  claimSecret: Fr;
+  messageLeafIndex: bigint;
+  /** Drops the persisted resume entry — call once the consuming tx mines. */
+  onConsumed: () => void;
+}> {
+  const { local, node, nodeUrl, recipient, state, persist, reporter } = opts;
+  // Prefixed so a recipient that is also an auto-funded sender doesn't collide with its account claim.
+  const key = `fund:${recipient.toString()}`;
+  let claim: { claimAmount: bigint; claimSecret: Fr; messageLeafIndex: bigint };
+  const stored = state.pendingClaims[key];
+  if (stored) {
+    reporter.onBridge?.({ recipient, amount: BigInt(stored.claimAmount), reused: true });
+    claim = {
+      claimAmount: BigInt(stored.claimAmount),
+      claimSecret: Fr.fromString(stored.claimSecret),
+      messageLeafIndex: BigInt(stored.messageLeafIndex),
+    };
+  } else {
+    reporter.onBridge?.({ recipient, amount: opts.amount, reused: false });
+    const { l1RpcUrl, l1ChainId, l1PrivateKey } = resolveL1Config(local, opts.l1);
+    const bridged = await bridgeFeeJuice({ node, recipient, l1RpcUrl, l1ChainId, amount: opts.amount, l1PrivateKey });
+    state.pendingClaims[key] = {
+      claimAmount: bridged.claimAmount.toString(),
+      claimSecret: bridged.claimSecret.toString(),
+      messageLeafIndex: bridged.messageLeafIndex.toString(),
+    };
+    persist();
+    await waitForL1ToL2Message({
+      node,
+      messageHash: Fr.fromHexString(bridged.messageHash),
+      mode: local ? 'warp' : 'poll',
+      ...(nodeUrl ? { warpOpts: { nodeUrl } } : {}),
+    });
+    claim = {
+      claimAmount: bridged.claimAmount,
+      claimSecret: bridged.claimSecret,
+      messageLeafIndex: bridged.messageLeafIndex,
+    };
+  }
+  return {
+    ...claim,
+    onConsumed: () => {
+      delete state.pendingClaims[key];
+      persist();
+    },
+  };
 }
 
 /** Per-account fee dispensing for one run, prepared by {@link prepareFeeSession}. */

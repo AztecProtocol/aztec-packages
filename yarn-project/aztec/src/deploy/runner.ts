@@ -16,12 +16,16 @@
  *   it sets up. Within a layer, contract publishes are individual txs and same-account actions batch
  *   into ≤{@link APP_MAX_CALLS}-call BatchCalls. The one-time fee-juice claim per account is
  *   consumed + mined by that account's first tx before the rest fan out.
+ * - Fund steps provision arbitrary addresses (contracts or accounts that never send) with bridged
+ *   Fee Juice: bridge at execution time, then an L2 claim tx from the step's `from` account. Their
+ *   claims persist between bridge and claim, so a crashed run resumes instead of re-bridging.
  */
 import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type ContractBase, DeployMethod } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 import { APP_MAX_CALLS } from '@aztec/entrypoints/encoding';
 import { chunk, compactArray } from '@aztec/foundation/collection';
 import { getPXEConfig } from '@aztec/pxe/server';
@@ -32,7 +36,15 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { join } from 'node:path';
 
-import { type FeeSession, type SendFee, accountFunding, defaultFeePolicy, prepareFeeSession } from './fees.js';
+import {
+  type FeeSession,
+  type SendFee,
+  accountFunding,
+  defaultFeePolicy,
+  obtainFeeJuiceClaim,
+  prepareFeeSession,
+  publicFeeJuiceBalance,
+} from './fees.js';
 import { scheduleLayers, topologicalLayers } from './graph.js';
 import {
   type DeployPlan,
@@ -42,7 +54,17 @@ import {
   consoleReporter,
 } from './reporter.js';
 import { type DeployState, loadState, saveState } from './state.js';
-import type { ActionStep, ContractStep, Ctx, DeploymentSpec, FeePolicy, Resolver, StepSpec, Steps } from './types.js';
+import type {
+  ActionStep,
+  ContractStep,
+  Ctx,
+  DeploymentSpec,
+  FeePolicy,
+  FundStep,
+  Resolver,
+  StepSpec,
+  Steps,
+} from './types.js';
 
 /** A step's idempotency gate (transitively) depends on itself. */
 class GateCycleError extends Error {
@@ -111,6 +133,7 @@ class DeploymentRun<C extends Steps> {
   private readonly steps: Map<string, StepSpec<C>>;
   private readonly contractSteps = new Map<string, ContractStep<C>>();
   private readonly actionSteps = new Map<string, ActionStep<C>>();
+  private readonly fundSteps = new Map<string, FundStep>();
   /** Contract→contract address deps, auto-derived from deterministic `initializerArgs`. */
   private readonly contractRefs: Map<string, string[]>;
 
@@ -127,10 +150,12 @@ class DeploymentRun<C extends Steps> {
   private readonly publishedCache = new Map<string, Promise<boolean>>();
   private readonly gateCache = new Map<string, Promise<boolean>>();
   private readonly gateInProgress = new Set<string>();
+  private readonly fundGateCache = new Map<string, Promise<boolean>>();
 
   // Populated by the resolve / inventory / plan phases.
   private resolveOrder: string[] = [];
   private readonly actionsToRun = new Set<string>();
+  private readonly fundsToRun = new Set<string>();
   private execAliases: string[] = [];
   private layers: string[][] = [];
 
@@ -154,8 +179,10 @@ class DeploymentRun<C extends Steps> {
     for (const [alias, step] of this.steps) {
       if (step.kind === 'contract') {
         this.contractSteps.set(alias, step);
-      } else {
+      } else if (step.kind === 'action') {
         this.actionSteps.set(alias, step);
+      } else {
+        this.fundSteps.set(alias, step);
       }
     }
     this.contractRefs = this.recordContractRefs();
@@ -201,6 +228,9 @@ class DeploymentRun<C extends Steps> {
         if (!aliases.has(dependency)) {
           throw new Error(`Unknown step "${dependency}" in dependsOn of "${alias}".`);
         }
+      }
+      if (step.kind === 'fund' && step.amount <= 0n) {
+        throw new Error(`Fund step "${alias}" must bridge a positive amount.`);
       }
       if (step.kind !== 'contract') {
         continue;
@@ -265,6 +295,14 @@ class DeploymentRun<C extends Steps> {
       }
     }
 
+    // Fund gates: recipients whose public Fee Juice balance is below the step's threshold. Runs
+    // before the action gates so `ctx.done`/`ctx.ran` on a fund step answer correctly inside them.
+    for (const alias of this.fundSteps.keys()) {
+      if (!(await this.fundGate(alias))) {
+        this.fundsToRun.add(alias);
+      }
+    }
+
     // Action gates. Sequential on purpose: evaluating them concurrently would turn the cyclic-gate
     // detection (gateInProgress) into a silent deadlock of promises awaiting each other.
     for (const alias of this.actionSteps.keys()) {
@@ -275,6 +313,7 @@ class DeploymentRun<C extends Steps> {
 
     this.execAliases = [
       ...[...this.contractSteps.keys()].filter(alias => this.publishedThisRun.has(alias)),
+      ...[...this.fundSteps.keys()].filter(alias => this.fundsToRun.has(alias)),
       ...[...this.actionSteps.keys()].filter(alias => this.actionsToRun.has(alias)),
     ];
   }
@@ -293,6 +332,9 @@ class DeploymentRun<C extends Steps> {
     const stepStatus = (alias: string, step: StepSpec<C>): DeployPlan['steps'][number]['status'] => {
       if (step.kind === 'action') {
         return this.actionsToRun.has(alias) ? 'to run' : 'done';
+      }
+      if (step.kind === 'fund') {
+        return this.fundsToRun.has(alias) ? 'to fund' : 'funded';
       }
       if (step.mode === 'register') {
         return 'registered';
@@ -360,7 +402,10 @@ class DeploymentRun<C extends Steps> {
   /** Executes the layers in order: publishes as individual txs, same-account actions batched. */
   public async executeLayers(feeSession: FeeSession): Promise<void> {
     for (const layer of this.layers) {
-      await this.runLayer([...this.publishUnits(layer), ...this.actionUnits(layer)], feeSession);
+      await this.runLayer(
+        [...this.publishUnits(layer), ...this.fundUnits(layer), ...this.actionUnits(layer)],
+        feeSession,
+      );
     }
   }
 
@@ -518,6 +563,27 @@ class DeploymentRun<C extends Steps> {
   }
 
   /**
+   * A fund step's idempotency gate: whether the recipient's public Fee Juice balance already
+   * clears the step's threshold. Memoized per run.
+   */
+  private fundGate(alias: string): Promise<boolean> {
+    const step = getOrThrow(this.fundSteps, alias, 'fund step');
+    let cached = this.fundGateCache.get(alias);
+    if (!cached) {
+      cached = (async () => {
+        try {
+          const recipient = step.recipient(this.resolver);
+          return (await publicFeeJuiceBalance(this.wallet, recipient, step.from(this.resolver))) >= step.threshold;
+        } catch {
+          return false; // recipient not resolvable yet (e.g. a deferred contract) ⇒ fund this run
+        }
+      })();
+      this.fundGateCache.set(alias, cached);
+    }
+    return cached;
+  }
+
+  /**
    * An action's `done` gate, memoized per run. Gates may consult other steps via `ctx.done`, so a
    * gate that (transitively) depends on itself throws {@link GateCycleError}.
    */
@@ -557,6 +623,9 @@ class DeploymentRun<C extends Steps> {
     if (step.kind === 'action') {
       return this.actionGate(id);
     }
+    if (step.kind === 'fund') {
+      return this.fundGate(id);
+    }
     if (step.mode === 'register') {
       return Promise.resolve(this.contractAddresses.has(id)); // registered in the PXE
     }
@@ -571,6 +640,9 @@ class DeploymentRun<C extends Steps> {
     }
     if (step.kind === 'action') {
       return !(await this.actionGate(id));
+    }
+    if (step.kind === 'fund') {
+      return this.fundsToRun.has(id);
     }
     if (step.mode === 'register') {
       return this.contractAddresses.has(id); // (re)registered this run
@@ -652,6 +724,44 @@ class DeploymentRun<C extends Steps> {
     return units;
   }
 
+  /**
+   * A layer's fund steps — one unit each: obtain the recipient's claim (resume the persisted one,
+   * or bridge from L1 and wait for the message), then send the L2 `FeeJuice.claim` tx from the
+   * step's `from` account.
+   */
+  private fundUnits(layer: string[]): ExecutionUnit[] {
+    const units: ExecutionUnit[] = [];
+    for (const alias of layer.filter(a => this.fundSteps.has(a))) {
+      const step = getOrThrow(this.fundSteps, alias, 'fund step');
+      const account = step.from(this.resolver);
+      units.push({
+        label: `fund ${alias}`,
+        kind: 'fund',
+        account,
+        send: async fee => {
+          const recipient = step.recipient(this.resolver);
+          const claim = await obtainFeeJuiceClaim({
+            local: this.local,
+            node: this.node,
+            nodeUrl: this.spec.nodeUrl,
+            recipient,
+            amount: step.amount,
+            l1: { l1FunderKey: step.l1FunderKey, l1RpcUrl: step.l1RpcUrl, l1ChainId: step.l1ChainId },
+            state: this.state,
+            persist: () => this.persist(),
+            reporter: this.reporter,
+          });
+          const sent = await FeeJuiceContract.at(this.wallet)
+            .methods.claim(recipient, claim.claimAmount, claim.claimSecret, claim.messageLeafIndex)
+            .send({ from: account, fee, wait: { timeout: 120 } });
+          claim.onConsumed();
+          return sent;
+        },
+      });
+    }
+    return units;
+  }
+
   /** A layer's actions, batching independent same-account actions into ≤{@link APP_MAX_CALLS}-call BatchCalls. */
   private actionUnits(layer: string[]): ExecutionUnit[] {
     const actionsByAccount = new Map<string, { account: AztecAddress; aliases: string[] }>();
@@ -708,7 +818,18 @@ class DeploymentRun<C extends Steps> {
     for (const unit of claimFirst) {
       await this.runUnit(unit, feeSession);
     }
-    await Promise.all(rest.map(unit => this.runUnit(unit, feeSession)));
+    // Fund units run sequentially relative to each other: their send closures submit L1 bridge
+    // txs, and two bridges signed by the same funder key would race on nonces.
+    const fundRest = rest.filter(unit => unit.kind === 'fund');
+    const parallelRest = rest.filter(unit => unit.kind !== 'fund');
+    await Promise.all([
+      Promise.all(parallelRest.map(unit => this.runUnit(unit, feeSession))),
+      (async () => {
+        for (const unit of fundRest) {
+          await this.runUnit(unit, feeSession);
+        }
+      })(),
+    ]);
   }
 
   private async runUnit(unit: ExecutionUnit, feeSession: FeeSession): Promise<void> {

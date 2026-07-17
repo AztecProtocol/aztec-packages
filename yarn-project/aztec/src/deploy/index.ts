@@ -12,6 +12,7 @@
  * so it stays out of any browser bundle.
  */
 export { runDeployment } from './runner.js';
+export { defaultFeePolicy } from './fees.js';
 export { consoleReporter } from './reporter.js';
 export type {
   DeployReporter,
@@ -30,6 +31,7 @@ export type {
   AccountSpec,
   ContractStep,
   ActionStep,
+  FundStep,
   StepSpec,
   Steps,
   ContractClass,

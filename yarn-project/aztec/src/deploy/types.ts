@@ -130,7 +130,36 @@ export interface ActionStep<C = Steps> {
   dependsOn?: string[];
 }
 
-export type StepSpec<C = Steps> = ContractStep<C> | ActionStep<C>;
+/**
+ * A step that provisions an address — any address, not just a sending account — with bridged Fee
+ * Juice: bridge `amount` from L1, then send a `FeeJuice.claim` tx from {@link from} crediting
+ * {@link recipient}. Used to fund contracts that pay for others (e.g. an FPC). Idempotent on the
+ * recipient's public balance, and resumable: the bridge claim persists (see ./state.ts) as soon as
+ * it exists on L1, so a crash between bridge and claim resumes instead of stranding the funds.
+ */
+export interface FundStep {
+  kind: 'fund';
+  /** Recipient of the bridged Fee Juice, e.g. `(r) => r.contract("fpc")`. */
+  recipient: (resolve: Resolver) => AztecAddress;
+  /** Bridge + claim only when the recipient's public Fee Juice balance is below this (wei). */
+  threshold: bigint;
+  /**
+   * Amount to bridge (wei). On a network with a fee-asset faucet whose mint amount exceeds the L1
+   * funder's balance, the faucet's own mint amount is what arrives.
+   */
+  amount: bigint;
+  /** Account that sends (and pays for) the L2 claim tx, e.g. `(r) => r.account("admin")`. */
+  from: (resolve: Resolver) => AztecAddress;
+  /** L1 funder key signing the bridge tx; omit for the faucet + an ephemeral key (or anvil's dev key on local). */
+  l1FunderKey?: `0x${string}`;
+  /** L1 connection for the bridge; required on non-local networks, defaults to anvil on local. */
+  l1RpcUrl?: string;
+  l1ChainId?: number;
+  /** Steps that must complete first (e.g. the contract being funded). */
+  dependsOn?: string[];
+}
+
+export type StepSpec<C = Steps> = ContractStep<C> | ActionStep<C> | FundStep;
 /**
  * A steps map: alias → step. The element generic is `any` so the alias isn't self-referential
  * (`Steps → StepSpec<Steps> → …`); a concrete spec's `C` is inferred at the {@link runDeployment}
