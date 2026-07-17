@@ -25,13 +25,13 @@
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">discovery</a>::<a href="index.html">process_message</a></div>
 <h1>Function <span class="fn">process_message_ciphertext</span></h1>
-<pre><code>pub unconstrained fn process_message_ciphertext&lt;CustomMessageHandlerEnv&gt;(
+<pre><code>pub unconstrained fn process_message_ciphertext(
     contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     compute_note_hash: <a href="../../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html" class="type">ComputeNoteHash</a>,
     compute_note_nullifier: <a href="../../../../noir_aztec/messages/discovery/type.ComputeNoteNullifier.html" class="type">ComputeNoteNullifier</a>,
-    process_custom_message: <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&lt;CustomMessageHandlerEnv&gt;&gt;,
+    process_custom_message: <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&gt;,
     message_ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
-    message_context: <a href="../../../../noir_aztec/messages/processing/struct.MessageContext.html" class="struct">MessageContext</a>,
+    resolved_tx: <a href="../../../../noir_aztec/oracle/tx_resolution/struct.ResolvedTx.html" class="struct">ResolvedTx</a>,
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 )</code></pre>
 

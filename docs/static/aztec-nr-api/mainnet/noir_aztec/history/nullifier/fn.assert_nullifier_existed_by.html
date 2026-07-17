@@ -31,8 +31,9 @@
 <div class="comments">
 <p>Asserts that a nullifier existed by the time a block was mined.</p>
 <p>This function takes a <em>siloed</em> nullifier, i.e. the value that is actually stored in the tree. Use
-<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::protocol::hash::compute_siloed_nullifier</code></a> to convert an inner nullifier (what
-<a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier"><code>PrivateContext::push_nullifier</code></a> takes) into a siloed one.</p>
+<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::protocol::hash::compute_siloed_nullifier</code></a> to convert an inner nullifier
+(what <a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier_unsafe"><code>PrivateContext::push_nullifier_unsafe</code></a>
+takes) into a siloed one.</p>
 <p>Note that this does not mean that the nullifier was created <strong>at</strong> <code>block_header</code>, only that it was present in the
 tree once all transactions from <code>block_header</code> were executed.</p>
 <p>In order to prove that a nullifier did <strong>not</strong> exist by <code>block_header</code>, use <a href="../../../noir_aztec/history/nullifier/fn.assert_nullifier_did_not_exist_by.html"><code>assert_nullifier_did_not_exist_by</code></a>.</p>

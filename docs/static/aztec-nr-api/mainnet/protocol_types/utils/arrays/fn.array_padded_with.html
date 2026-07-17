@@ -47,6 +47,14 @@
 <div class="where-clause">where
     T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></pre>
 
+<div class="comments">
+<p>Returns true iff every element of <code>array</code> at index <code>&gt;= from_index</code> equals <code>padded_with</code>.</p>
+<p><code>from_index</code> must be a valid index into the array, i.e. <code>from_index &lt;= N</code> (the boundary
+<code>from_index == N</code> denotes a full prefix with no padding). Passing <code>from_index &gt; N</code> is rejected:
+otherwise this check would pass vacuously (the loop never reaches <code>from_index</code>), letting a caller
+believe the array holds a <code>from_index</code>-length prefix followed by padding even though the array is
+shorter than <code>from_index</code>.</p>
+</div>
 </main>
 </span>
 </body>

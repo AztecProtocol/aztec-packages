@@ -28,6 +28,7 @@
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#call">call</a></li>
+<li><a href="#msg_sender">msg_sender</a></li>
 <li><a href="#new">new</a></li>
 </ul>
 <h2>In module contract_self_utility</h2>
@@ -91,6 +92,17 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p>Creates a new <code>ContractSelfUtility</code> instance for a utility function.</p>
 <p>This constructor is called automatically by the macro system and should not be called directly.</p>
 </div>
+</div><code id="msg_sender" class="code-header">pub unconstrained fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>The address of the contract that made this function call.</p>
+<p>This is similar to Solidity's <code>msg.sender</code> value.</p>
+<h4>Direct Invocation</h4>
+<p>A utility function invoked directly (e.g. by a wallet or dApp) rather than from another contract has no caller,
+and this function panics. Only a nested (cross-contract) utility call has a <code>msg_sender</code>.</p>
+<p>If you need to handle the no-caller case, use <a href="../../../noir_aztec/context/struct.UtilityContext.html#maybe_msg_sender"><code>UtilityContext::maybe_msg_sender</code></a>.</p>
+<p>Note that utility functions are simulated client-side and never proven, so this value is unconstrained: see
+<a href="../../../noir_aztec/context/struct.UtilityContext.html#maybe_msg_sender"><code>UtilityContext::maybe_msg_sender</code></a> for why it must not be relied on as a security guarantee.</p></div>
 </div><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     call: <a href="../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
@@ -100,7 +112,13 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 
 <div class="padded-description"><div class="comments">
 <p>Makes a utility contract call from another utility function.</p>
-<p>Note: only same-contract utility calls are currently supported. See TODO(F-29).</p>
+<p>The call runs entirely offchain in PXE and is never proven, so no guarantees are made on the correctness of
+its result.</p>
+<p>The callee observes this contract's address as its <code>msg_sender</code>: see <a href="../../../noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html#msg_sender"><code>ContractSelfUtility::msg_sender</code></a>.</p>
+<p>To call one of this contract's own utility functions, prefer the type-safe <code>self.call_self</code> stubs.</p>
+<h4>Authorization</h4>
+<p>A call to this contract itself always succeeds. A call to a different contract can expose that contract's
+private state to the caller, so it requires explicit authorization. A call that is not authorized fails.</p>
 <h4>Example</h4>
 <pre><code>self.call(Token::at(address).get_balance_of(owner));</code></pre></div>
 </div></div></main>

@@ -23,6 +23,7 @@
 <li><a href="#structfield.anchor_block_header">anchor_block_header</a></li>
 <li><a href="#structfield.protocol_contracts">protocol_contracts</a></li>
 <li><a href="#structfield.tx_context">tx_context</a></li>
+<li><a href="#structfield.tx_request_salt">tx_request_salt</a></li>
 <li><a href="#structfield.vk_tree_root">vk_tree_root</a></li>
 </ul>
 <h3>Methods</h3>
@@ -45,6 +46,7 @@
 <pre><code>pub struct PrivateTxConstantData {
     pub anchor_block_header: <a href="../../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
     pub tx_context: <a href="../../../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a>,
+    pub tx_request_salt: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub vk_tree_root: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub protocol_contracts: <a href="../../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a>,
 }
@@ -55,6 +57,7 @@
 <h2>Fields</h2>
 <div id="structfield.anchor_block_header" class="struct-field"><code class="code-header">anchor_block_header: <a href="../../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></div>
 <div class="padded-description"></div><div id="structfield.tx_context" class="struct-field"><code class="code-header">tx_context: <a href="../../../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a></code></div>
+<div class="padded-description"></div><div id="structfield.tx_request_salt" class="struct-field"><code class="code-header">tx_request_salt: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.vk_tree_root" class="struct-field"><code class="code-header">vk_tree_root: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.protocol_contracts" class="struct-field"><code class="code-header">protocol_contracts: <a href="../../../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
@@ -67,9 +70,13 @@
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
 
-<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
-<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 </div><h3 id="impl-Eq-for-PrivateTxConstantData"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/private_tx_constant_data/struct.PrivateTxConstantData.html" class="struct">PrivateTxConstantData</a></code></h3>
 

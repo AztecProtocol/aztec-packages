@@ -109,7 +109,7 @@ is appended to fill to 15 fields:</p>
 <h4>Key Derivation</h4>
 <p>The raw ECDH shared secret point is first app-siloed into a scalar <code>s_app</code> by hashing with the contract
 address (see
-<a href=""><code>compute_app_siloed_shared_secret</code></a>).
+<a href="../../../../noir_aztec/keys/ecdh_shared_secret/fn.compute_app_siloed_shared_secret.html"><code>compute_app_siloed_shared_secret</code></a>).
 Two (key, IV) pairs are then derived from <code>s_app</code> via indexed Poseidon2 hashing: one pair for the body
 ciphertext and one for the header ciphertext.</p></div>
 </div><code class="code-header">pub unconstrained fn <span class="fn">decrypt</span>(

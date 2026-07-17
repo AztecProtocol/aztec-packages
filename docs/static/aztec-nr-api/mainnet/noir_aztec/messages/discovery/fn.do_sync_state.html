@@ -30,20 +30,22 @@
 <li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
 <li><a href="type.ComputeNoteNullifier.html">ComputeNoteNullifier</a></div></li>
 <li><a href="type.CustomMessageHandler.html">CustomMessageHandler</a></div></li>
+<li><a href="type.CustomSyncHandler.html">CustomSyncHandler</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
+<li><a href="fn.do_sync_state_without_handshake_discovery.html">do_sync_state_without_handshake_discovery</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
 <h1>Function <span class="fn">do_sync_state</span></h1>
-<pre><code>pub unconstrained fn do_sync_state&lt;CustomMessageHandlerEnv&gt;(
+<pre><code>pub unconstrained fn do_sync_state(
     contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     compute_note_hash: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html" class="type">ComputeNoteHash</a>,
     compute_note_nullifier: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteNullifier.html" class="type">ComputeNoteNullifier</a>,
-    process_custom_message: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&lt;CustomMessageHandlerEnv&gt;&gt;,
-    offchain_inbox_sync: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;OffchainInboxSync&lt;()&gt;&gt;,
+    process_custom_message: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&gt;,
+    offchain_inbox_sync: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/processing/offchain/type.OffchainInboxSync.html" class="type">OffchainInboxSync</a>&gt;,
     scope: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 )</code></pre>
 

@@ -1,16 +1,16 @@
 # @aztec/stdlib
 
-Version: v4.3.1
+Version: 5.0.1
 
 ## Quick Import Reference
 
 ```typescript
 import {
   AllContractDeploymentData,
+  AppTaggingSecret,
   AuthorizationSelector,
   AztecAddress,
   BlockHash,
-  BlockHeader,
   // ... and more
 } from '@aztec/stdlib';
 ```
@@ -35,6 +35,27 @@ new AllContractDeploymentData(nonRevertibleContractDeploymentData: ContractDeplo
 - `getNonRevertibleContractDeploymentData() => ContractDeploymentData`
 - `getRevertibleContractDeploymentData() => ContractDeploymentData`
 
+### AppTaggingSecret
+
+Application tagging secret used for log tagging. It bundles a tagging secret with the app contract address. Unconstrained secrets are derived by the simulator from `(sender, recipient, app)` via ECDH. Constrained secrets are supplied to the simulator by the caller as an app-siloed shared secret retrieved from a handshake registry.
+
+**Constructor**
+```typescript
+new AppTaggingSecret(secret: Fr, app: AztecAddress, kind: AppTaggingSecretKind)
+```
+
+**Properties**
+- `readonly app: AztecAddress`
+- `readonly kind: AppTaggingSecretKind`
+- `readonly secret: Fr`
+
+**Methods**
+- `static computeAppSiloed(taggingSecretPoint: Point, app: AztecAddress, kind: AppTaggingSecretKind) => Promise<AppTaggingSecret>` - Derives the bare app-siloed tagging secret from a shared secret point via appSiloEcdhSharedSecretPoint, under the given delivery-mode kind.
+- `static computeDirectional(taggingSecretPoint: Point, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret>` - Derives an app-siloed, recipient-directional tagging secret from a shared tagging secret point. App-silos the point via appSiloEcdhSharedSecretPoint, then directs the result to `recipient`: `h([s_app, recipient])`. The directional step stops a symmetric shared secret (ECDH against an address, or an arbitrary registered point) from colliding bidirectionally, so two parties never share a tag sequence. The point is obtained either via computeSharedTaggingSecret (an ECDH key exchange against a sender) or registered directly as a pre-shared secret.
+- `static computeViaEcdh(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret | undefined>` - Derives the tagging secret for `(externalAddress, recipient, app)` by performing an ECDH key exchange against `externalAddress` to obtain the shared point, then siloing and directing it via computeDirectional. Returns undefined if `externalAddress` is not a valid address.
+- `static fromString(str: string) => AppTaggingSecret`
+- `toString() => string`
+
 ### AuthorizationSelector
 
 An authorization selector is the first 4 bytes of the hash of an authorization struct signature.
@@ -47,7 +68,6 @@ new AuthorizationSelector(value: number)
 ```
 
 **Properties**
-- `_branding: "AuthorizationSelector"` - Brand.
 - `static schema: unknown`
 - `static SIZE: number` - The size of the selector in bytes.
 - `value: number`
@@ -77,7 +97,6 @@ new AztecAddress(buffer: Fr | Buffer<ArrayBufferLike>)
 ```
 
 **Properties**
-- `_branding: "AztecAddress"` - Brand.
 - `static NULL_MSG_SENDER: AztecAddress` - Null msg sender address. Not part of the protocol contracts tree.
 - `static schema: unknown`
 - `size: unknown`
@@ -87,20 +106,20 @@ new AztecAddress(buffer: Fr | Buffer<ArrayBufferLike>)
 **Methods**
 - `[custom]() => string`
 - `equals(other: AztecAddress) => boolean`
-- `static fromBigInt(value: bigint) => AztecAddress`
-- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => AztecAddress`
-- `static fromField(fr: Fr) => AztecAddress`
-- `static fromFields(fields: Fr[] | FieldReader) => AztecAddress`
-- `static fromNumber(value: number) => AztecAddress`
+- `static fromBigIntUnsafe(value: bigint) => AztecAddress` - Builds an `AztecAddress` from a bigint **without checking it is a valid address** (the x-coordinate of a point on the Grumpkin curve, which is what lets it be encrypted to). Use AztecAddress.isValid to validate an untrusted one, or AztecAddress.random for valid test addresses.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => AztecAddress` - Deserializes an `AztecAddress` from a buffer. It does **not** check the value is a valid Grumpkin-curve address (see AztecAddress.isValid); it is meant for reading addresses from already-validated serialized data. Use AztecAddress.random for valid test addresses.
+- `static fromFields(fields: Fr[] | FieldReader) => AztecAddress` - Deserializes an `AztecAddress` from a field reader. It does **not** check the value is a valid Grumpkin-curve address (see AztecAddress.isValid); it is meant for reading addresses from already-validated serialized data. Use AztecAddress.random for valid test addresses.
+- `static fromFieldUnsafe(fr: Fr) => AztecAddress` - Builds an `AztecAddress` from a field **without checking it is a valid address** (the x-coordinate of a point on the Grumpkin curve, which is what lets it be encrypted to). Use AztecAddress.isValid to validate an untrusted one, or AztecAddress.random for valid test addresses.
+- `static fromNumberUnsafe(value: number) => AztecAddress` - Builds an `AztecAddress` from a number **without checking it is a valid address** (the x-coordinate of a point on the Grumpkin curve, which is what lets it be encrypted to). Use AztecAddress.isValid to validate an untrusted one, or AztecAddress.random for valid test addresses.
 - `static fromPlainObject(obj: any) => AztecAddress` - Creates an AztecAddress from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack). Handles buffers, strings, or existing instances.
-- `static fromString(buf: string) => AztecAddress`
+- `static fromStringUnsafe(buf: string) => AztecAddress` - Builds an `AztecAddress` from a hex string **without checking it is a valid address** (the x-coordinate of a point on the Grumpkin curve, which is what lets it be encrypted to). Use AztecAddress.isValid to validate an untrusted one, or AztecAddress.random for valid test addresses.
 - `static isAddress(str: string) => boolean`
 - `isValid() => Promise<boolean>`
 - `isZero() => boolean`
 - `static random() => Promise<AztecAddress>`
 - `toAddressPoint() => Promise<Point>`
 - `toBigInt() => bigint`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toField() => Fr`
 - `toJSON() => string`
 - `toString() => string`
@@ -110,7 +129,7 @@ new AztecAddress(buffer: Fr | Buffer<ArrayBufferLike>)
 
 Hash of an L2 block.
 
-Extends: `Fr`
+Extends: `BaseFr`
 
 **Constructor**
 ```typescript
@@ -118,44 +137,29 @@ new BlockHash(hash: Fr)
 ```
 
 **Properties**
-- `_branding: "Fr"` - Brand.
-- `readonly [BLOCK_HASH_BRAND]: true`
-- `static MAX_FIELD_VALUE: Fr`
 - `static MODULUS: bigint`
-- `static ONE: Fr`
 - `static schema: unknown`
 - `size: unknown`
 - `static SIZE_IN_BYTES: number`
 - `value: unknown`
-- `static ZERO: Fr`
+- `static ZERO: BlockHash`
 
 **Methods**
 - `[custom]() => string`
-- `add(rhs: Fr) => Fr` - Arithmetic
 - `static cmp(lhs: BaseField, rhs: BaseField) => -1 | 0 | 1`
 - `static cmpAsBigInt(lhs: bigint, rhs: bigint) => -1 | 0 | 1`
-- `div(rhs: Fr) => Fr`
-- `ediv(rhs: Fr) => Fr`
 - `equals(rhs: BaseField) => boolean`
-- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Fr`
-- `static fromBufferReduce(buffer: Buffer) => Fr`
-- `static fromHexString(buf: string) => Fr` - Creates a Fr instance from a hex string.
-- `static fromPlainObject(obj: any) => Fr` - Creates an Fr instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack). Handles buffers, strings, numbers, bigints, or existing instances.
-- `static fromString(str: string) => BlockHash` - Creates a Fr instance from a string.
-- `static isBlockHash(value: unknown) => boolean` - Type guard that checks if a value is a BlockHash instance. Uses Symbol.for to ensure cross-module compatibility.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => BlockHash`
+- `static fromString(str: string) => BlockHash`
+- `static isBlockHash(value: unknown) => boolean` - Type guard that checks if a value is a BlockHash instance.
 - `isEmpty() => boolean`
-- `static isZero(value: Fr) => boolean`
+- `isZero() => boolean`
 - `lt(rhs: BaseField) => boolean`
 - `modulus() => bigint`
-- `mul(rhs: Fr) => Fr`
-- `negate() => Fr`
 - `static random() => BlockHash`
-- `sqrt() => Promise<Fr | null>` - Computes a square root of the field element.
-- `square() => Fr`
-- `sub(rhs: Fr) => Fr`
 - `toBigInt() => bigint`
 - `toBool() => boolean`
-- `toBuffer() => Buffer` - Converts the bigint to a Buffer.
+- `toBuffer() => Buffer` - Converts the bigint to a Buffer. With a sink, streams the 32 big-endian bytes straight in (no allocation) and returns undefined; without one, returns a freshly allocated buffer.
 - `toField() => this`
 - `toFr() => Fr`
 - `toFriendlyJSON() => string`
@@ -164,7 +168,6 @@ new BlockHash(hash: Fr)
 - `toNumberUnsafe() => number` - Converts this field to a number. May cause loss of precision if the underlying value is greater than MAX_SAFE_INTEGER.
 - `toShortString() => string`
 - `toString() => string`
-- `static zero() => Fr`
 
 ### BlockHeader
 
@@ -201,8 +204,8 @@ new BlockHeader(lastArchive: AppendOnlyTreeSnapshot, state: StateReference, spon
 - `isEmpty() => boolean`
 - `static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>>) => BlockHeader`
 - `recomputeHash() => Promise<BlockHash>` - Recomputes the cached hash. Used for testing when header fields are mutated via unfreeze.
-- `setHash(hashed: Fr) => void` - Manually set the hash for this block header if already computed
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `setHash(hashed: BlockHash) => void` - Manually set the hash for this block header if already computed
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 - `toInspect() => { globalVariables: { blockNumber: BlockNumber; chainId: number; ... }; lastArchive: string; ... }`
 - `toString() => string` - Serializes this instance into a string.
@@ -280,45 +283,28 @@ new Capsule(contractAddress: AztecAddress, storageSlot: Fr, data: Fr[], scope?: 
 - `toJSON() => string`
 - `toString() => string`
 
-### CheckpointedL2Block
-
-Encapsulates an L2 Block along with the checkpoint data associated with it.
-
-**Constructor**
-```typescript
-new CheckpointedL2Block(checkpointNumber: CheckpointNumber, block: L2Block, l1: L1PublishedData, attestations: CommitteeAttestation[])
-```
-
-**Properties**
-- `attestations: CommitteeAttestation[]`
-- `block: L2Block`
-- `checkpointNumber: CheckpointNumber`
-- `l1: L1PublishedData`
-- `static schema: unknown`
-
-**Methods**
-- `static fromBuffer(bufferOrReader: Buffer<ArrayBufferLike> | BufferReader) => CheckpointedL2Block`
-- `static fromFields(fields: FieldsOf<CheckpointedL2Block>) => CheckpointedL2Block`
-- `toBuffer() => Buffer`
-
 ### ChonkProof
 
+Serialization format detection for ChonkProof is value-based on the leading uint32: - EMPTY: [0: uint32] → total = 4 bytes - UNCOMPRESSED (legacy): [field_count=1632: uint32] [fields...] → total ≈ 52KB (>= 40KB) - COMPRESSED: [byte_count: uint32] [compressed_bytes] → total ≈ 35KB (< 40KB) Detection from the first uint32: 0 means an empty proof (no fields); CHONK_PROOF_LENGTH (1632) means legacy format (field count); any other value is the compressed byte count. A real compressed proof always has a non-zero byte count, so 0 is an unambiguous sentinel for the empty case. The old uncompressed format is never smaller than 40KB; compressed proofs are always smaller than 40KB.
+
 **Constructor**
 ```typescript
-new ChonkProof(fields: Fr[])
+new ChonkProof(fields: Fr[], compressedProof?: Buffer<ArrayBufferLike>)
 ```
 
 **Properties**
+- `compressedProof?: Buffer<ArrayBufferLike>` - Optional compressed proof bytes from chonk compression (point compression + u256 encoding). When set, toBuffer() will serialize in compressed format (~1.7x smaller). When reading from compressed format, this is populated and fields are decompressed on demand.
 - `fields: Fr[]`
 - `static schema: unknown`
 
 **Methods**
 - `attachPublicInputs(publicInputs: Fr[]) => ChonkProofWithPublicInputs`
 - `static empty() => ChonkProof`
-- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => ChonkProof`
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => ChonkProof` - Deserialize a ChonkProof from a buffer. Supports both legacy (field elements) and compressed (chonk compression) formats. Value-based format detection on the leading uint32: - First uint32 == 0: empty proof (no fields), total = 4 bytes - First uint32 == CHONK_PROOF_LENGTH (1632): legacy format, read field elements Total proof data ≈ 52KB (always >= 40KB) - Otherwise: compressed format, first uint32 is byte count of compressed data Total proof data ≈ 35KB (always < 40KB)
+- `static fromCompressedBytes(compressed: Buffer) => ChonkProof` - Create a ChonkProof from compressed bytes by decompressing via the BarretenbergSync API. The compressed format uses point compression and u256 encoding (from PR #20645).
 - `isEmpty() => boolean`
 - `static random() => ChonkProof`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer` - Serialize the proof to a buffer. If compressed bytes are available, uses the compressed format (~1.7x smaller). Otherwise falls back to legacy field element format.
 - `toJSON() => Buffer<ArrayBufferLike>`
 
 ### ChonkProofWithPublicInputs
@@ -329,6 +315,7 @@ new ChonkProofWithPublicInputs(fieldsWithPublicInputs: Fr[])
 ```
 
 **Properties**
+- `compressedProof?: Buffer<ArrayBufferLike>` - Optional compressed proof bytes (covers the full proof WITH public inputs). Set by the prover when using chonk compression. Flows through to ChonkProof via removePublicInputs() so the Tx can serialize in compressed format.
 - `fieldsWithPublicInputs: Fr[]`
 - `static schema: unknown`
 
@@ -339,7 +326,7 @@ new ChonkProofWithPublicInputs(fieldsWithPublicInputs: Fr[])
 - `getPublicInputs() => Fr[]`
 - `isEmpty() => boolean`
 - `removePublicInputs() => ChonkProof`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toJSON() => Buffer<ArrayBufferLike>`
 
 ### CommitteeAttestation
@@ -372,19 +359,22 @@ Implements: `Signable`
 
 **Constructor**
 ```typescript
-new CommitteeAttestationsAndSigners(attestations: CommitteeAttestation[])
+new CommitteeAttestationsAndSigners(attestations: CommitteeAttestation[], signatureContext: CoordinationSignatureContext)
 ```
 
 **Properties**
 - `attestations: CommitteeAttestation[]`
+- `readonly primaryType: CoordinationSignatureType`
 - `static schema: unknown`
+- `readonly signatureContext: CoordinationSignatureContext`
 
 **Methods**
-- `static empty() => CommitteeAttestationsAndSigners`
-- `getPackedAttestations() => ViemCommitteeAttestations` - Packs an array of committee attestations into the format expected by the Solidity contract
-- `getPayloadToSign(domainSeparator: SignatureDomainSeparator) => Buffer`
+- `static empty(signatureContext: CoordinationSignatureContext) => CommitteeAttestationsAndSigners`
+- `getPackedAttestations() => ViemCommitteeAttestations`
+- `getPayloadToSign() => Buffer`
 - `getSignedAttestations() => CommitteeAttestation[]`
 - `getSigners() => EthAddress[]`
+- `static packAttestations(attestations: CommitteeAttestation[]) => ViemCommitteeAttestations` - Packs an array of committee attestations into the format expected by the Solidity contract
 - `toString() => void` - Returns a string representation of an object.
 
 ### CompleteAddress
@@ -402,7 +392,8 @@ A complete address is a combination of an Aztec address, a public key and a part
 - `static create(address: AztecAddress, publicKeys: PublicKeys, partialAddress: Fr) => Promise<CompleteAddress>`
 - `equals(other: CompleteAddress) => boolean` - Determines if this CompleteAddress instance is equal to the given CompleteAddress instance. Equality is based on the content of their respective buffers.
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Promise<CompleteAddress>` - Creates an CompleteAddress instance from a given buffer or BufferReader. If the input is a Buffer, it wraps it in a BufferReader before processing. Throws an error if the input length is not equal to the expected size.
-- `static fromSecretKeyAndInstance(secretKey: Fr, instance: Pick<ContractInstance, "originalContractClassId" | "initializationHash" | "salt" | "deployer"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<CompleteAddress>`
+- `static fromPublicKeysAndPartialAddress(publicKeys: PublicKeys, partialAddress: Fr) => Promise<CompleteAddress>`
+- `static fromSecretKeyAndInstance(secretKey: Fr, instance: Pick<ContractInstance, "originalContractClassId" | "initializationHash" | "salt" | "deployer" | "immutablesHash"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<CompleteAddress>`
 - `static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr) => Promise<CompleteAddress>`
 - `static fromString(address: string) => Promise<CompleteAddress>` - Create a CompleteAddress instance from a hex-encoded string. The input 'address' should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates. Throws an error if the input length is invalid or coordinate values are out of range.
 - `getPreaddress() => Promise<Fr>`
@@ -434,7 +425,6 @@ new ContractClassLog(contractAddress: AztecAddress, fields: ContractClassLogFiel
 - `static from(fields: FieldsOf<ContractClassLog>) => ContractClassLog`
 - `static fromBlobFields(emittedLength: number, fields: Fr[] | FieldReader) => ContractClassLog`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => ContractClassLog`
-- `static fromFields(fields: Fr[] | FieldReader) => ContractClassLog`
 - `static fromPlainObject(obj: any) => ContractClassLog` - Creates a ContractClassLog from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `getEmittedFields() => Fr[]`
 - `hash() => Promise<Fr>`
@@ -467,7 +457,7 @@ new ContractClassLogFields(fields: Fr[])
 - `hash() => Promise<Fr>`
 - `isEmpty() => boolean`
 - `static random(emittedLength: number) => ContractClassLogFields`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 
 ### ContractDeploymentData
@@ -512,18 +502,54 @@ new CountedContractClassLog(log: ContractClassLog, counter: number)
 
 **Constructor**
 ```typescript
-new DebugLog(contractAddress: AztecAddress, level: "debug" | "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "trace", message: string, fields: Fr[])
+new DebugLog(contractAddress: AztecAddress, level: "error" | "debug" | "silent" | "fatal" | "warn" | "info" | "verbose" | "trace", message: string, fields: Fr[])
 ```
 
 **Properties**
 - `contractAddress: AztecAddress`
 - `fields: Fr[]`
-- `level: "debug" | "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "trace"`
+- `level: "error" | "debug" | "silent" | "fatal" | "warn" | "info" | "verbose" | "trace"`
 - `message: string`
 - `static schema: unknown`
 
 **Methods**
 - `static fromPlainObject(obj: any) => DebugLog` - Creates a DebugLog from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
+
+### DroppedTxReceipt
+
+Receipt for a transaction that was dropped from the mempool without being mined.
+
+Extends: `UnminedTxReceipt`
+Implements: `TxReceiptInterface`
+
+**Constructor**
+```typescript
+new DroppedTxReceipt(txHash: TxHash, error?: string)
+```
+
+**Properties**
+- `readonly blockHash: undefined` - The hash of the block containing the transaction.
+- `readonly blockNumber: undefined` - The block number in which the transaction was included.
+- `readonly epochNumber: undefined` - The epoch number in which the transaction was included.
+- `readonly error?: string` - Description of the transaction error, if any.
+- `readonly executionResult: undefined` - The execution result of the transaction, only set when the tx is in a block.
+- `static schema: unknown`
+- `readonly slotNumber: undefined` - The slot number in which the transaction's block was built.
+- `readonly status: DROPPED` - The transaction's block finalization status.
+- `readonly transactionFee: undefined` - The transaction fee paid for the transaction.
+- `tx: undefined` - The pending transaction, attached when requested via `includePendingTx`.
+- `readonly txEffect: undefined` - The full transaction effect, attached when requested via `includeTxEffect`.
+- `readonly txHash: TxHash` - A unique identifier for a transaction.
+- `readonly txIndexInBlock: undefined` - The index of the transaction within its block.
+
+**Methods**
+- `static empty() => DroppedTxReceipt`
+- `static from(fields: { error?: string; status: DROPPED; txHash: TxHash }) => DroppedTxReceipt`
+- `hasExecutionReverted() => boolean` - Returns true if the transaction execution reverted.
+- `hasExecutionSucceeded() => boolean` - Returns true if the transaction was executed successfully.
+- `isDropped() => boolean` - Returns true (and narrows) if the transaction was dropped.
+- `isMined() => boolean` - Returns true (and narrows) if the transaction has been included in a block.
+- `isPending() => boolean` - Returns true (and narrows) if the transaction is pending.
 
 ### EmptyTxValidator
 Implements: `TxValidator<T>`
@@ -572,6 +598,21 @@ new EthAddress(buffer: Buffer)
 - `toJSON() => string`
 - `toString() => string` - Converts the Ethereum address to a hex-encoded string. The resulting string is prefixed with '0x' and has exactly 40 hex characters. This method can be used to represent the EthAddress instance in the widely used hexadecimal format.
 
+### EventDrivenL2BlockStream
+
+Event-driven wrapper around L2BlockStream. Subscribes to the source's aggregate `l2BlockSourceUpdated` event (when the source exposes one) to trigger an immediate reconciliation, while keeping the periodic poll as the correctness fallback. Subsystems keep consuming the same L2BlockStreamEvents; the archiver aggregate event is handled entirely here. The event is passed through to the sync pass via RunningPromise.trigger. If, at the time the pass runs, the stream's local tips match the event's `fromTips` (it is caught up to where the event began), the event's hydrated blocks are served back through a hot-block cache and the event's `toTips` is reported as the source tips — so the triggered sync re-reads neither block bodies nor tips from the archiver. Otherwise the pass delegates entirely to the source, and the periodic poll guarantees eventual catch-up.
+
+**Constructor**
+```typescript
+new EventDrivenL2BlockStream(source: L2BlockSource | L2BlockSourceEventEmitter, localData: L2BlockStreamLocalDataProvider, handler: L2BlockStreamEventHandler, log: Logger, opts: L2BlockStreamOptions)
+```
+
+**Methods**
+- `isRunning() => boolean`
+- `start() => void`
+- `stop() => Promise<void>`
+- `sync() => Promise<void>` - Runs a synchronization pass now, bypassing the poll interval, and resolves once that pass completes. Concurrent callers and periodic ticks coalesce onto a single pass; a caller that coalesces onto an already in-flight pass can resolve against a pass that began just before it, so this guarantees freshness only up to that coalescing window. The periodic poll and per-pass reorg handling make the gap a latency effect, never a correctness one.
+
 ### EventSelector
 
 An event selector is the first 4 bytes of the hash of an event signature.
@@ -584,7 +625,6 @@ new EventSelector(value: number)
 ```
 
 **Properties**
-- `_branding: "EventSelector"` - Brand.
 - `static schema: unknown`
 - `static SIZE: number` - The size of the selector in bytes.
 - `value: number`
@@ -622,71 +662,6 @@ new ExecutionPayload(calls: FunctionCall[], authWitnesses: AuthWitness[], capsul
 
 **Methods**
 - `static empty() => ExecutionPayload`
-
-### ExtendedContractClassLog
-
-Represents an individual contract class log entry extended with info about the block and tx it was emitted in.
-
-**Constructor**
-```typescript
-new ExtendedContractClassLog(id: LogId, log: ContractClassLog)
-```
-
-**Properties**
-- `readonly id: LogId` - Globally unique id of the log.
-- `readonly log: ContractClassLog` - The data contents of the log.
-- `static schema: unknown`
-
-**Methods**
-- `equals(other: ExtendedContractClassLog) => boolean` - Checks if two ExtendedContractClassLog objects are equal.
-- `static from(fields: FieldsOf<ExtendedContractClassLog>) => ExtendedContractClassLog`
-- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => ExtendedContractClassLog` - Deserializes log from a buffer.
-- `static fromString(data: string) => ExtendedContractClassLog` - Deserializes `ExtendedContractClassLog` object from a hex string representation.
-- `static random() => Promise<ExtendedContractClassLog>`
-- `toBuffer() => Buffer` - Serializes log to a buffer.
-- `toString() => string` - Serializes log to a string.
-
-### AppTaggingSecret
-
-Application tagging secret used for log tagging. It bundles the directional app tagging secret with the app (contract) address. This bundling was done because where this type is used we commonly need access to both the secret and the address. The derived secret is directional because it is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
-
-**Constructor**
-```typescript
-new AppTaggingSecret(secret: Fr, app: AztecAddress)
-```
-
-**Properties**
-- `readonly app: AztecAddress`
-- `readonly secret: Fr`
-
-**Methods**
-- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret | undefined>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret. Returns undefined if `externalAddress` is an invalid address.
-- `static fromString(str: string) => AppTaggingSecret`
-- `toString() => string`
-
-### ExtendedPublicLog
-
-Represents an individual public log entry extended with info about the block and tx it was emitted in.
-
-**Constructor**
-```typescript
-new ExtendedPublicLog(id: LogId, log: PublicLog)
-```
-
-**Properties**
-- `readonly id: LogId` - Globally unique id of the log.
-- `readonly log: PublicLog` - The data contents of the log.
-- `static schema: unknown`
-
-**Methods**
-- `equals(other: ExtendedPublicLog) => boolean` - Checks if two ExtendedPublicLog objects are equal.
-- `static from(fields: FieldsOf<ExtendedPublicLog>) => ExtendedPublicLog`
-- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => ExtendedPublicLog` - Deserializes log from a buffer.
-- `static fromString(data: string) => ExtendedPublicLog` - Deserializes `ExtendedPublicLog` object from a hex string representation.
-- `static random() => Promise<ExtendedPublicLog>`
-- `toBuffer() => Buffer` - Serializes log to a buffer.
-- `toHumanReadable() => string` - Serializes log to a human readable string.
-- `toString() => string` - Serializes log to a string.
 
 ### FlatPublicLogs
 
@@ -775,7 +750,6 @@ new FunctionSelector(value: number)
 ```
 
 **Properties**
-- `_branding: "FunctionSelector"` - Brand.
 - `static schema: unknown`
 - `static SIZE: number` - The size of the selector in bytes.
 - `value: number`
@@ -842,7 +816,7 @@ new Gas(daGas: number, l2Gas: number)
 - `mul(scalar: number) => Gas`
 - `static random() => Gas`
 - `sub(other: Gas) => Gas`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 
 ### GasFees
@@ -872,7 +846,7 @@ new GasFees(feePerDaGas: number | bigint, feePerL2Gas: number | bigint)
 - `isEmpty() => boolean`
 - `mul(scalar: number | bigint) => GasFees`
 - `static random() => GasFees`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 - `toInspect() => { feePerDaGas: bigint; feePerL2Gas: bigint }`
 
@@ -896,7 +870,7 @@ new GasSettings(gasLimits: Gas, teardownGasLimits: Gas, maxFeesPerGas: GasFees, 
 - `clone() => GasSettings`
 - `static empty() => GasSettings` - Zero-value gas settings.
 - `equals(other: GasSettings) => boolean`
-- `static fallback(overrides: { gasLimits?: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Fills in gas limits high enough for transactions to be included in most cases. gasLimits is set to the maximum the protocol allows; since teardown gas is reserved from gasLimits during private execution (see gas_meter.nr), the effective gas available for app logic will be gasLimits - teardownGasLimits - privateOverhead. The DA gas limit is set to an approximate max per block assuming 4 blocks per checkpoint, since using the maximum per checkpoint would cause nodes to reject transactions. These values won't work if: - Teardown consumes more than the arbitrarily assigned fallback limits - The rest of the transaction consumes more than the remaining gas after teardown - The DA gas limit is too low for the transaction, while still within the checkpoint limit
+- `static fallback(overrides: { gasLimits: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Fills in gas limits high enough for transactions to be included in most cases. Callers must supply `gasLimits` — typically the most a single tx may declare on the network (`min(per-tx max, per-block allocation)`), i.e. a node's advertised `txsLimits.gas`. Since teardown gas is reserved from gasLimits during private execution (see gas_meter.nr), the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead; the teardown default is derived from the effective total so it always stays below it. These values won't work if: - Teardown consumes more than the arbitrarily assigned fallback limits - The rest of the transaction consumes more than the remaining gas after teardown - The DA gas limit is too low for the transaction, while still within the checkpoint limit
 - `static forEstimation(overrides: { gasLimits?: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Gas settings for simulation/estimation only. Since teardown gas is reserved upfront from gasLimits during private execution (see gas_meter.nr), the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead. To ensure estimation never hits gas caps, we set both limits above what the protocol allows: teardown gets MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full processable amount remains available for each phase independently. To be used in conjunction with skipTxValidation: true during public simulation, or the node would reject the transaction outright due to gas limits being above protocol max.
 - `static from(args: { gasLimits: FieldsOf<Gas>; maxFeesPerGas: FieldsOf<GasFees>; ... }) => GasSettings`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => GasSettings`
@@ -906,7 +880,7 @@ new GasSettings(gasLimits: Gas, teardownGasLimits: Gas, maxFeesPerGas: GasFees, 
 - `static getFields(fields: FieldsOf<GasSettings>) => readonly []`
 - `getSize() => number`
 - `isEmpty() => boolean`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 
 ### GlobalVariables
@@ -942,7 +916,7 @@ new GlobalVariables(chainId: Fr, version: Fr, blockNumber: BlockNumber, slotNumb
 - `getSize() => number`
 - `isEmpty() => boolean`
 - `static random(overrides: Partial<FieldsOf<GlobalVariables>>) => GlobalVariables`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 - `toFriendlyJSON() => { blockNumber: BlockNumber; coinbase: string; ... }` - A trimmed version of the JSON representation of the global variables, tailored for human consumption.
 - `toInspect() => { blockNumber: BlockNumber; chainId: number; ... }`
@@ -970,7 +944,7 @@ new HashedValues(values: Fr[], hash: Fr)
 - `static getFields(fields: FieldsOf<HashedValues>) => readonly []`
 - `getSize() => number`
 - `static random() => HashedValues`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 
 ### InMemoryDebugLogStore
 
@@ -1029,7 +1003,7 @@ Creates a stream of events for new blocks, chain tips updates, and reorgs, out o
 
 **Constructor**
 ```typescript
-new L2BlockStream(l2BlockSource: Pick<L2BlockSource, "getBlocks" | "getBlockHeader" | "getL2Tips" | "getCheckpoints" | "getCheckpointedBlocks">, localData: L2BlockStreamLocalDataProvider, handler: L2BlockStreamEventHandler, log: Logger, opts: { batchSize?: number; checkpointPrefetchLimit?: number; ... })
+new L2BlockStream(l2BlockSource: L2BlockStreamSource, localData: L2BlockStreamLocalDataProvider, handler: L2BlockStreamEventHandler, log: Logger, opts: L2BlockStreamOptions)
 ```
 
 **Methods**
@@ -1047,26 +1021,26 @@ Extends: `L2TipsStoreBase`
 
 **Constructor**
 ```typescript
-new L2TipsMemoryStore()
+new L2TipsMemoryStore(initialBlockHash: BlockHash)
 ```
+
+**Properties**
+- `readonly initialBlockHash: BlockHash`
 
 **Methods**
 - `computeBlockHash(block: L2Block) => Promise<string>`
 - `deleteBlockHashesBefore(blockNumber: BlockNumber) => Promise<void>` - Deletes all block hashes for blocks before the given block number.
-- `deleteBlockToCheckpointBefore(blockNumber: BlockNumber) => Promise<void>` - Deletes all block-to-checkpoint mappings for blocks before the given block number.
-- `deleteCheckpointsBefore(checkpointNumber: CheckpointNumber) => Promise<void>` - Deletes all checkpoints before the given checkpoint number.
-- `getCheckpoint(checkpointNumber: CheckpointNumber) => Promise<PublishedCheckpoint | undefined>` - Gets a checkpoint by its number.
-- `getCheckpointNumberForBlock(blockNumber: BlockNumber) => Promise<CheckpointNumber | undefined>` - Gets the checkpoint number for a given block number.
 - `getL2BlockHash(number: BlockNumber) => Promise<string | undefined>`
 - `getL2Tips() => Promise<L2Tips>`
 - `getStoredBlockHash(blockNumber: BlockNumber) => Promise<string | undefined>` - Gets the block hash for a given block number.
 - `getTip(tag: L2BlockTag) => Promise<BlockNumber | undefined>` - Gets the block number for a given tag.
+- `getTipCheckpoint(tag: L2BlockTag) => Promise<CheckpointId | undefined>` - Gets the checkpoint id recorded for a given tag, if any.
 - `handleBlockStreamEvent(event: L2BlockStreamEvent) => Promise<void>`
+- `recordBlockHashes(blocks: L2BlockId[]) => Promise<void>` - Records `(number → hash)` witnesses into the block-hash index without moving any tip cursor. In tips-only mode the hash history is sparse (one anchor per tip-moving poll), so a consumer that materializes per-height state should witness those heights or its prunes are over-deep by the gap to the nearest anchor. Witnesses are compared against the source, not trusted, so they cannot cause under-deep prunes; this is always safe to call.
 - `runInTransaction<T>(fn: () => Promise<T>) => Promise<T>` - Runs the given function in a transaction. Memory stores can just execute immediately.
-- `saveCheckpointData(checkpoint: PublishedCheckpoint) => Promise<void>` - Saves a checkpoint.
 - `setBlockHash(blockNumber: BlockNumber, hash: string) => Promise<void>` - Sets the block hash for a given block number.
-- `setCheckpointNumberForBlock(blockNumber: BlockNumber, checkpointNumber: CheckpointNumber) => Promise<void>` - Sets the checkpoint number for a given block number.
 - `setTip(tag: L2BlockTag, blockNumber: BlockNumber) => Promise<void>` - Sets the block number for a given tag.
+- `setTipCheckpoint(tag: L2BlockTag, checkpoint: CheckpointId) => Promise<void>` - Records the checkpoint id for a given tag.
 
 ### L2TipsStoreBase
 
@@ -1075,51 +1049,50 @@ Implements: `L2BlockStreamEventHandler`, `L2BlockStreamLocalDataProvider`
 
 **Constructor**
 ```typescript
-new L2TipsStoreBase()
+new L2TipsStoreBase(initialBlockHash: BlockHash)
 ```
+
+**Properties**
+- `readonly initialBlockHash: BlockHash`
 
 **Methods**
 - `computeBlockHash(block: L2Block) => Promise<string>`
 - `deleteBlockHashesBefore(blockNumber: BlockNumber) => Promise<void>` - Deletes all block hashes for blocks before the given block number.
-- `deleteBlockToCheckpointBefore(blockNumber: BlockNumber) => Promise<void>` - Deletes all block-to-checkpoint mappings for blocks before the given block number.
-- `deleteCheckpointsBefore(checkpointNumber: CheckpointNumber) => Promise<void>` - Deletes all checkpoints before the given checkpoint number.
-- `getCheckpoint(checkpointNumber: CheckpointNumber) => Promise<PublishedCheckpoint | undefined>` - Gets a checkpoint by its number.
-- `getCheckpointNumberForBlock(blockNumber: BlockNumber) => Promise<CheckpointNumber | undefined>` - Gets the checkpoint number for a given block number.
 - `getL2BlockHash(number: BlockNumber) => Promise<string | undefined>`
 - `getL2Tips() => Promise<L2Tips>`
 - `getStoredBlockHash(blockNumber: BlockNumber) => Promise<string | undefined>` - Gets the block hash for a given block number.
 - `getTip(tag: L2BlockTag) => Promise<BlockNumber | undefined>` - Gets the block number for a given tag.
+- `getTipCheckpoint(tag: L2BlockTag) => Promise<CheckpointId | undefined>` - Gets the checkpoint id recorded for a given tag, if any.
 - `handleBlockStreamEvent(event: L2BlockStreamEvent) => Promise<void>`
+- `recordBlockHashes(blocks: L2BlockId[]) => Promise<void>` - Records `(number → hash)` witnesses into the block-hash index without moving any tip cursor. In tips-only mode the hash history is sparse (one anchor per tip-moving poll), so a consumer that materializes per-height state should witness those heights or its prunes are over-deep by the gap to the nearest anchor. Witnesses are compared against the source, not trusted, so they cannot cause under-deep prunes; this is always safe to call.
 - `runInTransaction<T>(fn: () => Promise<T>) => Promise<T>` - Runs the given function in a transaction. Memory stores can just execute immediately.
-- `saveCheckpointData(checkpoint: PublishedCheckpoint) => Promise<void>` - Saves a checkpoint.
 - `setBlockHash(blockNumber: BlockNumber, hash: string) => Promise<void>` - Sets the block hash for a given block number.
-- `setCheckpointNumberForBlock(blockNumber: BlockNumber, checkpointNumber: CheckpointNumber) => Promise<void>` - Sets the checkpoint number for a given block number.
 - `setTip(tag: L2BlockTag, blockNumber: BlockNumber) => Promise<void>` - Sets the block number for a given tag.
+- `setTipCheckpoint(tag: L2BlockTag, checkpoint: CheckpointId) => Promise<void>` - Records the checkpoint id for a given tag.
 
-### LogId
+### LogCursor
 
-A globally unique log id.
+Cursor identifying a position in a tag's ordered log stream. Used as `afterLog` on `TagQuery` to resume pagination strictly after a previously-seen log. `(blockNumber, txIndexWithinBlock, logIndexWithinTx)` is sufficient to uniquely identify a position and matches the composite-key ordering of the archiver's log index, so the cursor maps directly to a key without a tx-hash lookup. All three fields are always present on LogResult, so a cursor is constructible from any returned log.
 
 **Constructor**
 ```typescript
-new LogId(blockNumber: BlockNumber, blockHash: BlockHash, txHash: TxHash, txIndex: number, logIndex: number)
+new LogCursor(blockNumber: BlockNumber, txIndexWithinBlock: number, logIndexWithinTx: number)
 ```
 
 **Properties**
-- `readonly blockHash: BlockHash` - The hash of the block the log was emitted in.
-- `readonly blockNumber: BlockNumber` - The block number the log was emitted in.
-- `readonly logIndex: number` - The index of a log the tx was emitted in.
+- `readonly blockNumber: BlockNumber` - The block the cursor points to.
+- `readonly logIndexWithinTx: number` - The log index within the tx the cursor points to.
 - `static schema: unknown`
-- `readonly txHash: TxHash` - The hash of the transaction the log was emitted in.
-- `readonly txIndex: number` - The index of a tx in a block the log was emitted in.
+- `readonly txIndexWithinBlock: number` - The tx index within the block the cursor points to.
 
 **Methods**
-- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => LogId` - Creates a LogId from a buffer.
-- `static fromString(data: string) => LogId` - Creates a LogId from a string.
-- `static random() => LogId`
-- `toBuffer() => Buffer` - Serializes log id to a buffer.
-- `toHumanReadable() => string` - Serializes log id to a human readable string.
-- `toString() => string` - Converts the LogId instance to a string.
+- `equals(other: LogCursor) => boolean`
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => LogCursor`
+- `static fromLog(log: Pick<LogResultBase, "blockNumber" | "txIndexWithinBlock" | "logIndexWithinTx">) => LogCursor` - Builds a cursor that points at the given log. Pagination resumes strictly after this position.
+- `static parseOptional(value: string) => LogCursor | undefined` - Parses a `<blockNumber>-<txIndexWithinBlock>-<logIndexWithinTx>` triple into a LogCursor. Throws on malformed input. Returns `undefined` for an empty / missing value so callers can use this directly as an optional CLI option parser.
+- `static random() => LogCursor`
+- `toBuffer() => Buffer`
+- `toString() => string`
 
 ### MaliciousCommitteeAttestationsAndSigners
 
@@ -1129,40 +1102,86 @@ Extends: `CommitteeAttestationsAndSigners`
 
 **Constructor**
 ```typescript
-new MaliciousCommitteeAttestationsAndSigners(attestations: CommitteeAttestation[], signers: EthAddress[])
+new MaliciousCommitteeAttestationsAndSigners(attestations: CommitteeAttestation[], signers: EthAddress[], signatureContext: CoordinationSignatureContext)
 ```
 
 **Properties**
 - `attestations: CommitteeAttestation[]`
+- `readonly primaryType: CoordinationSignatureType`
 - `static schema: unknown`
+- `readonly signatureContext: CoordinationSignatureContext`
 
 **Methods**
-- `static empty() => CommitteeAttestationsAndSigners`
-- `getPackedAttestations() => ViemCommitteeAttestations` - Packs an array of committee attestations into the format expected by the Solidity contract
-- `getPayloadToSign(domainSeparator: SignatureDomainSeparator) => Buffer`
+- `static empty(signatureContext: CoordinationSignatureContext) => CommitteeAttestationsAndSigners`
+- `getPackedAttestations() => ViemCommitteeAttestations`
+- `getPayloadToSign() => Buffer`
 - `getSignedAttestations() => CommitteeAttestation[]`
 - `getSigners() => EthAddress[]`
+- `static packAttestations(attestations: CommitteeAttestation[]) => ViemCommitteeAttestations` - Packs an array of committee attestations into the format expected by the Solidity contract
 - `toString() => void` - Returns a string representation of an object.
 
-### MessageContext
+### MaliciousYParityCommitteeAttestationsAndSigners
 
-Additional information needed to process a message. All messages exist in the context of a transaction, and information about that transaction is typically required in order to perform validation, store results, etc. For example, messages containing notes require knowledge of note hashes and the first nullifier in order to find the note's nonce. A TS version of `message_context.nr`.
+Malicious extension of CommitteeAttestationsAndSigners that rewrites every non-proposer signature slot's recovery byte to yParity form (v ∈ {0, 1}) in the packed output, after the honest `packAttestations` has already canonicalized it to v ∈ {27, 28}. Models a malicious selected proposer that hand-crafts `propose()` calldata L1 accepts but no honest node can byte-replay: each rewritten signature still recovers to the same member (r, s and the recovery parity are preserved), the bitmap bits stay set, and `getSigners()` stays consistent, so `propose()` does not revert `SignersSizeMismatch` -- yet the checkpoint can never be proven (`ECDSA.recover` rejects v ∉ {27, 28}). The proposer's own slot is left canonical so L1 `verifyProposer` (which recovers that slot) still accepts the checkpoint. For testing only.
+
+Extends: `CommitteeAttestationsAndSigners`
 
 **Constructor**
 ```typescript
-new MessageContext(txHash: TxHash, uniqueNoteHashesInTx: Fr[], firstNullifierInTx: Fr)
+new MaliciousYParityCommitteeAttestationsAndSigners(attestations: CommitteeAttestation[], proposerIndex: number, signatureContext: CoordinationSignatureContext)
 ```
 
 **Properties**
-- `firstNullifierInTx: Fr`
-- `txHash: TxHash`
-- `uniqueNoteHashesInTx: Fr[]`
+- `attestations: CommitteeAttestation[]`
+- `readonly primaryType: CoordinationSignatureType`
+- `static schema: unknown`
+- `readonly signatureContext: CoordinationSignatureContext`
 
 **Methods**
-- `static toEmptyFields() => Fr[]`
-- `toFields() => Fr[]`
-- `toNoirStruct() => { first_nullifier_in_tx: Fr; tx_hash: Fr; unique_note_hashes_in_tx: Fr[] }`
-- `static toSerializedOption(response: MessageContext | null) => Fr[]`
+- `static empty(signatureContext: CoordinationSignatureContext) => CommitteeAttestationsAndSigners`
+- `getPackedAttestations() => ViemCommitteeAttestations`
+- `getPayloadToSign() => Buffer`
+- `getSignedAttestations() => CommitteeAttestation[]`
+- `getSigners() => EthAddress[]`
+- `static packAttestations(attestations: CommitteeAttestation[]) => ViemCommitteeAttestations` - Packs an array of committee attestations into the format expected by the Solidity contract
+- `toString() => void` - Returns a string representation of an object.
+
+### MinedTxReceipt
+
+Receipt for a transaction that has been included in a block (proposed, checkpointed, proven, or finalized). All block-related fields are required for this variant.
+
+Extends: `TxReceiptBase`
+Implements: `TxReceiptInterface`
+
+**Constructor**
+```typescript
+new MinedTxReceipt(txHash: TxHash, status: PROPOSED | CHECKPOINTED | PROVEN | FINALIZED, executionResult: TxExecutionResult, transactionFee: bigint, blockHash: BlockHash, blockNumber: BlockNumber, slotNumber: SlotNumber, txIndexInBlock: number, epochNumber: EpochNumber, txEffect: DefineIfFlag<Opts, "includeTxEffect", TxEffect>, debugLogs?: DebugLog[])
+```
+
+**Properties**
+- `readonly blockHash: BlockHash` - The hash of the block containing the transaction.
+- `readonly blockNumber: BlockNumber` - The block number in which the transaction was included.
+- `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
+- `readonly epochNumber: EpochNumber` - The epoch number in which the transaction was included.
+- `readonly error?: string` - Description of the transaction error, if any.
+- `readonly executionResult: TxExecutionResult` - The execution result of the transaction, only set when the tx is in a block.
+- `static schema: unknown`
+- `readonly slotNumber: SlotNumber` - The slot number in which the transaction's block was built.
+- `readonly status: PROPOSED | CHECKPOINTED | PROVEN | FINALIZED` - The transaction's block finalization status.
+- `readonly transactionFee: bigint` - The transaction fee paid for the transaction.
+- `readonly tx: undefined` - The pending transaction, attached when requested via `includePendingTx`.
+- `readonly txEffect: DefineIfFlag<Opts, "includeTxEffect", TxEffect>` - The full transaction effect, attached when requested via `includeTxEffect`.
+- `readonly txHash: TxHash` - A unique identifier for a transaction.
+- `readonly txIndexInBlock: number` - The index of the transaction within its block.
+
+**Methods**
+- `static executionResultFromRevertCode(revertCode: RevertCode) => TxExecutionResult`
+- `static from(fields: { blockHash: BlockHash; blockNumber: BlockNumber; ... }) => MinedTxReceipt`
+- `hasExecutionReverted() => boolean` - Returns true if the transaction execution reverted.
+- `hasExecutionSucceeded() => boolean` - Returns true if the transaction was executed successfully.
+- `isDropped() => boolean` - Returns true (and narrows) if the transaction was dropped.
+- `isMined() => boolean` - Returns true (and narrows) if the transaction has been included in a block.
+- `isPending() => boolean` - Returns true (and narrows) if the transaction is pending.
 
 ### NestedProcessReturnValues
 
@@ -1205,7 +1224,7 @@ new Note(items: Fr[])
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Note` - Create a Note instance from a Buffer or BufferReader. The input 'buffer' can be either a Buffer containing the serialized Fr elements or a BufferReader instance. This function reads the Fr elements in the buffer and constructs a Note with them.
 - `static fromString(str: string) => Note` - Creates a new Note instance from a hex string.
 - `static random() => Note` - Generates a random Note instance with a variable number of items. The number of items is determined by a random value between 1 and 10 (inclusive). Each item in the Note is generated using the Fr.random() method.
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFriendlyJSON() => Fr[]`
 - `toJSON() => Buffer<ArrayBufferLike>`
 - `toString() => string` - Returns a hex representation of the note.
@@ -1275,7 +1294,6 @@ new NoteSelector(value: number)
 ```
 
 **Properties**
-- `_branding: "NoteSelector"` - Brand.
 - `static schema: unknown`
 - `static SIZE: number` - The size of the selector in bytes.
 - `value: number`
@@ -1337,23 +1355,44 @@ new PartialStateReference(noteHashTree: AppendOnlyTreeSnapshot, nullifierTree: A
 - `isEmpty() => boolean`
 - `static random() => PartialStateReference`
 - `toAbi() => []`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 
-### PendingTaggedLog
+### PendingTxReceipt
 
-Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle inserts found private logs. A TS version of `pending_tagged_log.nr`.
+Receipt for a transaction that is in the mempool but not yet included in a block.
+
+Extends: `UnminedTxReceipt`
+Implements: `TxReceiptInterface`
 
 **Constructor**
 ```typescript
-new PendingTaggedLog(log: Fr[], txHash: TxHash, uniqueNoteHashesInTx: Fr[], firstNullifierInTx: Fr)
+new PendingTxReceipt(txHash: TxHash, tx: DefineIfFlag<Opts, "includePendingTx", Tx>)
 ```
 
 **Properties**
-- `log: Fr[]`
+- `readonly blockHash: undefined` - The hash of the block containing the transaction.
+- `readonly blockNumber: undefined` - The block number in which the transaction was included.
+- `readonly epochNumber: undefined` - The epoch number in which the transaction was included.
+- `readonly error?: string` - Description of the transaction error, if any.
+- `readonly executionResult: undefined` - The execution result of the transaction, only set when the tx is in a block.
+- `static schema: unknown`
+- `readonly slotNumber: undefined` - The slot number in which the transaction's block was built.
+- `readonly status: PENDING` - The transaction's block finalization status.
+- `readonly transactionFee: undefined` - The transaction fee paid for the transaction.
+- `readonly tx: DefineIfFlag<Opts, "includePendingTx", Tx>` - The pending transaction, attached when requested via `includePendingTx`.
+- `readonly txEffect: undefined` - The full transaction effect, attached when requested via `includeTxEffect`.
+- `readonly txHash: TxHash` - A unique identifier for a transaction.
+- `readonly txIndexInBlock: undefined` - The index of the transaction within its block.
 
 **Methods**
-- `toFields() => Fr[]`
+- `static empty() => PendingTxReceipt`
+- `static from(fields: { error?: string; status: PENDING; ... }) => PendingTxReceipt`
+- `hasExecutionReverted() => boolean` - Returns true if the transaction execution reverted.
+- `hasExecutionSucceeded() => boolean` - Returns true if the transaction was executed successfully.
+- `isDropped() => boolean` - Returns true (and narrows) if the transaction was dropped.
+- `isMined() => boolean` - Returns true (and narrows) if the transaction has been included in a block.
+- `isPending() => boolean` - Returns true (and narrows) if the transaction is pending.
 
 ### PrivateCallExecutionResult
 
@@ -1463,13 +1502,14 @@ Data that is constant/not modified by neither of the kernels.
 
 **Constructor**
 ```typescript
-new PrivateTxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, vkTreeRoot: Fr, protocolContracts: ProtocolContracts)
+new PrivateTxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, txRequestSalt: Fr, vkTreeRoot: Fr, protocolContracts: ProtocolContracts)
 ```
 
 **Properties**
 - `anchorBlockHeader: BlockHeader` - Header of a block whose state is used during execution (not the block the transaction is included in).
 - `protocolContracts: ProtocolContracts` - List of protocol contracts.
 - `txContext: TxContext` - Context of the transaction. Note: `chainId` and `version` in txContext are not redundant to the values in self.anchor_block_header.global_variables because they can be different in case of a protocol upgrade. In such a situation we could be using header from a block before the upgrade took place but be using the updated protocol to execute and prove the transaction.
+- `txRequestSalt: Fr` - Salt of the transaction request (`TxRequest.salt`). Bound to the user's `tx_request` by the Init circuit and kept constant by every subsequent kernel so that each app circuit's `txRequestSalt` public input can be checked against it. It is intentionally not carried into `TxConstantData`: it is dropped by the Tail circuits rather than being exposed by the final (hiding) kernel.
 - `vkTreeRoot: Fr` - Root of the vk tree for the protocol circuits.
 
 **Methods**
@@ -1588,37 +1628,41 @@ new PublicCallRequestWithCalldata(request: PublicCallRequest, calldata: Fr[])
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PublicCallRequestWithCalldata`
 - `static fromPlainObject(obj: any) => PublicCallRequestWithCalldata` - Creates a PublicCallRequestWithCalldata from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `isEmpty() => boolean`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 
 ### PublicKeys
 
+A non-owner's view of an account's master public keys. Only `ivpkM` is exposed as a point (since address derivation needs the curve point in-circuit); the other five keys are exposed as their `hashPublicKey` digests.
+
 **Constructor**
 ```typescript
-new PublicKeys(masterNullifierPublicKey: Point, masterIncomingViewingPublicKey: Point, masterOutgoingViewingPublicKey: Point, masterTaggingPublicKey: Point)
+new PublicKeys(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr, mspkMHash: Fr, fbpkMHash: Fr)
 ```
 
 **Properties**
-- `masterIncomingViewingPublicKey: Point` - Master incoming viewing public key
-- `masterNullifierPublicKey: Point` - Master nullifier public key
-- `masterOutgoingViewingPublicKey: Point` - Master outgoing viewing public key
-- `masterTaggingPublicKey: Point` - Master tagging viewing public key
+- `fbpkMHash: Fr` - Hash of the master fallback public key
+- `ivpkM: Point` - Master incoming viewing public key
+- `mspkMHash: Fr` - Hash of the master message-signing public key
+- `npkMHash: Fr` - Hash of the master nullifier public key
+- `ovpkMHash: Fr` - Hash of the master outgoing viewing public key
 - `static schema: unknown`
+- `tpkMHash: Fr` - Hash of the master tagging public key
 
 **Methods**
 - `static default() => PublicKeys`
 - `encodeToNoir() => Fr[]`
-- `equals(other: PublicKeys) => boolean` - Determines if this PublicKeys instance is equal to the given PublicKeys instance. Equality is based on the content of their respective buffers.
+- `equals(other: PublicKeys) => boolean`
 - `static from(fields: FieldsOf<PublicKeys>) => PublicKeys`
-- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PublicKeys` - Creates an PublicKeys instance from a given buffer or BufferReader. If the input is a Buffer, it wraps it in a BufferReader before processing. Throws an error if the input length is not equal to the expected size.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PublicKeys`
 - `static fromFields(fields: Fr[] | FieldReader) => PublicKeys`
-- `static fromPlainObject(obj: any) => PublicKeys` - Creates a PublicKeys from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
+- `static fromPlainObject(obj: any) => PublicKeys` - Creates a PublicKeys from a plain object without Zod validation. Suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `static fromString(keys: string) => PublicKeys`
-- `hash() => Fr | Promise<Fr>`
+- `hash() => Promise<Fr>`
 - `isEmpty() => boolean`
 - `static random() => Promise<PublicKeys>`
 - `toBuffer() => Buffer` - Converts the PublicKeys instance into a Buffer. This method should be used when encoding the address for storage, transmission or serialization purposes.
-- `toFields() => Fr[]` - Serializes the payload to an array of fields
-- `toNoirStruct() => { ivpk_m: { inner: { is_infinite: boolean; x: Fr; y: Fr } }; npk_m: { inner: { is_infinite: boolean; x: Fr; y: Fr } }; ... }`
+- `toFields() => Fr[]` - Wire-format fields matching Noir's struct flattening of `PublicKeys`: `[npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash, mspk_m_hash, fbpk_m_hash]` (7 fields).
+- `toNoirStruct() => { fbpk_m_hash: Fr; ivpk_m: { inner: { x: Fr; y: Fr } }; ... }`
 - `toString() => string`
 
 ### PublicLog
@@ -1690,7 +1734,7 @@ new RecursiveProof(proof: Fr[], binaryProof: Proof, fieldsValid: boolean, proofL
 **Methods**
 - `static fromBuffer<N extends number>(buffer: Buffer<ArrayBufferLike> | BufferReader, expectedSize?: N) => RecursiveProof<N>` - Create a Proof from a Buffer or BufferReader. Expects a length-encoding.
 - `static fromString<N extends number>(str: string, expectedSize?: N) => RecursiveProof<N>` - Deserialize a Proof instance from a hex string.
-- `static schemaFor<N extends number>(expectedSize?: N) => ZodEffects<ZodFor<Buffer<ArrayBufferLike>>, RecursiveProof<N>, any>` - Creates an instance from a hex string with expected size.
+- `static schemaFor<N extends number>(expectedSize?: N) => ZodPipe<ZodFor<Buffer<ArrayBufferLike>>, ZodTransform<RecursiveProof<N>, Buffer<ArrayBufferLike>>>` - Creates an instance from a hex string with expected size.
 - `toBuffer() => Buffer<ArrayBufferLike>` - Convert the Proof instance to a custom Buffer format. This function serializes the Proof's buffer length and data sequentially into a new Buffer.
 - `toJSON() => Buffer<ArrayBufferLike>` - Returns a buffer representation for JSON serialization.
 - `toString() => string` - Serialize the Proof instance to a hex string.
@@ -1705,11 +1749,12 @@ new SerializableContractInstance(instance: ContractInstance)
 **Properties**
 - `readonly currentContractClassId: Fr`
 - `readonly deployer: AztecAddress`
+- `readonly immutablesHash: Fr`
 - `readonly initializationHash: Fr`
 - `readonly originalContractClassId: Fr`
 - `readonly publicKeys: PublicKeys`
 - `readonly salt: Fr`
-- `readonly version: 1`
+- `readonly version: 2`
 
 **Methods**
 - `static default() => SerializableContractInstance`
@@ -1717,6 +1762,27 @@ new SerializableContractInstance(instance: ContractInstance)
 - `static random(opts: Partial<FieldsOf<ContractInstance>>) => Promise<SerializableContractInstance>`
 - `toBuffer() => Buffer<ArrayBufferLike>`
 - `withAddress(address: AztecAddress) => ContractInstanceWithAddress` - Returns a copy of this object with its address included.
+
+### SerializableContractInstancePreimage
+
+**Constructor**
+```typescript
+new SerializableContractInstancePreimage(instance: ContractInstancePreimage)
+```
+
+**Properties**
+- `readonly deployer: AztecAddress`
+- `readonly immutablesHash: Fr`
+- `readonly initializationHash: Fr`
+- `readonly originalContractClassId: Fr`
+- `readonly publicKeys: PublicKeys`
+- `readonly salt: Fr`
+- `readonly version: 2`
+
+**Methods**
+- `static fromBuffer(bufferOrReader: Buffer<ArrayBufferLike> | BufferReader) => SerializableContractInstancePreimage`
+- `toBuffer() => Buffer<ArrayBufferLike>`
+- `withAddress(address: AztecAddress) => ContractInstancePreimageWithAddress` - Returns a copy of this object with its address included.
 
 ### SerializableContractInstanceUpdate
 
@@ -1779,7 +1845,6 @@ new SiloedTag(value: Fr)
 ```
 
 **Properties**
-- `_branding: "SiloedTag"` - Brand.
 - `static schema: unknown`
 - `readonly value: Fr`
 
@@ -1787,6 +1852,7 @@ new SiloedTag(value: Fr)
 - `static compute(preTag: PreTag) => Promise<SiloedTag>`
 - `static computeFromTagAndApp(tag: Tag, app: AztecAddress) => Promise<SiloedTag>` - Unlike `compute`, this expects a tag whose value is already domain-separated.
 - `equals(other: SiloedTag) => boolean`
+- `static random() => SiloedTag`
 - `toJSON() => string`
 - `toString() => string`
 
@@ -1794,11 +1860,12 @@ new SiloedTag(value: Fr)
 
 **Constructor**
 ```typescript
-new SimulationOverrides(contracts: ContractOverrides)
+new SimulationOverrides(args: { contracts?: ContractOverrides; publicStorage?: PublicStorageOverride[] })
 ```
 
 **Properties**
 - `contracts?: ContractOverrides`
+- `publicStorage?: PublicStorageOverride[]`
 - `static schema: unknown`
 
 ### StateReference
@@ -1827,7 +1894,7 @@ new StateReference(l1ToL2MessageTree: AppendOnlyTreeSnapshot, partial: PartialSt
 - `isEmpty() => boolean`
 - `static random() => StateReference`
 - `toAbi() => []`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 - `toInspect() => { l1ToL2MessageTree: string; noteHashTree: string; ... }`
 - `validate() => void` - Validates the trees in world state have the expected number of leaves (multiple of number of insertions per tx)
@@ -1842,7 +1909,6 @@ new Tag(value: Fr)
 ```
 
 **Properties**
-- `_branding: "Tag"` - Brand.
 - `static schema: unknown`
 - `readonly value: Fr`
 
@@ -1877,7 +1943,7 @@ new TreeSnapshots(l1ToL2MessageTree: AppendOnlyTreeSnapshot, noteHashTree: Appen
 - `static fromPlainObject(obj: any) => TreeSnapshots` - Creates a TreeSnapshots instance from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 - `getSize() => number`
 - `isEmpty() => boolean`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 
 ### Tx
@@ -1906,14 +1972,14 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `static create(fields: Omit<FieldsOf<Tx>, "txHash">) => Promise<Tx>`
 - `static from(fields: FieldsOf<Tx>) => Tx`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Tx` - Deserializes the Tx object from a Buffer.
-- `generateP2PMessageIdentifier() => Promise<Buffer32>`
+- `static fromBuffers(txBuffer: Buffer<ArrayBufferLike> | BufferReader, proofBuffer: Buffer<ArrayBufferLike> | BufferReader) => Tx` - Deserializes a Tx from separately-stored tx and proof buffers. The tx buffer is expected to carry an empty proof placeholder (as produced by `withoutProof().toBuffer()`), which is skipped in favor of the given proof.
+- `generateP2PMessageIdentifier() => Promise<BaseBuffer32>`
 - `getCalldataMap() => Map<string, Fr[]>`
 - `getContractClassLogs() => ContractClassLog[]`
 - `getGasSettings() => GasSettings`
 - `getNonRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
 - `getPrivateTxEffectsSizeInFields() => number` - Returns the number of fields this tx's effects will occupy in the blob, based on its private side effects only. Accurate for txs without public calls. For txs with public calls, the actual size will be larger due to public execution outputs.
 - `getPublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
-- `getPublicLogs(logsSource: L2LogsSource) => Promise<GetPublicLogsResponse>` - Gets public logs emitted by this tx.
 - `getRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
 - `getSize() => number` - Get the size of the gossipable object. This is used for metrics recording.
 - `getSplitContractClassLogs(revertible: boolean) => ContractClassLog[]` - Gets either revertible or non revertible contract class logs emitted by this tx.
@@ -1923,12 +1989,13 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `getTxHash() => TxHash` - Return transaction hash.
 - `hasPublicCalls() => boolean`
 - `numberOfPublicCalls() => number`
-- `p2pMessageLoggingIdentifier() => Promise<Buffer32>` - A digest of the message information **used for logging only**. The identifier used for deduplication is `getMsgIdFn` as defined in `encoding.ts` which is a hash over topic and data.
+- `p2pMessageLoggingIdentifier() => Promise<BaseBuffer32>` - A digest of the message information **used for logging only**. The identifier used for deduplication is `getMsgIdFn` as defined in `encoding.ts` which is a hash over topic and data.
 - `static random(args: { randomProof?: boolean; txHash?: string | TxHash }) => Tx` - Creates a random tx.
 - `recomputeHash() => Promise<TxHash>` - Recomputes the tx hash. Used for testing purposes only when a property of the tx was mutated.
-- `toBuffer() => Buffer<ArrayBufferLike>` - Serializes the Tx object into a Buffer.
+- `toBuffer() => Buffer` - Serializes the Tx object into a Buffer.
 - `toMessage() => Buffer`
 - `validateTxHash() => Promise<boolean>` - Validates that the tx hash matches the computed hash from the tx data. This should be called when deserializing a tx from an untrusted source.
+- `withoutProof() => Tx` - Returns a copy of this tx with its proof stripped (replaced by an empty ChonkProof). Used when archiving txs or shipping a pending tx over RPC where the proof is not needed. Note that Tx.clone with `cloneProof = false` does not strip the proof; it shares the original.
 
 ### TxArray
 
@@ -1968,7 +2035,7 @@ new TxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, vkTreeR
 - `static fromFields(fields: Fr[] | FieldReader) => TxConstantData`
 - `static getFields(fields: FieldsOf<TxConstantData>) => readonly []`
 - `getSize() => number`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toFields() => Fr[]`
 
 ### TxContext
@@ -1995,7 +2062,7 @@ new TxContext(chainId: number | bigint | Fr, version: number | bigint | Fr, gasS
 - `static getFields(fields: FieldsOf<TxContext>) => readonly []` - Serialize into a field array. Low-level utility.
 - `getSize() => number`
 - `isEmpty() => boolean`
-- `toBuffer() => Buffer<ArrayBufferLike>` - Serialize as a buffer.
+- `toBuffer() => Buffer` - Serialize as a buffer.
 - `toFields() => Fr[]`
 
 ### TxEffect
@@ -2088,7 +2155,7 @@ new TxHash(hash: Fr)
 - `static fromString(str: string) => TxHash`
 - `static random() => TxHash`
 - `toBigInt() => bigint`
-- `toBuffer() => Buffer<ArrayBufferLike>`
+- `toBuffer() => Buffer`
 - `toJSON() => string`
 - `toString() => string`
 - `static zero() => TxHash`
@@ -2144,37 +2211,6 @@ new TxProvingResult(privateExecutionResult: PrivateExecutionResult, publicInputs
 - `static random() => Promise<TxProvingResult>`
 - `toTx() => Promise<Tx>`
 
-### TxReceipt
-
-Represents a transaction receipt in the Aztec network. Contains essential information about the transaction including its status, origin, and associated addresses. REFACTOR: TxReceipt should be returned only once the tx is mined, and all its fields should be required. We should not be using a TxReceipt to answer a query for a pending or dropped tx.
-
-**Constructor**
-```typescript
-new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, epochNumber?: EpochNumber, debugLogs?: DebugLog[])
-```
-
-**Properties**
-- `blockHash?: BlockHash` - The hash of the block containing the transaction.
-- `blockNumber?: BlockNumber` - The block number in which the transaction was included.
-- `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
-- `epochNumber?: EpochNumber` - The epoch number in which the transaction was included.
-- `error: string | undefined` - Description of transaction error, if any.
-- `executionResult: TxExecutionResult | undefined` - The execution result of the transaction, only set when tx is in a block.
-- `static schema: unknown`
-- `status: TxStatus` - The transaction's block finalization status.
-- `transactionFee?: bigint` - The transaction fee paid for the transaction.
-- `txHash: TxHash` - A unique identifier for a transaction.
-
-**Methods**
-- `static empty() => TxReceipt`
-- `static executionResultFromRevertCode(revertCode: RevertCode) => TxExecutionResult`
-- `static from(fields: { blockHash?: BlockHash; blockNumber?: BlockNumber; ... }) => TxReceipt`
-- `hasExecutionReverted() => boolean` - Returns true if the transaction execution reverted.
-- `hasExecutionSucceeded() => boolean` - Returns true if the transaction was executed successfully.
-- `isDropped() => boolean` - Returns true if the transaction was dropped.
-- `isMined() => boolean` - Returns true if the transaction has been included in a block (proposed, checkpointed, proven, or finalized).
-- `isPending() => boolean` - Returns true if the transaction is pending.
-
 ### TxRequest
 
 Transaction request.
@@ -2200,29 +2236,6 @@ new TxRequest(origin: AztecAddress, argsHash: Fr, txContext: TxContext, function
 - `isEmpty() => boolean`
 - `toBuffer() => Buffer<ArrayBufferLike>` - Serialize as a buffer.
 - `toFields() => Fr[]`
-
-### TxScopedL2Log
-
-**Constructor**
-```typescript
-new TxScopedL2Log(txHash: TxHash, blockNumber: BlockNumber, blockTimestamp: bigint, logData: Fr[], noteHashes: Fr[], firstNullifier: Fr)
-```
-
-**Properties**
-- `blockNumber: BlockNumber`
-- `blockTimestamp: bigint`
-- `firstNullifier: Fr`
-- `logData: Fr[]`
-- `noteHashes: Fr[]`
-- `static schema: unknown`
-- `txHash: TxHash`
-
-**Methods**
-- `equals(other: TxScopedL2Log) => boolean`
-- `static fromBuffer(buffer: Buffer) => TxScopedL2Log`
-- `static getBlockNumberFromBuffer(buffer: Buffer) => BlockNumber`
-- `static random() => TxScopedL2Log`
-- `toBuffer() => Buffer<ArrayBuffer>`
 
 ### TxSimulationResult
 
@@ -2293,6 +2306,13 @@ A basic value.
 - `kind: T` - The kind of the value.
 - `value: V`
 
+### BlockMinFeesProvider
+
+Provides projected minimum gas fees for the next block.
+
+**Methods**
+- `getCurrentMinFees() => Promise<GasFees>`
+
 ### ContractArtifact
 
 Defines artifact of a contract.
@@ -2321,7 +2341,7 @@ A Contract Class in the protocol. Aztec differentiates contracts classes and ins
 **Methods**
 - `getBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block processed by the implementation.
 - `getBytecodeCommitment(id: Fr) => Promise<Fr | undefined>`
-- `getContract(address: AztecAddress, timestamp?: bigint) => Promise<ContractInstanceWithAddress | undefined>` - Returns a publicly deployed contract instance given its address.
+- `getContract(address: AztecAddress, timestamp: bigint) => Promise<ContractInstanceWithAddress | undefined>` - Returns a publicly deployed contract instance given its address.
 - `getContractClass(id: Fr) => Promise<ContractClassPublic | undefined>` - Returns the contract class for a given contract class id, or undefined if not found.
 - `getContractClassIds() => Promise<Fr[]>` - Returns the list of all class ids known.
 - `getDebugFunctionName(address: AztecAddress, selector: FunctionSelector) => Promise<string | undefined>` - Returns a function's name. It's only available if provided by calling `registerContractFunctionSignatures`.
@@ -2350,16 +2370,32 @@ Extends: `FunctionArtifact`
 
 ### ContractInstance
 
-A contract instance is a concrete deployment of a contract class. It always references a contract class, which dictates what code it executes when called. It has state (both private and public), as well as an address that acts as its identifier. It can be called into. It may have encryption and nullifying public keys.
+The address preimage plus the current contract class id, which is chain-tracked state derived from the ContractInstanceRegistry (it equals the original class id unless the contract has been upgraded).
+
+Extends: `ContractInstancePreimage`
 
 **Properties**
-- `currentContractClassId: Fr` - Identifier of the contract class for this instance.
+- `currentContractClassId: Fr` - Identifier of the contract class this instance currently runs (as of some block).
 - `deployer: AztecAddress` - Optional deployer address or zero if this was a universal deploy.
+- `immutablesHash: Fr` - Hash of Immutables Values the contract is deployed with.
 - `initializationHash: Fr` - Hash of the selector and arguments to the constructor.
 - `originalContractClassId: Fr` - Identifier of the original (at deployment) contract class for this instance
 - `publicKeys: PublicKeys` - Public keys associated with this instance.
 - `salt: Fr` - User-generated pseudorandom value for uniqueness.
-- `version: 1` - Version identifier. Initially one, bumped for any changes to the contract instance struct.
+- `version: 2` - Version identifier. Initially one, bumped for any changes to the contract instance struct.
+
+### ContractInstancePreimage
+
+The address preimage of a contract instance: the immutable data that hashes to its address, i.e. everything a contract deployment commits to. Note that `originaContractClassId` is not necessarily the instance's _current_ class id, in case of upgrades: that one is not part of the preimage and is instead derived from chain state.
+
+**Properties**
+- `deployer: AztecAddress` - Optional deployer address or zero if this was a universal deploy.
+- `immutablesHash: Fr` - Hash of Immutables Values the contract is deployed with.
+- `initializationHash: Fr` - Hash of the selector and arguments to the constructor.
+- `originalContractClassId: Fr` - Identifier of the original (at deployment) contract class for this instance
+- `publicKeys: PublicKeys` - Public keys associated with this instance.
+- `salt: Fr` - User-generated pseudorandom value for uniqueness.
+- `version: 2` - Version identifier. Initially one, bumped for any changes to the contract instance struct.
 
 ### ContractInstanceUpdate
 
@@ -2390,16 +2426,13 @@ Store for debug logs emitted by public functions during transaction execution. U
 - `decorateReceiptWithLogs(txHash: string, receipt: TxReceipt) => void` - Decorate a TxReceipt with any stored debug logs for the given tx.
 - `storeLogs(txHash: string, logs: DebugLog[]) => void` - Store debug logs for a processed transaction.
 
-### ExecutablePrivateFunction
+### FeeProvider
 
-Private function definition with executable bytecode.
+Provides current and predicted fee information for transaction pricing.
 
-Extends: `PrivateFunction`
-
-**Properties**
-- `bytecode: Buffer` - ACIR and Brillig bytecode
-- `selector: FunctionSelector` - Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol.
-- `vkHash: Fr` - Hash of the verification key associated to this private function.
+**Methods**
+- `getCurrentMinFees() => Promise<GasFees>` - Returns the current minimum fees for inclusion in the next block.
+- `getPredictedMinFees(manaUsage?: ManaUsageEstimate) => Promise<GasFees[]>` - Returns current min fees first, followed by predicted min fees for each slot in the prediction window.
 
 ### FunctionAbi
 
@@ -2477,9 +2510,7 @@ Debug metadata for a function.
 Interface for building global variables for Aztec blocks.
 
 **Methods**
-- `buildCheckpointGlobalVariables(coinbase: EthAddress, feeRecipient: AztecAddress, slotNumber: SlotNumber) => Promise<CheckpointGlobalVariables>` - Builds global variables that are constant throughout a checkpoint.
-- `buildGlobalVariables(blockNumber: number, coinbase: EthAddress, feeRecipient: AztecAddress, slotNumber?: SlotNumber) => Promise<GlobalVariables>` - Builds global variables for a given block.
-- `getCurrentMinFees() => Promise<GasFees>`
+- `buildCheckpointGlobalVariables(coinbase: EthAddress, feeRecipient: AztecAddress, slotNumber: SlotNumber, simulationOverridesPlan?: SimulationOverridesPlan) => Promise<CheckpointGlobalVariables>` - Builds global variables that are constant throughout a checkpoint.
 
 ### IntegerType
 
@@ -2515,44 +2546,33 @@ Interface for classes that can receive and store L2 blocks.
 Interface of classes allowing for the retrieval of L2 blocks.
 
 **Methods**
-- `getBlock(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an l2 block. If a negative number is passed, the block returned is the most recent.
-- `getBlockData(number: BlockNumber) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by block number.
-- `getBlockDataByArchive(archive: Fr) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by archive root.
-- `getBlockHeader(number: BlockNumber | "latest") => Promise<BlockHeader | undefined>` - Gets an l2 block header.
-- `getBlockHeaderByArchive(archive: Fr) => Promise<BlockHeader | undefined>` - Gets a block header by its archive root.
-- `getBlockHeaderByHash(blockHash: BlockHash) => Promise<BlockHeader | undefined>` - Gets a block header by its hash.
+- `getBlock(query: NormalizedBlockParameter) => Promise<L2Block | undefined>` - Gets an L2 block matching the given query.
+- `getBlockData(query: NormalizedBlockParameter) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) matching the given query.
 - `getBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block processed by the block source implementation.
-- `getBlocks(from: BlockNumber, limit: number) => Promise<L2Block[]>` - Gets up to `limit` amount of L2 blocks starting from `from`.
+- `getBlocks(query: BlocksQuery) => Promise<L2Block[]>` - Gets a collection of L2 blocks matching the given query.
+- `getBlocksData(query: BlocksQuery) => Promise<BlockData[]>` - Gets a collection of block metadata entries matching the given query.
 - `getBlocksForSlot(slotNumber: SlotNumber) => Promise<L2Block[]>` - Returns all blocks for a given slot.
-- `getCheckpointedBlock(number: BlockNumber) => Promise<CheckpointedL2Block | undefined>` - Gets a checkpointed L2 block by block number. Returns undefined if the block doesn't exist or hasn't been checkpointed yet.
-- `getCheckpointedBlockByArchive(archive: Fr) => Promise<CheckpointedL2Block | undefined>` - Gets a checkpointed block by its archive root.
-- `getCheckpointedBlockByHash(blockHash: BlockHash) => Promise<CheckpointedL2Block | undefined>` - Gets a checkpointed block by its block hash.
-- `getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber) => Promise<BlockHeader[]>` - Returns all checkpointed block headers for a given epoch.
-- `getCheckpointedBlocks(from: BlockNumber, limit: number) => Promise<CheckpointedL2Block[]>`
-- `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
-- `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
+- `getCheckpoint(query: CheckpointQuery) => Promise<PublishedCheckpoint | undefined>` - Gets a single confirmed checkpoint matching the given query. Heavy shape: includes nested full `L2Block`s with transaction bodies.
+- `getCheckpointData(query: CheckpointQuery) => Promise<CheckpointData | undefined>` - Gets lightweight checkpoint metadata for a single checkpoint. Cheap passthrough for metadata-only queries (no block body reads).
 - `getCheckpointNumber() => Promise<CheckpointNumber>` - Gets the number of the latest L2 checkpoint processed by the block source implementation.
-- `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
-- `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
-- `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
-- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Returns the finalized L2 block number. A block is finalized when it was proven in an L1 block that has itself been finalized on Ethereum.
+- `getCheckpoints(query: CheckpointsQuery) => Promise<PublishedCheckpoint[]>` - Gets a collection of confirmed checkpoints matching the given query. Heavy shape: includes nested full `L2Block`s with transaction bodies.
+- `getCheckpointsData(query: CheckpointsQuery) => Promise<CheckpointData[]>` - Gets a collection of lightweight checkpoint metadata entries matching the given query. Cheap passthrough for metadata-only queries (no block body reads).
+- `getGenesisBlockHash() => BlockHash` - Returns the precomputed hash of the genesis block header. Synchronous because the hash is derived from the initial block header at construction time and cached by implementers.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
-- `getL2Block(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an L2 block by block number.
-- `getL2BlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Gets an L2 block by its archive root.
-- `getL2BlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Gets an L2 block by its hash.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
+- `getL2ToL1MembershipWitness(txHash: TxHash, message: Fr, messageIndexInTx?: number) => Promise<L2ToL1MembershipWitness | undefined>` - Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`, built against the smallest partial-proof root on the Outbox that covers the tx's checkpoint. The Outbox roots are read lazily, pinned to the node's synced L1 block, so the witness reflects the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering root has landed on L1 as of the synced block. Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than L1 finality could leave the node serving a witness against a no-longer-canonical root.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
-- `getProvenBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block proven seen by the block source implementation.
+- `getProposedCheckpointData(query?: ProposedCheckpointQuery) => Promise<ProposedCheckpointData | undefined>` - Looks up a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint. Returns the latest proposed entry when called with no args or `{ tag: 'proposed' }`; since a proposed entry can only be stored with a checkpoint number beyond the confirmed frontier (and is deleted on confirmation), the latest entry is always the leading one. Callers derive the proposed tip from the payload (checkpoint number, and last block `startBlock + blockCount - 1`). With `{ number }` or `{ slot }`, returns the matching entry or undefined. Never falls back to confirmed checkpoints.
 - `getRegistryAddress() => Promise<EthAddress>` - Method to fetch the registry contract address at the base-layer.
 - `getRollupAddress() => Promise<EthAddress>` - Method to fetch the rollup contract address at the base-layer.
-- `getSettledTxReceipt(txHash: TxHash) => Promise<TxReceipt | undefined>` - Gets a receipt of a settled tx.
 - `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
 - `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint. Determined by the max of two signals: L1 block sync progress and latest synced checkpoint slot. The checkpoint signal handles missed L1 blocks, since a published checkpoint seals the message tree for the next checkpoint via the inbox LAG mechanism.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
+- `isPruneDueAtSlot(slot: SlotNumber) => Promise<boolean>` - Returns true iff `canPruneAtTime` would be true at the latest L1 timestamp inside the L2 slot's window. Computed entirely from local archiver state (no L1 RPC).
 - `syncImmediate() => Promise<void>` - Force a sync.
 
 ### L2BlockSourceEventEmitter
@@ -2565,44 +2585,33 @@ Extends: `L2BlockSource`
 - `events: ArchiverEmitter`
 
 **Methods**
-- `getBlock(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an l2 block. If a negative number is passed, the block returned is the most recent.
-- `getBlockData(number: BlockNumber) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by block number.
-- `getBlockDataByArchive(archive: Fr) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by archive root.
-- `getBlockHeader(number: BlockNumber | "latest") => Promise<BlockHeader | undefined>` - Gets an l2 block header.
-- `getBlockHeaderByArchive(archive: Fr) => Promise<BlockHeader | undefined>` - Gets a block header by its archive root.
-- `getBlockHeaderByHash(blockHash: BlockHash) => Promise<BlockHeader | undefined>` - Gets a block header by its hash.
+- `getBlock(query: NormalizedBlockParameter) => Promise<L2Block | undefined>` - Gets an L2 block matching the given query.
+- `getBlockData(query: NormalizedBlockParameter) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) matching the given query.
 - `getBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block processed by the block source implementation.
-- `getBlocks(from: BlockNumber, limit: number) => Promise<L2Block[]>` - Gets up to `limit` amount of L2 blocks starting from `from`.
+- `getBlocks(query: BlocksQuery) => Promise<L2Block[]>` - Gets a collection of L2 blocks matching the given query.
+- `getBlocksData(query: BlocksQuery) => Promise<BlockData[]>` - Gets a collection of block metadata entries matching the given query.
 - `getBlocksForSlot(slotNumber: SlotNumber) => Promise<L2Block[]>` - Returns all blocks for a given slot.
-- `getCheckpointedBlock(number: BlockNumber) => Promise<CheckpointedL2Block | undefined>` - Gets a checkpointed L2 block by block number. Returns undefined if the block doesn't exist or hasn't been checkpointed yet.
-- `getCheckpointedBlockByArchive(archive: Fr) => Promise<CheckpointedL2Block | undefined>` - Gets a checkpointed block by its archive root.
-- `getCheckpointedBlockByHash(blockHash: BlockHash) => Promise<CheckpointedL2Block | undefined>` - Gets a checkpointed block by its block hash.
-- `getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber) => Promise<BlockHeader[]>` - Returns all checkpointed block headers for a given epoch.
-- `getCheckpointedBlocks(from: BlockNumber, limit: number) => Promise<CheckpointedL2Block[]>`
-- `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
-- `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
+- `getCheckpoint(query: CheckpointQuery) => Promise<PublishedCheckpoint | undefined>` - Gets a single confirmed checkpoint matching the given query. Heavy shape: includes nested full `L2Block`s with transaction bodies.
+- `getCheckpointData(query: CheckpointQuery) => Promise<CheckpointData | undefined>` - Gets lightweight checkpoint metadata for a single checkpoint. Cheap passthrough for metadata-only queries (no block body reads).
 - `getCheckpointNumber() => Promise<CheckpointNumber>` - Gets the number of the latest L2 checkpoint processed by the block source implementation.
-- `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
-- `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
-- `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
-- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Returns the finalized L2 block number. A block is finalized when it was proven in an L1 block that has itself been finalized on Ethereum.
+- `getCheckpoints(query: CheckpointsQuery) => Promise<PublishedCheckpoint[]>` - Gets a collection of confirmed checkpoints matching the given query. Heavy shape: includes nested full `L2Block`s with transaction bodies.
+- `getCheckpointsData(query: CheckpointsQuery) => Promise<CheckpointData[]>` - Gets a collection of lightweight checkpoint metadata entries matching the given query. Cheap passthrough for metadata-only queries (no block body reads).
+- `getGenesisBlockHash() => BlockHash` - Returns the precomputed hash of the genesis block header. Synchronous because the hash is derived from the initial block header at construction time and cached by implementers.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
-- `getL2Block(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an L2 block by block number.
-- `getL2BlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Gets an L2 block by its archive root.
-- `getL2BlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Gets an L2 block by its hash.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
+- `getL2ToL1MembershipWitness(txHash: TxHash, message: Fr, messageIndexInTx?: number) => Promise<L2ToL1MembershipWitness | undefined>` - Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`, built against the smallest partial-proof root on the Outbox that covers the tx's checkpoint. The Outbox roots are read lazily, pinned to the node's synced L1 block, so the witness reflects the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering root has landed on L1 as of the synced block. Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than L1 finality could leave the node serving a witness against a no-longer-canonical root.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
-- `getProvenBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block proven seen by the block source implementation.
+- `getProposedCheckpointData(query?: ProposedCheckpointQuery) => Promise<ProposedCheckpointData | undefined>` - Looks up a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint. Returns the latest proposed entry when called with no args or `{ tag: 'proposed' }`; since a proposed entry can only be stored with a checkpoint number beyond the confirmed frontier (and is deleted on confirmation), the latest entry is always the leading one. Callers derive the proposed tip from the payload (checkpoint number, and last block `startBlock + blockCount - 1`). With `{ number }` or `{ slot }`, returns the matching entry or undefined. Never falls back to confirmed checkpoints.
 - `getRegistryAddress() => Promise<EthAddress>` - Method to fetch the registry contract address at the base-layer.
 - `getRollupAddress() => Promise<EthAddress>` - Method to fetch the rollup contract address at the base-layer.
-- `getSettledTxReceipt(txHash: TxHash) => Promise<TxReceipt | undefined>` - Gets a receipt of a settled tx.
 - `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
 - `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint. Determined by the max of two signals: L1 block sync progress and latest synced checkpoint slot. The checkpoint signal handles missed L1 blocks, since a published checkpoint seals the message tree for the next checkpoint via the inbox LAG mechanism.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
+- `isPruneDueAtSlot(slot: SlotNumber) => Promise<boolean>` - Returns true iff `canPruneAtTime` would be true at the latest L1 timestamp inside the L2 slot's window. Computed entirely from local archiver state (no L1 RPC).
 - `syncImmediate() => Promise<void>` - Force a sync.
 
 ### L2BlockStreamEventHandler
@@ -2614,13 +2623,11 @@ Interface to a handler of events emitted.
 
 ### L2BlockStreamLocalDataProvider
 
-Interface to the local view of the chain. Implemented by world-state and l2-tips-store.
-
-Extends: `L2TipsProvider`
+Interface to the local view of the chain. Implemented by world-state and l2-tips-store. Anything implementing L2TipsProvider also satisfies this contract structurally, since LocalL2Tips is assignable to LocalChainTips.
 
 **Methods**
 - `getL2BlockHash(number: number) => Promise<string | undefined>`
-- `getL2Tips() => Promise<L2Tips>`
+- `getL2Tips() => Promise<LocalChainTips>`
 
 ### L2TipsProvider
 
@@ -2641,6 +2648,7 @@ Provides basic information about the running node.
 - `protocolContractAddresses: ProtocolContractAddresses` - Protocol contract addresses
 - `realProofs: boolean` - Whether the node requires real proofs for transaction submission.
 - `rollupVersion: number` - Rollup version.
+- `txsLimits: TxsLimits` - Limits a single tx may declare on this network. Clients rely on this to set fallback gas limits.
 
 ### PrivateFunction
 
@@ -2656,6 +2664,13 @@ The debug information for a given program (a collection of functions)
 
 **Properties**
 - `debug_infos: DebugInfo[]` - A list of debug information that matches with each function in a program
+
+### ProposedCheckpointSink
+
+Interface for classes that can receive and store proposed (not-yet-L1-confirmed) checkpoints.
+
+**Methods**
+- `addProposedCheckpoint(checkpoint: ProposedCheckpointInput) => Promise<void>` - Adds a proposed checkpoint to the store. The archive and checkpointOutHash are computed internally from the already-stored blocks, so every block in the checkpoint must be added (via L2BlockSink.addBlock) before calling this.
 
 ### ProvingStats
 
@@ -2722,18 +2737,42 @@ Extends: `BasicType<"tuple">`
 - `fields: AbiValue[]`
 - `kind: "tuple"`
 
+### TxReceiptInterface
+
+Returned from a `getTxReceipt` call to the node RPC API.
+
+**Properties**
+- `blockHash?: BlockHash` - The hash of the block containing the transaction.
+- `blockNumber?: BlockNumber` - The block number in which the transaction was included.
+- `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
+- `epochNumber?: EpochNumber` - The epoch number in which the transaction was included.
+- `error?: string` - Description of the transaction error, if any.
+- `executionResult?: TxExecutionResult` - The execution result of the transaction, only set when the tx is in a block.
+- `slotNumber?: SlotNumber` - The slot number in which the transaction's block was built.
+- `status: TxStatus` - The transaction's block finalization status.
+- `transactionFee?: bigint` - The transaction fee paid for the transaction.
+- `tx?: Tx` - The pending transaction, attached when requested via `includePendingTx`.
+- `txEffect?: TxEffect` - The full transaction effect, attached when requested via `includeTxEffect`.
+- `txIndexInBlock?: number` - The index of the transaction within its block.
+
+**Methods**
+- `hasExecutionReverted() => boolean` - Returns true if the transaction execution reverted.
+- `hasExecutionSucceeded() => boolean` - Returns true if the transaction was executed successfully.
+- `isDropped() => boolean` - Returns true (and narrows) if the transaction was dropped.
+- `isMined() => boolean` - Returns true (and narrows) if the transaction has been included in a block.
+- `isPending() => boolean` - Returns true (and narrows) if the transaction is pending.
+
 ### TxValidator
 
 **Methods**
 - `validateTx(tx: T) => Promise<TxValidationResult>`
 
-### UtilityFunction
+### TxsLimits
 
-Utility function definition.
+Limits a single transaction may declare on a network.
 
 **Properties**
-- `bytecode: Buffer` - Brillig.
-- `selector: FunctionSelector` - Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol.
+- `gas: { daGas: number; l2Gas: number }` - Maximum gas limits a single tx may declare: the smaller of the per-tx maximum and the per-block allocation.
 
 ## Functions
 
@@ -2743,6 +2782,29 @@ function accumulatePrivateReturnValues(executionResult: PrivateExecutionResult) 
 ```
 Recursively accumulate the return values of a call result and its nested executions, so they can be retrieved in order.
 
+### appSiloEcdhSharedSecret
+```typescript
+function appSiloEcdhSharedSecret(secretKey: Fq, publicKey: Point, contractAddress: AztecAddress) => Promise<Fr>
+```
+Derives an app-siloed ECDH shared secret from keys: ECDHs `S = secretKey * publicKey` via deriveEcdhSharedSecretPoint, then app-silos it via appSiloEcdhSharedSecretPoint.
+
+### appSiloEcdhSharedSecretPoint
+```typescript
+function appSiloEcdhSharedSecretPoint(point: Point, app: AztecAddress) => Promise<Fr>
+```
+App-silos a shared secret point: `s_app = h(DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, S.x, S.y, app)`. Mirrors `compute_app_siloed_shared_secret` in aztec-nr.
+
+### appTaggingSecretFromString
+```typescript
+function appTaggingSecretFromString(str: string) => AppTaggingSecret
+```
+Parses a stored `AppTaggingSecret` string key.
+
+### appTaggingSecretKindFromDeliveryMode
+```typescript
+function appTaggingSecretKindFromDeliveryMode(deliveryMode: number) => AppTaggingSecretKind
+```
+
 ### bufferAsFields
 ```typescript
 function bufferAsFields(input: Buffer, targetLength: number) => Fr[]
@@ -2751,7 +2813,7 @@ Formats a buffer as an array of fields. Splits the input into 31-byte chunks, an
 
 ### bufferFromFields
 ```typescript
-function bufferFromFields(fields: Fr[]) => Buffer
+function bufferFromFields(fields: Fr[], maxByteLength?: number) => Buffer
 ```
 Recovers a buffer from an array of fields previously encoded with bufferAsFields. The first field encodes the byte length of the original buffer. The remaining fields each carry 31 bytes of payload (the leading byte of each 32-byte field element is skipped). If the declared byte length exceeds the bytes available from the payload fields, the result is zero-padded to the full declared length. This is important for correctness when the field array has been truncated (e.g. contract class logs reconstructed from blobs using a short emittedLength): without padding, the resulting buffer would be shorter than declared, causing bytecode commitment computations to diverge from what the circuit produced.
 
@@ -2795,7 +2857,7 @@ function computeAddressSecret(preaddress: Fr, ivsk: Fq) => Promise<Fq>
 
 ### computeAppNullifierHidingKey
 ```typescript
-function computeAppNullifierHidingKey(masterNullifierHidingKey: Fq, app: AztecAddress) => Promise<Fr>
+function computeAppNullifierHidingKey(masterNullifierHidingSecretKey: Fq, app: AztecAddress) => Promise<Fr>
 ```
 
 ### computeAppSecretKey
@@ -2835,17 +2897,23 @@ function computeCalldataHash(calldata: Fr[]) => Promise<Fr>
 ```
 Computes the hash of a public function's calldata.
 
+### computeCongestionMultiplier
+```typescript
+function computeCongestionMultiplier(excessMana: bigint, manaTarget: bigint) => bigint
+```
+Computes the congestion multiplier from excess mana (1e9 = no congestion).
+
 ### computeContractAddressFromInstance
 ```typescript
-function computeContractAddressFromInstance(instance: ContractInstance | { originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, "publicKeys">) => Promise<AztecAddress>
+function computeContractAddressFromInstance(instance: ContractInstancePreimage | { originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, "publicKeys">) => Promise<AztecAddress>
 ```
-Returns the deployment address for a given contract instance. ``` salted_initialization_hash = pedersen([salt, initialization_hash, deployer], GENERATOR__SALTED_INITIALIZATION_HASH) partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1) address = ((poseidon2Hash([public_keys_hash, partial_address, GENERATOR__CONTRACT_ADDRESS_V1]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
+Returns the deployment address for a given contract instance. ``` salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash]) partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash]) address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
 
 ### computeContractClassId
 ```typescript
 function computeContractClassId(contractClass: ContractClass | ContractClassIdPreimage) => Promise<Fr>
 ```
-Returns the id of a contract class computed as its hash. ``` version = 1 private_function_leaves = private_functions.map(fn => pedersen([fn.function_selector as Field, fn.vk_hash], GENERATOR__PRIVATE_FUNCTION_LEAF)) private_functions_root = merkleize(private_function_leaves) bytecode_commitment = calculate_commitment(packed_bytecode) contract_class_id = pedersen([version, artifact_hash, private_functions_root, bytecode_commitment], GENERATOR__CLASS_IDENTIFIER) ```
+Returns the id of a contract class computed as its hash. ``` version = 1 private_function_leaves = private_functions.map(fn => poseidon2(DOM_SEP__PRIVATE_FUNCTION_LEAF, [fn.function_selector as Field, fn.vk_hash])) private_functions_root = merkleize(private_function_leaves) bytecode_commitment = calculate_commitment(packed_bytecode) contract_class_id = poseidon2(DOM_SEP__CONTRACT_CLASS_ID, [version, artifact_hash, private_functions_root, bytecode_commitment]) ```
 
 ### computeContractClassIdPreimage
 ```typescript
@@ -2858,6 +2926,12 @@ Returns the preimage of a contract class id given a contract class.
 function computeContractClassIdWithPreimage(contractClass: ContractClass | ContractClassIdPreimage) => Promise<ContractClassIdPreimage & { id: Fr }>
 ```
 Computes a contract class id and returns it along with its preimage.
+
+### computeExcessMana
+```typescript
+function computeExcessMana(prevExcessMana: bigint, prevManaUsed: bigint, manaTarget: bigint) => bigint
+```
+Computes excess mana for the next checkpoint, clamped to zero.
 
 ### computeFunctionArtifactHash
 ```typescript
@@ -2881,11 +2955,6 @@ function computeInitializationHashFromEncodedArgs(initFn: FunctionSelector, enco
 ```
 Computes the initialization hash for an instance given its constructor function selector and encoded arguments.
 
-### computeL1ToL2MessageNullifier
-```typescript
-function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) => Promise<Fr>
-```
-
 ### computeL2ToL1MessageHash
 ```typescript
 function computeL2ToL1MessageHash(__namedParameters: { chainId: Fr; content: Fr; ... }) => Fr
@@ -2898,11 +2967,35 @@ function computeLogTag(rawTag: number | bigint | boolean | Fr | Buffer<ArrayBuff
 ```
 Domain-separates a raw log tag with the given domain separator.
 
+### computeManaMinFee
+```typescript
+function computeManaMinFee(params: ManaMinFeeParams) => bigint
+```
+Computes the full mana min fee (sequencer + prover + congestion) in fee asset terms. Mirrors FeeLib.getManaMinFeeComponentsAt + summedMinFee.
+
+### computeMerkleHash
+```typescript
+function computeMerkleHash(left: Fr, right: Fr) => Promise<Fr>
+```
+Computes a Poseidon2 merkle tree internal node hash for append-only trees (note-hash, L1->L2, archive).
+
+### computeNetworkTxGasLimits
+```typescript
+function computeNetworkTxGasLimits(opts: { manaCheckpointBudget: number; maxBlocksPerCheckpoint: number }) => Gas
+```
+Computes the maximum gas a single tx may declare on a network: the smaller of the per-tx protocol maximum and the per-block allocation a proposer grants to the first block of a checkpoint. The per-block allocation mirrors `CheckpointBuilder.capLimitsByCheckpointBudgets` (`ceil(checkpointBudget / maxBlocksPerCheckpoint * multiplier)`) using the network-minimum multipliers, so a tx declaring this much is admissible into a block under that geometry. This is a *network* limit: a function of network-wide constants only (timetable-derived blocks-per-checkpoint, checkpoint budgets, the network-minimum multipliers). It must NOT depend on a node's local restrictiveness — its multipliers configured above the network minimum, or its `maxDABlockGas` / `validateMaxDABlockGas` caps — because those make a node stricter at block-building time but cannot define what the network considers a valid tx for relay. The same value is advertised by `getNodeInfo` and enforced by the RPC/gossip/pool gas validators. The DA budget is getDaCheckpointBudgetForTxs evaluated at the clamped blocks-per-checkpoint — the raw blob capacity net of encoding overhead for every block — so the admission limit is consistent with the builder's blob-field cap.
+
 ### computeNoteHashNonce
 ```typescript
 function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number) => Promise<Fr>
 ```
 Computes a note hash nonce, which will be used to create a unique note hash.
+
+### computeNullifierMerkleHash
+```typescript
+function computeNullifierMerkleHash(left: Fr, right: Fr) => Promise<Fr>
+```
+Merkle-node hasher for the nullifier tree's sibling paths.
 
 ### computeOvskApp
 ```typescript
@@ -2911,7 +3004,7 @@ function computeOvskApp(ovsk: Fq, app: AztecAddress) => Promise<Fq>
 
 ### computePartialAddress
 ```typescript
-function computePartialAddress(instance: Pick<ContractInstance, "originalContractClassId" | "initializationHash" | "salt" | "deployer"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<Fr>
+function computePartialAddress(instance: Pick<ContractInstance, "originalContractClassId" | "initializationHash" | "salt" | "deployer" | "immutablesHash"> | { originalContractClassId: Fr; saltedInitializationHash: Fr }) => Promise<Fr>
 ```
 Computes the partial address defined as the hash of the contract class id and salted initialization hash.
 
@@ -2955,6 +3048,12 @@ Computes the protocol nullifier, which is the hash of the initial tx request sil
 function computePublicBytecodeCommitment(packedBytecode: Buffer) => Promise<Fr>
 ```
 
+### computePublicDataMerkleHash
+```typescript
+function computePublicDataMerkleHash(left: Fr, right: Fr) => Promise<Fr>
+```
+Merkle-node hasher for the public-data tree's sibling paths.
+
 ### computePublicDataTreeLeafSlot
 ```typescript
 function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr) => Promise<Fr>
@@ -2969,7 +3068,7 @@ Computes a public data tree value ready for insertion.
 
 ### computeSaltedInitializationHash
 ```typescript
-function computeSaltedInitializationHash(instance: Pick<ContractInstance, "initializationHash" | "salt" | "deployer">) => Promise<Fr>
+function computeSaltedInitializationHash(instance: Pick<ContractInstance, "initializationHash" | "salt" | "deployer" | "immutablesHash">) => Promise<Fr>
 ```
 Computes the salted initialization hash for an address, defined as the hash of the salt and initialization hash.
 
@@ -2978,6 +3077,12 @@ Computes the salted initialization hash for an address, defined as the hash of t
 function computeSecretHash(secret: Fr) => Promise<Fr>
 ```
 Computes a hash of a secret.
+
+### computeSharedTaggingSecret
+```typescript
+function computeSharedTaggingSecret(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress) => Promise<Point | undefined>
+```
+Computes the shared tagging secret point between a local address (i.e. one for which the privacy keys are known) and an external one via a Diffie-Hellman key exchange. Returns undefined if `externalAddress` is an invalid address.
 
 ### computeSiloedPrivateInitializationNullifier
 ```typescript
@@ -3050,21 +3155,9 @@ function countArgumentsSize(abi: FunctionAbi) => number
 ```
 Returns the size of the arguments for a function ABI.
 
-### createPrivateFunctionMembershipProof
-```typescript
-function createPrivateFunctionMembershipProof(selector: FunctionSelector, artifact: ContractArtifact) => Promise<PrivateFunctionMembershipProof>
-```
-Creates a membership proof for a private function in a contract class, to be verified via `isValidPrivateFunctionMembershipProof`.
-
-### createUtilityFunctionMembershipProof
-```typescript
-function createUtilityFunctionMembershipProof(selector: FunctionSelector, artifact: ContractArtifact) => Promise<UtilityFunctionMembershipProof>
-```
-Creates a membership proof for a utility function in a contract class, to be verified via `isValidUtilityFunctionMembershipProof`.
-
 ### dataInBlockSchemaFor
 ```typescript
-function dataInBlockSchemaFor<T extends ZodTypeAny>(schema: T) => ZodObject<{ l2BlockHash: ZodFor<BlockHash>; l2BlockNumber: ZodEffects<ZodPipeline<ZodUnion<[]>, ZodNumber>, BlockNumber, string | number | bigint> } & { data: T }, "strip", ZodTypeAny, { [key: string]: unknown }, { [key: string]: unknown }>
+function dataInBlockSchemaFor<T extends ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>>(schema: T) => ZodObject<{ data: T; l2BlockHash: ZodFor<BlockHash>; l2BlockNumber: ZodPipe<ZodUnion<readonly []>, ZodTransform<BlockNumber, number>> }, $strip>
 ```
 
 ### decodeFromAbi
@@ -3085,26 +3178,42 @@ function decodeFunctionSignatureWithParameterNames(name: string, parameters: { n
 ```
 Decodes a function signature from the name and parameters including parameter names.
 
-### deriveAppSiloedSharedSecret
+### deriveEcdhSharedSecretPoint
 ```typescript
-function deriveAppSiloedSharedSecret(secretKey: Fq, publicKey: Point, contractAddress: AztecAddress) => Promise<Fr>
+function deriveEcdhSharedSecretPoint(secretKey: Fq, publicKey: Point) => Promise<Point>
 ```
-Derives an app-siloed ECDH shared secret. Computes the raw ECDH shared secret `S = secretKey * publicKey`, then app-silos it: `s_app = h(DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, S.x, S.y, contractAddress)`
+Derives the raw ECDH shared secret point `S = secretKey * publicKey`.
 
 ### deriveKeys
 ```typescript
-function deriveKeys(secretKey: Fr) => Promise<{ masterIncomingViewingSecretKey: Fq; masterNullifierHidingKey: Fq; ... }>
+function deriveKeys(secretKey: Fr) => Promise<{ masterFallbackPublicKey: Point; masterFallbackSecretKey: Fq; ... }>
 ```
 Computes secret and public keys and public keys hash from a secret key.
+
+### deriveKeysFromMasterSecretKeys
+```typescript
+function deriveKeysFromMasterSecretKeys(secretKeys: MasterSecretKeys) => Promise<{ masterFallbackPublicKey: Point; masterFallbackSecretKey: Fq; ... }>
+```
+Derives the master public keys and the PublicKeys struct from a set of master secret keys.
+
+### deriveMasterFallbackSecretKey
+```typescript
+function deriveMasterFallbackSecretKey(secretKey: Fr) => Fq
+```
 
 ### deriveMasterIncomingViewingSecretKey
 ```typescript
 function deriveMasterIncomingViewingSecretKey(secretKey: Fr) => Fq
 ```
 
-### deriveMasterNullifierHidingKey
+### deriveMasterMessageSigningSecretKey
 ```typescript
-function deriveMasterNullifierHidingKey(secretKey: Fr) => Fq
+function deriveMasterMessageSigningSecretKey(secretKey: Fr) => Fq
+```
+
+### deriveMasterNullifierHidingSecretKey
+```typescript
+function deriveMasterNullifierHidingSecretKey(secretKey: Fr) => Fq
 ```
 
 ### deriveMasterOutgoingViewingSecretKey
@@ -3115,11 +3224,6 @@ function deriveMasterOutgoingViewingSecretKey(secretKey: Fr) => Fq
 ### derivePublicKeyFromSecretKey
 ```typescript
 function derivePublicKeyFromSecretKey(secretKey: Fq) => Promise<Point>
-```
-
-### deriveSigningKey
-```typescript
-function deriveSigningKey(secretKey: Fr) => Fq
 ```
 
 ### deriveStorageSlotInMap
@@ -3164,6 +3268,24 @@ function encodeArguments(abi: FunctionAbi, args: any[]) => Fr[]
 ```
 Encodes all the arguments for a function call.
 
+### fakeExponential
+```typescript
+function fakeExponential(factor: bigint, numerator: bigint, denominator: bigint) => bigint
+```
+Taylor series approximation of `factor * e^(numerator/denominator)`. Direct port of FeeLib.sol fakeExponential (EIP-4844 style).
+
+### findFunctionAbiBySelector
+```typescript
+function findFunctionAbiBySelector(artifact: ContractArtifact, selector: FunctionSelector) => Promise<FunctionAbi | undefined>
+```
+Finds the function abi (across both `functions` and `nonDispatchPublicFunctions`) whose selector matches `selector`. Returns `undefined` if no match is found.
+
+### findFunctionArtifactBySelector
+```typescript
+function findFunctionArtifactBySelector(artifact: ContractArtifact, selector: FunctionSelector) => Promise<FunctionArtifact | undefined>
+```
+Finds the function artifact within `artifact.functions` whose selector matches `selector`. Returns `undefined` if no match is found.
+
 ### gasUsedFromPlainObject
 ```typescript
 function gasUsedFromPlainObject(obj: any) => GasUsed
@@ -3188,7 +3310,7 @@ function getAttestationInfoFromPayload(payload: ConsensusPayload, attestations: 
 
 ### getAttestationInfoFromPublishedCheckpoint
 ```typescript
-function getAttestationInfoFromPublishedCheckpoint(block: { attestations: CommitteeAttestation[]; checkpoint: Checkpoint }) => AttestationInfo[]
+function getAttestationInfoFromPublishedCheckpoint(block: { attestations: CommitteeAttestation[]; checkpoint: Checkpoint }, signatureContext: CoordinationSignatureContext) => AttestationInfo[]
 ```
 Extracts attestation information from a published checkpoint. Returns info for each attestation, preserving array indices.
 
@@ -3208,6 +3330,12 @@ function getContractClassPrivateFunctionFromArtifact(f: FunctionArtifact) => Pro
 function getContractInstanceFromInstantiationParams(artifact: ContractArtifact, opts: ContractInstantiationData) => Promise<ContractInstanceWithAddress>
 ```
 Generates a Contract Instance from some instantiation params.
+
+### getDaCheckpointBudgetForTxs
+```typescript
+function getDaCheckpointBudgetForTxs(maxBlocksPerCheckpoint: number) => number
+```
+The DA gas budget available to tx data within a checkpoint of `maxBlocksPerCheckpoint` blocks. This is the raw blob capacity (`BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD`) minus the fields the blob encoding reserves for overhead that no tx pays DA gas for: - one checkpoint-end marker field (`NUM_CHECKPOINT_END_MARKER_FIELDS`), - the first block's block-end fields (`NUM_FIRST_BLOCK_END_BLOB_FIELDS`, 7), and - `NUM_BLOCK_END_BLOB_FIELDS` (6) for each of the `blocks - 1` subsequent blocks. Subtracting the overhead for every block (not just the first) keeps the network DA admission limit at or below the builder's first-block blob-field cap at every geometry. The builder is the MOST generous for the first block — it only reserves that block's own block-end overhead — so being conservative here (assuming the checkpoint is full of blocks, each spending its share) is what guarantees admitted ⇒ buildable: a tx admitted under this budget always fits the first block's blob-field cap, regardless of how many blocks the builder ends up packing.
 
 ### getDefaultInitializer
 ```typescript
@@ -3248,6 +3376,12 @@ Returns an initializer from the contract.
 function getKeyGenerator(prefix: KeyPrefix) => KeyGenerator
 ```
 
+### getNetworkTxGasLimits
+```typescript
+function getNetworkTxGasLimits(config: ProposerTimetableConfig, l1Constants: SlotTimingConstants & { rollupManaLimit: number }) => Gas
+```
+Network tx gas limits derived from a sequencer/p2p config and the L1 slot-timing + mana constants. The single source of truth shared by `getNodeInfo` (advertising) and the RPC/gossip/pool gas validators (enforcing), so a node never rejects a tx it advertised as admissible. Always uses the network-minimum multipliers, never the node's (possibly higher) configured multipliers.
+
 ### getTxHash
 ```typescript
 function getTxHash(tx: AnyTx) => TxHash
@@ -3258,6 +3392,12 @@ function getTxHash(tx: AnyTx) => TxHash
 function hasPublicCalls(tx: AnyTx) => boolean
 ```
 
+### hashPublicKey
+```typescript
+function hashPublicKey(pk: Point) => Promise<Fr>
+```
+Hashes a public key. Mirrors Noir's `hash_public_key` in `noir-protocol-circuits/crates/types/src/public_keys.nr`: `Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, [pk.x, pk.y])`. This is distinct from Noir's generic `Hash` impl for `EmbeddedCurvePoint` (`noir_stdlib/src/embedded_curve_ops.nr`), which simply absorbs `x` then `y` into a `Hasher` state with no domain separator. That generic impl is unsuitable for hashing keys at the protocol boundary, where the domain separator is required to prevent collisions with hashes of other Grumpkin points (e.g. note commitments, nullifiers).
+
 ### hashVK
 ```typescript
 function hashVK(keyAsFields: Fr[]) => Promise<Fr>
@@ -3266,17 +3406,22 @@ Computes a hash of a given verification key.
 
 ### inBlockSchema
 ```typescript
-function inBlockSchema() => ZodObject<{ l2BlockHash: ZodFor<BlockHash>; l2BlockNumber: ZodEffects<ZodPipeline<ZodUnion<[]>, ZodNumber>, BlockNumber, string | number | bigint> }, "strip", ZodTypeAny, { l2BlockHash: BlockHash; l2BlockNumber: number & { _branding: "BlockNumber" } }, { l2BlockHash?: any; l2BlockNumber: string | number | bigint }>
+function inBlockSchema() => ZodObject<{ l2BlockHash: ZodFor<BlockHash>; l2BlockNumber: ZodPipe<ZodUnion<readonly []>, ZodTransform<BlockNumber, number>> }, $strip>
 ```
 
 ### inTxSchema
 ```typescript
-function inTxSchema() => ZodIntersection<ZodObject<{ l2BlockHash: ZodFor<BlockHash>; l2BlockNumber: ZodEffects<ZodPipeline<ZodUnion<[]>, ZodNumber>, BlockNumber, string | number | bigint> }, "strip", ZodTypeAny, { l2BlockHash: BlockHash; l2BlockNumber: number & { _branding: "BlockNumber" } }, { l2BlockHash?: any; l2BlockNumber: string | number | bigint }>, ZodObject<{ txHash: ZodEffects<ZodEffects<ZodEffects<ZodEffects<ZodString, string, string>, string, string>, Buffer<ArrayBuffer>, string>, TxHash, string> }, "strip", ZodTypeAny, { txHash: TxHash }, { txHash: string }>>
+function inTxSchema() => ZodIntersection<ZodObject<{ l2BlockHash: ZodFor<BlockHash>; l2BlockNumber: ZodPipe<ZodUnion<readonly []>, ZodTransform<BlockNumber, number>> }, $strip>, ZodObject<{ txHash: ZodPipe<ZodPipe<ZodPipe<ZodString, ZodTransform<string, string>>, ZodTransform<Buffer<ArrayBuffer>, string>>, ZodTransform<TxHash, Buffer<ArrayBuffer>>> }, $strip>>
 ```
 
 ### indexedTxSchema
 ```typescript
-function indexedTxSchema() => ZodObject<{ l2BlockHash: ZodFor<BlockHash>; l2BlockNumber: ZodEffects<ZodPipeline<ZodUnion<[]>, ZodNumber>, BlockNumber, string | number | bigint> } & { data: ZodFor<TxEffect> } & { txIndexInBlock: ZodPipeline<ZodUnion<[]>, ZodNumber> }, "strip", ZodTypeAny, { data: TxEffect; l2BlockHash: BlockHash; ... }, { data?: any; l2BlockHash?: any; ... }>
+function indexedTxSchema() => ZodObject<{ data: ZodFor<TxEffect>; l2BlockHash: ZodFor<BlockHash>; ... }, $strip>
+```
+
+### inspectBlockParameter
+```typescript
+function inspectBlockParameter(param: BlockParameter) => string
 ```
 
 ### isAddressStruct
@@ -3321,23 +3466,17 @@ function isPublicKeysStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is a PublicKeys struct from Aztec.nr.
 
-### isValidPrivateFunctionMembershipProof
-```typescript
-function isValidPrivateFunctionMembershipProof(fn: ExecutablePrivateFunctionWithMembershipProof, contractClass: Pick<ContractClassPublic, "privateFunctionsRoot" | "artifactHash">) => Promise<boolean>
-```
-Verifies that a private function with a membership proof as emitted by the ClassRegistry contract is valid, as defined in the protocol specs at contract-deployment/classes: ``` // Load contract class from local db contract_class = db.get_contract_class(contract_class_id) // Compute function leaf and assert it belongs to the private functions tree function_leaf = pedersen([selector as Field, vk_hash], GENERATOR__PRIVATE_FUNCTION_LEAF) computed_private_function_tree_root = compute_root(function_leaf, private_function_tree_sibling_path) assert computed_private_function_tree_root == contract_class.private_functions_root // Compute artifact leaf and assert it belongs to the artifact artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode)) computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path) computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, utility_functions_artifact_tree_root, artifact_metadata_hash) assert computed_artifact_hash == contract_class.artifact_hash ```
-
-### isValidUtilityFunctionMembershipProof
-```typescript
-function isValidUtilityFunctionMembershipProof(fn: UtilityFunctionWithMembershipProof, contractClass: Pick<ContractClassPublic, "artifactHash">) => Promise<boolean>
-```
-Verifies that a utility function with a membership proof as emitted by the ClassRegistry contract is valid, as defined in the protocol specs at contract-deployment/classes: ``` // Load contract class from local db contract_class = db.get_contract_class(contract_class_id) // Compute artifact leaf and assert it belongs to the artifact artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode)) computed_artifact_utility_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index) computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_artifact_utility_function_tree_root, artifact_metadata_hash) assert computed_artifact_hash == contract_class.artifact_hash ```
-
 ### isWrappedFieldStruct
 ```typescript
 function isWrappedFieldStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is a struct with a single `inner` field.
+
+### l2TipsEqual
+```typescript
+function l2TipsEqual(a: L2Tips, b: L2Tips) => boolean
+```
+Returns whether two L2Tips snapshots agree on every tier (proposed, checkpointed, proven, finalized).
 
 ### loadContractArtifact
 ```typescript
@@ -3350,6 +3489,30 @@ Gets nargo build output and returns a valid contract artifact instance. Does not
 function loadContractArtifactForPublic(input: NoirCompiledContract) => ContractArtifact
 ```
 Gets nargo build output and returns a valid contract artifact instance. Differs from loadContractArtifact() by retaining all bytecode.
+
+### loadContractArtifactWithValidation
+```typescript
+function loadContractArtifactWithValidation(input: NoirCompiledContract) => ContractArtifact
+```
+Like loadContractArtifact, but fully validates an already-processed artifact against the contract artifact schema before returning it. Use when loading an artifact from untrusted or external JSON (e.g. a file path passed to the CLI), so a malformed artifact is rejected up-front with a clear schema error instead of surfacing as an opaque failure later during deployment. `loadContractArtifact` only runs the shallow `isContractArtifact` shape check on already-processed artifacts; raw nargo output is validated via `generateContractArtifact` regardless. The returned object is identical to `loadContractArtifact`'s; the schema parse is used purely for validation.
+
+### localBlockIdDiffers
+```typescript
+function localBlockIdDiffers(localBlock: LocalL2BlockId | undefined, sourceBlock: L2BlockId) => boolean
+```
+Returns whether a local block id differs from a source block id. Compares block number and, when the local hash is known, block hash. The hash comparison is skipped when the local hash is undefined: world-state legitimately reports `undefined` hashes for tips ahead of its synced range, and comparing against an undefined hash would treat such a tip as different on every poll. An `undefined` local block (no local tip yet) always counts as differing.
+
+### localTipsMatch
+```typescript
+function localTipsMatch(local: LocalChainTips, source: L2Tips) => boolean
+```
+Returns whether the local chain tips agree with the given source tips on every tier the local provider exposes. Each tier is compared at the block level via localBlockIdDiffers (so an unresolved local hash matches on number alone); checkpoint ids are not compared, mirroring the stream's own tier reconciliation. The optional `checkpointed` tier is only compared when present (it is absent when the stream ignores checkpoints).
+
+### logResultToHumanReadable
+```typescript
+function logResultToHumanReadable(log: { blockHash: BlockHash; blockNumber: BlockNumber; ... }) => string
+```
+Human-readable single-line representation, primarily for the CLI `get-logs` command.
 
 ### makeEmptyProof
 ```typescript
@@ -3413,6 +3576,24 @@ function parseSignedInt(b: Buffer, width?: number) => bigint
 ```
 Returns a bigint by parsing a serialized 2's complement signed int.
 
+### protectFromForgery
+```typescript
+function protectFromForgery(secret: Point, ephPk: Point, recipientPoint: Point) => Promise<Point>
+```
+Protects a handshake's shared secret from being forged by the recipient: `S' = hash(ephPk, recipientPoint) * S`. Mirrors aztec-nr's `protect_from_forgery` and must stay byte-compatible with it.
+
+### queryAllPrivateLogsByTags
+```typescript
+function queryAllPrivateLogsByTags(node: PrivateLogsByTagsFetcher, query: PrivateLogsQuery) => Promise<{ blockHash: BlockHash; blockNumber: BlockNumber; ... }[][]>
+```
+Drives the per-tag `afterLog` cursor loop for PrivateLogsByTagsFetcher.getPrivateLogsByTags. Each round re-queries only the tags whose previous page was full (`length === effective limit`), passing the cursor of the last seen log. Tags drop out as soon as they return a short page. Results are stitched back into one inner array per input tag, preserving the original input order. Honors PrivateLogsQuery.limitPerTag when set (caller is responsible for keeping it `<=` MAX_LOGS_PER_TAG; the query schema enforces this on the RPC boundary).
+
+### queryAllPublicLogsByTags
+```typescript
+function queryAllPublicLogsByTags(node: PublicLogsByTagsFetcher, query: PublicLogsQuery) => Promise<{ blockHash: BlockHash; blockNumber: BlockNumber; ... }[][]>
+```
+Drives the per-tag `afterLog` cursor loop for PrivateLogsByTagsFetcher.getPrivateLogsByTags. Each round re-queries only the tags whose previous page was full (`length === effective limit`), passing the cursor of the last seen log. Tags drop out as soon as they return a short page. Results are stitched back into one inner array per input tag, preserving the original input order. Honors PrivateLogsQuery.limitPerTag when set (caller is responsible for keeping it `<=` MAX_LOGS_PER_TAG; the query schema enforces this on the RPC boundary).
+
 ### randomBlockInfo
 ```typescript
 function randomBlockInfo(blockNumber?: number | BlockNumber) => L2BlockInfo
@@ -3437,6 +3618,18 @@ function randomInTx() => InTx
 ```typescript
 function randomIndexedTxEffect() => Promise<IndexedTxEffect>
 ```
+
+### randomLogResult
+```typescript
+function randomLogResult(includeEffects: boolean) => { blockHash: BlockHash; blockNumber: BlockNumber; ... }
+```
+Builds a random LogResult for tests. `includeEffects` populates `noteHashes` + `nullifiers`.
+
+### refineTxHashAndRange
+```typescript
+function refineTxHashAndRange<T extends TxHashAndRangeFields>(schema: ZodType<T>) => ZodType<T, unknown, $ZodTypeInternals<T, unknown>>
+```
+Refinement: a `txHash` already pins a block, so combining it with a block range is contradictory. (`txHash` + `afterLog` is still allowed and is enforced per-tag inside `TagQuery`.) Exported so `aztec.js`'s wallet event-filter schemas can reuse the same rule.
 
 ### retainBytecode
 ```typescript
@@ -3496,12 +3689,6 @@ type ABIVariable = z.infer<typeof ABIVariableSchema>
 ```
 A named type.
 
-### APPROXIMATE_MAX_DA_GAS_PER_BLOCK
-```typescript
-type APPROXIMATE_MAX_DA_GAS_PER_BLOCK = number
-```
-Approximate max DA gas limit. Arbitrary, assuming 4 blocks per checkpoint — users should use gas estimation.
-
 ### ARTIFACT_VERSION_BEFORE_INJECTION
 ```typescript
 type ARTIFACT_VERSION_BEFORE_INJECTION = "FROM_RELEASE_BEFORE_VERSION_INJECTION"
@@ -3537,9 +3724,14 @@ An exported value.
 type AnyTx = Tx | ProcessedTx
 ```
 
+### AppTaggingSecretKind
+```typescript
+type AppTaggingSecretKind = { CONSTRAINED: "constrained"; UNCONSTRAINED: "unconstrained" }
+```
+
 ### ArchiverEmitter
 ```typescript
-type ArchiverEmitter = TypedEventEmitter<{ invalidCheckpointDetected: (args: InvalidCheckpointDetectedEvent) => void; l2BlockProven: (args: L2BlockProvenEvent) => void; ... }>
+type ArchiverEmitter = TypedEventEmitter<{ checkpointEquivocationDetected: (args: CheckpointEquivocationDetectedEvent) => void; descendentOfInvalidAttestationsCheckpointDetected: (args: DescendentOfInvalidAttestationsCheckpointEvent) => void; ... }>
 ```
 L2BlockSource that emits events upon pending / proven chain changes. see L2BlockSourceEvents for the events emitted.
 
@@ -3555,6 +3747,16 @@ type AttestationStatus = "recovered-from-signature" | "provided-as-address" | "i
 ```
 Status indicating how the attestation address was determined
 
+### BLOBS_PER_CHECKPOINT
+```typescript
+type BLOBS_PER_CHECKPOINT = [object Object]
+```
+
+### BLOB_GAS_PER_BLOB
+```typescript
+type BLOB_GAS_PER_BLOB = bigint
+```
+
 ### BlockData
 ```typescript
 type BlockData = unknown
@@ -3563,20 +3765,37 @@ L2Block metadata. Equivalent to L2Block but without block body containing tx dat
 
 ### BlockParameter
 ```typescript
-type BlockParameter = z.infer<typeof BlockParameterSchema>
+type BlockParameter = NormalizedBlockParameter | BlockNumber | BlockHash | BlockTag
 ```
-Block parameter - either a specific BlockNumber, block hash (BlockHash), or 'latest'
+Selector for a block in RPC calls. Accepts a block number, a BlockHash, a chain-tip name (e.g. `'proven'`, `'checkpointed'`), `'latest'` (alias for `'proposed'`), or any of the NormalizedBlockParameter object variants (`{ number }`, `{ hash }`, `{ archive }`, `{ tag }`).
+
+### BlockQuery
+```typescript
+type BlockQuery = NormalizedBlockParameter
+```
+Lookup a single block by block number, hash, archive root, or chain-tip tag.
+
+### BlockTag
+```typescript
+type BlockTag = readonly []
+```
+
+### BlocksQuery
+```typescript
+type BlocksQuery = { from: BlockNumber; limit: number; onlyCheckpointed?: boolean } | { epoch: EpochNumber; onlyCheckpointed: true }
+```
+Query a range of blocks by start/limit or by epoch. The `epoch` variant requires `onlyCheckpointed: true` because epoch boundaries are only meaningful for the checkpointed chain — the proposed chain may include uncheckpointed blocks past the epoch boundary that callers should not receive.
 
 ### BrilligFunctionId
 ```typescript
 type BrilligFunctionId = number
 ```
 
-### CHECKPOINT_PREFETCH_LIMIT
+### CheckpointEquivocationDetectedEvent
 ```typescript
-type CHECKPOINT_PREFETCH_LIMIT = 50
+type CheckpointEquivocationDetectedEvent = unknown
 ```
-Maximum number of checkpoints to prefetch at once during sync. Matches MAX_RPC_CHECKPOINTS_LEN.
+Emitted when a local proposed checkpoint is found to disagree with the L1-confirmed checkpoint at the same slot. The slot proposer signed both — equivocation.
 
 ### CheckpointGlobalVariables
 ```typescript
@@ -3588,6 +3807,18 @@ Global variables that are constant across the entire checkpoint (slot). Excludes
 ```typescript
 type CheckpointId = unknown
 ```
+
+### CheckpointQuery
+```typescript
+type CheckpointQuery = { number: CheckpointNumber } | { slot: SlotNumber } | { tag: "checkpointed" | "proven" | "finalized" }
+```
+Lookup a single confirmed checkpoint by checkpoint number, slot, or chain-tip tag.
+
+### CheckpointsQuery
+```typescript
+type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { fromSlot: SlotNumber; limit: number; reverse?: boolean } | { epoch: EpochNumber }
+```
+Query a range of confirmed checkpoints by start/limit, by slot anchor, or by epoch. The `fromSlot` variant walks the slot index: it returns up to `limit` checkpoints anchored at `fromSlot`, ordered nearest-first. With `reverse` it takes the checkpoints at or before the slot (descending); otherwise the checkpoints at or after it (ascending). Use `limit: 1, reverse: true` to find the latest checkpoint at or before a slot in a single range scan.
 
 ### ChonkProofData
 ```typescript
@@ -3608,9 +3839,9 @@ Preimage of a contract class id.
 
 ### ContractClassPublic
 ```typescript
-type ContractClassPublic = { privateFunctions: ExecutablePrivateFunctionWithMembershipProof[]; utilityFunctions: UtilityFunctionWithMembershipProof[] } & Pick<ContractClassCommitments, "id" | "privateFunctionsRoot"> & Omit<ContractClass, "privateFunctions">
+type ContractClassPublic = Pick<ContractClassCommitments, "id" | "privateFunctionsRoot"> & Omit<ContractClass, "privateFunctions">
 ```
-A contract class with public bytecode information, and optional private and utility functions.
+A contract class with public bytecode information.
 
 ### ContractClassPublicWithBlockNumber
 ```typescript
@@ -3629,6 +3860,11 @@ type ContractClassWithId = ContractClass & Pick<ContractClassCommitments, "id">
 ```
 A contract class with its precomputed id.
 
+### ContractInstancePreimageWithAddress
+```typescript
+type ContractInstancePreimageWithAddress = ContractInstancePreimage & { address: AztecAddress }
+```
+
 ### ContractInstanceUpdateWithAddress
 ```typescript
 type ContractInstanceUpdateWithAddress = ContractInstanceUpdate & { address: AztecAddress }
@@ -3646,7 +3882,7 @@ type ContractInstantiationData = unknown
 
 ### ContractOverrides
 ```typescript
-type ContractOverrides = Record<string, { artifact: ContractArtifact; instance: ContractInstanceWithAddress }>
+type ContractOverrides = Record<string, { instance: ContractInstanceWithAddress }>
 ```
 
 ### DataInBlock
@@ -3666,29 +3902,28 @@ type DeploymentInfo = unknown
 ```
 Represents the data generated as part of contract deployment.
 
+### DescendentOfInvalidAttestationsCheckpointEvent
+```typescript
+type DescendentOfInvalidAttestationsCheckpointEvent = unknown
+```
+Emitted when the archiver observes a checkpoint that builds on a previously-rejected ancestor (typically one with insufficient/invalid attestations). The descendant itself may have valid attestations, but it cannot be ingested because the chain it extends was skipped. The slasher uses this to slash the proposer of the descendant.
+
+### ETH_PER_FEE_ASSET_PRECISION
+```typescript
+type ETH_PER_FEE_ASSET_PRECISION = [object Object]
+```
+
 ### EventMetadataDefinition
 ```typescript
 type EventMetadataDefinition = unknown
 ```
 Metadata for a contract event, used to decode emitted event logs back into structured data.
 
-### ExecutablePrivateFunctionWithMembershipProof
+### FEE_ORACLE_LAG
 ```typescript
-type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof
+type FEE_ORACLE_LAG = 2
 ```
-A private function with a membership proof.
-
-### FALLBACK_TEARDOWN_DA_GAS_LIMIT
-```typescript
-type FALLBACK_TEARDOWN_DA_GAS_LIMIT = number
-```
-Fallback teardown DA gas limit. Arbitrary — users should use gas estimation.
-
-### FALLBACK_TEARDOWN_L2_GAS_LIMIT
-```typescript
-type FALLBACK_TEARDOWN_L2_GAS_LIMIT = number
-```
-Fallback teardown L2 gas limit. Arbitrary — users should use gas estimation.
+Number of L2 slots of lag before new oracle values activate. Defines the prediction window.
 
 ### FailedTx
 ```typescript
@@ -3728,6 +3963,12 @@ type GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT = 786432
 type GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT = 6540000
 ```
 
+### GENESIS_BLOCK_HEADER_HASH
+```typescript
+type GENESIS_BLOCK_HEADER_HASH = BlockHash
+```
+The block header hash for the genesis block (block 0).
+
 ### GENESIS_CHECKPOINT_HEADER_HASH
 ```typescript
 type GENESIS_CHECKPOINT_HEADER_HASH = Fr
@@ -3743,6 +3984,12 @@ type GasDimensions = readonly []
 type GasUsed = { fromPlainObject: (obj: any) => GasUsed }
 ```
 
+### GetTxReceiptOptions
+```typescript
+type GetTxReceiptOptions = unknown
+```
+Options controlling which optional data is attached to a TxReceipt.
+
 ### InBlock
 ```typescript
 type InBlock = unknown
@@ -3755,8 +4002,9 @@ type InTx = InBlock & { txHash: TxHash }
 
 ### IndexedTxEffect
 ```typescript
-type IndexedTxEffect = DataInBlock<TxEffect> & { txIndexInBlock: number }
+type IndexedTxEffect = DataInBlock<TxEffect> & { slotNumber: SlotNumber; txIndexInBlock: number }
 ```
+A tx effect together with its position in the block (`txIndexInBlock`) and the slot the block was built in.
 
 ### InvalidCheckpointDetectedEvent
 ```typescript
@@ -3778,6 +4026,16 @@ type KeyGenerator = DomainSeparator.NHK_M | DomainSeparator.IVSK_M | DomainSepar
 type KeyPrefix = "n" | "iv" | "ov" | "t"
 ```
 
+### L1_GAS_PER_CHECKPOINT_PROPOSED
+```typescript
+type L1_GAS_PER_CHECKPOINT_PROPOSED = [object Object]
+```
+
+### L1_GAS_PER_EPOCH_VERIFIED
+```typescript
+type L1_GAS_PER_EPOCH_VERIFIED = [object Object]
+```
+
 ### L2BlockId
 ```typescript
 type L2BlockId = unknown
@@ -3794,16 +4052,34 @@ type L2BlockInfo = unknown
 type L2BlockProvenEvent = unknown
 ```
 
+### L2BlockSourceUpdatedEvent
+```typescript
+type L2BlockSourceUpdatedEvent = unknown
+```
+Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips before and after the pass, and the blocks added during it. Consumers compare `fromTips` and `toTips` to learn what moved; there is no separate `changed` section. This is an optimization signal that lets a block stream reconcile immediately on an archiver update rather than waiting for its next poll. Polling remains the correctness fallback, so a missed event only affects latency. `blocksAdded` are hydrated blocks already in hand from the sync pass, so a triggered sync that is caught up to `fromTips` can reuse them (and `toTips`) instead of re-reading the store.
+
 ### L2BlockStreamEvent
 ```typescript
-type L2BlockStreamEvent = { blocks: L2Block[]; type: "blocks-added" } | { block: L2BlockId; checkpoint: PublishedCheckpoint; type: "chain-checkpointed" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-pruned" } | { block: L2BlockId; type: "chain-proven" } | { block: L2BlockId; type: "chain-finalized" }
+type L2BlockStreamEvent = { blocks: L2Block[]; type: "blocks-added" } | { block: L2BlockId; type: "chain-proposed" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-checkpointed" } | { block: L2BlockId; checkpointed: L2TipId; ... } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-proven" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-finalized" }
 ```
+
+### L2BlockStreamOptions
+```typescript
+type L2BlockStreamOptions = unknown
+```
+Options accepted by L2BlockStream and EventDrivenL2BlockStream.
+
+### L2BlockStreamSource
+```typescript
+type L2BlockStreamSource = Pick<L2BlockSource, "getBlocks" | "getBlockData" | "getL2Tips">
+```
+Subset of the block source the stream depends on. Checkpoint payloads are no longer fetched here.
 
 ### L2BlockTag
 ```typescript
 type L2BlockTag = "proposed" | "checkpointed" | "proven" | "finalized"
 ```
-Identifier for L2 block tags. - proposed: Latest block proposed on L2. - checkpointed: Checkpointed block on L1. - proven: Proven block on L1. - finalized: Proven block on a finalized L1 block (not implemented, set to proven for now).
+Identifier for L2 block tags. Internal counterpart to BlockTag that omits `latest` (which is an alias for `proposed` accepted only at the public RPC surface). - proposed: Latest block proposed on L2. - checkpointed: Latest block whose enclosing checkpoint has been published on L1. - proven: Latest block whose enclosing checkpoint has been proven on L1. - finalized: Latest block whose proving L1 transaction has reached L1 finality.
 
 ### L2CheckpointEvent
 ```typescript
@@ -3833,8 +4109,26 @@ Tips of the L2 chain.
 
 ### L2TipsStore
 ```typescript
-type L2TipsStore = L2BlockStreamEventHandler & L2BlockStreamLocalDataProvider
+type L2TipsStore = L2BlockStreamEventHandler & L2TipsProvider & Pick<L2BlockStreamLocalDataProvider, "getL2BlockHash"> & {}
 ```
+
+### LocalChainTips
+```typescript
+type LocalChainTips = unknown
+```
+Minimal local view of the chain the block stream needs to drive sync. `checkpointed` is only required when the stream emits checkpoint events (i.e. `ignoreCheckpoints` is off).
+
+### LocalL2BlockId
+```typescript
+type LocalL2BlockId = unknown
+```
+A block id reported by a local data provider, whose hash may be unknown when the provider cannot resolve it (e.g. world-state cannot resolve the hash of a proven tip ahead of its synced range).
+
+### LocalL2Tips
+```typescript
+type LocalL2Tips = L2Tips
+```
+Tips of the L2 chain as tracked by a local provider (world-state, l2-tips-store). Identical to L2Tips; the alias is retained for call sites that document a local-only provenance.
 
 ### LocationNodeDebugInfo
 ```typescript
@@ -3846,16 +4140,97 @@ type LocationNodeDebugInfo = unknown
 type LocationTree = unknown
 ```
 
-### LogFilter
+### LogIncludeOptions
 ```typescript
-type LogFilter = unknown
+type LogIncludeOptions = unknown
 ```
-Log filter used to fetch L2 logs.
+Options for narrowing the shape of a LogResult.
+
+### LogResult
+```typescript
+type LogResult = Prettify<LogResultBase & PickIfFlag<LogIncludeOptions, Opts, "includeEffects", { noteHashes: Fr[]; nullifiers: Fr[] }>>
+```
+A single log returned from L2LogsSource.getPrivateLogsByTags or L2LogsSource.getPublicLogsByTags. Generic over the include-options so that flagged fields become required when the caller passes a literal `true`. The default type argument (LogIncludeOptions) yields the widest shape (all include-fields optional) — this is what the JSON-RPC wire layer validates against. `logData` is the raw field-element payload, with the tag in field 0 (consumers slice it off).
+
+### LogResultBase
+```typescript
+type LogResultBase = unknown
+```
+Required metadata always present on a LogResult.
+
+### LogsQueryBase
+```typescript
+type LogsQueryBase = unknown
+```
+Shared fields for PrivateLogsQuery and PublicLogsQuery.
+
+### MAGIC_CONGESTION_VALUE_DIVISOR
+```typescript
+type MAGIC_CONGESTION_VALUE_DIVISOR = [object Object]
+```
+
+### MAGIC_CONGESTION_VALUE_MULTIPLIER
+```typescript
+type MAGIC_CONGESTION_VALUE_MULTIPLIER = [object Object]
+```
+
+### MINIMUM_CONGESTION_MULTIPLIER
+```typescript
+type MINIMUM_CONGESTION_MULTIPLIER = [object Object]
+```
+TypeScript port of fee computation logic from FeeLib.sol. Used to predict worst-case min fees over a future window of L2 slots.
+
+### MIN_ETH_PER_FEE_ASSET
+```typescript
+type MIN_ETH_PER_FEE_ASSET = [object Object]
+```
+
+### MIN_PER_BLOCK_ALLOCATION_MULTIPLIER
+```typescript
+type MIN_PER_BLOCK_ALLOCATION_MULTIPLIER = 1.2
+```
+Network-minimum per-block budget multiplier for L2 gas and tx-count allocation. A block packer must grant at least this share of the even per-block split to a single tx; operators may configure a higher multiplier (more generous), but not a lower one — enforced at sequencer startup. Also used as the default for `SequencerConfig.perBlockAllocationMultiplier`.
+
+### MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER
+```typescript
+type MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER = 1.5
+```
+Network-minimum per-block budget multiplier for DA gas, applied in place of the general MIN_PER_BLOCK_ALLOCATION_MULTIPLIER. Higher than the general multiplier so the largest tx we want to support — a maximal contract class registration (~97k DA gas) — fits a single block under v5 mainnet geometry (72s slots, 6s blocks → 10 blocks per checkpoint). A builder may configure a higher multiplier but never a lower one. Also used as the default for `SequencerConfig.perBlockDAAllocationMultiplier`.
+
+### ManaMinFeeParams
+```typescript
+type ManaMinFeeParams = unknown
+```
+Parameters for computing the mana min fee at a given point in time.
+
+### MasterSecretKeys
+```typescript
+type MasterSecretKeys = unknown
+```
+The six master secret keys that fully define an account's privacy keys.
+
+### MinedTxStatus
+```typescript
+type MinedTxStatus = typeof MinedTxStatuses[number]
+```
+Block finalization status of a mined transaction.
+
+### MinedTxStatuses
+```typescript
+type MinedTxStatuses = readonly []
+```
+The four statuses a mined transaction can hold, ordered by finalization progress.
 
 ### NodeStats
 ```typescript
 type NodeStats = unknown
 ```
+
+### NormalizedBlockParameter
+```typescript
+type NormalizedBlockParameter = { number: BlockNumber } | { hash: BlockHash } | { archive: Fr } | { tag: Exclude<BlockTag, "latest"> }
+```
+Object-only form of BlockParameter. Used as the building block for BlockQuery.
 
 ### OFFCHAIN_MESSAGE_IDENTIFIER
 ```typescript
@@ -3883,7 +4258,7 @@ type OpcodeToLocationsMap = Record<OpcodeLocation, number>
 ```typescript
 type PartialAddress = Fr
 ```
-A type which along with public key forms a preimage of a contract address. See the link below for more details https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
+The contract-side preimage of an Aztec address, i.e. the commitment to a specific contract instance. A partial address commits to a contract's code and initialization (`hash(contract_class_id, salted_initialization_hash)`) but not to its keys. Combined with an account's `PublicKeys`, it fully determines the address: `address = (hash(public_keys_hash, partial_address) * G + Ivpk_m).x`. Two accounts therefore share an address only if they share both their public keys and their partial address. See `computePartialAddress` for the derivation.
 
 ### PreTag
 ```typescript
@@ -3891,11 +4266,17 @@ type PreTag = unknown
 ```
 Represents a preimage of a private log tag (see `Tag` in `pxe/src/tagging`). Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. But this type is used by other types in stdlib hence there doesn't seem to be a good way around this.
 
-### PrivateFunctionMembershipProof
+### PrivateLogsByTagsFetcher
 ```typescript
-type PrivateFunctionMembershipProof = unknown
+type PrivateLogsByTagsFetcher = unknown
 ```
-Sibling paths and sibling commitments for proving membership of a private function within a contract class.
+Minimal node surface needed by queryAllPrivateLogsByTags.
+
+### PrivateLogsQuery
+```typescript
+type PrivateLogsQuery = LogsQueryBase & { tags: TagQuery<SiloedTag>[] }
+```
+Query for L2LogsSource.getPrivateLogsByTags. Returns one inner array per element of `tags`, in input order.
 
 ### ProcessReturnValues
 ```typescript
@@ -3908,6 +4289,12 @@ Return values of simulating a circuit.
 type ProcessedTx = unknown
 ```
 Represents a tx that has been processed by the sequencer public processor, so its kernel circuit public inputs are filled in.
+
+### ProposedCheckpointQuery
+```typescript
+type ProposedCheckpointQuery = { number: CheckpointNumber } | { slot: SlotNumber } | { tag: "proposed" }
+```
+Lookup a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint. Distinct from CheckpointQuery because proposed checkpoints have a different shape (no l1, no attestations, but carries totalManaUsed) and live in their own LMDB map.
 
 ### ProtocolContractAddresses
 ```typescript
@@ -3926,9 +4313,20 @@ type ProvingTimings = unknown
 
 ### PublicKey
 ```typescript
-type PublicKey = Point
+type PublicKey = typeof Point
 ```
-Represents a user public key.
+
+### PublicLogsByTagsFetcher
+```typescript
+type PublicLogsByTagsFetcher = unknown
+```
+Minimal node surface needed by queryAllPublicLogsByTags.
+
+### PublicLogsQuery
+```typescript
+type PublicLogsQuery = LogsQueryBase & { contractAddress: AztecAddress; tags: TagQuery<Tag>[] }
+```
+Query for L2LogsSource.getPublicLogsByTags. Returns one inner array per element of `tags`, in input order.
 
 ### RollupHonkProofData
 ```typescript
@@ -3998,7 +4396,7 @@ type TX_ERROR_EXISTING_NULLIFIER = "Existing nullifier"
 
 ### TX_ERROR_GAS_LIMIT_TOO_HIGH
 ```typescript
-type TX_ERROR_GAS_LIMIT_TOO_HIGH = "Gas limit is higher than the amount of gas that the AVM can process"
+type TX_ERROR_GAS_LIMIT_TOO_HIGH = "Gas limit is higher than the maximum amount of gas this network allows per tx"
 ```
 
 ### TX_ERROR_INCORRECT_CALLDATA
@@ -4106,15 +4504,27 @@ type TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH = "Setup function called with wrong ca
 type TX_ERROR_SIZE_ABOVE_LIMIT = "Transaction size above size limit"
 ```
 
+### TagQuery
+```typescript
+type TagQuery = T | { afterLog?: LogCursor; tag: T }
+```
+A tag to query in PrivateLogsQuery / PublicLogsQuery, optionally resuming strictly after a previously-seen log via `afterLog`. The bare `T` form means "from the beginning".
+
 ### TaggingIndexRange
 ```typescript
 type TaggingIndexRange = unknown
 ```
 Represents a range of tagging indexes for a given app tagging secret.
 
+### TxReceipt
+```typescript
+type TxReceipt = PendingTxReceipt<Opts> | DroppedTxReceipt | MinedTxReceipt<Opts>
+```
+A transaction receipt summarizing the lifecycle of a transaction in the Aztec network. Discriminated over the transaction's status: PendingTxReceipt while in the mempool, DroppedTxReceipt once dropped, and MinedTxReceipt once included in a block.
+
 ### TxValidationResult
 ```typescript
-type TxValidationResult = { result: "valid" } | { reason: string[]; result: "invalid" } | { reason: string[]; result: "skipped" }
+type TxValidationResult = { result: "valid" } | { reason: string[]; result: "invalid" }
 ```
 
 ### TypedStructFieldValue
@@ -4126,18 +4536,6 @@ type TypedStructFieldValue = unknown
 ```typescript
 type UltraHonkProofData = ProofData<T, typeof RECURSIVE_PROOF_LENGTH>
 ```
-
-### UtilityFunctionMembershipProof
-```typescript
-type UtilityFunctionMembershipProof = unknown
-```
-Sibling paths and commitments for proving membership of a utility function within a contract class.
-
-### UtilityFunctionWithMembershipProof
-```typescript
-type UtilityFunctionWithMembershipProof = UtilityFunction & UtilityFunctionMembershipProof
-```
-A utility function with a membership proof.
 
 ### ValidateCheckpointNegativeResult
 ```typescript
@@ -4165,7 +4563,12 @@ Values: `private`, `public`, `utility`
 
 ### L2BlockSourceEvents
 
-Values: `invalidCheckpointDetected`, `l2BlockProven`, `l2BlocksCheckpointed`, `l2PruneUncheckpointed`, `l2PruneUnproven`
+Values: `checkpointEquivocationDetected`, `descendentOfInvalidAttestationsCheckpointDetected`, `invalidCheckpointDetected`, `l2BlockProven`, `l2BlocksCheckpointed`, `l2BlockSourceUpdated`, `l2PruneUncheckpointed`, `l2PruneUnproven`
+
+### ManaUsageEstimate
+Expected mana usage per checkpoint for fee prediction.
+
+Values: `limit`, `none`, `target`
 
 ### NoteStatus
 The status of notes to retrieve.
@@ -4183,7 +4586,7 @@ Values: `1`, `0`, `2`
 ### TxExecutionResult
 Execution result - only set when tx is in a block.
 
-Values: `reverted`, `reverted`, `reverted`, `success`, `reverted`
+Values: `reverted`, `success`
 
 ### TxStatus
 Block inclusion/finalization status.
@@ -4201,7 +4604,7 @@ This package references types from other Aztec packages:
 - `CHONK_PROOF_LENGTH`, `DomainSeparator`, `DomainSeparator.IVSK_M`, `DomainSeparator.NHK_M`, `DomainSeparator.OVSK_M`, `DomainSeparator.TSK_M`, `RECURSIVE_PROOF_LENGTH`, `RECURSIVE_ROLLUP_HONK_PROOF_LENGTH`
 
 **@aztec/ethereum**
-- `L1ContractAddresses`, `ViemCommitteeAttestation`, `ViemCommitteeAttestations`
+- `L1ContractAddresses`, `SimulationOverridesPlan`, `ViemCommitteeAttestation`, `ViemCommitteeAttestations`
 
 **@aztec/foundation**
-- `BaseField`, `BlockNumber`, `Buffer32`, `BufferReader`, `Bufferable`, `CheckpointNumber`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `IndexWithinCheckpoint`, `Logger`, `MerkleTree`, `Point`, `Signature`, `SlotNumber`, `TypedEventEmitter`, `ViemSignature`, `ViemTransactionSignature`, `ZodFor`
+- `BaseBuffer32`, `BaseField`, `BaseFr`, `BlockNumber`, `Buffer32`, `BufferReader`, `Bufferable`, `CheckpointNumber`, `DefineIfFlag`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `IndexWithinCheckpoint`, `Logger`, `MerkleTree`, `PickIfFlag`, `Point`, `Prettify`, `Signature`, `SlotNumber`, `TypedEventEmitter`, `ViemSignature`, `ViemTransactionSignature`, `ZodFor`

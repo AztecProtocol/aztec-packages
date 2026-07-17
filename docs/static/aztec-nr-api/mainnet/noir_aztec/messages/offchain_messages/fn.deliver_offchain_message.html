@@ -33,8 +33,8 @@
 <div class="comments">
 <p>Emits a message that will be delivered offchain rather than through the data availability layer.</p>
 <p>Sends data through an alternative app-specific channel without incurring data availability (DA) costs. After
-receiving the message, the recipient is expected to call the <code>process_message</code> function implemented on the contract
-that originally emitted the message.</p>
+receiving the message, the recipient is expected to call the <code>offchain_receive</code> utility function (injected by the
+<code>#[aztec]</code> macro) on the contract that originally emitted the message.</p>
 <h2>Example use case</h2>
 <p>A typical use case would be a payment app where the notes and events do not need to be delivered via DA because the
 payment is considered successful by the recipient once he receives the notes and events offchain. Hence having the
