@@ -56,6 +56,20 @@ Acir::Expression make_witness_expression(uint32_t witness_idx)
     };
 }
 
+/** `lhs - rhs = 0`, the smallest opcode that links two witnesses into one ACIR component. */
+Acir::Opcode make_equality_opcode(uint32_t lhs_witness, uint32_t rhs_witness)
+{
+    return Acir::Opcode{ .value = Acir::Opcode::AssertZero{
+                             .value = Acir::Expression{
+                                 .linear_combinations =
+                                     {
+                                         { bb::fr::one().to_buffer(), make_witness(lhs_witness) },
+                                         { bb::fr(-1).to_buffer(), make_witness(rhs_witness) },
+                                     },
+                                 .q_c = bb::fr::zero().to_buffer(),
+                             } } };
+}
+
 Acir::Circuit make_circuit(std::vector<Acir::Opcode> opcodes)
 {
     return Acir::Circuit{
@@ -544,25 +558,25 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
-    Acir::Circuit circuit = make_circuit({
-        Acir::Opcode{ .value = Acir::Opcode::AssertZero{
-                          .value = Acir::Expression{
-                              .linear_combinations =
-                                  {
-                                      { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
-                                  },
-                              .q_c = bb::fr::zero().to_buffer(),
-                          } } },
-    });
+    Acir::Circuit circuit = make_circuit({ make_equality_opcode(8, 9) });
 
     auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
 
-    acir_components_check::ComponentsChecker checker(circuit, builder);
+    // Model create_circuit dropping a constraint: the ACIR handed to the checker links a pair of
+    // witnesses that the built circuit never allocated a variable for, so they have no circuit-side
+    // component. The indices are derived from the builder so they stay past the end of
+    // real_variable_index no matter how many variables create_circuit allocates.
+    //
+    // Do not simulate this by shrinking builder.real_variable_index: it holds one entry per
+    // variable, and the static analyzer maps every gate wire through it, so a short vector is read
+    // out of bounds (silently in release, fatally under the debug preset's _GLIBCXX_DEBUG).
+    auto unallocated_witness = static_cast<uint32_t>(builder.real_variable_index.size());
+    Acir::Circuit acir_with_dropped_constraint = make_circuit(
+        { make_equality_opcode(8, 9), make_equality_opcode(unallocated_witness, unallocated_witness + 1) });
+
+    acir_components_check::ComponentsChecker checker(acir_with_dropped_constraint, builder);
     auto errors = checker.check();
     expect_single_error_type(errors, acir_components_check::Error::Type::UNCONSTRAINED);
 }
