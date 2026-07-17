@@ -9,9 +9,9 @@ use crate::protocol::{
 use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 
 /// Domain separator for deriving ECDH sub-secrets from an app-siloed shared secret.
-pub global DOM_SEP__ECDH_SUBKEY: u32 = 4277646631;
+pub(crate) global DOM_SEP__ECDH_SUBKEY: u32 = 4277646631;
 /// Domain separator for deriving field masks from an app-siloed shared secret.
-pub global DOM_SEP__ECDH_FIELD_MASK: u32 = 190532684;
+pub(crate) global DOM_SEP__ECDH_FIELD_MASK: u32 = 190532684;
 
 /// Computes a standard ECDH shared secret: secret * public_key = shared_secret.
 ///

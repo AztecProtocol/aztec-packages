@@ -15,7 +15,7 @@ use crate::protocol::{
 use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 
 /// Domain separator for authentication witness nullifiers.
-pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
+pub(crate) global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
 /// Authentication witness helper library
 ///

@@ -26,7 +26,7 @@ use crate::{
 /// Domain separator for state variable initialization.
 ///
 /// Should not be reused for a given storage slot.
-pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
+pub(crate) global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
 
 /// The name of the auto-generated function that emits the public initialization nullifier.
 ///

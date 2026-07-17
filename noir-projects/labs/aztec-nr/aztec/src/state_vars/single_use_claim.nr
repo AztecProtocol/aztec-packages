@@ -13,7 +13,7 @@ use crate::{
 mod test;
 
 /// Domain separator for `SingleUseClaim` nullifiers.
-pub global DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER: u32 = 1465998995;
+pub(crate) global DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER: u32 = 1465998995;
 
 /// Private right to perform an action.
 ///

@@ -20,7 +20,7 @@ use crate::protocol::{
 };
 
 /// Domain separator for nullifiers used during constrained delivery.
-pub global DOM_SEP__CONSTRAINED_MSG_NULLIFIER: u32 = 3723577546;
+pub(crate) global DOM_SEP__CONSTRAINED_MSG_NULLIFIER: u32 = 3723577546;
 
 // The helper cannot import the handshake registry interface because the registry contract depends on aztec-nr. The
 // registry's test suite compares this against its macro-generated `HandshakeRegistry::at(...).method(...).selector`

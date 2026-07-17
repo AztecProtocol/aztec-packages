@@ -8,7 +8,7 @@ use crate::authwit::entrypoint::app::AppPayload;
 /// Domain separator for transaction nullifiers
 ///
 /// Used to produce cancellable (replaceable) transactions.
-pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
+pub(crate) global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 
 pub struct AccountActions<Context> {
     context: Context,
