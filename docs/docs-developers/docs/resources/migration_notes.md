@@ -9,6 +9,18 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Note property selectors are typed and use packed-layout indices
+
+The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
+
+Breaking changes:
+
+- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
+- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
+- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
+- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
+- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
 
 The `history::note` helpers that recompute a note's nullifier have been renamed with a `local_` prefix and now assert that the note belongs to the executing contract:
