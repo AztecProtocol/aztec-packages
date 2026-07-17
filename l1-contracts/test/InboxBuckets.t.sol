@@ -41,6 +41,19 @@ contract InboxBucketsTest is Test {
     return leaf;
   }
 
+  // Sends a message and returns the gas consumed by the external `sendL2Message` call alone. The
+  // recipient/content/secretHash are built before the measurement window so only the call is timed.
+  function _measureSend(InboxHarness _inbox, uint256 _salt) internal returns (uint256 gasUsed) {
+    DataStructures.L2Actor memory recipient =
+      DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + _salt)), version: version});
+    bytes32 content = bytes32(uint256(0x2000 + _salt));
+    bytes32 secretHash = bytes32(uint256(0x3000 + _salt));
+
+    uint256 gasBefore = gasleft();
+    _inbox.sendL2Message(recipient, content, secretHash);
+    gasUsed = gasBefore - gasleft();
+  }
+
   // Shared test vectors for the rolling-hash chain, pinned across the noir circuits, the TS mirror,
   // and this L1 implementation. Generated from an independent sha256 implementation.
   function testRollingHashTestVectors() public pure {
@@ -212,5 +225,58 @@ contract InboxBucketsTest is Test {
     // Buckets ahead of the current one do not exist yet.
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, current + 1, current));
     smallRingInbox.getBucket(current + 1);
+  }
+
+  // Gas cost of a message absorbed into an already-open bucket (the common per-message case): the
+  // second message of an L1 block updates the live bucket in place without opening a new ring slot.
+  function testGasSendIntoExistingBucket() public {
+    _send(inbox, 0);
+    assertEq(inbox.getCurrentBucketSeq(), 1, "warmup opened bucket 1");
+
+    uint256 gasUsed = _measureSend(inbox, 1);
+    emit log_named_uint("gas: absorb into existing bucket", gasUsed);
+
+    assertEq(inbox.getCurrentBucketSeq(), 1, "absorbed without opening a new bucket");
+  }
+
+  // Gas cost of the first message of a new L1 block: a larger timestamp opens the next bucket,
+  // writing a fresh ring slot on top of the per-message frontier-tree insert.
+  function testGasSendFirstMessageOfNewBlock() public {
+    _send(inbox, 0);
+    assertEq(inbox.getCurrentBucketSeq(), 1, "warmup opened bucket 1");
+
+    vm.roll(block.number + 1);
+    vm.warp(block.timestamp + 12);
+
+    uint256 gasUsed = _measureSend(inbox, 1);
+    emit log_named_uint("gas: first message of a new L1 block", gasUsed);
+
+    assertEq(inbox.getCurrentBucketSeq(), 2, "new block opened bucket 2");
+  }
+
+  // Gas cost of a rollover opening mid-block: once a bucket reaches MAX_MSGS_PER_BUCKET, the next
+  // message in the same L1 block opens a new bucket even though the timestamp is unchanged.
+  function testGasSendRolloverMidBlock() public {
+    uint256 cap = inbox.MAX_MSGS_PER_BUCKET();
+    for (uint256 i = 0; i < cap; i++) {
+      _send(inbox, i);
+    }
+    assertEq(inbox.getCurrentBucketSeq(), 1, "cap messages fit in bucket 1");
+
+    uint256 gasUsed = _measureSend(inbox, cap);
+    emit log_named_uint("gas: rollover open mid-block", gasUsed);
+
+    assertEq(inbox.getCurrentBucketSeq(), 2, "rollover opened bucket 2");
+  }
+
+  // Gas cost of the first-ever message against a freshly deployed Inbox: every touched slot is cold,
+  // including the state struct and bucket 1, so this is the worst-case single insert.
+  function testGasSendFirstEverMessage() public {
+    assertEq(inbox.getCurrentBucketSeq(), 0, "no message sent yet");
+
+    uint256 gasUsed = _measureSend(inbox, 0);
+    emit log_named_uint("gas: first-ever message", gasUsed);
+
+    assertEq(inbox.getCurrentBucketSeq(), 1, "first message opened bucket 1");
   }
 }
