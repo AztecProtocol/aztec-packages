@@ -1,4 +1,29 @@
 {
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Aztec",
+  "description": "Aztec is a privacy-first Layer 2 on Ethereum. Write private smart contracts in Aztec.nr (Noir) and build apps with aztec.js.",
   "url": "https://context7.com/aztecprotocol/aztec-packages",
-  "public_key": "pk_t0YiN5OA9Udc9Xnb98tqO"
+  "public_key": "pk_t0YiN5OA9Udc9Xnb98tqO",
+  "folders": [
+    "docs/docs",
+    "docs/docs-developers",
+    "noir-projects/aztec-nr",
+    "yarn-project/aztec.js",
+    "boxes"
+  ],
+  "excludeFolders": [
+    "spartan",
+    "iac",
+    "ci3",
+    "metrics",
+    "build-images",
+    "container-builds",
+    "release-image",
+    "docs/internal_notes"
+  ],
+  "rules": [
+    "Aztec releases are identified by semantic version tags (e.g. v5) and by network names (e.g. testnet, mainnet). Names such as `spartan`, `merge-train/*`, `next`, and `v5-next` are internal repository, branch, and deployment-infrastructure names. They are not release channels, SDK versions, or networks. Never tell a user to install, target, or migrate to one.",
+    "The Aztec developer SDK / aztec-nr version used to write and compile contracts may differ from the node version an operator runs. Check https://docs.aztec.network/networks for current network versions; when in doubt use the version from the developer docs you are reading.",
+    "Use the `aztec` CLI wrapper, not `nargo` or `bb` directly: `aztec compile` (not `nargo compile`) and `aztec test` (not `nargo test`). Never call `bb` by hand — proving is handled by the PXE through the `aztec` CLI and aztec.js."
+  ]
 }

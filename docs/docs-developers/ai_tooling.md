@@ -120,7 +120,7 @@ These resources help you understand Aztec concepts, read docs, or provide additi
   - [awesome-noir](https://github.com/noir-lang/awesome-noir) - community Noir resources
   - [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec) - community Aztec resources
 - **Copy docs into context** - Copy docs pages directly into your AI tool's context or conversation using the "Copy page" button at the top of each page.
-- **Context7** - [Context7](https://context7.com) is a generic MCP server with Aztec docs available at [context7.com/aztecprotocol/aztec-packages](https://context7.com/aztecprotocol/aztec-packages). Note that it may be less current than the MCP servers above.
+- **Context7** - [Context7](https://context7.com) is a generic MCP server. The Aztec index at [context7.com/aztecprotocol/aztec-packages](https://context7.com/aztecprotocol/aztec-packages) is scoped by [`context7.json`](https://github.com/AztecProtocol/aztec-packages/blob/next/context7.json) to the developer docs, `aztec-nr`, and `aztec.js`, and excludes the monorepo's internal deployment and CI infrastructure (`spartan/`, `iac/`, `ci3/`), which is not relevant to building on Aztec. Note that it may be less current than the MCP servers above.
 
 ## Aztec and Noir tool reference
 
