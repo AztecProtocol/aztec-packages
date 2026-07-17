@@ -72,8 +72,7 @@ describe('CheckpointVoter HA Integration', () => {
   function createMockGovernanceContract(): MockProxy<GovernanceProposerContract> {
     const contract = mock<GovernanceProposerContract>();
     Object.defineProperty(contract, 'address', { value: EthAddress.random(), writable: false });
-    // The configured rollup is the canonical instance, so the publisher's canonicality guard passes.
-    contract.getInstance.mockResolvedValue(rollupContract.address.toString() as `0x${string}`);
+    contract.getRollupAddress.mockResolvedValue(EthAddress.fromString(rollupContract.address));
     contract.getPayloadProposalStatus.mockResolvedValue('none');
     contract.getRoundInfo.mockResolvedValue({
       lastSignalSlot: SlotNumber(1),
@@ -179,7 +178,7 @@ describe('CheckpointVoter HA Integration', () => {
 
     // Set up mocks using helper functions
     rollupContract = mock<RollupContract>();
-    Object.defineProperty(rollupContract, 'address', { value: EthAddress.random(), writable: false });
+    Object.defineProperty(rollupContract, 'address', { value: EthAddress.random().toString(), writable: false });
     rollupContract.listenToSlasherChanged.mockReturnValue(undefined as any);
     rollupContract.getSlashingProposer.mockResolvedValue(undefined);
 
@@ -734,7 +733,6 @@ describe('CheckpointVoter HA Integration', () => {
         expect.any(Number), // chainId
         expect.any(String), // signerAddress
         expect.any(Function), // signer function
-        expect.any(String), // canonical rollup instance
       );
 
       // Verify Node A's request was sent to L1 via Multicall3.forward

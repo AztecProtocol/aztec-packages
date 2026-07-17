@@ -38,16 +38,16 @@ export class GovernanceProposerContract implements IEmpireBase {
     this.proposer = getContract({ address, abi: GovernanceProposerAbi, client });
   }
 
-  public get address() {
+  public get address(): EthAddress {
     return EthAddress.fromString(this.proposer.address);
   }
 
-  public async getRollupAddress() {
+  public async getRollupAddress(): Promise<EthAddress> {
     return EthAddress.fromString(await this.proposer.read.getInstance());
   }
 
   @memoize
-  public async getRegistryAddress() {
+  public async getRegistryAddress(): Promise<EthAddress> {
     return EthAddress.fromString(await this.proposer.read.REGISTRY());
   }
 
@@ -57,10 +57,6 @@ export class GovernanceProposerContract implements IEmpireBase {
 
   public getRoundSize(): Promise<bigint> {
     return this.proposer.read.ROUND_SIZE();
-  }
-
-  public getInstance() {
-    return this.proposer.read.getInstance();
   }
 
   public computeRound(slot: SlotNumber): Promise<bigint> {
@@ -102,13 +98,12 @@ export class GovernanceProposerContract implements IEmpireBase {
     chainId: number,
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
-    instance?: Hex,
   ): Promise<L1TxRequest> {
     const signature = await signSignalWithSig(
       signer,
       payload,
       slot,
-      instance ?? (await this.getInstance()),
+      (await this.getRollupAddress()).toString(),
       this.address.toString(),
       chainId,
     );

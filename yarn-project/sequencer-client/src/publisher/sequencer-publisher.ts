@@ -961,37 +961,21 @@ export class SequencerPublisher {
       this.log.warn(`Cannot enqueue vote cast signal ${signalType} for address zero at slot ${slotNumber}`);
       return false;
     }
-    // Resolve the canonical rollup instance once and reuse it for round accounting and the EIP-712
-    // digest, so this signal can't straddle a canonical-rollup change between reads. Only the
-    // canonical rollup's current proposer can signal, so a non-canonical node would only waste gas
-    // on a reverting signal. Fail open (proceed with the configured rollup) if the lookup errors,
-    // for the same liveness reason as the proposal-status check below.
-    let canonicalInstance: Hex | undefined;
-    try {
-      canonicalInstance = await base.getInstance();
-    } catch (err) {
-      this.log.error(`Failed to resolve canonical rollup instance (signalling anyway)`, err, {
-        slotNumber,
-        signalType,
-      });
-    }
 
-    if (
-      canonicalInstance !== undefined &&
-      !EthAddress.fromString(canonicalInstance).equals(EthAddress.fromString(this.rollupContract.address.toString()))
-    ) {
+    const canonicalRollup = await base.getRollupAddress();
+    if (!canonicalRollup.equals(EthAddress.fromString(this.rollupContract.address))) {
       this.log.warn(`Rollup ${this.rollupContract.address} is not canonical, skipping governance signal`, {
         slotNumber,
         signalType,
-        canonicalInstance,
+        canonicalRollup,
+        targetRollup: this.rollupContract.address,
         payload: payload.toString(),
       });
       return false;
     }
 
-    const rollupForRound = canonicalInstance ?? this.rollupContract.address;
     const round = await base.computeRound(slotNumber);
-    const roundInfo = await base.getRoundInfo(rollupForRound, round);
+    const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
     if (roundInfo.quorumReached) {
       return false;
@@ -1051,7 +1035,6 @@ export class SequencerPublisher {
       this.config.l1ChainId,
       signerAddress.toString(),
       signer,
-      canonicalInstance,
     );
     this.log.debug(`Created ${action} request with signature`, {
       request,

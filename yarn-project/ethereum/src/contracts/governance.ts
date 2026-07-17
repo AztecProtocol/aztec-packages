@@ -325,8 +325,6 @@ export class ReadOnlyGovernanceContract {
     const block = await this.client.getBlock();
     const hardCutoff = block.timestamp - MAX_PROPOSAL_LIFETIME_SECONDS;
 
-    let sawExecuted = false;
-
     // Proposals are append-only with monotonically non-decreasing creation timestamps, so iterating
     // from newest -> oldest lets us early-stop as soon as we cross the lifetime cutoff.
     for (let id = proposalCount - 1n; id >= 0n; id--) {
@@ -350,16 +348,13 @@ export class ReadOnlyGovernanceContract {
       }
 
       if (proposal.state === ProposalState.Executed) {
-        sawExecuted = true;
         this.executedPayloads.add(target);
       }
+
       // Rejected/Dropped/Expired proposals allow re-proposing the same payload; keep scanning.
     }
 
-    if (sawExecuted || this.executedPayloads.has(target)) {
-      return 'executed';
-    }
-    return 'none';
+    return this.executedPayloads.has(target) ? 'executed' : 'none';
   }
 
   /**

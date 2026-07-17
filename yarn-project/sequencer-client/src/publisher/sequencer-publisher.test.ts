@@ -157,7 +157,7 @@ describe('SequencerPublisher', () => {
 
     governanceProposerContract = mock<GovernanceProposerContract>();
     // By default the configured rollup is the canonical instance, so the canonicality guard passes.
-    governanceProposerContract.getInstance.mockResolvedValue(mockRollupAddress);
+    governanceProposerContract.getRollupAddress.mockResolvedValue(EthAddress.fromString(mockRollupAddress));
     governanceProposerContract.getPayloadProposalStatus.mockResolvedValue('none');
 
     epochCache = mock<EpochCache>();
@@ -1051,7 +1051,7 @@ describe('SequencerPublisher', () => {
 
   it('does not signal when the configured rollup is not canonical', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.getInstance.mockResolvedValue(EthAddress.random().toString());
+    governanceProposerContract.getRollupAddress.mockResolvedValue(EthAddress.random());
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
