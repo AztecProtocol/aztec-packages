@@ -15,14 +15,12 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 
 import type { Hex } from 'viem';
 
-import { bridge } from './bridging.js';
+import { registerDeployedSponsoredFPCInWalletAndGetAddress } from '../local-network/sponsored_fpc.js';
+import { bridgeFeeJuice, waitForL1ToL2Message } from './bridging.js';
 import type { AccountFunding, DeployReporter } from './reporter.js';
 import type { DeployState } from './state.js';
 import type { FeePolicy } from './types.js';
@@ -80,18 +78,27 @@ export async function accountFunding(
     : { kind: 'not-funded', balance, fundAmount: policy.fundAmount };
 }
 
+/** Per-account fee dispensing for one run, prepared by {@link prepareFeeSession}. */
 export interface FeeSession {
   /**
    * Fee options for the next tx from `account`, plus `onConsumed` to call after it lands (clears a
    * one-time bridge claim from persisted state). Subsequent calls pay from balance.
    */
   next(account: AztecAddress): { fee: SendFee; onConsumed: () => void };
+  /**
+   * Whether `account`'s next tx will carry its one-time bridge claim. The runner serializes such an
+   * account's first tx: the claim must mine before its balance-paying txs fan out.
+   */
+  hasPendingClaim(account: AztecAddress): boolean;
 }
 
+/** What {@link prepareFeeSession} needs to fund a run's working accounts. */
 export interface PrepareFeeSessionOpts {
   /** Whether the target is a local (anvil) network — drives warp-vs-poll + L1 defaults. */
   local: boolean;
   node: AztecNode;
+  /** The node's URL — reaches its debug API for local time-warping while a bridge settles. */
+  nodeUrl?: string;
   wallet: Wallet;
   /**
    * Working accounts (those with pending work) with their resolved {@link FeePolicy} + funding (from
@@ -109,18 +116,14 @@ export interface PrepareFeeSessionOpts {
  * present). Returns a {@link FeeSession} that dispenses the right fee per tx, by sending account.
  */
 export async function prepareFeeSession(opts: PrepareFeeSessionOpts): Promise<FeeSession> {
-  const { local, node, wallet, accounts, state, persist, reporter } = opts;
-  const dispensers = new Map<string, () => { fee: SendFee; onConsumed: () => void }>();
+  const { local, node, nodeUrl, wallet, accounts, state, persist, reporter } = opts;
 
   // Shared sponsored payment method: register the SponsoredFPC + read gas once, if anyone uses it.
   let sponsoredFee: SendFee | undefined;
   if (accounts.some(a => a.policy.kind === 'sponsored')) {
-    const sponsoredFPC = await getContractInstanceFromInstantiationParams(SponsoredFPCContractArtifact, {
-      salt: new Fr(SPONSORED_FPC_SALT),
-    });
-    await wallet.registerContract(sponsoredFPC, SponsoredFPCContractArtifact);
+    const sponsoredFPCAddress = await registerDeployedSponsoredFPCInWalletAndGetAddress(wallet);
     sponsoredFee = {
-      paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address),
+      paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPCAddress),
       // 10x headroom because this one quote is reused for every tx in the run (the wallet's default would re-quote
       // per tx at 1.5x min): congestion pricing can push the min fee well past the starting quote over a run of
       // parallel layers. Overstating the cap is free — txs pay the going rate, not the cap, and the FPC pays anyway.
@@ -128,64 +131,93 @@ export async function prepareFeeSession(opts: PrepareFeeSessionOpts): Promise<Fe
     };
   }
 
+  // Bridge fee-juice top-ups. The L1 sends stay sequential — a shared funder key would collide on
+  // nonces — but the L1→L2 availability waits (the minutes-long part on a real network) run
+  // concurrently afterwards. Warp-mode waits run inline instead: warping manipulates global time,
+  // so concurrent warps would fight. Each claim persists as soon as it exists on L1, so a crash
+  // mid-wait resumes it instead of stranding the bridged funds; a resumed claim skips the wait (by
+  // resume time the message is available on any live network).
+  const claims = new Map<string, FeeJuicePaymentMethodWithClaim>();
+  const messageWaits: Promise<void>[] = [];
   for (const { address, policy, funding } of accounts) {
-    const key = address.toString();
-
-    if (policy.kind === 'sponsored') {
-      // Dispenser: every tx pays via the shared sponsored method; nothing to clean up after mining.
-      dispensers.set(key, () => ({ fee: sponsoredFee ?? {}, onConsumed: () => {} }));
+    if (policy.kind !== 'fee-juice' || funding.kind === 'funded') {
       continue;
     }
-
-    // fee-juice: a single-use claim when not already funded — reuse a persisted one, else bridge.
-    let claim: FeeJuicePaymentMethodWithClaim | undefined;
-    if (funding.kind !== 'funded') {
-      const stored = state.pendingClaims[key];
-      if (stored) {
-        reporter.onBridge?.({ recipient: address, amount: BigInt(stored.claimAmount), reused: true });
-        claim = new FeeJuicePaymentMethodWithClaim(address, {
-          claimAmount: BigInt(stored.claimAmount),
-          claimSecret: Fr.fromString(stored.claimSecret),
-          messageLeafIndex: BigInt(stored.messageLeafIndex),
-        });
+    const key = address.toString();
+    let stored = state.pendingClaims[key];
+    if (stored) {
+      reporter.onBridge?.({ recipient: address, amount: BigInt(stored.claimAmount), reused: true });
+    } else {
+      reporter.onBridge?.({ recipient: address, amount: policy.fundAmount, reused: false });
+      // Local defaults to anvil; a non-local network must supply L1 connection details.
+      const l1RpcUrl = policy.l1RpcUrl ?? (local ? DEFAULT_LOCAL_L1_RPC_URL : undefined);
+      const l1ChainId = policy.l1ChainId ?? (local ? DEFAULT_LOCAL_L1_CHAIN_ID : undefined);
+      if (l1RpcUrl === undefined || l1ChainId === undefined) {
+        throw new Error(
+          'fee-juice policy on a non-local network requires `l1RpcUrl` and `l1ChainId` (no hardcoded defaults).',
+        );
+      }
+      const bridged = await bridgeFeeJuice({
+        node,
+        recipient: address,
+        l1RpcUrl,
+        l1ChainId,
+        amount: policy.fundAmount,
+        // Local: anvil's dev key (its `mint` is owner-gated, so an ephemeral key is rejected).
+        // Non-local: the policy's key, else an ephemeral key + the faucet. Deliberately no env
+        // fallback — the framework never reads the environment; callers pipe keys in via the policy.
+        l1PrivateKey: policy.l1FunderKey ?? (local ? ANVIL_DEV_KEY : undefined),
+      });
+      stored = {
+        claimAmount: bridged.claimAmount.toString(),
+        claimSecret: bridged.claimSecret.toString(),
+        messageLeafIndex: bridged.messageLeafIndex.toString(),
+      };
+      state.pendingClaims[key] = stored;
+      persist();
+      const wait = waitForL1ToL2Message({
+        node,
+        messageHash: Fr.fromHexString(bridged.messageHash),
+        mode: local ? 'warp' : 'poll',
+        ...(nodeUrl ? { warpOpts: { nodeUrl } } : {}),
+      });
+      if (local) {
+        await wait;
       } else {
-        reporter.onBridge?.({ recipient: address, amount: policy.fundAmount, reused: false });
-        // Local defaults to anvil; a non-local network must supply L1 connection details.
-        const l1RpcUrl = policy.l1RpcUrl ?? (local ? DEFAULT_LOCAL_L1_RPC_URL : undefined);
-        const l1ChainId = policy.l1ChainId ?? (local ? DEFAULT_LOCAL_L1_CHAIN_ID : undefined);
-        if (l1RpcUrl === undefined || l1ChainId === undefined) {
-          throw new Error(
-            'fee-juice policy on a non-local network requires `l1RpcUrl` and `l1ChainId` (no hardcoded defaults).',
-          );
-        }
-        const { claim: bridged } = await bridge({
-          node,
-          recipient: address,
-          l1RpcUrl,
-          l1ChainId,
-          amount: policy.fundAmount,
-          // Local: anvil's dev key (its `mint` is owner-gated, so an ephemeral key is rejected).
-          // Non-local: caller key, else undefined (bridge generates an ephemeral key + uses the faucet).
-          l1PrivateKey: policy.l1FunderKey ?? (local ? ANVIL_DEV_KEY : (process.env.L1_FUNDER_KEY as Hex | undefined)),
-          mode: local ? 'warp' : 'poll',
-        });
-        // Persist before consuming, so a crash before the claim tx resumes from here.
-        state.pendingClaims[key] = {
-          claimAmount: bridged.claimAmount.toString(),
-          claimSecret: bridged.claimSecret.toString(),
-          messageLeafIndex: bridged.messageLeafIndex.toString(),
-        };
-        persist();
-        claim = new FeeJuicePaymentMethodWithClaim(address, bridged);
+        messageWaits.push(wait);
       }
     }
+    claims.set(
+      key,
+      new FeeJuicePaymentMethodWithClaim(address, {
+        claimAmount: BigInt(stored.claimAmount),
+        claimSecret: Fr.fromString(stored.claimSecret),
+        messageLeafIndex: BigInt(stored.messageLeafIndex),
+      }),
+    );
+  }
+  await Promise.all(messageWaits);
 
-    let claimConsumed = false; // One-way latch: only the account's first tx carries the claim.
-    dispensers.set(key, () => {
-      if (claim && !claimConsumed) {
-        claimConsumed = true;
+  // Per-account dispenser state. A claim is single-use: the first `next()` for its account carries
+  // it, and `onConsumed` (invoked by the runner once that tx mines) drops the persisted resume entry.
+  const sessions = new Map<string, { sponsored: boolean; claim?: FeeJuicePaymentMethodWithClaim }>();
+  for (const { address, policy } of accounts) {
+    const key = address.toString();
+    sessions.set(key, { sponsored: policy.kind === 'sponsored', claim: claims.get(key) });
+  }
+
+  return {
+    next: account => {
+      const key = account.toString();
+      const session = sessions.get(key);
+      if (session?.sponsored) {
+        return { fee: sponsoredFee ?? {}, onConsumed: () => {} };
+      }
+      if (session?.claim) {
+        const claim = session.claim;
+        session.claim = undefined; // single-use: only this first tx carries it
         return {
-          fee: { paymentMethod: claim }, // first tx: pays by consuming the bridge claim
+          fee: { paymentMethod: claim },
           onConsumed: () => {
             // claim is now spent on-chain; drop its resume entry
             delete state.pendingClaims[key];
@@ -194,15 +226,7 @@ export async function prepareFeeSession(opts: PrepareFeeSessionOpts): Promise<Fe
         };
       }
       return { fee: {}, onConsumed: () => {} }; // later txs (or already-funded): pay from the account's balance
-    });
-  }
-
-  return {
-    // Called by the runner once per tx, keyed by sender: `fee` goes into the tx's send options; the runner must
-    // invoke `onConsumed` after that tx mines.
-    next: account => {
-      const dispenser = dispensers.get(account.toString());
-      return dispenser ? dispenser() : { fee: {}, onConsumed: () => {} };
     },
+    hasPendingClaim: account => sessions.get(account.toString())?.claim !== undefined,
   };
 }

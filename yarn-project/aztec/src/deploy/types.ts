@@ -17,7 +17,6 @@ import type { ContractBase, ContractFunctionInteraction } from '@aztec/aztec.js/
 import type { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import type { DeployReporter } from './reporter.js';
 
@@ -53,7 +52,9 @@ export interface AccountSpec {
 
 /** Resolve addresses of accounts / contracts (for initializer args, action targets, the deployer). */
 export interface Resolver {
+  /** The resolved address of the account declared under `alias`. Throws on an unknown alias. */
   account(alias: string): AztecAddress;
+  /** The resolved address of the contract step declared under `alias`. Throws on an unknown alias. */
   contract(alias: string): AztecAddress;
 }
 
@@ -100,11 +101,16 @@ export interface ContractStep<C = Steps, T extends ContractBase = ContractBase> 
   initializerArgs?: (resolve: Resolver) => unknown[];
   /**
    * Runtime initializer args — may read live state (e.g. `ctx.instance(x).methods.f().simulate()`).
-   * The address can only be derived once {@link dependsOn} has run, so it's resolved AT EXECUTION
-   * TIME, not upfront. Mutually exclusive with {@link initializerArgs}.
+   * Resolved at inventory time when the state it reads already exists (the re-run case, which is
+   * what makes re-runs no-ops), and otherwise AT EXECUTION TIME, once {@link dependsOn} has run.
+   * Mutually exclusive with {@link initializerArgs}.
    */
   deferredInitializerArgs?: (ctx: Ctx<C>) => unknown[] | Promise<unknown[]>;
-  /** Steps that must complete first. Auto-derived from {@link initializerArgs}; required for deferred. */
+  /**
+   * Steps that must complete first. Auto-derived from {@link initializerArgs}. Required for
+   * deferred contracts: declare the steps whose effects the args read, or an explicit empty array
+   * if they only read pre-existing state.
+   */
   dependsOn?: string[];
 }
 
@@ -158,18 +164,21 @@ export interface Ctx<C = Steps> extends Resolver {
    * this run", e.g. a mint gated on a fresh token: `done: (ctx) => !ctx.ran("goCoin")`.
    */
   ran(id: string): Promise<boolean>;
-  wallet: EmbeddedWallet;
+  wallet: Wallet;
   node: AztecNode;
 }
 
+/** The full declarative input to {@link runDeployment}: target, accounts, steps, fees, and hooks. */
 export interface DeploymentSpec<C extends Steps = Steps> {
-  /** Aztec node JSON-RPC URL. Ignored when {@link node} is provided; one of the two is required. */
+  /**
+   * Aztec node JSON-RPC URL; one of this or {@link node} is required. When {@link node} is also
+   * provided, only used to reach the node's debug API for local time-warping while a bridge settles.
+   */
   nodeUrl?: string;
   /**
    * An already-connected node to deploy against — e.g. an in-process `AztecNodeService` from a test
-   * fixture. Takes precedence over {@link nodeUrl}. Note the `fee-juice` warp path (local bridging)
-   * still resolves a node debug URL from `AZTEC_NODE_URL`/localhost, so pass {@link nodeUrl} too if
-   * you bridge against an in-process node.
+   * fixture. Takes precedence over {@link nodeUrl}; pass {@link nodeUrl} too if you bridge with the
+   * `fee-juice` policy against an in-process local node (the warp path needs its debug API URL).
    */
   node?: AztecNode;
   /**
@@ -193,11 +202,4 @@ export interface DeploymentSpec<C extends Steps = Steps> {
   reporter?: DeployReporter;
   /** Hook to write app artifacts (e.g. a frontend manifest) from resolved state; runs after execution. */
   output?: (ctx: Ctx<C>) => void | Promise<void>;
-}
-
-/** A bridge claim, persisted to resume a top-up that bridged on L1 but didn't claim on L2. */
-export interface StoredClaim {
-  claimAmount: string;
-  claimSecret: string;
-  messageLeafIndex: string;
 }

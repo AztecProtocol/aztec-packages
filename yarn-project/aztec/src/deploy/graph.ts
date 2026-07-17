@@ -49,7 +49,11 @@ export function scheduleLayers(
 
   const nodeSet = new Set(nodes);
   const layerOf = new Map<string, number>();
-  asap.forEach((layer, index) => layer.forEach(node => layerOf.set(node, index)));
+  for (const [index, layer] of asap.entries()) {
+    for (const node of layer) {
+      layerOf.set(node, index);
+    }
+  }
 
   // Reverse adjacency: which in-set nodes depend on each node.
   const dependents = new Map<string, string[]>();
@@ -121,13 +125,13 @@ export function formatLayers(title: string, layers: PlanRow[][]): string {
     return `${title}: (none)`;
   }
   const lines = [`${title}:`];
-  layers.forEach((layer, index) => {
+  for (const [index, layer] of layers.entries()) {
     lines.push(`  layer ${index + 1}${layer.length > 1 ? '  (parallel)' : ''}`);
     for (const row of layer) {
       const dependencies = row.dependencies && row.dependencies.length ? `  ← ${row.dependencies.join(', ')}` : '';
       const tag = row.tag ? `  [${row.tag}]` : '';
       lines.push(`    ${row.name}${tag}${dependencies}`);
     }
-  });
+  }
   return lines.join('\n');
 }

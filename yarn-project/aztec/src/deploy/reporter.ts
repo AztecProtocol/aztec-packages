@@ -14,6 +14,7 @@ import { formatLayers, formatList } from './graph.js';
 /** What a unit did: publish a contract, or send an action's tx. */
 export type DeployUnitKind = 'publish' | 'action';
 
+/** Identity of one execution unit (a single tx), as reported by the unit lifecycle hooks. */
 export interface DeployUnitInfo {
   /** Human label, e.g. `publish goCoin`, `action mintGoCoin`. */
   label: string;

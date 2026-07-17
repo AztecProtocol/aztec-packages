@@ -69,7 +69,8 @@
     "commander": "^12.1.0",
     "koa": "^2.16.1",
     "koa-router": "^13.1.1",
-    "viem": "npm:@aztec/viem@2.38.2"
+    "viem": "npm:@aztec/viem@2.38.2",
+    "zod": "^4"
   },
   "files": [
     "dest",

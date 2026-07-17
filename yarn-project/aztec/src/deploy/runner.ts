@@ -9,17 +9,21 @@
  *
  * - Deterministic contracts (addresses are a pure function of class/deployer/salt/args) resolve
  *   UPFRONT, so the plan knows their addresses before anything is sent.
- * - Deferred contracts (args read runtime state) resolve AT EXECUTION TIME, once their `dependsOn`
- *   has run.
+ * - Deferred contracts (args read runtime state) resolve at INVENTORY TIME when the state their
+ *   args read already exists (the re-run case, which is what makes re-runs no-ops), and otherwise
+ *   AT EXECUTION TIME, once their `dependsOn` has run.
  * - Steps execute in topological layers over the single graph, so an action can precede a contract
  *   it sets up. Within a layer, contract publishes are individual txs and same-account actions batch
- *   into ≤5-call BatchCalls. The one-time fee-juice claim per account is consumed + mined by that
- *   account's first tx before the rest fan out.
+ *   into ≤{@link APP_MAX_CALLS}-call BatchCalls. The one-time fee-juice claim per account is
+ *   consumed + mined by that account's first tx before the rest fan out.
  */
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type ContractBase, DeployMethod } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { APP_MAX_CALLS } from '@aztec/entrypoints/encoding';
+import { chunk, compactArray } from '@aztec/foundation/collection';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { getContractClassFromArtifact, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveKeys, deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
@@ -40,11 +44,13 @@ import {
 import { type DeployState, loadState, saveState } from './state.js';
 import type { ActionStep, ContractStep, Ctx, DeploymentSpec, FeePolicy, Resolver, StepSpec, Steps } from './types.js';
 
-/** Max calls batched into a single execution payload for one account (protocol limit). */
-const MAX_CALLS_PER_BATCH = 5;
-
 /** A step's idempotency gate (transitively) depends on itself. */
-class GateCycleError extends Error {}
+class GateCycleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GateCycleError';
+  }
+}
 
 function getOrThrow<Value>(map: Map<string, Value>, alias: string, kind: string): Value {
   const value = map.get(alias);
@@ -101,13 +107,15 @@ class DeploymentRun<C extends Steps> {
   private readonly defaultSalt: Fr;
   private readonly globalPolicy: FeePolicy;
 
-  private readonly stepEntries: [string, StepSpec<C>][];
-  private readonly contractEntries: [string, ContractStep<C>][];
-  private readonly actionEntries: [string, ActionStep<C>][];
+  // The steps map partitioned by kind once, so lookups are typed without casts.
+  private readonly steps: Map<string, StepSpec<C>>;
+  private readonly contractSteps = new Map<string, ContractStep<C>>();
+  private readonly actionSteps = new Map<string, ActionStep<C>>();
   /** Contract→contract address deps, auto-derived from deterministic `initializerArgs`. */
   private readonly contractRefs: Map<string, string[]>;
 
-  // Populated as accounts resolve, contracts resolve (upfront or deferred), and txs land.
+  // Populated as accounts resolve, contracts resolve (upfront, at inventory, or deferred at
+  // execution), and txs land.
   private readonly accountAddresses = new Map<string, AztecAddress>();
   private readonly policyByAddress = new Map<string, FeePolicy>();
   private readonly contractAddresses = new Map<string, AztecAddress>();
@@ -116,16 +124,15 @@ class DeploymentRun<C extends Steps> {
   private readonly classIds = new Map<string, Fr>();
   private readonly publishedThisRun = new Set<string>();
   private readonly classesPublishedThisRun = new Set<string>();
+  private readonly publishedCache = new Map<string, Promise<boolean>>();
   private readonly gateCache = new Map<string, Promise<boolean>>();
   private readonly gateInProgress = new Set<string>();
 
-  // Populated by the resolve / inventory / plan / fund phases.
+  // Populated by the resolve / inventory / plan phases.
   private resolveOrder: string[] = [];
   private readonly actionsToRun = new Set<string>();
   private execAliases: string[] = [];
   private layers: string[][] = [];
-  /** Accounts whose first paying tx must mine before the rest fan out (one-time bridge claim). */
-  private accountsWithClaim = new Set<string>();
 
   private readonly resolver: Resolver;
   private readonly ctx: Ctx<C>;
@@ -143,12 +150,12 @@ class DeploymentRun<C extends Steps> {
     this.defaultSalt = spec.salt ?? new Fr(0);
     this.globalPolicy = spec.fees ?? defaultFeePolicy(this.local);
 
-    this.stepEntries = Object.entries(spec.steps) as [string, StepSpec<C>][];
-    this.contractEntries = this.stepEntries.filter(([, s]) => s.kind === 'contract') as [string, ContractStep<C>][];
-    this.actionEntries = this.stepEntries.filter(([, s]) => s.kind === 'action') as [string, ActionStep<C>][];
-    for (const [alias, step] of this.contractEntries) {
-      if (isDeferred(step) && step.mode === 'register') {
-        throw new Error(`Contract "${alias}" is register-mode with deferred args — registration has no tx to defer.`);
+    this.steps = new Map(Object.entries(spec.steps) as [string, StepSpec<C>][]);
+    for (const [alias, step] of this.steps) {
+      if (step.kind === 'contract') {
+        this.contractSteps.set(alias, step);
+      } else {
+        this.actionSteps.set(alias, step);
       }
     }
     this.contractRefs = this.recordContractRefs();
@@ -168,11 +175,9 @@ class DeploymentRun<C extends Steps> {
     };
   }
 
-  /** Connects the node + ephemeral wallet, then resolves accounts and class ids. */
+  /** Validates the spec, connects the node + ephemeral wallet, then resolves accounts and class ids. */
   public static async create<C extends Steps>(spec: DeploymentSpec<C>): Promise<DeploymentRun<C>> {
-    if (!spec.node && !spec.nodeUrl) {
-      throw new Error('runDeployment requires either `node` or `nodeUrl` on the spec.');
-    }
+    DeploymentRun.validateSpec(spec);
     const node = spec.node ?? createAztecNodeClient(spec.nodeUrl!);
     const wallet = await EmbeddedWallet.create(node, {
       ephemeral: true,
@@ -184,37 +189,93 @@ class DeploymentRun<C extends Steps> {
     return run;
   }
 
-  /** Resolves every deterministic contract upfront, in constructor-arg dependency order. */
+  /** Static spec validation — everything that can be rejected before touching the network. */
+  private static validateSpec<C extends Steps>(spec: DeploymentSpec<C>): void {
+    if (!spec.node && !spec.nodeUrl) {
+      throw new Error('runDeployment requires either `node` or `nodeUrl` on the spec.');
+    }
+    const steps = Object.entries(spec.steps) as [string, StepSpec<C>][];
+    const aliases = new Set(steps.map(([alias]) => alias));
+    for (const [alias, step] of steps) {
+      for (const dependency of step.dependsOn ?? []) {
+        if (!aliases.has(dependency)) {
+          throw new Error(`Unknown step "${dependency}" in dependsOn of "${alias}".`);
+        }
+      }
+      if (step.kind !== 'contract') {
+        continue;
+      }
+      if (step.initializerArgs && step.deferredInitializerArgs) {
+        throw new Error(`Contract "${alias}" declares both initializerArgs and deferredInitializerArgs — pick one.`);
+      }
+      if (!isDeferred(step)) {
+        continue;
+      }
+      if (step.mode === 'register') {
+        throw new Error(`Contract "${alias}" is register-mode with deferred args — registration has no tx to defer.`);
+      }
+      if (step.dependsOn == null) {
+        throw new Error(
+          `Contract "${alias}" has deferred args but no dependsOn. Declare the steps whose effects the args read,` +
+            ` or an explicit empty array if they only read pre-existing state.`,
+        );
+      }
+    }
+  }
+
+  /** Resolves every deterministic contract upfront, layer by layer in constructor-arg dependency order. */
   public async resolveDeterministicContracts(): Promise<void> {
-    const deterministicAliases = this.contractEntries.filter(([, s]) => !isDeferred(s)).map(([a]) => a);
-    this.resolveOrder = topologicalLayers(deterministicAliases, this.contractRefs).flat();
-    for (const alias of this.resolveOrder) {
-      const step = this.spec.steps[alias] as ContractStep<C>;
-      await this.resolveContract(alias, step, step.initializerArgs?.(this.resolver) ?? []);
+    const deterministicAliases = [...this.contractSteps]
+      .filter(([, step]) => !isDeferred(step))
+      .map(([alias]) => alias);
+    const layers = topologicalLayers(deterministicAliases, this.contractRefs);
+    this.resolveOrder = layers.flat();
+    for (const layer of layers) {
+      await Promise.all(
+        layer.map(alias => {
+          const step = getOrThrow(this.contractSteps, alias, 'contract');
+          return this.resolveContract(alias, step, step.initializerArgs?.(this.resolver) ?? []);
+        }),
+      );
     }
   }
 
   /** Inventory: which steps still need doing? */
   public async takeInventory(): Promise<void> {
-    for (const alias of this.resolveOrder) {
-      const step = this.spec.steps[alias] as ContractStep<C>;
-      if (step.mode === 'publish' && !(await this.isPublished(alias))) {
+    // Deterministic publishes missing on-chain. The checks are independent node reads, so they run
+    // concurrently.
+    const missing = await Promise.all(
+      this.resolveOrder.map(async alias => {
+        const step = getOrThrow(this.contractSteps, alias, 'contract');
+        return step.mode === 'publish' && !(await this.isPublished(alias)) ? alias : undefined;
+      }),
+    );
+    for (const alias of compactArray(missing)) {
+      this.publishedThisRun.add(alias);
+    }
+
+    // Deferred contracts: try to resolve now — on a re-run the state their args read is already
+    // on-chain, so the address derives and publication is checked like any other contract (which is
+    // what makes re-runs no-ops). When the args can't resolve yet, the contract publishes this run
+    // and re-resolves at execution time, after its `dependsOn` has run. Runs before the action
+    // gates, so `ran`/`done` on a deferred contract answer correctly inside them.
+    for (const [alias, step] of this.contractSteps) {
+      if (isDeferred(step) && !(await this.tryResolveDeferred(alias, step))) {
         this.publishedThisRun.add(alias);
       }
     }
-    for (const [alias] of this.actionEntries) {
+
+    // Action gates. Sequential on purpose: evaluating them concurrently would turn the cyclic-gate
+    // detection (gateInProgress) into a silent deadlock of promises awaiting each other.
+    for (const alias of this.actionSteps.keys()) {
       if (!(await this.actionGate(alias))) {
         this.actionsToRun.add(alias);
       }
     }
-    const deferredAliases = this.contractEntries.filter(([, s]) => isDeferred(s)).map(([a]) => a);
 
-    // Steps that execute this run: deterministic publishes that are missing, every deferred contract
-    // (resolved + published-if-needed at exec), and actions whose gate didn't pass.
     this.execAliases = [
-      ...this.resolveOrder.filter(alias => this.publishedThisRun.has(alias)),
-      ...deferredAliases,
-      ...this.actionEntries.filter(([a]) => this.actionsToRun.has(a)).map(([a]) => a),
+      ...[...this.contractSteps.keys()].filter(alias => this.publishedThisRun.has(alias)),
+      ...[...this.actionSteps.keys()].filter(alias => this.actionsToRun.has(alias)),
     ];
   }
 
@@ -225,7 +286,7 @@ class DeploymentRun<C extends Steps> {
   public async reportPlan(): Promise<DeployPlan> {
     const accountUsedBy = new Set<string>();
     for (const alias of this.execAliases) {
-      const step = this.spec.steps[alias];
+      const step = getOrThrow(this.steps, alias, 'step');
       const address = step.kind === 'contract' ? step.deployer(this.resolver) : step.from(this.resolver);
       accountUsedBy.add(address.toString());
     }
@@ -236,7 +297,7 @@ class DeploymentRun<C extends Steps> {
       if (step.mode === 'register') {
         return 'registered';
       }
-      return this.publishedThisRun.has(alias) || isDeferred(step) ? 'to publish' : 'published';
+      return this.publishedThisRun.has(alias) ? 'to publish' : 'published';
     };
     this.layers = this.buildLayers();
     const plan: DeployPlan = {
@@ -252,7 +313,7 @@ class DeploymentRun<C extends Steps> {
           };
         }),
       ),
-      steps: this.stepEntries.map(([id, step]) => ({
+      steps: [...this.steps].map(([id, step]) => ({
         id,
         kind: step.kind,
         status: stepStatus(id, step),
@@ -274,12 +335,14 @@ class DeploymentRun<C extends Steps> {
 
   /**
    * Fund phase: prepares each working account's fee session per its resolved policy + funding
-   * (bridging Fee Juice when needed) and records which accounts hold a one-time bridge claim.
+   * (bridging Fee Juice when needed). The session owns all claim state — see
+   * {@link FeeSession.hasPendingClaim}.
    */
-  public async prepareFees(plan: DeployPlan): Promise<FeeSession> {
-    const feeSession = await prepareFeeSession({
+  public prepareFees(plan: DeployPlan): Promise<FeeSession> {
+    return prepareFeeSession({
       local: this.local,
       node: this.node,
+      nodeUrl: this.spec.nodeUrl,
       wallet: this.wallet,
       state: this.state,
       persist: () => this.persist(),
@@ -292,10 +355,6 @@ class DeploymentRun<C extends Steps> {
           funding: a.funding,
         })),
     });
-    this.accountsWithClaim = new Set(
-      plan.accounts.filter(a => a.funding.kind === 'not-funded').map(a => a.address.toString()),
-    );
-    return feeSession;
   }
 
   /** Executes the layers in order: publishes as individual txs, same-account actions batched. */
@@ -320,7 +379,7 @@ class DeploymentRun<C extends Steps> {
       contracts: [...this.contractAddresses].map(([alias, address]) => ({
         alias,
         address,
-        status: (this.spec.steps[alias] as ContractStep<C>).mode === 'register' ? 'registered' : 'published',
+        status: getOrThrow(this.contractSteps, alias, 'contract').mode === 'register' ? 'registered' : 'published',
       })),
       accounts: [...this.accountAddresses].map(([alias, address]) => ({ alias, address })),
     };
@@ -329,34 +388,47 @@ class DeploymentRun<C extends Steps> {
 
   /** Accounts are initializerless (no deploy tx). Per-account salt + fee policy override the spec. */
   private async resolveAccounts(): Promise<void> {
-    for (const [alias, account] of Object.entries(this.spec.accounts)) {
-      const derived = await this.wallet.createSchnorrInitializerlessAccount(
-        account.secret,
-        account.salt ?? this.defaultSalt,
-        deriveMasterMessageSigningSecretKey(account.secret),
-      );
-      this.accountAddresses.set(alias, derived.address);
-      this.policyByAddress.set(derived.address.toString(), account.fees ?? this.globalPolicy);
-    }
+    await Promise.all(
+      Object.entries(this.spec.accounts).map(async ([alias, account]) => {
+        const derived = await this.wallet.createSchnorrInitializerlessAccount(
+          account.secret,
+          account.salt ?? this.defaultSalt,
+          deriveMasterMessageSigningSecretKey(account.secret),
+        );
+        this.accountAddresses.set(alias, derived.address);
+        this.policyByAddress.set(derived.address.toString(), account.fees ?? this.globalPolicy);
+      }),
+    );
   }
 
   /**
    * Class ids come from the ARTIFACT (not the instance/args), so they're known upfront for every
    * contract — deferred ones included. This lets class-publish ordering cover all same-class
    * contracts, so exactly one publishes the class and the rest are ordered after it (no race).
+   * Steps sharing a generated contract class share the artifact object, so the id is computed once
+   * per artifact identity — hashing it is CPU-heavy.
    */
   private async computeClassIds(): Promise<void> {
-    for (const [alias, step] of this.contractEntries) {
-      if (step.mode === 'publish') {
-        this.classIds.set(alias, (await getContractClassFromArtifact(step.contract.artifact)).id);
-      }
-    }
+    const idByArtifact = new Map<ContractArtifact, Promise<Fr>>();
+    await Promise.all(
+      [...this.contractSteps].map(async ([alias, step]) => {
+        if (step.mode !== 'publish') {
+          return;
+        }
+        let id = idByArtifact.get(step.contract.artifact);
+        if (!id) {
+          id = getContractClassFromArtifact(step.contract.artifact).then(contractClass => contractClass.id);
+          idByArtifact.set(step.contract.artifact, id);
+        }
+        this.classIds.set(alias, await id);
+      }),
+    );
   }
 
   /** Contract→contract address deps, auto-derived from each deterministic `initializerArgs`. */
   private recordContractRefs(): Map<string, string[]> {
     const contractRefs = new Map<string, string[]>();
-    for (const [alias, step] of this.contractEntries) {
+    for (const [alias, step] of this.contractSteps) {
       const refs = new Set<string>();
       if (step.initializerArgs) {
         // Dry-run `initializerArgs` with a resolver that records each `contract(alias)` lookup instead of resolving
@@ -379,13 +451,16 @@ class DeploymentRun<C extends Steps> {
 
   /**
    * Publishes/registers a contract from already-computed initializer args (used upfront for
-   * deterministic contracts, and at execution time for deferred ones).
+   * deterministic contracts, and at inventory or execution time for deferred ones). Both modes
+   * derive the address from the full instantiation params — deployer and secret-derived public
+   * keys included — so a registered contract lands on the same address publishing it would.
    */
   private async resolveContract(alias: string, step: ContractStep<C>, args: unknown[]): Promise<void> {
+    this.publishedCache.delete(alias); // re-resolution may change the address
     const salt = step.salt ?? this.defaultSalt;
+    const deployer = step.deployer(this.resolver);
+    const publicKeys = step.secret ? (await deriveKeys(step.secret)).publicKeys : undefined;
     if (step.mode === 'publish') {
-      const deployer = step.deployer(this.resolver);
-      const publicKeys = step.secret ? (await deriveKeys(step.secret)).publicKeys : undefined;
       const deployMethod = DeployMethod.create<ContractBase>(
         this.wallet,
         {
@@ -404,21 +479,42 @@ class DeploymentRun<C extends Steps> {
     } else {
       const instance = await getContractInstanceFromInstantiationParams(step.contract.artifact, {
         salt,
+        deployer,
+        ...(publicKeys ? { publicKeys } : {}),
         ...(args.length ? { constructorArgs: args } : {}),
         ...(step.initializer ? { constructorArtifact: step.initializer } : {}),
       });
       this.contractAddresses.set(alias, instance.address);
       this.contractInstances.set(alias, step.contract.at(instance.address, this.wallet));
-      await this.wallet.registerContract(instance, step.contract.artifact);
+      await this.wallet.registerContract(instance, step.contract.artifact, step.secret);
     }
   }
 
-  private async isPublished(alias: string): Promise<boolean> {
+  /**
+   * Attempts to resolve a deferred contract from current on-chain state. True if the args
+   * resolved AND the instance is already published — i.e. there is no work left for it this run.
+   */
+  private async tryResolveDeferred(alias: string, step: ContractStep<C>): Promise<boolean> {
+    try {
+      await this.resolveContract(alias, step, await step.deferredInitializerArgs!(this.ctx));
+      return await this.isPublished(alias);
+    } catch {
+      return false; // args not resolvable yet — they read state this run creates
+    }
+  }
+
+  /** Whether the alias's resolved instance is published on-chain. Memoized — one node read per address. */
+  private isPublished(alias: string): Promise<boolean> {
     const address = this.contractAddresses.get(alias);
     if (!address) {
-      return false; // deferred & not yet resolved
+      return Promise.resolve(false); // deferred & not yet resolved
     }
-    return (await this.wallet.getContractMetadata(address)).isContractPublished;
+    let cached = this.publishedCache.get(alias);
+    if (!cached) {
+      cached = this.wallet.getContractMetadata(address).then(metadata => metadata.isContractPublished);
+      this.publishedCache.set(alias, cached);
+    }
+    return cached;
   }
 
   /**
@@ -426,8 +522,8 @@ class DeploymentRun<C extends Steps> {
    * gate that (transitively) depends on itself throws {@link GateCycleError}.
    */
   private actionGate(alias: string): Promise<boolean> {
-    const step = this.spec.steps[alias];
-    if (!step || step.kind !== 'action') {
+    const step = this.actionSteps.get(alias);
+    if (!step) {
       throw new Error(`Unknown action "${alias}".`);
     }
     if (this.gateInProgress.has(alias)) {
@@ -440,7 +536,7 @@ class DeploymentRun<C extends Steps> {
     this.gateInProgress.add(alias);
     const pending = (async () => {
       try {
-        return await (step as ActionStep<C>).done(this.ctx);
+        return await step.done(this.ctx);
       } catch (error) {
         if (error instanceof GateCycleError) {
           throw error;
@@ -454,7 +550,7 @@ class DeploymentRun<C extends Steps> {
 
   /** `ctx.done`: whether step `id` is already satisfied this run — mode-aware. */
   private done(id: string): Promise<boolean> {
-    const step = this.spec.steps[id];
+    const step = this.steps.get(id);
     if (!step) {
       throw new Error(`Unknown step "${id}".`);
     }
@@ -469,7 +565,7 @@ class DeploymentRun<C extends Steps> {
 
   /** `ctx.ran`: whether step `id` did (or will do) work this run — mode-aware. */
   private async ran(id: string): Promise<boolean> {
-    const step = this.spec.steps[id];
+    const step = this.steps.get(id);
     if (!step) {
       throw new Error(`Unknown step "${id}".`);
     }
@@ -489,7 +585,7 @@ class DeploymentRun<C extends Steps> {
    */
   private buildLayers(): string[][] {
     const publisherByClass = new Map<string, string>();
-    for (const [alias, step] of this.contractEntries) {
+    for (const [alias, step] of this.contractSteps) {
       if (step.mode !== 'publish') {
         continue;
       }
@@ -500,7 +596,7 @@ class DeploymentRun<C extends Steps> {
     }
     const execDeps = new Map<string, string[]>();
     for (const alias of this.execAliases) {
-      const step = this.spec.steps[alias];
+      const step = getOrThrow(this.steps, alias, 'step');
       // Constructor address refs (contractRefs) do NOT order publishes — addresses are deterministic,
       // so a contract can publish in parallel with the ones it references. Only `dependsOn` (an action
       // it follows / runtime state a deferred contract reads) and shared-class publication order here.
@@ -516,14 +612,14 @@ class DeploymentRun<C extends Steps> {
     }
     // Actions float as late as their dependents allow, so same-account actions coalesce into one
     // batched tx; contract publishes stay early (they unblock dependents and aren't batched).
-    return scheduleLayers(this.execAliases, execDeps, id => this.spec.steps[id].kind === 'action');
+    return scheduleLayers(this.execAliases, execDeps, id => getOrThrow(this.steps, id, 'step').kind === 'action');
   }
 
   /** A layer's contract publishes — one tx each (deferred contracts resolve their address first). */
   private publishUnits(layer: string[]): ExecutionUnit[] {
     const units: ExecutionUnit[] = [];
-    for (const alias of layer.filter(a => this.spec.steps[a].kind === 'contract')) {
-      const step = this.spec.steps[alias] as ContractStep<C>;
+    for (const alias of layer.filter(a => this.contractSteps.has(a))) {
+      const step = getOrThrow(this.contractSteps, alias, 'contract');
       const account = step.deployer(this.resolver);
       units.push({
         label: `publish ${alias}`,
@@ -531,6 +627,8 @@ class DeploymentRun<C extends Steps> {
         account,
         send: async fee => {
           if (isDeferred(step)) {
+            // Re-resolve with post-`dependsOn` state: the inventory attempt either failed or ran
+            // before this run's earlier layers landed.
             await this.resolveContract(alias, step, await step.deferredInitializerArgs!(this.ctx));
           }
           const classId = getOrThrow(this.classIds, alias, 'class id');
@@ -540,24 +638,25 @@ class DeploymentRun<C extends Steps> {
             this.classesPublishedThisRun.has(classKey) ||
             (await this.wallet.getContractClassMetadata(classId)).isContractClassPubliclyRegistered;
           this.classesPublishedThisRun.add(classKey);
-          this.publishedThisRun.add(alias);
-          return deployMethod.send({
+          const sent = await deployMethod.send({
             from: account,
             fee,
             wait: { timeout: 120 },
             skipClassPublication: alreadyRegistered,
           });
+          this.publishedCache.set(alias, Promise.resolve(true));
+          return sent;
         },
       });
     }
     return units;
   }
 
-  /** A layer's actions, batching independent same-account actions into ≤5-call BatchCalls. */
+  /** A layer's actions, batching independent same-account actions into ≤{@link APP_MAX_CALLS}-call BatchCalls. */
   private actionUnits(layer: string[]): ExecutionUnit[] {
     const actionsByAccount = new Map<string, { account: AztecAddress; aliases: string[] }>();
-    for (const alias of layer.filter(a => this.spec.steps[a].kind === 'action')) {
-      const account = (this.spec.steps[alias] as ActionStep<C>).from(this.resolver);
+    for (const alias of layer.filter(a => this.actionSteps.has(a))) {
+      const account = getOrThrow(this.actionSteps, alias, 'action').from(this.resolver);
       const group = actionsByAccount.get(account.toString());
       if (group) {
         group.aliases.push(alias);
@@ -567,15 +666,14 @@ class DeploymentRun<C extends Steps> {
     }
     const units: ExecutionUnit[] = [];
     for (const { account, aliases } of actionsByAccount.values()) {
-      for (let start = 0; start < aliases.length; start += MAX_CALLS_PER_BATCH) {
-        const batch = aliases.slice(start, start + MAX_CALLS_PER_BATCH);
+      for (const batch of chunk(aliases, APP_MAX_CALLS)) {
         units.push({
           label: batch.length === 1 ? `action ${batch[0]}` : `batch [${batch.join(', ')}]`,
           kind: 'action',
           account,
           send: async fee => {
             const interactions = await Promise.all(
-              batch.map(alias => (this.spec.steps[alias] as ActionStep<C>).call(this.ctx)),
+              batch.map(alias => getOrThrow(this.actionSteps, alias, 'action').call(this.ctx)),
             );
             const sendOptions = { from: account, fee, wait: { timeout: 120 } };
             return interactions.length === 1
@@ -593,13 +691,14 @@ class DeploymentRun<C extends Steps> {
       return;
     }
     // Per-account claim serialization: the first paying tx of each claim-holding account must mine
-    // (consuming + spending the claim) before that account's balance-payers fan out.
+    // (consuming + spending the claim) before that account's balance-payers fan out. The fee
+    // session owns the claim state; consuming the claim flips `hasPendingClaim` for later layers.
     const claimFirst: ExecutionUnit[] = [];
     const rest: ExecutionUnit[] = [];
     const seen = new Set<string>();
     for (const unit of units) {
       const key = unit.account.toString();
-      if (this.accountsWithClaim.has(key) && !seen.has(key)) {
+      if (feeSession.hasPendingClaim(unit.account) && !seen.has(key)) {
         seen.add(key);
         claimFirst.push(unit);
       } else {
@@ -608,7 +707,6 @@ class DeploymentRun<C extends Steps> {
     }
     for (const unit of claimFirst) {
       await this.runUnit(unit, feeSession);
-      this.accountsWithClaim.delete(unit.account.toString());
     }
     await Promise.all(rest.map(unit => this.runUnit(unit, feeSession)));
   }
