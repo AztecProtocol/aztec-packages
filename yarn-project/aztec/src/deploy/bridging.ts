@@ -117,15 +117,15 @@ export async function bridgeFeeJuice(params: BridgeFeeJuiceParams): Promise<Brid
   // here; using a threshold (not `=== 0`) avoids skipping the mint when the signer holds leftover
   // dust from a previous run, which would trip ERC20InsufficientBalance.
   const FAUCET_SKIP_THRESHOLD = 10n * 10n ** 18n;
-  const minted = hasFaucet && l1Balance < FAUCET_SKIP_THRESHOLD;
-  if (!minted && !hasFaucet && l1Balance < FAUCET_SKIP_THRESHOLD) {
+  const useFaucet = hasFaucet && l1Balance < FAUCET_SKIP_THRESHOLD;
+  if (!useFaucet && !hasFaucet && l1Balance < FAUCET_SKIP_THRESHOLD) {
     throw new Error(
       `L1 signer ${signerAddress} holds ${l1Balance} FJ (below threshold) and no fee-asset handler is available for minting.`,
     );
   }
 
   let amountArg: bigint | undefined;
-  if (minted) {
+  if (useFaucet) {
     amountArg = undefined;
   } else {
     if (params.amount === undefined) {
@@ -136,8 +136,8 @@ export async function bridgeFeeJuice(params: BridgeFeeJuiceParams): Promise<Brid
     amountArg = params.amount;
   }
 
-  const claim = await portalManager.bridgeTokensPublic(recipient, amountArg, minted);
-  return { claim, l1Address: signerAddress, minted };
+  const claim = await portalManager.bridgeTokensPublic(recipient, amountArg, useFaucet);
+  return { claim, l1Address: signerAddress, minted: useFaucet };
 }
 
 export interface WaitForClaimParams {
@@ -159,7 +159,7 @@ export async function waitForL1ToL2Message(params: WaitForClaimParams): Promise<
   const { node, messageHash, mode } = params;
 
   if (mode === 'warp') {
-    await advanceL1ToL2Message(node, messageHash, {
+    await warpToL1ToL2Message(node, messageHash, {
       ...params.warpOpts,
       timeoutMs: params.timeoutMs ?? 120_000,
     });
@@ -188,7 +188,7 @@ export async function waitForL1ToL2Message(params: WaitForClaimParams): Promise<
  * current L1 timestamp via the regular API before warping); both clients target the same URL and
  * expose their methods as own properties on the rpc proxy, so a shallow merge is safe.
  */
-export async function advanceL1ToL2Message(
+export async function warpToL1ToL2Message(
   node: AztecNode,
   messageHash: Fr,
   opts: { nodeUrl?: string; timeoutMs?: number } = {},
