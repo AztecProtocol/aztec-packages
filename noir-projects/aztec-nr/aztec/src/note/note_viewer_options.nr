@@ -1,7 +1,7 @@
 use crate::note::constants::MAX_NOTES_PER_PAGE;
 use crate::note::note_getter_options::{NoteStatus, PropertySelector, Select, Sort};
 use crate::note::note_interface::NoteType;
-use crate::protocol::{address::AztecAddress, traits::{Packable, ToField}};
+use crate::protocol::{address::AztecAddress, traits::Packable};
 use std::option::Option;
 
 pub struct NoteViewerOptions<Note, let M: u32> {
@@ -31,15 +31,22 @@ impl<Note, let M: u32> NoteViewerOptions<Note, M> {
     // This method adds a `Select` criterion to the options. It takes a field_index indicating which field to select, a
     // value representing the specific value to match in that field, and a comparator (For possible values of
     // comparators, please see the Comparator enum from note_getter_options)
-    pub fn select<T>(&mut self, property_selector: PropertySelector, comparator: u8, value: T) -> Self
+    // Selectors from auto-generated `properties()` require the note's derived Packable layout. Manually defined
+    // selectors work with any layout.
+    pub fn select<T>(&mut self, property_selector: PropertySelector<T>, comparator: u8, value: T) -> Self
     where
-        T: ToField,
+        T: Packable,
     {
-        self.selects.push(Option::some(Select::new(property_selector, comparator, value.to_field())));
+        self.selects.push(Option::some(Select::new(property_selector, comparator, value)));
         *self
     }
 
-    pub fn sort(&mut self, property_selector: PropertySelector, order: u8) -> Self {
+    // Selectors from auto-generated `properties()` require the note's derived Packable layout. Manually defined
+    // selectors work with any layout.
+    pub fn sort<T>(&mut self, property_selector: PropertySelector<T>, order: u8) -> Self
+    where
+        T: Packable,
+    {
         self.sorts.push(Option::some(Sort::new(property_selector, order)));
         *self
     }
