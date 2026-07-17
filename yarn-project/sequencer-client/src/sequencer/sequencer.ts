@@ -7,7 +7,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { formatSeconds } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
@@ -25,7 +24,7 @@ import {
   buildCheckpointSimulationOverridesPlan,
 } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getEpochAtSlot, getStartTimestampForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
   MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
@@ -56,11 +55,7 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import { SequencerMetrics } from './metrics.js';
-import {
-  type FirstCommitteeEpoch,
-  classifyMissingCommittee,
-  findFirstEpochWithCommittee,
-} from './missing_committee.js';
+import { logMissingCommittee } from './missing_committee.js';
 import { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
@@ -979,7 +974,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         const targetEpoch = getEpochAtSlot(targetSlot, this.l1Constants);
         if (this.lastEpochForNoCommitteeLog !== targetEpoch) {
           this.lastEpochForNoCommitteeLog = targetEpoch;
-          await this.logMissingCommittee(targetSlot, targetEpoch);
+          await logMissingCommittee(targetSlot, targetEpoch, {
+            epochCache: this.epochCache,
+            rollupContract: this.rollupContract,
+            l2BlockSource: this.l2BlockSource,
+            l1Constants: this.l1Constants,
+            dateProvider: this.dateProvider,
+            logger: this.log,
+          });
         }
         return [false, undefined];
       }
@@ -1013,128 +1015,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposer,
     });
     return [true, proposer];
-  }
-
-  /**
-   * Logs why no validator committee exists for the given slot. Rather than the cryptic
-   * "committee does not exist on L1", it diagnoses the cause from the live attester count and whether the
-   * chain has ever produced a block: a bootstrapping chain waiting for validators to stake, a full set
-   * still waiting for the sampling lag to elapse, or a validator set that has shrunk below the required
-   * size on a live chain. Only the last is a genuine problem, so only it is logged at `warn`.
-   *
-   * Best-effort: if the diagnostic L1 reads fail we fall back to a neutral message so this never throws
-   * on the propose path.
-   */
-  private async logMissingCommittee(targetSlot: SlotNumber, targetEpoch: EpochNumber): Promise<void> {
-    const targetCommitteeSize = this.epochCache.getL1Constants().targetCommitteeSize;
-    const lag = this.epochCache.getLagInEpochsForValidatorSet();
-
-    let attesterCount: number;
-    let hasProducedBlocks: boolean;
-    try {
-      [attesterCount, hasProducedBlocks] = await Promise.all([
-        this.rollupContract.getActiveAttesterCount(),
-        this.l2BlockSource.getBlockNumber().then(n => n > 0),
-      ]);
-    } catch (err) {
-      this.log.warn(`No committee found for slot ${targetSlot}; could not determine validator set size`, {
-        targetSlot,
-        targetEpoch,
-        targetCommitteeSize,
-        err,
-      });
-      return;
-    }
-
-    const diagnosis = classifyMissingCommittee({ attesterCount, targetCommitteeSize, hasProducedBlocks });
-
-    const logCtx = { targetSlot, targetEpoch, attesterCount, targetCommitteeSize, cause: diagnosis.cause };
-
-    switch (diagnosis.cause) {
-      case 'awaiting-sampling-lag': {
-        const { epoch: firstCommitteeEpoch, provenance } = await this.estimateFirstCommitteeEpoch(
-          targetEpoch,
-          lag,
-          targetCommitteeSize,
-        );
-        const staked = `${attesterCount} validators are staked (>= ${targetCommitteeSize} required)`;
-        const forming = `the committee is still forming as the ${lag}-epoch sampling window advances`;
-        const ctx = { ...logCtx, firstCommitteeEpoch, provenance };
-        if (provenance === 'fallback') {
-          // We could not pin the exact epoch, so report the safe upper bound rather than a misleading ETA.
-          this.log.info(
-            `No committee for slot ${targetSlot} yet: ${staked}, ${forming}. A committee should exist no later ` +
-              `than epoch ${firstCommitteeEpoch}.`,
-            ctx,
-          );
-        } else {
-          const eta = this.formatEpochEta(firstCommitteeEpoch);
-          const caveat = provenance === 'projected-future' ? ' if the validator set holds' : '';
-          this.log.info(
-            `No committee for slot ${targetSlot} yet: ${staked}, ${forming}. The first committee is expected at ` +
-              `epoch ${firstCommitteeEpoch}${eta}${caveat}.`,
-            ctx,
-          );
-        }
-        break;
-      }
-      case 'awaiting-first-validators':
-        this.log.info(
-          `No committee for slot ${targetSlot}: the chain has not started producing blocks and only ${attesterCount} ` +
-            `of the ${targetCommitteeSize} required validators are staked. Block production begins once at least ` +
-            `${targetCommitteeSize} validators stake and the ${lag}-epoch sampling lag elapses.`,
-          logCtx,
-        );
-        break;
-      case 'validator-set-shrank':
-        this.log.warn(
-          `No committee for slot ${targetSlot}: the validator set has dropped to ${attesterCount}, below the ` +
-            `${targetCommitteeSize} required to form a committee. The chain cannot progress until enough validators ` +
-            `are staked again — check for validators exiting or being slashed.`,
-          logCtx,
-        );
-        break;
-    }
-  }
-
-  /** Formats the ETA to the start of the given epoch as ` (~12m from now)`, or empty if it is in the past. */
-  private formatEpochEta(epoch: EpochNumber): string {
-    const epochStartTs = getStartTimestampForEpoch(epoch, this.l1Constants);
-    const secondsUntil = Number(epochStartTs) - this.dateProvider.nowInSeconds();
-    return secondsUntil > 0 ? ` (~${formatSeconds(secondsUntil)} from now)` : '';
-  }
-
-  /**
-   * Estimates the earliest epoch that will have a committee, replaying L1's validator-set sampling rule: a
-   * committee for epoch `E` exists iff at least `targetCommitteeSize` attesters were staked at `E`'s sample
-   * time (`epochStart(E) - lag * epochDuration`). Only epochs after the one we failed at can qualify, and the
-   * set must have crossed the target within the last `lag` epochs' sample window, so the answer lies in
-   * `(targetEpoch, targetEpoch + lag + 1]`. Reads the historical attester count at each candidate's sample
-   * time (at most `lag` on-chain reads; future sample times are assumed to hold) and returns the first epoch
-   * that qualifies, or the pessimistic `targetEpoch + lag + 1` bound if the reads fail.
-   */
-  private async estimateFirstCommitteeEpoch(
-    targetEpoch: EpochNumber,
-    lag: number,
-    targetCommitteeSize: number,
-  ): Promise<FirstCommitteeEpoch> {
-    const fallbackEpoch = EpochNumber(targetEpoch + lag + 1);
-    try {
-      const epochDurationSeconds = BigInt(this.l1Constants.epochDuration * this.l1Constants.slotDuration);
-      const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
-      const candidates = await Promise.all(
-        Array.from({ length: lag + 1 }, (_, i) => EpochNumber(targetEpoch + 1 + i)).map(async epoch => {
-          const sampleTime = getStartTimestampForEpoch(epoch, this.l1Constants) - epochDurationSeconds * BigInt(lag);
-          const sampledAttesterCount =
-            sampleTime > nowSeconds ? undefined : await this.rollupContract.getAttesterCountAtTime(sampleTime);
-          return { epoch, sampledAttesterCount };
-        }),
-      );
-      return findFirstEpochWithCommittee({ candidates, targetCommitteeSize, fallbackEpoch });
-    } catch (err) {
-      this.log.debug(`Could not estimate first committee epoch after epoch ${targetEpoch}`, { targetEpoch, err });
-      return { epoch: fallbackEpoch, provenance: 'fallback' };
-    }
   }
 
   /**
