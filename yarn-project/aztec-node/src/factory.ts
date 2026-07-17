@@ -2,7 +2,7 @@ import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
-import { Blob } from '@aztec/blob-lib';
+import { Blob, getKzg } from '@aztec/blob-lib';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
@@ -11,7 +11,7 @@ import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
@@ -93,6 +93,17 @@ export async function createAztecNodeService(
   // Initialise the bb.js sync WASM singleton here, before any subsystem runs.
   const { BarretenbergSync } = await import('@aztec/bb.js');
   await BarretenbergSync.initSingleton();
+
+  // Warm the KZG trusted-setup singleton before any subsystem runs. getKzg() synchronously builds
+  // its precomputation tables on first use (~2s locally, blocking the event loop; 12-15s under
+  // production CPU limits). If that first use is instead the archiver reconstructing blobs or the
+  // proposal handler uploading them, the stalled loop overruns the gossipsub mcache window and
+  // attestation forwarding is skipped. Paying it here keeps it off the gossip path. Idempotent, so
+  // it is a no-op for sequencers (warmed in Sequencer.init) and for tests that pre-warm via
+  // warmBlobKzg.
+  const kzgTimer = new Timer();
+  getKzg();
+  log.verbose(`Warmed KZG trusted setup`, { durationMs: kzgTimer.ms() });
 
   const packageVersion = getPackageVersion();
   const telemetry = deps.telemetry ?? getTelemetryClient();
