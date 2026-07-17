@@ -54,43 +54,6 @@ const VERSION = 1;
 const CHAIN_ID = 1;
 
 /**
- * Normalizes a {@link BlockParameter} (which may be a bare value) into a {@link NormalizedBlockParameter}
- * object form. Performs no chain-tip resolution.
- */
-function normalizeBlockParameter(param: BlockParameter): NormalizedBlockParameter {
-  if (BlockHash.isBlockHash(param)) {
-    return { hash: param };
-  }
-  if (typeof param === 'number') {
-    return { number: param };
-  }
-  if (typeof param === 'string') {
-    if (BlockTag.includes(param)) {
-      return { tag: param === 'latest' ? 'proposed' : param };
-    }
-    throw new BadRequestError(`Invalid BlockParameter tag: ${param}`);
-  }
-  if (typeof param === 'object' && param !== null) {
-    if ('number' in param) {
-      return { number: param.number };
-    }
-    if ('hash' in param) {
-      return { hash: param.hash };
-    }
-    if ('archive' in param) {
-      return { archive: param.archive };
-    }
-    if ('tag' in param) {
-      if (BlockTag.includes(param.tag)) {
-        return { tag: param.tag };
-      }
-      throw new BadRequestError(`Invalid BlockParameter tag: ${param.tag}`);
-    }
-  }
-  throw new BadRequestError(`Invalid BlockParameter: ${JSON.stringify(param)}`);
-}
-
-/**
  * Minimal {@link AztecNode} implementation serving the read-side queries that the PXE services instantiated by the
  * TXE perform, directly against the TXE's own archiver and world state. Block production doesn't go through this
  * node (see `TXEStateMachine.handleL2Block`), so everything server-side (p2p, sequencing, proving, validation) is
@@ -478,14 +441,14 @@ export class TXENode extends UnimplementedAztecNode implements AztecNode {
   }
 
   /**
-   * Assembles a {@link MinedTxReceipt} from a raw {@link IndexedTxEffect}, deriving the finalization status from the
-   * L2 tips and the epoch from the block's slot number.
+   * Assembles a {@link MinedTxReceipt} from a raw {@link IndexedTxEffect}, deriving the epoch from the block's slot
+   * number.
    */
   async #assembleMinedReceipt(indexed: IndexedTxEffect, options?: GetTxReceiptOptions): Promise<MinedTxReceipt> {
     const blockNumber = indexed.l2BlockNumber;
-    const [tips, l1Constants] = await Promise.all([this.archiver.getL2Tips(), this.archiver.getL1Constants()]);
+    const l1Constants = await this.archiver.getL1Constants();
 
-    const status = this.#deriveMinedStatus(blockNumber, tips);
+    const status = this.#deriveMinedStatus();
     const epochNumber = getEpochAtSlot(indexed.slotNumber, l1Constants);
 
     return new MinedTxReceipt(
@@ -503,15 +466,46 @@ export class TXENode extends UnimplementedAztecNode implements AztecNode {
     );
   }
 
-  #deriveMinedStatus(blockNumber: BlockNumber, tips: L2Tips): MinedTxStatus {
-    if (blockNumber <= tips.finalized.block.number) {
-      return TxStatus.FINALIZED;
-    } else if (blockNumber <= tips.proven.block.number) {
-      return TxStatus.PROVEN;
-    } else if (blockNumber <= tips.checkpointed.block.number) {
-      return TxStatus.CHECKPOINTED;
-    } else {
-      return TxStatus.PROPOSED;
+  #deriveMinedStatus(): MinedTxStatus {
+    // The TXE marks every checkpoint proven and finalized the moment it is added (see TXEArchiver.addCheckpoints
+    // and getL2Tips), so a mined tx is always finalized.
+    return TxStatus.FINALIZED;
+  }
+}
+
+/**
+ * Normalizes a {@link BlockParameter} (which may be a bare value) into a {@link NormalizedBlockParameter}
+ * object form. Performs no chain-tip resolution.
+ */
+function normalizeBlockParameter(param: BlockParameter): NormalizedBlockParameter {
+  if (BlockHash.isBlockHash(param)) {
+    return { hash: param };
+  }
+  if (typeof param === 'number') {
+    return { number: param };
+  }
+  if (typeof param === 'string') {
+    if (BlockTag.includes(param)) {
+      return { tag: param === 'latest' ? 'proposed' : param };
+    }
+    throw new BadRequestError(`Invalid BlockParameter tag: ${param}`);
+  }
+  if (typeof param === 'object' && param !== null) {
+    if ('number' in param) {
+      return { number: param.number };
+    }
+    if ('hash' in param) {
+      return { hash: param.hash };
+    }
+    if ('archive' in param) {
+      return { archive: param.archive };
+    }
+    if ('tag' in param) {
+      if (BlockTag.includes(param.tag)) {
+        return { tag: param.tag };
+      }
+      throw new BadRequestError(`Invalid BlockParameter tag: ${param.tag}`);
     }
   }
+  throw new BadRequestError(`Invalid BlockParameter: ${JSON.stringify(param)}`);
 }
