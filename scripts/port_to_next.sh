@@ -10,6 +10,10 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 # preserved. Once the PR is merged (branch fully contained in next), the next
 # run rebuilds the branch fresh from next.
 #
+# Merge conflicts do NOT abandon the run: the conflicted merge is committed with
+# markers so the PR is still opened/updated as a resolution target, and the
+# conflicted files are reported (via step outputs) for a Slack notification.
+#
 # Usage: port_to_next.sh [source_branch]
 
 SOURCE_BRANCH="${1:-v5-next}"
@@ -26,23 +30,28 @@ if ! git config user.name &>/dev/null; then
   git config user.email "tech@aztecprotocol.com"
 fi
 
+# Accumulates "<ref>: file, file" lines for any merge that conflicted.
+CONFLICT_SUMMARY=""
+
 function branch_exists {
   git ls-remote --exit-code --heads origin "$1" >/dev/null 2>&1
 }
 
-# Merge a ref into the current branch, or abort + report conflicts and exit.
-function merge_or_fail {
+# Merge a ref into the current branch. On conflict, commit the merge with
+# markers (rather than aborting) so the PR surfaces it for manual resolution,
+# and record the conflicted files.
+function merge_ref {
   local ref="$1"
   echo "Merging $ref into $PORT_BRANCH..."
   if git merge "$ref" --no-edit -m "Merge $ref into $PORT_BRANCH"; then
     return 0
   fi
   local conflicts=$(git diff --name-only --diff-filter=U)
-  git merge --abort || true
-  echo "Error: merge conflicts merging $ref into $PORT_BRANCH:" >&2
+  echo "Conflicts merging $ref (committing with markers for manual resolution):" >&2
   echo "$conflicts" >&2
-  echo "Resolve by checking out $PORT_BRANCH, merging $ref, and pushing the fix." >&2
-  exit 1
+  git add -A
+  git commit -m "Merge $ref into $PORT_BRANCH (CONFLICTS - manual resolution needed)"
+  CONFLICT_SUMMARY+="${ref}: $(echo "$conflicts" | paste -sd ', ' -)"$'\n'
 }
 
 echo "=== Port Configuration ==="
@@ -78,12 +87,13 @@ fi
 
 # Keep current with next (surfaces conflicts early, keeps the PR mergeable),
 # then pull in the source branch.
-merge_or_fail "origin/$TARGET_BRANCH"
-merge_or_fail "origin/$SOURCE_BRANCH"
+merge_ref "origin/$TARGET_BRANCH"
+merge_ref "origin/$SOURCE_BRANCH"
 
 EXISTING_PR=$(gh pr list --state open --base "$TARGET_BRANCH" --head "$PORT_BRANCH" --json number --jq '.[0].number' || echo "")
 
-# Nothing to port if there is no delta over the target.
+# Nothing to port if there is no delta over the target. A conflict is itself a
+# delta (markers were committed), so this only triggers on a clean no-op.
 if git diff --quiet "origin/$TARGET_BRANCH" HEAD; then
   echo "No commits in $SOURCE_BRANCH that are missing from $TARGET_BRANCH."
   if [[ -n "$EXISTING_PR" ]]; then
@@ -112,4 +122,23 @@ fi
 echo "Updating PR body with commit list..."
 do_or_dryrun "$root/scripts/merge-train/update-pr-body.sh" "$PORT_BRANCH"
 
-do_or_dryrun echo "Successfully ported $SOURCE_BRANCH to $PORT_BRANCH"
+# Expose results for the workflow (PR link, and conflicts if any) so it can
+# notify Slack. Guarded so the script still works when run locally.
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  PR_URL=$(gh pr view "$PORT_BRANCH" --json url --jq '.url' 2>/dev/null || echo "")
+  echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+  if [[ -n "$CONFLICT_SUMMARY" ]]; then
+    {
+      echo "conflicts<<PORT_CONFLICTS_EOF"
+      printf '%s' "$CONFLICT_SUMMARY"
+      echo "PORT_CONFLICTS_EOF"
+    } >> "$GITHUB_OUTPUT"
+  fi
+fi
+
+if [[ -n "$CONFLICT_SUMMARY" ]]; then
+  echo "Ported $SOURCE_BRANCH to $PORT_BRANCH WITH CONFLICTS (see PR for markers):"
+  printf '%s' "$CONFLICT_SUMMARY"
+else
+  do_or_dryrun echo "Successfully ported $SOURCE_BRANCH to $PORT_BRANCH"
+fi
