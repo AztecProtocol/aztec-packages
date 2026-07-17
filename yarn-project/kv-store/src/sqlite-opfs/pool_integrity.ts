@@ -163,18 +163,14 @@ async function readAssociatedPath(handle: FileSystemFileHandle): Promise<string 
 
 /**
  * Byte-for-byte port of the vendored pool's `computeDigest`, checked against the digest words stored in the header.
- * The hash runs two parallel xor-and-multiply mixers over the path+flags corpus; the seeds (0xdeadbeef, 0x41c6ce57)
- * and odd multipliers (2654435761, 104729) are the upstream author's choices (a cyrb53-hash variant) and carry no
- * meaning here beyond having to match the vendored implementation bit for bit. Legacy pre-digest headers (no
- * FLAG_COMPUTE_DIGEST_V2) store zeros, which the zero-initialized `expected` words accept.
- *
- * The endianness asymmetry mirrors upstream: it writes the flags word through a DataView (big-endian default) but
- * the digest as a raw Uint32Array, which serializes little-endian on every supported platform.
  */
 function hasValidDigest(header: Uint8Array, flags: number): boolean {
   let expected0 = 0;
   let expected1 = 0;
   if ((flags & FLAG_COMPUTE_DIGEST_V2) !== 0) {
+    // These seeds (0xdeadbeef, 0x41c6ce57) and odd multipliers (2654435761, 104729) are the upstream author's choices
+    // (a cyrb53-hash variant) and carry no meaning here beyond having to match the vendored implementation bit for
+    // bit.
     expected0 = 0xdeadbeef;
     expected1 = 0x41c6ce57;
     for (const value of header.subarray(0, HEADER_CORPUS_SIZE)) {
