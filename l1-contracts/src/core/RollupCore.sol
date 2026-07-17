@@ -27,7 +27,7 @@ import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Inbox, INBOX_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
@@ -621,7 +621,14 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
     IInbox inbox = IInbox(
       address(
-        new Inbox(address(this), _feeAsset, _config.version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT, _config.inboxLag)
+        new Inbox(
+          address(this),
+          _feeAsset,
+          _config.version,
+          Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT,
+          _config.inboxLag,
+          INBOX_BUCKET_RING_SIZE
+        )
       )
     );
 

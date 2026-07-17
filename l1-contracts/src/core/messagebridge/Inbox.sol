@@ -13,6 +13,11 @@ import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
+// Number of buckets in the rolling-hash ring. Sized far beyond normal consumption lag (the censorship
+// cutoff bounds it to roughly one build frame); outages longer than the ring are handled by overwrite
+// protection on unconsumed buckets, not by growing the ring.
+uint256 constant INBOX_BUCKET_RING_SIZE = 1024;
+
 /**
  * @title Inbox
  * @author Aztec Labs
@@ -23,11 +28,18 @@ contract Inbox is IInbox {
   using FrontierLib for FrontierLib.Forest;
   using FrontierLib for FrontierLib.Tree;
 
+  // Maximum number of messages a single bucket can hold before further messages in the same L1 block
+  // spill over into the next bucket. Matches the number of L1 to L2 messages a single L2 block can
+  // insert once the streaming inbox is live, so any one bucket is always consumable by one block.
+  uint256 public constant MAX_MSGS_PER_BUCKET = 256;
+
   address public immutable ROLLUP;
   uint256 public immutable VERSION;
   address public immutable FEE_ASSET_PORTAL;
 
   uint256 public immutable LAG;
+
+  uint256 public immutable BUCKET_RING_SIZE;
 
   uint256 internal immutable HEIGHT;
   uint256 internal immutable SIZE;
@@ -40,7 +52,20 @@ contract Inbox is IInbox {
 
   InboxState internal state;
 
-  constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _height, uint256 _lag) {
+  // Ring of rolling-hash buckets, keyed by `bucketSeq % BUCKET_RING_SIZE`. Inert for the legacy
+  // frontier-tree flow; consumed by the streaming inbox checks at `propose` (AZIP-22 Fast Inbox).
+  mapping(uint256 ringIndex => InboxBucket bucket) internal buckets;
+
+  uint64 internal currentBucketSeq;
+
+  constructor(
+    address _rollup,
+    IERC20 _feeAsset,
+    uint256 _version,
+    uint256 _height,
+    uint256 _lag,
+    uint256 _bucketRingSize
+  ) {
     ROLLUP = _rollup;
     VERSION = _version;
 
@@ -50,9 +75,17 @@ contract Inbox is IInbox {
     require(_lag > 0, "LAG TOO SMALL");
     LAG = _lag;
 
+    require(_bucketRingSize > 1, "BUCKET RING TOO SMALL");
+    BUCKET_RING_SIZE = _bucketRingSize;
+
     state = InboxState({
       rollingHash: 0, totalMessagesInserted: 0, inProgress: SafeCast.toUint64(Constants.INITIAL_CHECKPOINT_NUMBER + LAG)
     });
+
+    // Genesis bucket: a checkpoint consuming no messages references the same bucket as its parent, so the
+    // first checkpoint against an empty Inbox references this one and no base case leaks into `propose`.
+    buckets[0] =
+      InboxBucket({rollingHash: 0, totalMsgCount: 0, timestamp: SafeCast.toUint64(block.timestamp), msgCount: 0});
 
     forest.initialize(_height);
     EMPTY_ROOT = trees[type(uint256).max].root(forest, HEIGHT, SIZE);
@@ -122,9 +155,47 @@ contract Inbox is IInbox {
       rollingHash: updatedRollingHash, totalMessagesInserted: totalMessagesInserted + 1, inProgress: inProgress
     });
 
-    emit MessageSent(inProgress, index, leaf, updatedRollingHash);
+    (uint64 bucketSeq, bytes32 inboxRollingHash) = _absorbIntoBucket(leaf);
+
+    emit MessageSent(inProgress, index, leaf, updatedRollingHash, inboxRollingHash, bucketSeq);
 
     return (leaf, index);
+  }
+
+  /**
+   * @notice Absorbs a message leaf into the consensus rolling hash and snapshots it into the bucket ring
+   *
+   * @dev A bucket only holds messages from a single L1 block, up to MAX_MSGS_PER_BUCKET; the first message
+   * of a new L1 block — or the message after a full bucket, spilling over within the same block — opens the
+   * next bucket, inheriting the rolling hash and cumulative count. Bucket 0 is the pristine genesis base
+   * case and never absorbs. Opening a bucket overwrites the ring entry from BUCKET_RING_SIZE buckets ago;
+   * protection against overwriting unconsumed buckets is not enforced yet.
+   *
+   * @param _leaf - The message leaf to absorb
+   *
+   * @return The sequence number of the bucket the leaf was absorbed into and the updated rolling hash
+   */
+  function _absorbIntoBucket(bytes32 _leaf) internal returns (uint64, bytes32) {
+    uint64 bucketSeq = currentBucketSeq;
+    InboxBucket memory bucket = buckets[bucketSeq % BUCKET_RING_SIZE];
+
+    if (bucketSeq == 0 || bucket.timestamp < block.timestamp || bucket.msgCount == MAX_MSGS_PER_BUCKET) {
+      bucketSeq += 1;
+      currentBucketSeq = bucketSeq;
+      bucket = InboxBucket({
+        rollingHash: bucket.rollingHash,
+        totalMsgCount: bucket.totalMsgCount,
+        timestamp: SafeCast.toUint64(block.timestamp),
+        msgCount: 0
+      });
+    }
+
+    bucket.rollingHash = Hash.accumulateInboxRollingHash(bucket.rollingHash, _leaf);
+    bucket.totalMsgCount += 1;
+    bucket.msgCount += 1;
+    buckets[bucketSeq % BUCKET_RING_SIZE] = bucket;
+
+    return (bucketSeq, bucket.rollingHash);
   }
 
   /**
@@ -176,5 +247,15 @@ contract Inbox is IInbox {
 
   function getInProgress() external view override(IInbox) returns (uint64) {
     return state.inProgress;
+  }
+
+  function getCurrentBucketSeq() external view override(IInbox) returns (uint64) {
+    return currentBucketSeq;
+  }
+
+  function getBucket(uint256 _seq) external view override(IInbox) returns (InboxBucket memory) {
+    uint256 current = currentBucketSeq;
+    require(_seq <= current && current - _seq < BUCKET_RING_SIZE, Errors.Inbox__BucketOutOfWindow(_seq, current));
+    return buckets[_seq % BUCKET_RING_SIZE];
   }
 }
