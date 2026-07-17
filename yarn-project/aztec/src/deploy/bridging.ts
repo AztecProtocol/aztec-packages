@@ -1,7 +1,8 @@
 /**
  * Fee-juice bridging for the `fee-juice` deploy policy: bridge Fee Juice from L1, wait for the
  * L1→L2 message to become available, and hand back a claim to spend inside the recipient's first
- * tx. Node-only (pulls in `@aztec/aztec.js/ethereum` + viem).
+ * tx. Fee Juice only — this is not a generic L1→L2 asset bridge. Node-only (pulls in
+ * `@aztec/aztec.js/ethereum` + viem).
  *
  * `bridge()` does NOT send the L2 claim tx — the caller feeds the returned claim into
  * `FeeJuicePaymentMethodWithClaim` so the claim lands inside whatever tx the recipient is already
@@ -22,7 +23,7 @@ import { type Chain, type Hex, type Transport, createWalletClient, publicActions
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 const POLL_INTERVAL_MS = 1000;
-const WARP_BY_SECONDS = 36n; // roughly one L2 slot
+const WARP_BY_SECONDS = 36n; // roughly one L2 slot; not derived from config, so update if the slot duration changes
 
 /** Local vs. remote L1→L2 message advancement: warp cheats time forward, poll just waits. */
 export type BridgeTimingMode = 'warp' | 'poll';
