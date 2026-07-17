@@ -15,7 +15,7 @@ import {
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
-import { ReadOnlyGovernanceContract, extractProposalIdFromLogs } from './governance.js';
+import { type PayloadProposalStatus, ReadOnlyGovernanceContract, extractProposalIdFromLogs } from './governance.js';
 
 export class GovernanceProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
@@ -102,12 +102,13 @@ export class GovernanceProposerContract implements IEmpireBase {
     chainId: number,
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
+    instance?: Hex,
   ): Promise<L1TxRequest> {
     const signature = await signSignalWithSig(
       signer,
       payload,
       slot,
-      await this.getInstance(),
+      instance ?? (await this.getInstance()),
       this.address.toString(),
       chainId,
     );
@@ -130,15 +131,15 @@ export class GovernanceProposerContract implements IEmpireBase {
   }
 
   /**
-   * Returns true iff the given original payload is currently the subject of a live (non-terminal)
-   * Governance proposal. Delegates to `ReadOnlyGovernanceContract.hasActiveProposalWithPayload`, which
-   * implements the actual sweep against the Governance contract -- this method exists only as a
-   * convenience wrapper so callers that already hold a GovernanceProposer reference don't have to
+   * Classifies the given original payload against the Governance proposal history (`'live'` /
+   * `'executed'` / `'none'`). Delegates to `ReadOnlyGovernanceContract.getPayloadProposalStatus`,
+   * which implements the actual sweep against the Governance contract -- this method exists only as
+   * a convenience wrapper so callers that already hold a GovernanceProposer reference don't have to
    * resolve the Governance address themselves.
    */
-  public async hasActiveProposalWithPayload(payload: Hex): Promise<boolean> {
+  public async getPayloadProposalStatus(payload: Hex): Promise<PayloadProposalStatus> {
     const governance = await this.getGovernance();
-    return governance.hasActiveProposalWithPayload(payload);
+    return governance.getPayloadProposalStatus(payload);
   }
 
   /**

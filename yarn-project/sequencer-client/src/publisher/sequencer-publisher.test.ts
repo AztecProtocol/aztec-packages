@@ -156,6 +156,9 @@ describe('SequencerPublisher', () => {
     l1Metrics = mock<SequencerPublisherMetrics>();
 
     governanceProposerContract = mock<GovernanceProposerContract>();
+    // By default the configured rollup is the canonical instance, so the canonicality guard passes.
+    governanceProposerContract.getInstance.mockResolvedValue(mockRollupAddress);
+    governanceProposerContract.getPayloadProposalStatus.mockResolvedValue('none');
 
     epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
@@ -970,9 +973,9 @@ describe('SequencerPublisher', () => {
     ).toEqual(false);
   });
 
-  it('stops signalling when payload was previously proposed', async () => {
+  it('stops signalling when payload has a live proposal', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValue(true);
+    governanceProposerContract.getPayloadProposalStatus.mockResolvedValue('live');
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -984,9 +987,9 @@ describe('SequencerPublisher', () => {
     ).toEqual(false);
   });
 
-  it('continues signalling when payload was NOT proposed', async () => {
+  it('continues signalling when payload has no proposal', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValue(false);
+    governanceProposerContract.getPayloadProposalStatus.mockResolvedValue('none');
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -998,13 +1001,75 @@ describe('SequencerPublisher', () => {
     ).toEqual(true);
   });
 
+  it('stops signalling when the payload was already executed by governance', async () => {
+    // Regression for a mainnet incident: a node kept signalling a payload whose proposal had already
+    // been executed, wasting gas on a signal the canonical rollup would reject every slot.
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.getPayloadProposalStatus.mockResolvedValue('executed');
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+  });
+
+  it('signals an executed payload when the force flag is set', async () => {
+    // For payloads deliberately designed to be re-executed, operators can opt back into signalling.
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.getPayloadProposalStatus.mockResolvedValue('executed');
+    (publisher as any).config.governanceProposerForcePayloadVote = true;
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+  });
+
+  it('still stops signalling a live payload even with the force flag set', async () => {
+    // The force flag only overrides the executed verdict; a live proposal must still suppress the signal.
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.getPayloadProposalStatus.mockResolvedValue('live');
+    (publisher as any).config.governanceProposerForcePayloadVote = true;
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+  });
+
+  it('does not signal when the configured rollup is not canonical', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.getInstance.mockResolvedValue(EthAddress.random().toString());
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+  });
+
   it('re-checks on every call without caching, so re-signaling resumes if a proposal becomes terminal', async () => {
     const { govPayload } = mockGovernancePayload();
-    // Simulates a payload that has a live proposal in slot 2 but whose proposal becomes terminal
-    // (Dropped/Rejected/Expired/Executed) by slot 3. The contracts allow re-signaling the same
-    // payload in a later round once the previous proposal is dead, so the publisher must re-check
-    // each slot rather than cache the first `true` result indefinitely.
-    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    // Simulates a payload with a live proposal in slot 2 whose proposal becomes re-signalable (e.g.
+    // Rejected/Dropped/Expired) by slot 3. The contracts allow re-signaling the same payload in a
+    // later round once the previous proposal is dead, so the publisher must re-check each slot
+    // rather than cache the first `live` result indefinitely.
+    governanceProposerContract.getPayloadProposalStatus.mockResolvedValueOnce('live').mockResolvedValueOnce('none');
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -1024,7 +1089,7 @@ describe('SequencerPublisher', () => {
       ),
     ).toEqual(true);
 
-    expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
+    expect(governanceProposerContract.getPayloadProposalStatus).toHaveBeenCalledTimes(2);
   });
 
   it('fails open on persistent RPC failure and signals anyway', async () => {
@@ -1032,7 +1097,7 @@ describe('SequencerPublisher', () => {
     // silence governance participation entirely. Failing open at worst produces a duplicate signal
     // that the contract simply counts alongside others in the round.
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasActiveProposalWithPayload.mockRejectedValue(new Error('RPC error'));
+    governanceProposerContract.getPayloadProposalStatus.mockRejectedValue(new Error('RPC error'));
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -1044,11 +1109,11 @@ describe('SequencerPublisher', () => {
     ).toEqual(true);
   });
 
-  it('re-checks each call (no caching of false results)', async () => {
+  it('re-checks each call (no caching of none results)', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    governanceProposerContract.getPayloadProposalStatus.mockResolvedValueOnce('none').mockResolvedValueOnce('live');
 
-    // First call: no live proposal, signalling proceeds
+    // First call: no proposal, signalling proceeds
     expect(
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
@@ -1068,7 +1133,7 @@ describe('SequencerPublisher', () => {
       ),
     ).toEqual(false);
 
-    expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
+    expect(governanceProposerContract.getPayloadProposalStatus).toHaveBeenCalledTimes(2);
   });
 
   describe('enqueuePruneIfPrunable', () => {

@@ -37,7 +37,7 @@ export type L1GovernanceContractAddresses = Pick<
   'governanceAddress' | 'rollupAddress' | 'registryAddress' | 'governanceProposerAddress'
 >;
 
-// NOTE: Must be kept in sync with DataStructures.ProposalState in l1-contracts
+// NOTE: Must be kept in sync with IGovernance.ProposalState in l1-contracts
 export enum ProposalState {
   Pending,
   Active,
@@ -45,9 +45,20 @@ export enum ProposalState {
   Executable,
   Rejected,
   Executed,
+  Droppable,
   Dropped,
   Expired,
 }
+
+/**
+ * Outcome of {@link ReadOnlyGovernanceContract.getPayloadProposalStatus} for a queried payload.
+ * - `'live'`: a proposal referencing the payload is still progressing (Pending/Active/Queued/
+ *   Executable) or is `Droppable`, so signalling for it again is redundant or premature.
+ * - `'executed'`: no live proposal references the payload, but one was already executed within the
+ *   bounded lookback (or a prior sweep observed the execution and memoized it).
+ * - `'none'`: no live or executed proposal references the payload within the bounded lookback.
+ */
+export type PayloadProposalStatus = 'live' | 'executed' | 'none';
 
 /** Vote tallies on a single proposal. Both fields are mutated by `Governance.vote`. */
 export interface Ballot {
@@ -119,6 +130,17 @@ const TERMINAL_PROPOSAL_STATES: ReadonlySet<ProposalState> = new Set([
   ProposalState.Expired,
 ]);
 
+// Set of `ProposalState` values in which a proposal is still progressing towards execution.
+// `Droppable` is deliberately excluded: it is neither live (it cannot progress on its own) nor
+// terminal (it can resume its lifecycle if the governanceProposer is restored), so it is handled
+// separately and is never memoized as immutable.
+const LIVE_PROPOSAL_STATES: ReadonlySet<ProposalState> = new Set([
+  ProposalState.Pending,
+  ProposalState.Active,
+  ProposalState.Queued,
+  ProposalState.Executable,
+]);
+
 // Hard upper bound on the wall-clock lifetime of any Governance proposal, in seconds.
 // Each proposal stores its own snapshot of `ProposalConfiguration` at creation time and progresses
 // through Pending -> Active -> Queued -> Executable using those frozen durations
@@ -172,6 +194,14 @@ export class ReadOnlyGovernanceContract {
    * proposals) and should be treated as "no original".
    */
   private readonly originalPayloadCache: Map<Hex, Hex | undefined> = new Map();
+
+  /**
+   * Payloads (lowercased hex) observed as the subject of an `Executed` Governance proposal. Execution
+   * is immutable on-chain, so this verdict never expires within a process. It restores the
+   * `'executed'` classification for payloads whose executed proposal has since aged past the bounded
+   * lookback below. Lost on restart, at which point the bounded-lookback limitation applies again.
+   */
+  private readonly executedPayloads: Set<string> = new Set();
 
   constructor(
     address: Hex,
@@ -263,29 +293,39 @@ export class ReadOnlyGovernanceContract {
   }
 
   /**
-   * Checks whether the given original payload is currently the subject of a live (non-terminal)
-   * Governance proposal. Returns true only if a proposal references this payload and is still in
-   * Pending, Active, Queued, or Executable state. Terminal proposals (Executed, Rejected, Dropped,
-   * Expired) are ignored, because once a proposal reaches a terminal state the same original
-   * payload may legitimately be re-signaled and re-submitted via the GovernanceProposer (each round
-   * is independent and there is no payload-level uniqueness check on-chain).
+   * Classifies the given original payload against the Governance proposal history. Distinguishes a
+   * payload that is still the subject of a live proposal (`'live'`) from one whose proposal was
+   * already executed (`'executed'`) from one that has no relevant proposal (`'none'`), so callers can
+   * stop re-signalling an executed payload while still re-signalling one whose proposal was merely
+   * rejected/dropped/expired (each GovernanceProposer round is independent and there is no
+   * payload-level uniqueness check on-chain).
+   *
+   * A proposal matches the payload either directly (its stored `payload` equals the target, as for
+   * `proposeWithLock` proposals) or via its `GSEPayload` wrapper unwrapping to the target. `'live'`
+   * (including `Droppable`) takes precedence over `'executed'`, so a payload re-submitted while a
+   * prior execution is still in the lookback window reads as `'live'`.
    *
    * Implemented as a bounded view-call sweep over `Governance.proposals` rather than an event scan,
    * because `eth_getLogs` over the full deployment history of a long-lived rollup exceeds typical
    * RPC block-range caps. The number of proposals (`proposalCount`) is small in practice, and we
-   * walk newest -> oldest with a hard early-stop on the protocol-wide proposal lifetime cap.
+   * walk newest -> oldest with a hard early-stop on the protocol-wide proposal lifetime cap. This
+   * makes the `'executed'` verdict a *bounded lookback* rather than permanent suppression: a proposal
+   * executed longer ago than the lifetime cap is only reported once it has been observed and
+   * memoized in-process (memo is lost on restart).
    */
-  public async hasActiveProposalWithPayload(payload: Hex): Promise<boolean> {
+  public async getPayloadProposalStatus(payload: Hex): Promise<PayloadProposalStatus> {
+    const target = payload.toLowerCase() as Hex;
+
     const proposalCount = await this.getProposalCount();
     if (proposalCount === 0n) {
-      return false;
+      return this.executedPayloads.has(target) ? 'executed' : 'none';
     }
 
     // Anything created before this cutoff is guaranteed terminal regardless of its frozen config.
     const block = await this.client.getBlock();
     const hardCutoff = block.timestamp - MAX_PROPOSAL_LIFETIME_SECONDS;
 
-    const target = payload.toLowerCase() as Hex;
+    let sawExecuted = false;
 
     // Proposals are append-only with monotonically non-decreasing creation timestamps, so iterating
     // from newest -> oldest lets us early-stop as soon as we cross the lifetime cutoff.
@@ -294,24 +334,32 @@ export class ReadOnlyGovernanceContract {
 
       // Hard early-stop: every older proposal is also older than the cutoff and therefore terminal.
       if (proposal.creation < hardCutoff) {
-        return false;
+        break;
       }
 
+      const proposalPayload = proposal.payload.toString().toLowerCase();
       const original = await this.getOriginalPayload(proposal.payload);
-      if (original === undefined || original.toLowerCase() !== target) {
+      const matches = proposalPayload === target || (original !== undefined && original.toLowerCase() === target);
+      if (!matches) {
         continue;
       }
 
-      // The wrapper unwraps to our payload. Only treat this as "already proposed" if the proposal
-      // is still live -- terminal states allow re-proposing the same payload in a later round.
-      if (TERMINAL_PROPOSAL_STATES.has(proposal.state)) {
-        continue;
+      // A live or Droppable proposal blocks re-signalling and wins over any executed one.
+      if (LIVE_PROPOSAL_STATES.has(proposal.state) || proposal.state === ProposalState.Droppable) {
+        return 'live';
       }
 
-      return true;
+      if (proposal.state === ProposalState.Executed) {
+        sawExecuted = true;
+        this.executedPayloads.add(target);
+      }
+      // Rejected/Dropped/Expired proposals allow re-proposing the same payload; keep scanning.
     }
 
-    return false;
+    if (sawExecuted || this.executedPayloads.has(target)) {
+      return 'executed';
+    }
+    return 'none';
   }
 
   /**

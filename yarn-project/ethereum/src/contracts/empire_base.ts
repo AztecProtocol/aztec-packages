@@ -21,6 +21,7 @@ export interface IEmpireBase {
     chainId: number,
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
+    instance?: Hex,
   ): Promise<L1TxRequest>;
 }
 
