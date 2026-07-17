@@ -19,10 +19,10 @@
 <div id="crate-version">0.0.0</div>
 <h2>In module note</h2>
 <h3>Functions</h3><ul class="item-list">
+<li><a href="fn.assert_local_note_was_not_nullified_by.html">assert_local_note_was_not_nullified_by</a></div></li>
+<li><a href="fn.assert_local_note_was_nullified_by.html">assert_local_note_was_nullified_by</a></div></li>
+<li><a href="fn.assert_local_note_was_valid_by.html">assert_local_note_was_valid_by</a></div></li>
 <li><a href="fn.assert_note_existed_by.html">assert_note_existed_by</a></div></li>
-<li><a href="fn.assert_note_was_not_nullified_by.html">assert_note_was_not_nullified_by</a></div></li>
-<li><a href="fn.assert_note_was_nullified_by.html">assert_note_was_nullified_by</a></div></li>
-<li><a href="fn.assert_note_was_valid_by.html">assert_note_was_valid_by</a></div></li>
 </ul>
 </nav>
 <main>
@@ -35,6 +35,16 @@
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code></pre>
 
+<div class="comments">
+<p>Asserts that a note existed in the note hash tree by the time a block was mined.</p>
+<p>Proves note inclusion at <code>block_header</code> by checking membership of the note's unique note hash, and returns a
+<a href="../../../noir_aztec/note/struct.ConfirmedNote.html"><code>ConfirmedNote</code></a> describing it.</p>
+<h2>Cross-contract notes</h2>
+<p>Unlike the nullification helpers, this works for notes of <strong>any</strong> contract, not just the executing one: note hashes
+are siloed with the note's own contract address (carried by the <a href="../../../noir_aztec/note/struct.HintedNote.html"><code>HintedNote</code></a>) and no secret keys are involved.</p>
+<p>To reason about whether such a note has been nullified, see <a href="../../../noir_aztec/history/note/fn.assert_local_note_was_nullified_by.html"><code>assert_local_note_was_nullified_by</code></a> and
+<a href="../../../noir_aztec/history/note/fn.assert_local_note_was_not_nullified_by.html"><code>assert_local_note_was_not_nullified_by</code></a>, which — in contrast — can only be used for the executing contract's own
+notes.</p></div>
 </main>
 </span>
 </body>

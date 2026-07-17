@@ -625,6 +625,7 @@
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__EVENT_LOG_TAG.html">noir_aztec::protocol::constants::DOM_SEP__EVENT_LOG_TAG</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__FBSK_M.html">noir_aztec::protocol::constants::DOM_SEP__FBSK_M</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__FUNCTION_ARGS.html">noir_aztec::protocol::constants::DOM_SEP__FUNCTION_ARGS</a></li>
+<li><a href="noir_aztec/protocol/constants/global.DOM_SEP__HANDSHAKE_FORGERY_PROTECTION.html">noir_aztec::protocol::constants::DOM_SEP__HANDSHAKE_FORGERY_PROTECTION</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__INITIALIZATION_NULLIFIER.html">noir_aztec::protocol::constants::DOM_SEP__INITIALIZATION_NULLIFIER</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__INITIALIZER.html">noir_aztec::protocol::constants::DOM_SEP__INITIALIZER</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE.html">noir_aztec::protocol::constants::DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE</a></li>
@@ -938,10 +939,10 @@
 <li><a href="noir_aztec/history/deployment/fn.assert_contract_bytecode_was_published_by.html">noir_aztec::history::deployment::assert_contract_bytecode_was_published_by</a></li>
 <li><a href="noir_aztec/history/deployment/fn.assert_contract_was_initialized_by.html">noir_aztec::history::deployment::assert_contract_was_initialized_by</a></li>
 <li><a href="noir_aztec/history/deployment/fn.assert_contract_was_not_initialized_by.html">noir_aztec::history::deployment::assert_contract_was_not_initialized_by</a></li>
+<li><a href="noir_aztec/history/note/fn.assert_local_note_was_not_nullified_by.html">noir_aztec::history::note::assert_local_note_was_not_nullified_by</a></li>
+<li><a href="noir_aztec/history/note/fn.assert_local_note_was_nullified_by.html">noir_aztec::history::note::assert_local_note_was_nullified_by</a></li>
+<li><a href="noir_aztec/history/note/fn.assert_local_note_was_valid_by.html">noir_aztec::history::note::assert_local_note_was_valid_by</a></li>
 <li><a href="noir_aztec/history/note/fn.assert_note_existed_by.html">noir_aztec::history::note::assert_note_existed_by</a></li>
-<li><a href="noir_aztec/history/note/fn.assert_note_was_not_nullified_by.html">noir_aztec::history::note::assert_note_was_not_nullified_by</a></li>
-<li><a href="noir_aztec/history/note/fn.assert_note_was_nullified_by.html">noir_aztec::history::note::assert_note_was_nullified_by</a></li>
-<li><a href="noir_aztec/history/note/fn.assert_note_was_valid_by.html">noir_aztec::history::note::assert_note_was_valid_by</a></li>
 <li><a href="noir_aztec/history/nullifier/fn.assert_nullifier_did_not_exist_by.html">noir_aztec::history::nullifier::assert_nullifier_did_not_exist_by</a></li>
 <li><a href="noir_aztec/history/nullifier/fn.assert_nullifier_existed_by.html">noir_aztec::history::nullifier::assert_nullifier_existed_by</a></li>
 <li><a href="noir_aztec/history/storage/fn.public_storage_historical_read.html">noir_aztec::history::storage::public_storage_historical_read</a></li>
@@ -988,6 +989,8 @@
 <li><a href="noir_aztec/macros/storage/fn.storage_no_init.html">noir_aztec::macros::storage::storage_no_init</a></li>
 <li><a href="noir_aztec/macros/utils/fn.derive_serialize_if_not_implemented.html">noir_aztec::macros::utils::derive_serialize_if_not_implemented</a></li>
 <li><a href="noir_aztec/messages/delivery/fn.do_private_message_delivery.html">noir_aztec::messages::delivery::do_private_message_delivery</a></li>
+<li><a href="noir_aztec/messages/delivery/handshake/fn.forgery_protected_eph_pk.html">noir_aztec::messages::delivery::handshake::forgery_protected_eph_pk</a></li>
+<li><a href="noir_aztec/messages/delivery/handshake/fn.protect_from_forgery.html">noir_aztec::messages::delivery::handshake::protect_from_forgery</a></li>
 <li><a href="noir_aztec/messages/discovery/fn.do_sync_state.html">noir_aztec::messages::discovery::do_sync_state</a></li>
 <li><a href="noir_aztec/messages/discovery/fn.do_sync_state_without_handshake_discovery.html">noir_aztec::messages::discovery::do_sync_state_without_handshake_discovery</a></li>
 <li><a href="noir_aztec/messages/discovery/private_notes/fn.process_private_note_msg.html">noir_aztec::messages::discovery::private_notes::process_private_note_msg</a></li>
@@ -1096,6 +1099,7 @@
 <li><a href="noir_aztec/oracle/logs/fn.notify_created_contract_class_log.html">noir_aztec::oracle::logs::notify_created_contract_class_log</a></li>
 <li><a href="noir_aztec/oracle/message_processing/fn.get_logs_by_tag.html">noir_aztec::oracle::message_processing::get_logs_by_tag</a></li>
 <li><a href="noir_aztec/oracle/message_processing/fn.get_tx_effect.html">noir_aztec::oracle::message_processing::get_tx_effect</a></li>
+<li><a href="noir_aztec/oracle/message_processing/fn.get_tx_effects.html">noir_aztec::oracle::message_processing::get_tx_effects</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.get_app_tagging_secret.html">noir_aztec::oracle::notes::get_app_tagging_secret</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.get_next_tagging_index.html">noir_aztec::oracle::notes::get_next_tagging_index</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.get_notes.html">noir_aztec::oracle::notes::get_notes</a></li>
@@ -1243,6 +1247,7 @@
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.private_call_new_flow.html">noir_aztec::test::helpers::txe_oracles::private_call_new_flow</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.public_call_new_flow.html">noir_aztec::test::helpers::txe_oracles::public_call_new_flow</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.send_l1_to_l2_message.html">noir_aztec::test::helpers::txe_oracles::send_l1_to_l2_message</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/fn.set_authorize_all_utility_call_targets.html">noir_aztec::test::helpers::txe_oracles::set_authorize_all_utility_call_targets</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.set_private_txe_context.html">noir_aztec::test::helpers::txe_oracles::set_private_txe_context</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.set_public_txe_context.html">noir_aztec::test::helpers::txe_oracles::set_public_txe_context</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.set_tagging_secret_strategies.html">noir_aztec::test::helpers::txe_oracles::set_tagging_secret_strategies</a></li>

@@ -63,6 +63,7 @@
     salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     initialization_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     deployer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    immutables_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> Self</code>
 
 <code id="compute_from_salted_initialization_hash" class="code-header">pub fn <a href="#compute_from_salted_initialization_hash"><span class="fn">compute_from_salted_initialization_hash</span></a>(
@@ -87,9 +88,13 @@
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
 
-<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
-<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 </div><h3 id="impl-Eq-for-PartialAddress"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a></code></h3>
 

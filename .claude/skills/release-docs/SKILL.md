@@ -252,8 +252,13 @@ docs (Step 11), the generated content is included in the snapshot automatically.
 2. Create the new `## <new version>` heading below `## TBD` (and below any
    `## Unreleased` sections). Move the items identified in step 1 under it.
 
-3. Ensure `## TBD` remains at the top with a blank line separating it from the
-   next heading.
+3. Ensure `## TBD` remains at the top of the **source** file with a blank line
+   separating it from the next heading. The source keeps the (now usually
+   empty) `## TBD` heading as the working bucket for future notes — but the
+   **versioned snapshot must not ship it**: after the cut (Step 11), delete the
+   empty `## TBD` heading (and any empty `## Unreleased` headings) from
+   `developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md`
+   so released docs never show an empty TBD section.
 
 4. Check for missing migration items by analyzing the diff between the previous
    release tag and the new one:
@@ -282,6 +287,10 @@ governance/shared contracts persist (Registry, Governance, GSE, Staking Asset, F
 Juice, Coin Issuer, Reward Distributor, Governance Proposer, Fee Asset Handler,
 Staking Registry, Slash Factory). Re-resolve the per-rollup set; for the rest,
 confirm the existing values still hold (e.g. `cast code <addr>` returns bytecode).
+
+When a value read on-chain comes back as hex (e.g. a rollup version from
+`getVersion()`), convert it with `cast to-dec <hex>` — never by eye. A
+hand-converted rollup version has shipped wrong before.
 
 #### Tier 1: Query on-chain from known contracts
 
@@ -463,6 +472,12 @@ Verify the new version appears in both `docs/developer_version_config.json` and
 Also verify that macros were resolved in the network versioned snapshot — check
 that `docs/network_versioned_docs/version-v<new_version>/` contains no raw
 `#release_version` or `#release_network` placeholders.
+
+**Strip the empty `## TBD` heading from the cut snapshot.** The source
+migration notes keep `## TBD` as the working bucket for future entries, but a
+final release snapshot must not render an empty TBD section. After the cut,
+remove the empty `## TBD` (and any empty `## Unreleased (...)`) headings from
+`developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md`.
 
 #### Hardcoded version references
 

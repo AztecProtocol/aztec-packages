@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v4.3.1
+Version: 5.0.1
 
 ## Quick Import Reference
 
@@ -57,6 +57,7 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 **Properties**
 - `readonly aztecNode: AztecNode`
 - `cancellableTransactions: boolean`
+- `defaultWaitInterval?: number`
 - `log: Logger`
 - `minFeePadding: number`
 - `readonly pxe: PXE`
@@ -74,15 +75,18 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstanceWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
+- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstancePreimageWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
+- `getMaxTxGasLimits() => Promise<Gas>` - Returns the maximum gas limits a single transaction may declare on this wallet's network (the node-advertised `txsLimits.gas`). Internal helper used to fill in default gas limits when sending a transaction without explicit limits, and to validate caller-provided limits before sending. Backed by the cached node info, since a wallet talks to a single network.
+- `getMinFees(estimate: ManaUsageEstimate) => Promise<GasFees>` - Returns the worst-case min fee across predicted future slots. Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
-- `registerContract(instance: ContractInstanceWithAddress, artifact?: ContractArtifact, secretKey?: Fr) => Promise<ContractInstanceWithAddress>`
+- `registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKeyOrKeys?: Fr | MasterSecretKeys) => Promise<void>`
+- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes: AztecAddress[]) => AztecAddress[]`
-- `senderForTagsFrom(from: AztecAddress | "NO_FROM", sendMessagesAs?: AztecAddress) => AztecAddress | undefined` - Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx will fail the contract-side `Sender for tags is not set` assertion unless `set_sender_for_tags` is called first.
+- `senderForTagsFrom(from: AztecAddress | "NO_FROM", sendMessagesAs?: AztecAddress) => AztecAddress | undefined` - Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx using the wallet-supplied default sender will fail the "Sender for tags is not set" assertion.
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
 - `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates calls through the standard PXE path (account entrypoint).
@@ -553,6 +557,12 @@ Configuration for web wallets
 
 ## Functions
 
+### assertGasLimitsWithinNetworkLimits
+```typescript
+function assertGasLimitsWithinNetworkLimits(gasLimits: Gas, maxTxGasLimits: Gas) => void
+```
+Validates that caller-declared gas limits do not exceed the network's per-tx admission limits, throwing a descriptive error per dimension when they do. The node's inbound validation checks declared `gasSettings.gasLimits`, so we mirror that here to surface the rejection locally before the tx is sent.
+
 ### base64ToUint8
 ```typescript
 function base64ToUint8(b64: string) => Uint8Array
@@ -625,6 +635,12 @@ function generateKeyPair() => Promise<SecureKeyPair>
 ```
 Generates an ECDH P-256 key pair for key exchange. The generated key pair can be used to derive session keys with another party's public key using deriveSessionKeys.
 
+### getGasLimits
+```typescript
+function getGasLimits(gasUsed: GasUsed, maxTxGasLimits: Gas, pad: number) => { gasLimits: Gas; teardownGasLimits: Gas }
+```
+Returns suggested total and teardown gas limits for a simulated tx, clamped to the network's per-tx admission limits. The network only admits transactions that declare up to `maxTxGasLimits` per dimension (the node-advertised `txsLimits.gas`). Wallets pass the value read from their own node info, but since node info is remote input it is defensively clamped here to the per-tx protocol maxima so a value above them is never honored. If the simulated usage already exceeds the resulting admission limits the tx can never be included, so this throws a descriptive error instead of returning a limit the node would reject. Otherwise it pads the usage and clamps each dimension to the admission limit.
+
 ### hashToEmoji
 ```typescript
 function hashToEmoji(hash: string, count: number) => string
@@ -639,7 +655,7 @@ Imports a public key from JWK format. Used to import the other party's public ke
 
 ### simulateViaNode
 ```typescript
-function simulateViaNode(node: AztecNode, publicStaticCalls: FunctionCall[], from: AztecAddress, chainInfo: ChainInfo, gasSettings: GasSettings, blockHeader: BlockHeader, skipFeeEnforcement: boolean, getContractName: ContractNameResolver) => Promise<TxSimulationResult[]>
+function simulateViaNode(node: AztecNode, publicStaticCalls: FunctionCall[], from: AztecAddress, chainInfo: ChainInfo, gasSettings: GasSettings, blockHeader: BlockHeader, skipFeeEnforcement: boolean, getContractName: ContractNameResolver, overrides?: SimulationOverrides) => Promise<TxSimulationResult[]>
 ```
 Simulates public static calls by splitting them into batches of MAX_ENQUEUED_CALLS_PER_CALL and sending each batch directly to the node.
 
@@ -718,7 +734,7 @@ Callback type for wallet disconnect events at the provider level.
 
 ### SimulateViaEntrypointOptions
 ```typescript
-type SimulateViaEntrypointOptions = Pick<SimulateOptions, "from" | "additionalScopes" | "skipTxValidation" | "skipFeeEnforcement" | "sendMessagesAs"> & { feeOptions: FeeOptions }
+type SimulateViaEntrypointOptions = Pick<SimulateOptions, "from" | "additionalScopes" | "skipTxValidation" | "skipFeeEnforcement" | "sendMessagesAs" | "overrides"> & { feeOptions: FeeOptions }
 ```
 Options for `simulateViaEntrypoint`.
 
@@ -752,4 +768,4 @@ This package references types from other Aztec packages:
 - `ContractNameResolver`, `PXE`
 
 **@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `GasSettings`, `GasUsed`, `ManaUsageEstimate`, `MasterSecretKeys`, `SimulationOverrides`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`

@@ -45,8 +45,9 @@ delivered to a recipient in order to not lose the private event information.</p>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Event&gt; <a href="../../noir_aztec/event/struct.EventMessage.html" class="struct">EventMessage</a>&lt;Event&gt;</code></h3>
 
-<div class="padded-methods"><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to"><span class="fn">deliver_to</span></a>(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: <a href="../../std/primitive.u8.html" class="primitive">u8</a>)
+<div class="padded-methods"><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to"><span class="fn">deliver_to</span></a>&lt;D&gt;(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: D)
 <div class="where-clause">where
+    D: <a href="../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a>,
     Event: <a href="../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
     Event: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
 
@@ -56,9 +57,9 @@ delivered to a recipient in order to not lose the private event information.</p>
 Any recipient that receives the private event information will be able to prove its emission - events have no
 owner, and as such all recipients are treated equally.</p>
 <p>The message is first encrypted to the recipient's public key, ensuring no other actor can read it.</p>
-<p>The <code>delivery_mode</code> must be one of <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html"><code>crate::messages::message_delivery::MessageDeliveryEnum</code></a>, and will inform
-costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
-constant.</p>
+<p>The <code>delivery_mode</code> is produced by the <a href="../../noir_aztec/messages/delivery/struct.MessageDelivery.html"><code>crate::messages::delivery::MessageDelivery</code></a> entrypoints
+(<code>offchain</code>, <code>onchain_unconstrained</code>, or <code>onchain_constrained</code>). It informs costs (both proving time and TX
+fees) as well as delivery guarantees, and must be a compile-time constant.</p>
 <h4>Invalid Recipients</h4>
 <p>If <code>recipient</code> is an invalid address, then a random public key is selected and message delivery continues as
 normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a message
