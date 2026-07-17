@@ -17,11 +17,6 @@ export interface MissingCommitteeDiagnosis {
   cause: MissingCommitteeCause;
   /** Log severity: bootstrap and lag are expected (`info`); a shrunken set on a live chain is not (`warn`). */
   severity: 'info' | 'warn';
-  /**
-   * Latest epoch by which a committee is guaranteed to exist, assuming the validator set stays at or above
-   * the target. Only set when enough validators are already staked (`awaiting-sampling-lag`).
-   */
-  expectedByEpoch?: EpochNumber;
 }
 
 /**
@@ -31,20 +26,12 @@ export interface MissingCommitteeDiagnosis {
 export function classifyMissingCommittee(args: {
   attesterCount: number;
   targetCommitteeSize: number;
-  currentEpoch: EpochNumber;
-  lagInEpochsForValidatorSet: number;
   hasProducedBlocks: boolean;
 }): MissingCommitteeDiagnosis {
-  const { attesterCount, targetCommitteeSize, currentEpoch, lagInEpochsForValidatorSet, hasProducedBlocks } = args;
+  const { attesterCount, targetCommitteeSize, hasProducedBlocks } = args;
 
   if (attesterCount >= targetCommitteeSize) {
-    // A committee for epoch E samples the set at E - lag, so once the set is full every epoch from
-    // current + lag + 1 onwards samples a full set and is guaranteed a committee.
-    return {
-      cause: 'awaiting-sampling-lag',
-      severity: 'info',
-      expectedByEpoch: EpochNumber(currentEpoch + lagInEpochsForValidatorSet + 1),
-    };
+    return { cause: 'awaiting-sampling-lag', severity: 'info' };
   }
 
   if (hasProducedBlocks) {
@@ -52,4 +39,49 @@ export function classifyMissingCommittee(args: {
   }
 
   return { cause: 'awaiting-first-validators', severity: 'info' };
+}
+
+/** How the first-committee epoch estimate was derived; drives the log wording and confidence. */
+export type FirstCommitteeEpochProvenance =
+  /** The set was already full at this epoch's (past) sample time, so its committee is guaranteed. */
+  | 'historical'
+  /** This epoch's sample time is still in the future; a committee is expected assuming the set holds. */
+  | 'projected-future'
+  /** No candidate qualified from the on-chain reads; the epoch is a safe upper bound, not an ETA. */
+  | 'fallback';
+
+/** The earliest epoch expected to have a committee, together with how confident that estimate is. */
+export interface FirstCommitteeEpoch {
+  epoch: EpochNumber;
+  provenance: FirstCommitteeEpochProvenance;
+}
+
+/**
+ * Given each candidate epoch after the one we failed to propose at, paired with the attester count that was
+ * staked at that epoch's validator-set sample time (`undefined` when the sample time is still in the future),
+ * returns the earliest epoch that will have a committee.
+ *
+ * The candidates must be ordered ascending by epoch. A committee for epoch `E` exists iff at least
+ * `targetCommitteeSize` validators were staked at `E`'s sample time, so the first candidate whose sampled
+ * count meets the target is the first epoch with a committee. A candidate whose sample time lies in the
+ * future (`sampledAttesterCount === undefined`) is assumed to have a committee if the set holds, so it wins
+ * as soon as it is reached. If nothing qualifies, `fallbackEpoch` is returned as an upper bound. The
+ * predicate is not monotone in `E` (the set can dip below target between sample times), so this must scan
+ * ascending rather than binary-search.
+ */
+export function findFirstEpochWithCommittee(args: {
+  candidates: { epoch: EpochNumber; sampledAttesterCount: number | undefined }[];
+  targetCommitteeSize: number;
+  fallbackEpoch: EpochNumber;
+}): FirstCommitteeEpoch {
+  const { candidates, targetCommitteeSize, fallbackEpoch } = args;
+  for (const { epoch, sampledAttesterCount } of candidates) {
+    if (sampledAttesterCount === undefined) {
+      return { epoch, provenance: 'projected-future' };
+    }
+    if (sampledAttesterCount >= targetCommitteeSize) {
+      return { epoch, provenance: 'historical' };
+    }
+  }
+  return { epoch: fallbackEpoch, provenance: 'fallback' };
 }

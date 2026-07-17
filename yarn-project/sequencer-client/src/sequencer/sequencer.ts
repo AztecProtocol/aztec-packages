@@ -7,6 +7,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { formatSeconds } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
@@ -55,7 +56,11 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import { SequencerMetrics } from './metrics.js';
-import { classifyMissingCommittee } from './missing_committee.js';
+import {
+  type FirstCommitteeEpoch,
+  classifyMissingCommittee,
+  findFirstEpochWithCommittee,
+} from './missing_committee.js';
 import { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
@@ -1041,26 +1046,36 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    const diagnosis = classifyMissingCommittee({
-      attesterCount,
-      targetCommitteeSize,
-      currentEpoch: targetEpoch,
-      lagInEpochsForValidatorSet: lag,
-      hasProducedBlocks,
-    });
+    const diagnosis = classifyMissingCommittee({ attesterCount, targetCommitteeSize, hasProducedBlocks });
 
     const logCtx = { targetSlot, targetEpoch, attesterCount, targetCommitteeSize, cause: diagnosis.cause };
 
     switch (diagnosis.cause) {
       case 'awaiting-sampling-lag': {
-        const expectedByEpoch = diagnosis.expectedByEpoch!;
-        const eta = this.formatEpochEta(expectedByEpoch);
-        this.log.info(
-          `No committee for slot ${targetSlot} yet: ${attesterCount} validators are staked (>= ${targetCommitteeSize} ` +
-            `required), the committee is still forming as the ${lag}-epoch sampling window catches up. Expected by ` +
-            `epoch ${expectedByEpoch}${eta} if the validator set holds.`,
-          { ...logCtx, expectedByEpoch },
+        const { epoch: firstCommitteeEpoch, provenance } = await this.estimateFirstCommitteeEpoch(
+          targetEpoch,
+          lag,
+          targetCommitteeSize,
         );
+        const staked = `${attesterCount} validators are staked (>= ${targetCommitteeSize} required)`;
+        const forming = `the committee is still forming as the ${lag}-epoch sampling window advances`;
+        const ctx = { ...logCtx, firstCommitteeEpoch, provenance };
+        if (provenance === 'fallback') {
+          // We could not pin the exact epoch, so report the safe upper bound rather than a misleading ETA.
+          this.log.info(
+            `No committee for slot ${targetSlot} yet: ${staked}, ${forming}. A committee should exist no later ` +
+              `than epoch ${firstCommitteeEpoch}.`,
+            ctx,
+          );
+        } else {
+          const eta = this.formatEpochEta(firstCommitteeEpoch);
+          const caveat = provenance === 'projected-future' ? ' if the validator set holds' : '';
+          this.log.info(
+            `No committee for slot ${targetSlot} yet: ${staked}, ${forming}. The first committee is expected at ` +
+              `epoch ${firstCommitteeEpoch}${eta}${caveat}.`,
+            ctx,
+          );
+        }
         break;
       }
       case 'awaiting-first-validators':
@@ -1087,6 +1102,39 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const epochStartTs = getStartTimestampForEpoch(epoch, this.l1Constants);
     const secondsUntil = Number(epochStartTs) - this.dateProvider.nowInSeconds();
     return secondsUntil > 0 ? ` (~${formatSeconds(secondsUntil)} from now)` : '';
+  }
+
+  /**
+   * Estimates the earliest epoch that will have a committee, replaying L1's validator-set sampling rule: a
+   * committee for epoch `E` exists iff at least `targetCommitteeSize` attesters were staked at `E`'s sample
+   * time (`epochStart(E) - lag * epochDuration`). Only epochs after the one we failed at can qualify, and the
+   * set must have crossed the target within the last `lag` epochs' sample window, so the answer lies in
+   * `(targetEpoch, targetEpoch + lag + 1]`. Reads the historical attester count at each candidate's sample
+   * time (at most `lag` on-chain reads; future sample times are assumed to hold) and returns the first epoch
+   * that qualifies, or the pessimistic `targetEpoch + lag + 1` bound if the reads fail.
+   */
+  private async estimateFirstCommitteeEpoch(
+    targetEpoch: EpochNumber,
+    lag: number,
+    targetCommitteeSize: number,
+  ): Promise<FirstCommitteeEpoch> {
+    const fallbackEpoch = EpochNumber(targetEpoch + lag + 1);
+    try {
+      const epochDurationSeconds = BigInt(this.l1Constants.epochDuration * this.l1Constants.slotDuration);
+      const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
+      const candidates = await Promise.all(
+        Array.from({ length: lag + 1 }, (_, i) => EpochNumber(targetEpoch + 1 + i)).map(async epoch => {
+          const sampleTime = getStartTimestampForEpoch(epoch, this.l1Constants) - epochDurationSeconds * BigInt(lag);
+          const sampledAttesterCount =
+            sampleTime > nowSeconds ? undefined : await this.rollupContract.getAttesterCountAtTime(sampleTime);
+          return { epoch, sampledAttesterCount };
+        }),
+      );
+      return findFirstEpochWithCommittee({ candidates, targetCommitteeSize, fallbackEpoch });
+    } catch (err) {
+      this.log.debug(`Could not estimate first committee epoch after epoch ${targetEpoch}`, { targetEpoch, err });
+      return { epoch: fallbackEpoch, provenance: 'fallback' };
+    }
   }
 
   /**
@@ -1432,20 +1480,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   public getConfig() {
     return this.config;
   }
-}
-
-/** Formats a duration in seconds into a compact human-readable string (e.g. `45s`, `12m`, `2h 5m`). */
-function formatSeconds(seconds: number): string {
-  if (seconds < 60) {
-    return `${Math.round(seconds)}s`;
-  }
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remMinutes = minutes % 60;
-  return remMinutes > 0 ? `${hours}h ${remMinutes}m` : `${hours}h`;
 }
 
 type SequencerSyncCheckResult = {

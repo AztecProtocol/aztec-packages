@@ -1881,9 +1881,16 @@ describe('sequencer', () => {
       );
     });
 
-    it('logs a gentle info with an expected epoch while enough validators wait out the sampling lag', async () => {
+    it('estimates a fixed earlier epoch by replaying the validator-set sampling rule', async () => {
+      // Slot 2 is epoch 0 and lag is 2, so a committee for epoch E samples the set at epochStart(E) - 2 epochs.
+      // The set is below target at epoch 1's sample time but full by epoch 2's (== genesis here), so the first
+      // committee lands at epoch 2 — earlier than the pessimistic epoch 3 (targetEpoch + lag + 1) bound.
+      dateProvider.setTime((Number(l1Constants.l1GenesisTime) + 10) * 1000);
       rollupContract.getActiveAttesterCount.mockResolvedValue(3462);
       l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      rollupContract.getAttesterCountAtTime.mockImplementation((ts: bigint) =>
+        Promise.resolve(ts >= l1Constants.l1GenesisTime ? 3462 : 10),
+      );
       const infoSpy = jest.spyOn(sequencer.getLogger(), 'info');
       const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
 
@@ -1892,8 +1899,34 @@ describe('sequencer', () => {
       expect(canPropose).toBe(false);
       expect(warnSpy).not.toHaveBeenCalled();
       expect(infoSpy).toHaveBeenCalledWith(
-        expect.stringContaining('sampling window catches up'),
-        expect.objectContaining({ cause: 'awaiting-sampling-lag', expectedByEpoch: EpochNumber(3) }),
+        expect.stringContaining('first committee is expected at epoch 2'),
+        expect.objectContaining({
+          cause: 'awaiting-sampling-lag',
+          firstCommitteeEpoch: EpochNumber(2),
+          provenance: 'historical',
+        }),
+      );
+    });
+
+    it('reports a bounded epoch when the sampling-time reads fail', async () => {
+      dateProvider.setTime((Number(l1Constants.l1GenesisTime) + 10) * 1000);
+      rollupContract.getActiveAttesterCount.mockResolvedValue(3462);
+      l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      rollupContract.getAttesterCountAtTime.mockRejectedValue(new Error('gse down'));
+      const infoSpy = jest.spyOn(sequencer.getLogger(), 'info');
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const [canPropose] = await sequencer.checkCanProposeForTest(SlotNumber(2));
+
+      expect(canPropose).toBe(false);
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.stringContaining('no later than epoch 3'),
+        expect.objectContaining({
+          cause: 'awaiting-sampling-lag',
+          firstCommitteeEpoch: EpochNumber(3),
+          provenance: 'fallback',
+        }),
       );
     });
 

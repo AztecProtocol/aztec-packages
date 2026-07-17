@@ -59,6 +59,18 @@ export class GSEContract {
     return this.gse.read.getAttestersFromIndicesAtTime([instance, ts, indices], options);
   }
 
+  /** Number of attesters registered to `instance` as of the given L1 timestamp. */
+  public async getAttesterCountAtTime(
+    instance: Hex | EthAddress,
+    ts: bigint,
+    options?: { blockNumber?: bigint },
+  ): Promise<number> {
+    if (instance instanceof EthAddress) {
+      instance = instance.toString();
+    }
+    return Number(await this.gse.read.getAttesterCountAtTime([instance, ts], options));
+  }
+
   public async getRegistrationDigest(publicKey: ProjPointType<bigint>): Promise<ProjPointType<bigint>> {
     const affinePublicKey = publicKey.toAffine();
     const g1PointDigest = await this.gse.read.getRegistrationDigest([{ x: affinePublicKey.x, y: affinePublicKey.y }]);
