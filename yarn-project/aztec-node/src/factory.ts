@@ -11,7 +11,7 @@ import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { DateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
@@ -101,9 +101,7 @@ export async function createAztecNodeService(
   // attestation forwarding is skipped. Paying it here keeps it off the gossip path. Idempotent, so
   // it is a no-op for sequencers (warmed in Sequencer.init) and for tests that pre-warm via
   // warmBlobKzg.
-  const kzgTimer = new Timer();
-  getKzg();
-  log.verbose(`Warmed KZG trusted setup`, { durationMs: kzgTimer.ms() });
+  getKzg(log);
 
   const packageVersion = getPackageVersion();
   const telemetry = deps.telemetry ?? getTelemetryClient();
