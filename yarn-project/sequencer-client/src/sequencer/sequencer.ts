@@ -24,7 +24,7 @@ import {
   buildCheckpointSimulationOverridesPlan,
 } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getStartTimestampForEpoch } from '@aztec/stdlib/epoch-helpers';
 import {
   MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
   MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
@@ -55,6 +55,7 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import { SequencerMetrics } from './metrics.js';
+import { classifyMissingCommittee } from './missing_committee.js';
 import { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
@@ -96,8 +97,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * re-simulating and re-submitting the same invalidation across the many ticks within a single slot. */
   private lastInvalidationAttempt: { slot: SlotNumber; checkpointNumber: CheckpointNumber } | undefined;
 
-  /** The last slot for which we logged "no committee" warning, to avoid spam */
-  private lastSlotForNoCommitteeWarning: SlotNumber | undefined;
+  /** The last epoch for which we logged a "no committee" diagnostic, to avoid per-slot log spam. */
+  private lastEpochForNoCommitteeLog: EpochNumber | undefined;
 
   /** The last slot for which we triggered a checkpoint proposal job, to prevent duplicate attempts. */
   protected lastSlotForCheckpointProposalJob: SlotNumber | undefined;
@@ -970,9 +971,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposer = await this.epochCache.getProposerAttesterAddressInSlot(targetSlot);
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        if (this.lastSlotForNoCommitteeWarning !== targetSlot) {
-          this.lastSlotForNoCommitteeWarning = targetSlot;
-          this.log.warn(`Cannot propose at target slot ${targetSlot} since the committee does not exist on L1`);
+        const targetEpoch = getEpochAtSlot(targetSlot, this.l1Constants);
+        if (this.lastEpochForNoCommitteeLog !== targetEpoch) {
+          this.lastEpochForNoCommitteeLog = targetEpoch;
+          await this.logMissingCommittee(targetSlot, targetEpoch);
         }
         return [false, undefined];
       }
@@ -1006,6 +1008,85 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposer,
     });
     return [true, proposer];
+  }
+
+  /**
+   * Logs why no validator committee exists for the given slot. Rather than the cryptic
+   * "committee does not exist on L1", it diagnoses the cause from the live attester count and whether the
+   * chain has ever produced a block: a bootstrapping chain waiting for validators to stake, a full set
+   * still waiting for the sampling lag to elapse, or a validator set that has shrunk below the required
+   * size on a live chain. Only the last is a genuine problem, so only it is logged at `warn`.
+   *
+   * Best-effort: if the diagnostic L1 reads fail we fall back to a neutral message so this never throws
+   * on the propose path.
+   */
+  private async logMissingCommittee(targetSlot: SlotNumber, targetEpoch: EpochNumber): Promise<void> {
+    const targetCommitteeSize = this.epochCache.getL1Constants().targetCommitteeSize;
+    const lag = this.epochCache.getLagInEpochsForValidatorSet();
+
+    let attesterCount: number;
+    let hasProducedBlocks: boolean;
+    try {
+      [attesterCount, hasProducedBlocks] = await Promise.all([
+        this.rollupContract.getActiveAttesterCount(),
+        this.l2BlockSource.getBlockNumber().then(n => n > 0),
+      ]);
+    } catch (err) {
+      this.log.warn(`No committee found for slot ${targetSlot}; could not determine validator set size`, {
+        targetSlot,
+        targetEpoch,
+        targetCommitteeSize,
+        err,
+      });
+      return;
+    }
+
+    const diagnosis = classifyMissingCommittee({
+      attesterCount,
+      targetCommitteeSize,
+      currentEpoch: targetEpoch,
+      lagInEpochsForValidatorSet: lag,
+      hasProducedBlocks,
+    });
+
+    const logCtx = { targetSlot, targetEpoch, attesterCount, targetCommitteeSize, cause: diagnosis.cause };
+
+    switch (diagnosis.cause) {
+      case 'awaiting-sampling-lag': {
+        const expectedByEpoch = diagnosis.expectedByEpoch!;
+        const eta = this.formatEpochEta(expectedByEpoch);
+        this.log.info(
+          `No committee for slot ${targetSlot} yet: ${attesterCount} validators are staked (>= ${targetCommitteeSize} ` +
+            `required), the committee is still forming as the ${lag}-epoch sampling window catches up. Expected by ` +
+            `epoch ${expectedByEpoch}${eta} if the validator set holds.`,
+          { ...logCtx, expectedByEpoch },
+        );
+        break;
+      }
+      case 'awaiting-first-validators':
+        this.log.info(
+          `No committee for slot ${targetSlot}: the chain has not started producing blocks and only ${attesterCount} ` +
+            `of the ${targetCommitteeSize} required validators are staked. Block production begins once at least ` +
+            `${targetCommitteeSize} validators stake and the ${lag}-epoch sampling lag elapses.`,
+          logCtx,
+        );
+        break;
+      case 'validator-set-shrank':
+        this.log.warn(
+          `No committee for slot ${targetSlot}: the validator set has dropped to ${attesterCount}, below the ` +
+            `${targetCommitteeSize} required to form a committee. The chain cannot progress until enough validators ` +
+            `are staked again — check for validators exiting or being slashed.`,
+          logCtx,
+        );
+        break;
+    }
+  }
+
+  /** Formats the ETA to the start of the given epoch as ` (~12m from now)`, or empty if it is in the past. */
+  private formatEpochEta(epoch: EpochNumber): string {
+    const epochStartTs = getStartTimestampForEpoch(epoch, this.l1Constants);
+    const secondsUntil = Number(epochStartTs) - this.dateProvider.nowInSeconds();
+    return secondsUntil > 0 ? ` (~${formatSeconds(secondsUntil)} from now)` : '';
   }
 
   /**
@@ -1351,6 +1432,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   public getConfig() {
     return this.config;
   }
+}
+
+/** Formats a duration in seconds into a compact human-readable string (e.g. `45s`, `12m`, `2h 5m`). */
+function formatSeconds(seconds: number): string {
+  if (seconds < 60) {
+    return `${Math.round(seconds)}s`;
+  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  return remMinutes > 0 ? `${hours}h ${remMinutes}m` : `${hours}h`;
 }
 
 type SequencerSyncCheckResult = {

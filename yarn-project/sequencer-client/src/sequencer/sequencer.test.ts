@@ -1,6 +1,6 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -1828,6 +1828,100 @@ describe('sequencer', () => {
       await sequencer.checkCanProposeForTest(SlotNumber(2));
 
       expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(2));
+    });
+  });
+
+  describe('missing committee logging', () => {
+    const missingCommitteeL1Constants = {
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration,
+      epochDuration,
+      ethereumSlotDuration,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    };
+
+    beforeEach(() => {
+      epochCache.getL1Constants.mockReturnValue(missingCommitteeL1Constants);
+      epochCache.getLagInEpochsForValidatorSet.mockReturnValue(2);
+      epochCache.getProposerAttesterAddressInSlot.mockRejectedValue(new NoCommitteeError());
+    });
+
+    it('logs a gentle info while bootstrapping with too few validators and no blocks yet', async () => {
+      rollupContract.getActiveAttesterCount.mockResolvedValue(0);
+      l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      const infoSpy = jest.spyOn(sequencer.getLogger(), 'info');
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const [canPropose] = await sequencer.checkCanProposeForTest(SlotNumber(2));
+
+      expect(canPropose).toBe(false);
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.stringContaining('has not started producing blocks'),
+        expect.objectContaining({ cause: 'awaiting-first-validators', attesterCount: 0, targetCommitteeSize: 48 }),
+      );
+    });
+
+    it('logs a louder warning when the validator set has shrunk on a live chain', async () => {
+      rollupContract.getActiveAttesterCount.mockResolvedValue(10);
+      l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(100));
+      const infoSpy = jest.spyOn(sequencer.getLogger(), 'info');
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const [canPropose] = await sequencer.checkCanProposeForTest(SlotNumber(2));
+
+      expect(canPropose).toBe(false);
+      expect(infoSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('validator set has dropped'),
+        expect.objectContaining({ cause: 'validator-set-shrank', attesterCount: 10 }),
+      );
+    });
+
+    it('logs a gentle info with an expected epoch while enough validators wait out the sampling lag', async () => {
+      rollupContract.getActiveAttesterCount.mockResolvedValue(3462);
+      l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      const infoSpy = jest.spyOn(sequencer.getLogger(), 'info');
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const [canPropose] = await sequencer.checkCanProposeForTest(SlotNumber(2));
+
+      expect(canPropose).toBe(false);
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.stringContaining('sampling window catches up'),
+        expect.objectContaining({ cause: 'awaiting-sampling-lag', expectedByEpoch: EpochNumber(3) }),
+      );
+    });
+
+    it('falls back to a neutral message when the attester count query fails', async () => {
+      rollupContract.getActiveAttesterCount.mockRejectedValue(new Error('rpc down'));
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const [canPropose] = await sequencer.checkCanProposeForTest(SlotNumber(2));
+
+      expect(canPropose).toBe(false);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('could not determine validator set size'),
+        expect.objectContaining({ targetSlot: SlotNumber(2) }),
+      );
+    });
+
+    it('only logs once per epoch across repeated slots', async () => {
+      rollupContract.getActiveAttesterCount.mockResolvedValue(0);
+      l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      const infoSpy = jest.spyOn(sequencer.getLogger(), 'info');
+
+      // Slots 0 and 1 share epoch 0 (epochDuration 16); slot 16 is epoch 1.
+      await sequencer.checkCanProposeForTest(SlotNumber(0));
+      await sequencer.checkCanProposeForTest(SlotNumber(1));
+      await sequencer.checkCanProposeForTest(SlotNumber(16));
+
+      const missingCommitteeLogs = infoSpy.mock.calls.filter(([msg]) => String(msg).includes('No committee'));
+      expect(missingCommitteeLogs).toHaveLength(2);
     });
   });
 });
