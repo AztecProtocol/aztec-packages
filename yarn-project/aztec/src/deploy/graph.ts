@@ -13,6 +13,7 @@ export function topologicalLayers(nodes: string[], dependencies: Map<string, str
   const remaining = new Set(nodes);
   const layers: string[][] = [];
   while (remaining.size > 0) {
+    // A node is ready when every dependency already sits in an earlier layer (i.e. is no longer in `remaining`).
     const layer = [...remaining].filter(node =>
       (dependencies.get(node) ?? []).every(dependency => !remaining.has(dependency)),
     );
@@ -111,7 +112,10 @@ export function formatList(title: string, rows: PlanRow[]): string {
   return lines.join('\n');
 }
 
-/** Render a titled, wave-grouped section of the plan as an indented tree. */
+/**
+ * Render a titled, wave-grouped section of the plan as an indented tree. A "wave" is just the
+ * runner's name for a layer once it's being executed: each wave's txs are submitted in parallel.
+ */
 export function formatWaves(title: string, waves: PlanRow[][]): string {
   if (waves.length === 0) {
     return `${title}: (none)`;
