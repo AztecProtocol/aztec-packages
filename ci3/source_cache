@@ -65,8 +65,11 @@ function cache_persistent {
 
   cat | gzip > "$tmpfile"
 
-  # Write to Redis (synchronous)
-  cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
+  # Write to Redis (synchronous) when available. The S3 upload below is the
+  # persistent fallback when the runner cannot reach Redis.
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
+  fi
 
   # Write to S3 in background
   {

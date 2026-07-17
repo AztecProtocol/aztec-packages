@@ -544,13 +544,14 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
+    constexpr uint32_t unconstrained_witness = 9;
     Acir::Circuit circuit = make_circuit({
         Acir::Opcode{ .value = Acir::Opcode::AssertZero{
                           .value = Acir::Expression{
                               .linear_combinations =
                                   {
                                       { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
+                                      { bb::fr(-1).to_buffer(), make_witness(unconstrained_witness) },
                                   },
                               .q_c = bb::fr::zero().to_buffer(),
                           } } },
@@ -559,8 +560,22 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
     auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
+    // Corrupt the circuit without invalidating the builder's variable-index vectors. Shrinking
+    // real_variable_index makes debug STL builds abort inside the static analyzer before the
+    // components checker can classify the witness.
+    for (auto& block : builder.blocks.get()) {
+        auto replace_witness = [&](auto& wire) {
+            for (size_t row = 0; row < wire.size(); ++row) {
+                if (wire[row] == unconstrained_witness) {
+                    wire[row] = builder.zero_idx();
+                }
+            }
+        };
+        replace_witness(block.w_l());
+        replace_witness(block.w_r());
+        replace_witness(block.w_o());
+        replace_witness(block.w_4());
+    }
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
