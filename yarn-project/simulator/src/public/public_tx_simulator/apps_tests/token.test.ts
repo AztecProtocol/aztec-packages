@@ -17,6 +17,7 @@ describe('Public TX simulator apps tests: TokenContract', () => {
   });
 
   afterAll(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

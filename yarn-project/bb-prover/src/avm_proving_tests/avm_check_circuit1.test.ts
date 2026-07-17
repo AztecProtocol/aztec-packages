@@ -32,6 +32,7 @@ describe('AVM check-circuit – unhappy paths 1', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

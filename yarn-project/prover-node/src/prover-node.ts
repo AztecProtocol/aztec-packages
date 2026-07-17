@@ -10,7 +10,7 @@ import { DateProvider, executeTimeout } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
 import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { ChonkCache } from '@aztec/prover-client/orchestrator';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { type AvmSimulator, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   EventDrivenL2BlockStream,
   type L2BlockId,
@@ -121,6 +121,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     protected readonly p2pClient: { getTxProvider(): ITxProvider } & Partial<Service>,
     protected readonly rollupContract: RollupContract,
     protected readonly l1Metrics: L1Metrics,
+    private readonly avmSimulator: AvmSimulator,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
     private delayer?: Delayer,
@@ -157,6 +158,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         chonkCache: this.chonkCache,
         publicProcessorFactory: new PublicProcessorFactory(
           this.contractDataSource,
+          this.avmSimulator,
           this.dateProvider,
           this.telemetryClient,
           this.log.getBindings(),

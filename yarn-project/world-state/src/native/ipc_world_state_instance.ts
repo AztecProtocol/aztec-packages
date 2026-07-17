@@ -365,8 +365,8 @@ export class IpcWorldState implements NativeWorldStateInstance {
     genesis: GenesisData,
     instrumentation: WorldStateInstrumentation,
     bindings?: LoggerBindings,
+    threads: number = getWsdbThreadCount(),
   ): Promise<IpcWorldState> {
-    const threads = getWsdbThreadCount();
     const transport = process.env.WSDB_TRANSPORT === 'shm' ? 'shm' : 'uds';
     const wsdb = await WsdbService.spawn({
       transport,
