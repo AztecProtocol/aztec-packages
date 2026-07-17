@@ -1,8 +1,8 @@
 name: Port v5-next to next
 
-# Daily forward-port: rebuild the `port-v5-next-to-next` branch from `next`,
-# merge everything new from `v5-next` into it, and open/update one large PR
-# against `next`. See scripts/port_to_next.sh.
+# Daily forward-port: accumulate everything new from `v5-next` onto the
+# long-lived `port-v5-next-to-next` branch (merging `next` and `v5-next` into
+# it) and open/update one large PR against `next`. See scripts/port_to_next.sh.
 
 on:
   schedule:

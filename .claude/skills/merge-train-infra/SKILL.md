@@ -34,7 +34,7 @@ On cherry-pick conflict the workflow comments on the PR, posts to `#backports`, 
 
 ## Scheduled Forward-Port (`port-v5-next-to-next.yml`)
 
-A daily bulk sweep (distinct from the per-PR `port-to-next` label) that keeps `next` fed with everything on the `v5-next` release line. `port-v5-next-to-next.yml` runs at 06:30 UTC (and on `workflow_dispatch`) and calls `scripts/port_to_next.sh <source>` (default `v5-next`). The script rebuilds the `port-<source>-to-next` branch fresh from `next` each run, merges the source in, and — if that produces a delta — force-pushes and opens/updates one `ci-no-squash` PR into `next`. Because the branch is rebuilt every run, the PR always reflects the current delta and self-heals after the PR is merged (a later run finds nothing left to port and closes the stale PR). Merge conflicts abort the run without touching the existing PR and post to `#backports`; they are meant to be resolved at the source, not on the port branch. This PR is intentionally left for human review — it is not added to the auto-merge patterns.
+A daily bulk sweep (distinct from the per-PR `port-to-next` label) that keeps `next` fed with everything on the `v5-next` release line. `port-v5-next-to-next.yml` runs at 06:30 UTC (and on `workflow_dispatch`) and calls `scripts/port_to_next.sh <source>` (default `v5-next`). The `port-<source>-to-next` branch is long-lived: each run checks it out and merges both `next` and the source into it, then opens/updates one `ci-no-squash` PR into `next`. Accumulating (rather than rebuilding) means any conflict resolution pushed to the branch is preserved across runs. Once the PR is merged (the branch becomes an ancestor of `next`) the next run rebuilds the branch fresh from `next` with a `--force-with-lease` push; while accumulating it fast-forwards. If a run produces no delta over `next` it closes the stale PR. Merge conflicts abort the run without touching the existing PR and post to `#backports`; resolve them by checking out the port branch, merging, and pushing the fix. This PR is intentionally left for human review — it is not added to the auto-merge patterns.
 
 ## CI Integration Details
 
@@ -120,7 +120,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `scripts/merge-train/squash-pr.sh` | Squashes PR commits (used by `ci-squash-and-merge` label) |
 | `scripts/merge-train/wakeup-prs.sh` | Adds `ci-wakeup-pr-after-merge` label to qualifying PRs after branch recreation |
 | `scripts/backport_to_staging.sh` | Cherry-picks a merged PR to a backport staging branch; creates/updates the backport PR |
-| `scripts/port_to_next.sh` | Daily forward-port: rebuilds `port-<source>-to-next` from `next`, merges the source in, opens/updates the PR |
+| `scripts/port_to_next.sh` | Daily forward-port: accumulates `next` + source onto long-lived `port-<source>-to-next`, opens/updates the PR |
 
 ### CI Configuration
 
