@@ -12,14 +12,13 @@ import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { createEthereumChain } from '@aztec/ethereum/chain';
-import { makeL1HttpTransport } from '@aztec/ethereum/client';
-import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecNodeDebug, createAztecNodeDebugClient } from '@aztec/stdlib/interfaces/client';
 
-import { type Chain, type Hex, type Transport, createWalletClient, publicActions } from 'viem';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import type { Hex } from 'viem';
+import { generatePrivateKey } from 'viem/accounts';
 
 const POLL_INTERVAL_MS = 1000;
 const WARP_BY_SECONDS = 36n; // roughly one L2 slot
@@ -93,49 +92,6 @@ export interface BridgeFeeJuiceResult {
 }
 
 /**
- * Builds an L1 wallet client whose gas estimates carry headroom. The FeeJuice portal's
- * `depositToAztecPublic` forwards into the rollup Inbox, whose frontier-tree insert periodically
- * costs far more gas than an unbuffered point-in-time `eth_estimateGas` — a completed subtree
- * triggers a cascade of hashes + SSTOREs. aztec.js sizes the deposit off that bare estimate (it
- * doesn't route through L1TxUtils), so the deposit intermittently runs out of gas inside the Inbox
- * even though the identical call simulates fine under eth_call's generous ceiling.
- *
- * We buffer at the *transport* rather than overriding `client.estimateGas`: viem's wallet actions
- * capture the base client and call the imported `estimateGas` directly, and `.extend` refuses to
- * override an existing action — so a client-level override is a silent no-op. Multiplying every
- * `eth_estimateGas` RPC result is the one interception point that reaches the deposit. Unused gas is
- * refunded, so over-budgeting costs nothing. Tune with `L1_GAS_ESTIMATE_MULTIPLIER` (default 3).
- */
-function createBufferedL1Client(
-  rpcUrls: string[],
-  privateKey: Hex,
-  chain: Chain,
-  multiplier: bigint,
-): ExtendedViemWalletClient {
-  const inner = makeL1HttpTransport(rpcUrls);
-  const transport = ((opts: Parameters<typeof inner>[0]) => {
-    const t = inner(opts);
-    const request = (async (args: { method: string; params?: unknown }) => {
-      const result = await t.request(args as Parameters<typeof t.request>[0]);
-      if (multiplier > 1n && args?.method === 'eth_estimateGas' && typeof result === 'string') {
-        return `0x${(BigInt(result) * multiplier).toString(16)}`;
-      }
-      return result;
-    }) as typeof t.request;
-    return { ...t, request };
-  }) as typeof inner;
-
-  // `makeL1HttpTransport` and `createEthereumChain` come from @aztec/ethereum's pinned viem, a
-  // distinct install from viem here; the types are structurally identical but nominally disjoint,
-  // hence the casts.
-  return createWalletClient({
-    account: privateKeyToAccount(privateKey),
-    chain,
-    transport: transport as Transport,
-  }).extend(publicActions) as unknown as ExtendedViemWalletClient;
-}
-
-/**
  * Bridges fee juice to an L2 recipient. Mirrors the bridge UI's decision:
  *   - faucet handler exists AND L1 signer holds little FJ → mint via the handler
  *   - otherwise → transfer the caller's existing FJ balance to the portal
@@ -148,12 +104,7 @@ export async function bridgeFeeJuice(params: BridgeFeeJuiceParams): Promise<Brid
 
   const l1PrivateKey: Hex = params.l1PrivateKey ?? generatePrivateKey();
   const chain = createEthereumChain([l1RpcUrl], l1ChainId);
-  const l1Client = createBufferedL1Client(
-    chain.rpcUrls,
-    l1PrivateKey,
-    chain.chainInfo as unknown as Chain,
-    BigInt(process.env.L1_GAS_ESTIMATE_MULTIPLIER ?? 3),
-  );
+  const l1Client = createExtendedL1Client(chain.rpcUrls, l1PrivateKey, chain.chainInfo);
   const portalManager = await L1FeeJuicePortalManager.new(node, l1Client, createLogger('deploy:bridging'));
 
   const tokenManager = portalManager.getTokenManager();
