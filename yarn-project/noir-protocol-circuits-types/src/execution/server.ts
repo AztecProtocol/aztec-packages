@@ -76,8 +76,8 @@ import type { DecodedInputs } from '../utils/decoded_inputs.js';
 export { mapAvmCircuitPublicInputsToNoir } from '../conversion/server.js';
 
 /**
- * Converts the inputs of the base parity circuit into a witness map.
- * @param inputs - The base parity inputs.
+ * Converts the inputs of the inbox parity circuit into a witness map.
+ * @param inputs - The inbox parity inputs.
  * @returns The witness map
  */
 export function convertInboxParityPrivateInputsToWitnessMap(
@@ -472,8 +472,8 @@ export function convertRootRollupOutputsFromWitnessMap(outputs: WitnessMap, simu
 }
 
 /**
- * Converts the outputs of the base parity circuit from a witness map.
- * @param outputs - The base parity outputs as a witness map.
+ * Converts the outputs of the inbox parity circuit from a witness map.
+ * @param outputs - The inbox parity outputs as a witness map.
  * @returns The public inputs.
  */
 export function convertInboxParityOutputsFromWitnessMap(
