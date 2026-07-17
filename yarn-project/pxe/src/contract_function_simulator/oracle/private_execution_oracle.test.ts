@@ -80,6 +80,19 @@ describe('PrivateExecutionOracle', () => {
     });
   });
 
+  describe('getAppTaggingSecret', () => {
+    it('rejects a sender outside the execution scopes', async () => {
+      const inScopeSender = await AztecAddress.random();
+      const outOfScopeSender = await AztecAddress.random();
+      const recipient = await AztecAddress.random();
+      const oracle = makeOracle({ scopes: [inScopeSender] });
+
+      await expect(oracle.getAppTaggingSecret(outOfScopeSender, recipient)).rejects.toThrow(
+        'is not in the allowed scopes list',
+      );
+    });
+  });
+
   describe('resolveTaggingStrategy', () => {
     let sender: AztecAddress;
     let recipient: AztecAddress;
