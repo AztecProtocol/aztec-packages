@@ -3,7 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { AztecSQLiteOPFSStore } from './store.js';
 
 export { AztecSQLiteOPFSStore } from './store.js';
-export { SqliteEncryptionError } from './errors.js';
+export { SqliteCorruptionError, SqliteEncryptionError } from './errors.js';
 export type { SqliteEncryptionErrorCode } from './errors.js';
 export { OPFS_POOL_DIR_PREFIX, deleteStore, listStores, storePoolDirectory } from './manage.js';
 
