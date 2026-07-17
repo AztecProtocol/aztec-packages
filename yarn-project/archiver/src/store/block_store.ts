@@ -543,9 +543,11 @@ export class BlockStore {
 
     const blockHash = bufferToHex(blockStorage.blockHash);
 
-    // Delete the tx effects of the block's txs, skipping entries that no longer point at this block: a tx
-    // also present in another stored block (e.g. re-included after its original proposal expired) has had
-    // its entry overwritten, and deleting it here would orphan that block's index.
+    // Delete the tx effects of the block's txs, skipping entries that no longer point at this block: if
+    // another stored block also contains the tx, the entry points at that block, and deleting it here would
+    // orphan that block's index. Honest chains never store the same tx twice (duplicate nullifiers are
+    // rejected at build, re-execution, and world-state sync), so the store must not turn such a state into
+    // corruption of the surviving block if it ever appears.
     const blockTxsBuffer = await this.#blockTxs.getAsync(blockHash);
     if (blockTxsBuffer !== undefined) {
       const reader = BufferReader.asReader(blockTxsBuffer);
@@ -567,9 +569,24 @@ export class BlockStore {
   /** Deletes a tx effect only if it is still owned by (points at) the given block. */
   private async deleteTxEffectIfOwnedBy(txHash: string, blockHash: Buffer): Promise<void> {
     const stored = await this.#txEffects.getAsync(txHash);
+    if (stored === undefined) {
+      this.#log.warn(`Missing tx effect for tx ${txHash} while removing its block`, {
+        txHash,
+        blockHash: bufferToHex(blockHash),
+      });
+      return;
+    }
     // An IndexedTxEffect starts with the owning block hash (32 bytes) — see getTxLocation.
-    if (stored && Buffer.from(stored.buffer, stored.byteOffset, 32).equals(blockHash)) {
+    if (Buffer.from(stored.buffer, stored.byteOffset, 32).equals(blockHash)) {
       await this.#txEffects.delete(txHash);
+    } else {
+      // Fires only when two stored blocks listed the same tx — a state upstream validation should make
+      // unreachable. Keep the entry (it belongs to the surviving block) but flag the duplication loudly.
+      this.#log.warn(`Tx effect for tx ${txHash} is owned by a block other than the one being removed`, {
+        txHash,
+        removedBlockHash: bufferToHex(blockHash),
+        owningBlockHash: bufferToHex(Buffer.from(stored.buffer, stored.byteOffset, 32)),
+      });
     }
   }
 
