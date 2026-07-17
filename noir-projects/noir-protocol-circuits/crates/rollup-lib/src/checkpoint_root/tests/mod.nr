@@ -31,7 +31,7 @@ use types::{
         BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
         BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
         BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, OUT_HASH_TREE_LEAF_COUNT, PARITY_ROOT_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, INBOX_PARITY_1024_VK_INDEX, OUT_HASH_TREE_LEAF_COUNT,
     },
     merkle_tree::compute_sha_tree_root,
     traits::{Hash, Serialize},
@@ -50,8 +50,8 @@ struct TestBuilder {
     right_rollup: BlockRollupPublicInputs,
     right_rollup_vk_index: u32,
     is_single_block: bool,
-    parity_root: ParityPublicInputs,
-    parity_root_vk_index: u32,
+    inbox_parity: ParityPublicInputs,
+    inbox_parity_vk_index: u32,
     hints: CheckpointRootRollupHints,
 }
 
@@ -191,10 +191,10 @@ impl TestBuilder {
         // Update the start state of the left rollup to match the state of the previous block.
         left_rollup.start_state = hints.previous_block_header.state;
 
-        // The parity root commits to the same checkpoint messages the block roots absorbed. Its message sponge (empty
-        // to the checkpoint's accumulated value) matches the blocks' merged sponge; its rolling hash / sha root feed
-        // the checkpoint header. Built at the base slot the block fixtures use for their sponge.
-        let parity_root = fixture_builder.get_parity_public_inputs(fixture_builder.start_slot_number);
+        // The InboxParity proof commits to the same checkpoint messages the block roots absorbed. Its message sponge
+        // (empty to the checkpoint's accumulated value) matches the blocks' merged sponge; its rolling hash and in_hash
+        // feed the checkpoint header. Built at the base slot the block fixtures use for their sponge.
+        let inbox_parity = fixture_builder.get_parity_public_inputs(fixture_builder.start_slot_number);
 
         Self {
             fixture_builder,
@@ -202,8 +202,8 @@ impl TestBuilder {
             left_rollup_vk_index,
             right_rollup,
             right_rollup_vk_index,
-            parity_root,
-            parity_root_vk_index: PARITY_ROOT_VK_INDEX,
+            inbox_parity,
+            inbox_parity_vk_index: INBOX_PARITY_1024_VK_INDEX,
             hints,
             is_single_block,
         }
@@ -270,8 +270,8 @@ impl TestBuilder {
     }
 
     pub fn execute(self) -> CheckpointRollupPublicInputs {
-        let parity_root =
-            RollupFixtureBuilder::make_proof_data(self.parity_root, self.parity_root_vk_index);
+        let inbox_parity =
+            RollupFixtureBuilder::make_proof_data(self.inbox_parity, self.inbox_parity_vk_index);
 
         if self.is_single_block {
             checkpoint_root_single_block_rollup::execute(
@@ -280,7 +280,7 @@ impl TestBuilder {
                         self.left_rollup,
                         self.left_rollup_vk_index,
                     ),
-                    parity_root,
+                    inbox_parity,
                     hints: self.hints,
                 },
             )
@@ -297,7 +297,7 @@ impl TestBuilder {
                             self.right_rollup_vk_index,
                         ),
                     ],
-                    parity_root,
+                    inbox_parity,
                     hints: self.hints,
                 },
             )
@@ -357,10 +357,10 @@ impl TestBuilder {
         assert_eq(pi.new_archive, right.new_archive);
         assert(pi.previous_archive != pi.new_archive);
 
-        // The checkpoint's rolling-hash pair is sourced from the parity root (which commits to the checkpoint's full
-        // message list), not from the block rollups.
-        assert_eq(pi.start_inbox_rolling_hash, self.parity_root.start_rolling_hash);
-        assert_eq(pi.end_inbox_rolling_hash, self.parity_root.end_rolling_hash);
+        // The checkpoint's rolling-hash pair is sourced from the InboxParity proof (which commits to the checkpoint's
+        // full message list), not from the block rollups.
+        assert_eq(pi.start_inbox_rolling_hash, self.inbox_parity.start_rolling_hash);
+        assert_eq(pi.end_inbox_rolling_hash, self.inbox_parity.end_rolling_hash);
 
         // Safety: This is just for testing. Unconstrained to speed up the tests.
         let expected_checkpoint_header = unsafe { self.get_expected_checkpoint_header() };
@@ -445,8 +445,8 @@ impl TestBuilder {
             last_archive_root: left.previous_archive.root,
             block_headers_hash,
             blobs_hash: self.hints.blobs_hash,
-            in_hash: self.parity_root.sha_root,
-            inbox_rolling_hash: self.parity_root.end_rolling_hash,
+            in_hash: self.inbox_parity.in_hash,
+            inbox_rolling_hash: self.inbox_parity.end_rolling_hash,
             epoch_out_hash,
             slot_number: left.constants.slot_number,
             timestamp: right.timestamp,

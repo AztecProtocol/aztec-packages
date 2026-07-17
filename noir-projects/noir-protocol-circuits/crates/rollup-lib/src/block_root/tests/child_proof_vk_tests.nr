@@ -1,7 +1,7 @@
 use super::TestBuilder;
 use protocol_test_utils::fixtures::vk_tree::{update_vk_hash, VK_MERKLE_TREE};
 use types::constants::{
-    BLOCK_ROOT_ROLLUP_VK_INDEX, PARITY_BASE_VK_INDEX, PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_ROLLUP_VK_INDEX, INBOX_PARITY_64_VK_INDEX, PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
     PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
 };
 
@@ -27,7 +27,7 @@ fn disallowed_right_rollup_vk_index__first_block() {
 fn disallowed_rollup_vk_index__first_single_tx_block() {
     let mut builder = TestBuilder::default(true, true);
 
-    builder.left_rollup_vk_index = PARITY_BASE_VK_INDEX;
+    builder.left_rollup_vk_index = INBOX_PARITY_64_VK_INDEX;
 
     builder.execute_and_fail();
 }

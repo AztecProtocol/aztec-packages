@@ -32,8 +32,8 @@ import {
   PrivateToPublicKernelCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import type { FlatPublicLogs } from '@aztec/stdlib/logs';
-import { L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
-import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
+import { L1ToL2MessageBundle, L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
+import { InboxParityPrivateInputs, ParityPublicInputs } from '@aztec/stdlib/parity';
 import type { ProofData, ProofDataForFixedVk, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   BlockConstantData,
@@ -95,9 +95,7 @@ import type {
   FixedLengthArray,
   L1ToL2MessageSponge as L1ToL2MessageSpongeNoir,
   Field as NoirField,
-  ParityBasePrivateInputs as ParityBasePrivateInputsNoir,
   ParityPublicInputs as ParityPublicInputsNoir,
-  ParityRootPrivateInputs as ParityRootPrivateInputsNoir,
   Poseidon2Sponge as Poseidon2SpongeNoir,
   PrivateToAvmAccumulatedDataArrayLengths as PrivateToAvmAccumulatedDataArrayLengthsNoir,
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
@@ -482,8 +480,7 @@ export function mapAvmProofDataToNoir(
 
 function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
   return {
-    sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
-    converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
+    in_hash: mapFieldToNoir(parityPublicInputs.inHash),
     start_rolling_hash: mapFieldToNoir(parityPublicInputs.startRollingHash),
     end_rolling_hash: mapFieldToNoir(parityPublicInputs.endRollingHash),
     start_sponge: mapL1ToL2MessageSpongeToNoir(parityPublicInputs.startSponge),
@@ -522,8 +519,7 @@ export function mapRootRollupPublicInputsFromNoir(
  */
 export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicInputsNoir): ParityPublicInputs {
   return new ParityPublicInputs(
-    mapFieldFromNoir(parityPublicInputs.sha_root),
-    mapFieldFromNoir(parityPublicInputs.converted_root),
+    mapFieldFromNoir(parityPublicInputs.in_hash),
     mapFieldFromNoir(parityPublicInputs.start_rolling_hash),
     mapFieldFromNoir(parityPublicInputs.end_rolling_hash),
     mapL1ToL2MessageSpongeFromNoir(parityPublicInputs.start_sponge),
@@ -734,22 +730,17 @@ function mapTreeSnapshotDiffHintsToNoir(hints: TreeSnapshotDiffHints): TreeSnaps
   };
 }
 
-export function mapParityBasePrivateInputsToNoir(inputs: ParityBasePrivateInputs): ParityBasePrivateInputsNoir {
+// Maps the size-generic InboxParity inputs to the Noir struct. The `messages` array length already equals the chosen
+// ladder size, so the same object satisfies whichever size-specific artifact ABI is selected by `inputs.size`.
+export function mapInboxParityPrivateInputsToNoir(inputs: InboxParityPrivateInputs) {
   return {
-    msgs: mapTuple(inputs.msgs, mapFieldToNoir),
+    msgs: mapFieldArrayToNoir(inputs.messages),
+    num_msgs: mapNumberToNoir(inputs.numMessages),
     start_rolling_hash: mapFieldToNoir(inputs.startRollingHash),
     start_sponge: mapL1ToL2MessageSpongeToNoir(inputs.startSponge),
-    num_msgs: mapNumberToNoir(inputs.numMsgs),
+    in_hash: mapFieldToNoir(inputs.inHash),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
     prover_id: mapFieldToNoir(inputs.proverId),
-  };
-}
-
-export function mapParityRootPrivateInputsToNoir(inputs: ParityRootPrivateInputs): ParityRootPrivateInputsNoir {
-  return {
-    children: mapTuple(inputs.children, c =>
-      mapProofDataToNoir(c, mapParityPublicInputsToNoir, ULTRA_VK_LENGTH_IN_FIELDS),
-    ),
   };
 }
 
@@ -838,6 +829,14 @@ export function mapRevertCodeToNoir(revertCode: RevertCode): NoirField {
   return mapFieldToNoir(revertCode.toField());
 }
 
+function mapL1ToL2MessageBundleToNoir(bundle: L1ToL2MessageBundle) {
+  return {
+    messages: mapFieldArrayToNoir(bundle.messages),
+    num_msgs: mapNumberToNoir(bundle.numMsgs),
+    num_real_msgs: mapNumberToNoir(bundle.numRealMsgs),
+  };
+}
+
 export function mapBlockRootFirstRollupPrivateInputsToNoir(
   inputs: BlockRootFirstRollupPrivateInputs,
 ): BlockRootFirstRollupPrivateInputsNoir {
@@ -846,8 +845,7 @@ export function mapBlockRootFirstRollupPrivateInputsToNoir(
       mapProofDataToNoir(inputs.previousRollups[0], mapTxRollupPublicInputsToNoir),
       mapProofDataToNoir(inputs.previousRollups[1], mapTxRollupPublicInputsToNoir),
     ],
-    l1_to_l2_messages: mapFieldArrayToNoir(inputs.l1ToL2Messages),
-    num_msgs: mapNumberToNoir(inputs.numMsgs),
+    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
     previous_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(inputs.previousL1ToL2),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
@@ -859,8 +857,7 @@ export function mapBlockRootSingleTxFirstRollupPrivateInputsToNoir(
 ): BlockRootSingleTxFirstRollupPrivateInputsNoir {
   return {
     previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapTxRollupPublicInputsToNoir),
-    l1_to_l2_messages: mapFieldArrayToNoir(inputs.l1ToL2Messages),
-    num_msgs: mapNumberToNoir(inputs.numMsgs),
+    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
     previous_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(inputs.previousL1ToL2),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
@@ -875,8 +872,7 @@ export function mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(
     previous_state: mapStateReferenceToNoir(inputs.previousState),
     constants: mapCheckpointConstantDataToNoir(inputs.constants),
     timestamp: mapU64ToNoir(inputs.timestamp),
-    l1_to_l2_messages: mapFieldArrayToNoir(inputs.l1ToL2Messages),
-    num_msgs: mapNumberToNoir(inputs.numMsgs),
+    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
   };
@@ -892,8 +888,7 @@ export function mapBlockRootMsgsOnlyRollupPrivateInputsToNoir(
     timestamp: mapU64ToNoir(inputs.timestamp),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
     start_msg_sponge: mapL1ToL2MessageSpongeToNoir(inputs.startMsgSponge),
-    l1_to_l2_messages: mapFieldArrayToNoir(inputs.l1ToL2Messages),
-    num_msgs: mapNumberToNoir(inputs.numMsgs),
+    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
   };
@@ -907,8 +902,7 @@ export function mapBlockRootRollupPrivateInputsToNoir(
       mapProofDataToNoir(inputs.previousRollups[0], mapTxRollupPublicInputsToNoir),
       mapProofDataToNoir(inputs.previousRollups[1], mapTxRollupPublicInputsToNoir),
     ],
-    l1_to_l2_messages: mapFieldArrayToNoir(inputs.l1ToL2Messages),
-    num_msgs: mapNumberToNoir(inputs.numMsgs),
+    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
     start_msg_sponge: mapL1ToL2MessageSpongeToNoir(inputs.startMsgSponge),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
@@ -920,8 +914,7 @@ export function mapBlockRootSingleTxRollupPrivateInputsToNoir(
 ): BlockRootSingleTxRollupPrivateInputsNoir {
   return {
     previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapTxRollupPublicInputsToNoir),
-    l1_to_l2_messages: mapFieldArrayToNoir(inputs.l1ToL2Messages),
-    num_msgs: mapNumberToNoir(inputs.numMsgs),
+    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
     start_msg_sponge: mapL1ToL2MessageSpongeToNoir(inputs.startMsgSponge),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
@@ -961,7 +954,7 @@ export function mapCheckpointRootRollupPrivateInputsToNoir(
       mapProofDataToNoir(inputs.previousRollups[0], mapBlockRollupPublicInputsToNoir),
       mapProofDataToNoir(inputs.previousRollups[1], mapBlockRollupPublicInputsToNoir),
     ],
-    parity_root: mapProofDataToNoir(inputs.parityRoot, mapParityPublicInputsToNoir, ULTRA_VK_LENGTH_IN_FIELDS),
+    inbox_parity: mapProofDataToNoir(inputs.inboxParity, mapParityPublicInputsToNoir, ULTRA_VK_LENGTH_IN_FIELDS),
     hints: mapCheckpointRootRollupHintsToNoir(inputs.hints),
   };
 }
@@ -971,7 +964,7 @@ export function mapCheckpointRootSingleBlockRollupPrivateInputsToNoir(
 ): CheckpointRootSingleBlockRollupPrivateInputsNoir {
   return {
     previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapBlockRollupPublicInputsToNoir),
-    parity_root: mapProofDataToNoir(inputs.parityRoot, mapParityPublicInputsToNoir, ULTRA_VK_LENGTH_IN_FIELDS),
+    inbox_parity: mapProofDataToNoir(inputs.inboxParity, mapParityPublicInputsToNoir, ULTRA_VK_LENGTH_IN_FIELDS),
     hints: mapCheckpointRootRollupHintsToNoir(inputs.hints),
   };
 }

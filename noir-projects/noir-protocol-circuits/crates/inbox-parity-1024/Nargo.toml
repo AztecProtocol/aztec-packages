@@ -1,5 +1,5 @@
 [package]
-name = "parity_root"
+name = "inbox_parity_1024"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.18.0"

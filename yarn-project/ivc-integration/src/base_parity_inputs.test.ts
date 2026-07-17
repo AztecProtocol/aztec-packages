@@ -1,60 +1,66 @@
 /**
- * Generates base parity circuit inputs (bytecode + witness) for UltraHonk benchmarks.
+ * Generates parity circuit inputs (bytecode + witness) for UltraHonk benchmarks.
  * Only runs when BASE_PARITY_BENCH_DIR env var is set by the UltraHonk benchmark input generator.
  *
  * Run with: BASE_PARITY_BENCH_DIR=./bench-out yarn workspace @aztec/ivc-integration test src/base_parity_inputs.test.ts
+ *
+ * The parity base/root circuits were replaced by the single variable-size InboxParity circuit (AZIP-22 Fast Inbox);
+ * this benchmark now targets the 256-message rung (`InboxParity256`), matching the old base-parity circuit's size. The
+ * output files keep their legacy `parity_base.json` / `witness.gz` names because `ci_benchmark_ultrahonk_circuits.sh`
+ * locates inputs as `${circuit_name}.json` with `circuit_name=parity_base`.
  */
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUM_MSGS_PER_BASE_PARITY } from '@aztec/constants';
+import { INBOX_PARITY_SIZE_MEDIUM } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
-import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
+import { L1ToL2MessageSponge, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { InboxParityPrivateInputs } from '@aztec/stdlib/parity';
 
 import { jest } from '@jest/globals';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-const logger = createLogger('bench:base-parity');
+const logger = createLogger('bench:inbox-parity');
 
 jest.setTimeout(120_000);
 
-describe('Base Parity Benchmark Inputs', () => {
-  it('generates bytecode and witness files for base parity benchmarking', async () => {
+describe('Inbox Parity Benchmark Inputs', () => {
+  it('generates bytecode and witness files for parity benchmarking', async () => {
     const outputDir = process.env.BASE_PARITY_BENCH_DIR;
     if (!outputDir) {
-      logger.info('Skipping base parity bench input generation (BASE_PARITY_BENCH_DIR not set)');
+      logger.info('Skipping parity bench input generation (BASE_PARITY_BENCH_DIR not set)');
       return;
     }
-    logger.info(`Generating base parity bench inputs to ${outputDir}`);
+    logger.info(`Generating parity bench inputs to ${outputDir}`);
 
     await fs.mkdir(outputDir, { recursive: true });
 
-    // Generate random L1-to-L2 messages
-    logger.info(`Generating ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} random L1-to-L2 messages...`);
-    const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
+    // Generate random L1-to-L2 messages that fill the 256-message rung.
+    logger.info(`Generating ${INBOX_PARITY_SIZE_MEDIUM} random L1-to-L2 messages...`);
+    const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(() => Fr.random());
 
-    // Create base parity inputs for the first slice
+    // Create InboxParity inputs (picks the 256 rung for 256 messages).
     const vkTreeRoot = getVKTreeRoot();
-    const baseParityInputs = ParityBasePrivateInputs.fromSlice(
+    const inputs = InboxParityPrivateInputs.fromMessages(
       l1ToL2Messages,
-      0,
       Fr.ZERO,
       L1ToL2MessageSponge.empty(),
-      NUM_MSGS_PER_BASE_PARITY,
+      computeInHashFromL1ToL2Messages(l1ToL2Messages),
       vkTreeRoot,
       Fr.random(),
     );
-    logger.info('Created base parity inputs');
+    logger.info('Created inbox parity inputs');
 
     // Convert inputs to Noir format (inline the mapping since it's simple)
-    const startSponge = baseParityInputs.startSponge;
+    const startSponge = inputs.startSponge;
     const noirInputs = {
-      msgs: baseParityInputs.msgs.map(m => m.toString()),
+      msgs: inputs.messages.map(m => m.toString()),
       // eslint-disable-next-line camelcase
-      start_rolling_hash: baseParityInputs.startRollingHash.toString(),
+      num_msgs: inputs.numMessages,
+      // eslint-disable-next-line camelcase
+      start_rolling_hash: inputs.startRollingHash.toString(),
       // eslint-disable-next-line camelcase
       start_sponge: {
         sponge: {
@@ -69,16 +75,16 @@ describe('Base Parity Benchmark Inputs', () => {
         num_absorbed: startSponge.numAbsorbed,
       },
       // eslint-disable-next-line camelcase
-      num_msgs: baseParityInputs.numMsgs,
+      in_hash: inputs.inHash.toString(),
       // eslint-disable-next-line camelcase
-      vk_tree_root: baseParityInputs.vkTreeRoot.toString(),
+      vk_tree_root: inputs.vkTreeRoot.toString(),
       // eslint-disable-next-line camelcase
-      prover_id: baseParityInputs.proverId.toString(),
+      prover_id: inputs.proverId.toString(),
     };
     logger.info('Converted inputs to Noir format');
 
     // Get the circuit artifact
-    const artifact = ServerCircuitArtifacts.ParityBaseArtifact;
+    const artifact = ServerCircuitArtifacts.InboxParity256Artifact;
 
     // Execute the circuit with Noir to generate witness
     logger.info('Executing circuit with Noir to generate witness...');
@@ -86,7 +92,7 @@ describe('Base Parity Benchmark Inputs', () => {
     const { witness } = await program.execute({ inputs: noirInputs });
     logger.info('Witness generated');
 
-    // Save bytecode as JSON (bb expects the full JSON artifact)
+    // Save bytecode as JSON (bb expects the full JSON artifact). Filename is the harness's legacy contract.
     const bytecodeOutputPath = path.join(outputDir, 'parity_base.json');
     await fs.writeFile(bytecodeOutputPath, JSON.stringify(artifact));
     logger.info(`Wrote bytecode to ${bytecodeOutputPath}`);
@@ -96,7 +102,7 @@ describe('Base Parity Benchmark Inputs', () => {
     await fs.writeFile(witnessOutputPath, witness);
     logger.info(`Wrote witness to ${witnessOutputPath}`);
 
-    logger.info('Base parity bench inputs generated successfully');
+    logger.info('Inbox parity bench inputs generated successfully');
     logger.info(`Output directory: ${outputDir}`);
     logger.info('Files:');
     logger.info(`  - ${bytecodeOutputPath} (circuit bytecode)`);

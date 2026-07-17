@@ -1,5 +1,5 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge, TxRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge, TxRollupPublicInputs},
     block_root::components::{
         BlockRollupPublicInputsComposer, validate_l1_to_l2_tree_snapshot_in_constants,
         validate_previous_rollups,
@@ -8,8 +8,8 @@ use crate::{
 use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::{
-        ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK,
-        PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
+        ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
+        PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
     },
     proof::proof_data::RollupHonkProofData,
 };
@@ -20,10 +20,8 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 2] =
 
 pub struct BlockRootSingleTxFirstRollupPrivateInputs {
     pub(crate) previous_rollup: RollupHonkProofData<TxRollupPublicInputs>,
-    // L1-to-L2 messages inserted by this block, padded with zeros beyond `num_msgs`.
-    pub(crate) l1_to_l2_messages: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
-    // Number of real (non-padding) leaves in `l1_to_l2_messages`.
-    pub(crate) num_msgs: u32,
+    // L1-to-L2 message bundle inserted by this block.
+    pub(crate) message_bundle: L1ToL2MessageBundle,
     // Hinted value the bundle is appended to.
     // This will be set to the `start_state` in the public inputs and validated in the checkpoint root circuit to
     // ensure it matches the l1-to-l2 tree snapshot in the header of the last block from the previous checkpoint.
@@ -57,8 +55,7 @@ pub fn execute(inputs: BlockRootSingleTxFirstRollupPrivateInputs) -> BlockRollup
             true,
             inputs.previous_l1_to_l2,
             L1ToL2MessageSponge::new(),
-            inputs.l1_to_l2_messages,
-            inputs.num_msgs,
+            inputs.message_bundle,
             inputs.l1_to_l2_message_frontier_hint,
         )
         .get_new_l1_to_l2();

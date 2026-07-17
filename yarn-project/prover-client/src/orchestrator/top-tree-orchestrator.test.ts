@@ -87,7 +87,7 @@ describe('prover/orchestrator/top-tree', () => {
     const topTreeData: CheckpointTopTreeData = {
       blockProofs: Promise.resolve({
         blockProofOutputs: result.blockProofOutputs,
-        parityRootProof: result.parityRootProof,
+        inboxParityProof: result.inboxParityProof,
       }),
       l2ToL1MsgsPerBlock: fixture.blocks.map(b => b.txs.map(tx => tx.txEffect.l2ToL1Msgs)),
       blobFields: fixture.checkpoint.toBlobFields(),
@@ -258,7 +258,7 @@ describe('prover/orchestrator/top-tree', () => {
     // A malformed block proof makes toProofData (inside buildCheckpointRootInputs) throw.
     const badData = {
       ...topTreeData,
-      blockProofs: Promise.resolve({ blockProofOutputs: [{} as any], parityRootProof: {} as any }),
+      blockProofs: Promise.resolve({ blockProofOutputs: [{} as any], inboxParityProof: {} as any }),
     } as CheckpointTopTreeData;
 
     const topTree = new TopTreeOrchestrator(context.prover, EthAddress.ZERO, makeTestDeferredJobQueue());

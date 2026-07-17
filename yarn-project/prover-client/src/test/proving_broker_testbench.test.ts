@@ -164,8 +164,7 @@ function getProofCounts(
     counts[priorityIndex(ProvingRequestType.CHECKPOINT_ROOT_ROLLUP)] = numCheckpoints;
   }
 
-  counts[priorityIndex(ProvingRequestType.PARITY_BASE)] = numCheckpoints * 4;
-  counts[priorityIndex(ProvingRequestType.PARITY_ROOT)] = numCheckpoints;
+  counts[priorityIndex(ProvingRequestType.INBOX_PARITY)] = numCheckpoints;
 
   if (numBlocksPerCheckpoint > 2) {
     counts[priorityIndex(ProvingRequestType.BLOCK_MERGE_ROLLUP)] = (numBlocksPerCheckpoint - 2) * numCheckpoints;

@@ -49,7 +49,7 @@ export type CheckpointTopTreeData = {
       BlockRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >[];
-    parityRootProof: PublicInputsAndRecursiveProof<ParityPublicInputs>;
+    inboxParityProof: PublicInputsAndRecursiveProof<ParityPublicInputs>;
   }>;
   /** L2-to-L1 messages per block in the checkpoint, used to compute the out hash. */
   l2ToL1MsgsPerBlock: Fr[][][];
@@ -181,7 +181,7 @@ export class TopTreeOrchestrator extends ProvingScheduler {
             this.state,
             checkpointIndex,
             subTreeProofs.blockProofOutputs,
-            subTreeProofs.parityRootProof,
+            subTreeProofs.inboxParityProof,
             cd,
             outHashHints[i],
             checkpointStartBlobs[i],
@@ -231,12 +231,12 @@ export class TopTreeOrchestrator extends ProvingScheduler {
       BlockRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >[],
-    parityRootProof: PublicInputsAndRecursiveProof<ParityPublicInputs>,
+    inboxParityProof: PublicInputsAndRecursiveProof<ParityPublicInputs>,
     cd: CheckpointTopTreeData,
     outHashHint: OutHashHint,
     startBlobAccumulator: BatchedBlobAccumulator,
   ) {
-    void this.buildCheckpointRootInputs(blockProofs, parityRootProof, cd, outHashHint, startBlobAccumulator).then(
+    void this.buildCheckpointRootInputs(blockProofs, inboxParityProof, cd, outHashHint, startBlobAccumulator).then(
       inputs => {
         this.deferredProving(
           state,
@@ -273,7 +273,7 @@ export class TopTreeOrchestrator extends ProvingScheduler {
       BlockRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >[],
-    parityRootProof: PublicInputsAndRecursiveProof<ParityPublicInputs>,
+    inboxParityProof: PublicInputsAndRecursiveProof<ParityPublicInputs>,
     cd: CheckpointTopTreeData,
     outHashHint: OutHashHint,
     startBlobAccumulator: BatchedBlobAccumulator,
@@ -292,11 +292,11 @@ export class TopTreeOrchestrator extends ProvingScheduler {
       blobsHash,
     });
 
-    const parityRoot = toProofData(parityRootProof);
+    const inboxParity = toProofData(inboxParityProof);
     const proofDatas = blockProofs.map(p => toProofData(p));
     return proofDatas.length === 1
-      ? new CheckpointRootSingleBlockRollupPrivateInputs(proofDatas[0], parityRoot, hints)
-      : new CheckpointRootRollupPrivateInputs([proofDatas[0], proofDatas[1]], parityRoot, hints);
+      ? new CheckpointRootSingleBlockRollupPrivateInputs(proofDatas[0], inboxParity, hints)
+      : new CheckpointRootRollupPrivateInputs([proofDatas[0], proofDatas[1]], inboxParity, hints);
   }
 
   // --- internal: top-tree proof orchestration (formerly TopTreeProvingScheduler) ---

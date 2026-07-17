@@ -458,8 +458,7 @@ impl RollupFixtureBuilder {
 
     pub fn get_parity_public_inputs(self, slot_number: Field) -> ParityPublicInputs {
         ParityPublicInputs {
-            sha_root: slot_number * 85831493,
-            converted_root: self.get_l1_to_l2_message_subtree_root(slot_number),
+            in_hash: slot_number * 85831493,
             start_rolling_hash: self.get_inbox_rolling_hash(slot_number),
             end_rolling_hash: self.get_inbox_rolling_hash(slot_number + 1),
             // The message sponge resets per checkpoint, so it starts empty and ends at the checkpoint's accumulated

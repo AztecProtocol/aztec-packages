@@ -31,10 +31,8 @@ import {
   convertCheckpointRootRollupPrivateInputsToWitnessMap,
   convertCheckpointRootSingleBlockRollupOutputsFromWitnessMap,
   convertCheckpointRootSingleBlockRollupPrivateInputsToWitnessMap,
-  convertParityBaseOutputsFromWitnessMap,
-  convertParityBasePrivateInputsToWitnessMap,
-  convertParityRootOutputsFromWitnessMap,
-  convertParityRootPrivateInputsToWitnessMap,
+  convertInboxParityOutputsFromWitnessMap,
+  convertInboxParityPrivateInputsToWitnessMap,
   convertPrivateTxBaseRollupOutputsFromWitnessMap,
   convertPrivateTxBaseRollupPrivateInputsToWitnessMap,
   convertPublicTxBaseRollupOutputsFromWitnessMap,
@@ -45,6 +43,7 @@ import {
   convertTxMergeRollupPrivateInputsToWitnessMap,
   foreignCallHandler,
   getSimulatedServerCircuitArtifact,
+  inboxParityArtifactForSize,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { mapProtocolArtifactNameToCircuitName } from '@aztec/noir-protocol-circuits-types/types';
@@ -56,7 +55,7 @@ import {
   type ServerCircuitProver,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
-import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
+import type { InboxParityPrivateInputs, ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type Proof,
   ProvingRequestType,
@@ -128,37 +127,17 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  @trackSpan('TestCircuitProver.getBaseParityProof')
-  public getBaseParityProof(
-    inputs: ParityBasePrivateInputs,
+  @trackSpan('TestCircuitProver.getInboxParityProof')
+  public getInboxParityProof(
+    inputs: InboxParityPrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.PARITY_BASE, () =>
+    return this.applyDelay(ProvingRequestType.INBOX_PARITY, () =>
       this.simulate(
         inputs,
-        'ParityBaseArtifact',
+        inboxParityArtifactForSize(inputs.size),
         RECURSIVE_PROOF_LENGTH,
-        convertParityBasePrivateInputsToWitnessMap,
-        convertParityBaseOutputsFromWitnessMap,
-      ),
-    );
-  }
-
-  /**
-   * Simulates the root parity circuit from its inputs.
-   * @param inputs - Inputs to the circuit.
-   * @returns The public inputs of the parity circuit.
-   */
-  @trackSpan('TestCircuitProver.getRootParityProof')
-  public getRootParityProof(
-    inputs: ParityRootPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.PARITY_ROOT, () =>
-      this.simulate(
-        inputs,
-        'ParityRootArtifact',
-        NESTED_RECURSIVE_PROOF_LENGTH,
-        convertParityRootPrivateInputsToWitnessMap,
-        convertParityRootOutputsFromWitnessMap,
+        convertInboxParityPrivateInputsToWitnessMap,
+        outputs => convertInboxParityOutputsFromWitnessMap(outputs, inputs.size),
       ),
     );
   }
