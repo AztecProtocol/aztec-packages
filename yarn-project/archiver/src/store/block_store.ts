@@ -555,7 +555,7 @@ export class BlockStore {
       while (!reader.isEmpty()) {
         txHashes.push(reader.readObject(TxHash).toString());
       }
-      await Promise.all(txHashes.map(txHash => this.deleteTxEffectIfOwnedBy(txHash, blockStorage.blockHash)));
+      await Promise.all(txHashes.map(txHash => this.deleteTxEffect(txHash, blockStorage.blockHash)));
     }
 
     // Delete block txs mapping
@@ -567,7 +567,7 @@ export class BlockStore {
   }
 
   /** Deletes a tx effect only if it is still owned by (points at) the given block. */
-  private async deleteTxEffectIfOwnedBy(txHash: string, blockHash: Buffer): Promise<void> {
+  private async deleteTxEffect(txHash: string, blockHash: Buffer): Promise<void> {
     const stored = await this.#txEffects.getAsync(txHash);
     if (stored === undefined) {
       this.#log.warn(`Missing tx effect for tx ${txHash} while removing its block`, {
@@ -577,9 +577,7 @@ export class BlockStore {
       return;
     }
     // An IndexedTxEffect starts with the owning block hash (32 bytes) — see getTxLocation.
-    if (Buffer.from(stored.buffer, stored.byteOffset, 32).equals(blockHash)) {
-      await this.#txEffects.delete(txHash);
-    } else {
+    if (!Buffer.from(stored.buffer, stored.byteOffset, 32).equals(blockHash)) {
       // Fires only when two stored blocks listed the same tx — a state upstream validation should make
       // unreachable. Keep the entry (it belongs to the surviving block) but flag the duplication loudly.
       this.#log.warn(`Tx effect for tx ${txHash} is owned by a block other than the one being removed`, {
@@ -587,7 +585,10 @@ export class BlockStore {
         removedBlockHash: bufferToHex(blockHash),
         owningBlockHash: bufferToHex(Buffer.from(stored.buffer, stored.byteOffset, 32)),
       });
+      return;
     }
+
+    await this.#txEffects.delete(txHash);
   }
 
   /**
