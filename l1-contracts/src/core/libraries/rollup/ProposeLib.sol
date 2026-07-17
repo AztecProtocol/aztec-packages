@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {RollupStore, IRollupCore, CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
@@ -19,6 +20,14 @@ import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/Compre
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
+
+// Streaming-inbox protocol constants (AZIP-22 Fast Inbox). These mirror the protocol circuit constants and
+// should move into the generated Constants library once the Solidity emitter includes them.
+// Minimum bucket age, in seconds, at the start of a checkpoint's build frame for its consumption to be
+// mandatory. One L1 slot: validators cannot be required to act on buckets they may not have seen.
+uint256 constant INBOX_LAG_SECONDS = 12;
+// Maximum number of L1 to L2 messages a single checkpoint can insert.
+uint256 constant MAX_L1_TO_L2_MSGS_PER_CHECKPOINT = 1024;
 
 struct ProposeArgs {
   bytes32 archive;
@@ -368,6 +377,78 @@ library ProposeLib {
       _args.header.gasFees.feePerL2Gas == _args.manaMinFee,
       Errors.Rollup__InvalidManaMinFee(_args.manaMinFee, _args.header.gasFees.feePerL2Gas)
     );
+  }
+
+  /**
+   * @notice Validates a checkpoint's Inbox consumption against the streaming inbox buckets and returns how
+   *         far consumption has reached. Not yet called from propose(): the legacy `consume()`/`inHash` flow
+   *         remains the enforced path until the streaming inbox (AZIP-22 Fast Inbox) flips on.
+   *
+   * @dev Read-only; performs no Inbox write. Checks, in order:
+   *      1. The checkpoint header's `inboxRollingHash` must equal the rolling hash snapshotted in the Inbox
+   *         bucket referenced by `_bucketHint`. The hint is a plain calldata lookup aid, not signed and not
+   *         part of the header: a wrong hint cannot change what gets accepted, it only reverts. A checkpoint
+   *         that consumes no messages references the same bucket as its parent.
+   *      2. Consumption moves forward: the referenced bucket's cumulative total must be at least the parent
+   *         checkpoint's (equal consumes nothing; behind is a hard revert). This precedes the subtractions
+   *         below, which rely on `bucket.totalMsgCount >= _parentTotalMsgCount` to not underflow.
+   *      3. Cap upper bound: a single checkpoint cannot consume more than MAX_L1_TO_L2_MSGS_PER_CHECKPOINT
+   *         messages, the maximum the circuits can insert.
+   *      4. Mandatory consumption (the censorship assert): the first unconsumed bucket (`_bucketHint + 1`)
+   *         must either not exist, sit past the consumption cutoff, or be cap-escaped — consuming through it
+   *         would exceed MAX_L1_TO_L2_MSGS_PER_CHECKPOINT messages since the parent checkpoint's cumulative
+   *         total. The cutoff is the start of the checkpoint's build frame minus INBOX_LAG_SECONDS: a
+   *         checkpoint proposed in slot S is built during slot S-1, and validators are not required to have
+   *         seen buckets younger than one L1 slot at build start.
+   *
+   *      No consumed-bucket pointer is written here. The caller (FI-14) stores the returned consumed
+   *      position in the checkpoint's temp-log record, which is the authoritative consumed total: temp logs
+   *      rewind with the pending chain on a prune, so the record stays prune-consistent — unlike an
+   *      Inbox-side pointer advanced with the pending chain, which would sit ahead of the replacement chain.
+   *
+   * @param _inbox - The Inbox holding the rolling-hash buckets
+   * @param _inboxRollingHash - The checkpoint header's inbox rolling hash
+   * @param _bucketHint - Sequence number of the bucket the header's rolling hash corresponds to
+   * @param _slotNumber - The slot the checkpoint is proposed in
+   * @param _parentTotalMsgCount - Cumulative Inbox message count consumed as of the parent checkpoint
+   * @return The cumulative Inbox message count consumed as of this checkpoint (`bucket.totalMsgCount`), for
+   *         the caller to store in the checkpoint's temp-log record
+   */
+  function validateInboxConsumption(
+    IInbox _inbox,
+    bytes32 _inboxRollingHash,
+    uint256 _bucketHint,
+    Slot _slotNumber,
+    uint256 _parentTotalMsgCount
+  ) internal view returns (uint256) {
+    IInbox.InboxBucket memory bucket = _inbox.getBucket(_bucketHint);
+    require(
+      bucket.rollingHash == _inboxRollingHash,
+      Errors.Rollup__InvalidInboxRollingHash(bucket.rollingHash, _inboxRollingHash)
+    );
+
+    require(
+      bucket.totalMsgCount >= _parentTotalMsgCount,
+      Errors.Rollup__InboxConsumptionBehindParent(_parentTotalMsgCount, bucket.totalMsgCount)
+    );
+
+    require(
+      bucket.totalMsgCount - _parentTotalMsgCount <= MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+      Errors.Rollup__TooManyInboxMessagesConsumed(bucket.totalMsgCount - _parentTotalMsgCount)
+    );
+
+    if (_bucketHint < _inbox.getCurrentBucketSeq()) {
+      IInbox.InboxBucket memory next = _inbox.getBucket(_bucketHint + 1);
+      Timestamp buildFrameStart = TimeLib.toTimestamp(_slotNumber - Slot.wrap(1));
+      Timestamp cutoff = buildFrameStart - Timestamp.wrap(INBOX_LAG_SECONDS);
+      require(
+        next.timestamp > Timestamp.unwrap(cutoff)
+          || next.totalMsgCount - _parentTotalMsgCount > MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+        Errors.Rollup__UnconsumedInboxMessages(_bucketHint + 1)
+      );
+    }
+
+    return bucket.totalMsgCount;
   }
 
   /**
