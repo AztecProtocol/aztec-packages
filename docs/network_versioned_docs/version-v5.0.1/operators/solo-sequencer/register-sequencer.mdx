@@ -1,0 +1,125 @@
+---
+title: "Register as sequencer"
+description: "Self-stake your AZTEC through the staking dashboard and enter the validator queue."
+displayed_sidebar: operatorsSidebar
+---
+
+# Register as sequencer
+
+**Time:** ~10 minutes.
+
+<TrackPicker compact hideStake />
+
+<ForceStakeMode mode="self" />
+
+<OperatorConfig />
+
+## Register through the staking dashboard
+
+You'll register through the [Aztec Staking Dashboard](https://stake.aztec.network) using your **public keystore** (`~/.aztec/keystore/key1_staker_output.json`). This file contains only public information (attester address, BLS public keys, proof of possession). Safe to share.
+
+### 1. Open the dashboard and connect your wallet
+
+Navigate to [https://stake.aztec.network](https://stake.aztec.network) and connect the wallet that holds your AZTEC tokens.
+
+### 2. Click **Stake**
+
+![Staking dashboard home](/img/staking_dashboard_1.png)
+
+### 3. Select **Run your own Sequencer**
+
+![Select sequencer option](/img/staking_dashboard_2.png)
+
+### 4. Click through **Start Registration** after reviewing the requirements
+
+### 5. Select the AZTEC tokens you want to stake
+
+### 6. Upload your keystore JSON file
+
+<IfCount eq={1}>
+
+Use `~/.aztec/keystore/key1_staker_output.json`.
+
+</IfCount>
+
+<IfCount gt={1}>
+
+Because you used <code>--count <Count /></code> in step 3 of [generate keystore](./generate-keystore), all <Count /> validators are already in a single file:
+
+```bash
+~/.aztec/keystore/key1_staker_output.json
+```
+
+The dashboard expects a JSON array where each object is one sequencer; that's exactly the shape your file already has. **Just upload that one file.**
+
+If you generated validators across multiple `aztec validator-keys new` invocations (rare), combine the individual files into one array with `jq`:
+
+```bash
+jq -s 'add' \
+  ~/.aztec/keystore/key1_staker_output.json \
+  ~/.aztec/keystore/key2_staker_output.json \
+  > ~/.aztec/keystore/combined_staker_output.json
+```
+
+Upload the combined file.
+
+</IfCount>
+
+![Upload keystore file](/img/staking_dashboard_3.png)
+
+### 7. Confirm your attester / sequencer addresses
+
+![Confirm addresses](/img/staking_dashboard_4.png)
+
+### 8. Approve token spend in your wallet
+
+![Approve tokens](/img/staking_dashboard_5.png)
+
+### 9. Add staking for all sequencers to the queue
+
+![Add to queue](/img/staking_dashboard_6.png)
+
+### 10. Execute transactions in the dashboard
+
+![Execute transactions](/img/staking_dashboard_7.png)
+
+### 11. Confirm each transaction in your wallet, then click **Complete**
+
+Your sequencer is now in the queue. Verify position at [dashtec.xyz/queue](https://dashtec.xyz/queue), then continue to the next step, [Verify everything works](./verify).
+
+## Adding another sequencer later
+
+To register an additional self-staked sequencer after your first, generate another attester **with its own staker output**, then upload that staker output to the dashboard:
+
+<ConfigCode language="bash">{`aztec validator-keys new --staker-output \\
+  --mnemonic "<your mnemonic>" \\
+  --gse-address {{GSE_ADDR}} \\
+  --l1-rpc-urls {{ETH_RPC}} \\
+  --l1-chain-id {{L1_CHAIN_ID}}`}</ConfigCode>
+
+`aztec validator-keys new` does not overwrite your existing keystore: if `key1.json` exists it writes `key2.json` and `key2_staker_output.json`, leaving your first attester untouched. The node loads every keystore file in `KEY_STORE_DIRECTORY`, so once `key2.json` is in that directory it runs alongside the first. Copy only the `keyN.json` files into that directory (not the `*_staker_output.json` files, which make the node fail to start), then repeat the dashboard steps above, uploading `key2_staker_output.json`.
+
+:::note `add` does not produce a staker output
+`aztec validator-keys add <keystore>` appends an attester to an existing keystore file, but it does **not** generate a staker output, so the dashboard has nothing to upload for the new attester. For dashboard registration, use `new --staker-output` as shown above.
+:::
+
+:::tip One mnemonic or a fresh one
+You can derive every attester from a single mnemonic, or use a separate mnemonic per batch. With one mnemonic, pass `--address-index <N>` each time, where `N` is the number of attesters already derived from it, so the new keys do not duplicate the existing ones (`new` derives from index 0 by default). One mnemonic means a single backup to secure; a fresh mnemonic per machine keeps each machine's keys independent if one backup is ever exposed.
+:::
+
+## L1 contract addresses (<NetworkName />)
+
+<ConfigCode language="text">{`Registry  {{REGISTRY_ADDR}}
+Rollup    {{ROLLUP_ADDR}}
+GSE       {{GSE_ADDR}}
+Slasher   {{SLASHER_ADDR}}`}</ConfigCode>
+
+Full list: [docs.aztec.network/networks](https://docs.aztec.network/networks).
+
+<details open>
+<summary>What just happened?</summary>
+
+You registered your attester address and BLS public key in the L1 Rollup contract. The contract locked 200K AZTEC tokens as your stake. Once processed (1 to 2 epochs), your sequencer starts being selected for committees. When selected, it attests to proposed blocks and occasionally proposes a block itself. Sequencer rewards (issuance + attestation) accumulate against your coinbase address on the Rollup contract; you withdraw them with `claimSequencerRewards(coinbase)`. L2 transaction fees are not enabled yet, so the keystore's `feeRecipient` field stays zero.
+
+</details>
+

@@ -67,9 +67,13 @@
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
 
-<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
-<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
 
 </div><h3 id="impl-Eq-for-AvmAccumulatedData"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html" class="struct">AvmAccumulatedData</a></code></h3>
 

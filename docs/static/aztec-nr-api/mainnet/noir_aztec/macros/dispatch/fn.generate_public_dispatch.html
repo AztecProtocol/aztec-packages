@@ -35,7 +35,9 @@
 <p>The generated function dispatches public calls based on selector to the appropriate contract function. If
 <code>generate_emit_public_init_nullifier</code> is true, it also handles dispatch to the macro-generated
 <code>__emit_public_init_nullifier</code> function.</p>
-</div>
+<p>Alongside <code>public_dispatch</code>, this also emits one <code>__aztec_nr_internals__unpack_arguments_&lt;N&gt;</code> helper per
+parameter-type signature shared by enough public functions; see [compute_unpack_prelude] for the extraction
+criterion.</p></div>
 </main>
 </span>
 </body>

@@ -25,6 +25,7 @@
 <h2>In module helpers</h2>
 <h3>Modules</h3><ul class="item-list">
 <li><a href="../authwit/index.html">authwit</a></div></li>
+<li><a href="../tagging_secret_strategy/index.html">tagging_secret_strategy</a></div></li>
 <li><a href="../test_environment/index.html">test_environment</a></div></li>
 <li><a href="../txe_oracles/index.html">txe_oracles</a></div></li>
 <li><a href="../utils/index.html">utils</a></div></li>
@@ -51,6 +52,14 @@ chaining methods setting each value, e.g.:</p>
 <li><div class="item-name"><a href="struct.TestEnvironment.html" class="struct">TestEnvironment</a></div><div class="item-description">This represents an Aztec test run, and contains all the methods utilized during one to interact with the network
 and manipulate its state (e.g. create accounts, make contract calls, etc.). Each test is expected to have its own
 instance of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html"><code>TestEnvironment</code></a>, as tests execute in parallel and so cannot share this object.</div></li>
+<li><div class="item-name"><a href="struct.TestEnvironmentOptions.html" class="struct">TestEnvironmentOptions</a></div><div class="item-description">Configuration values for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#new_opts"><code>TestEnvironment::new_opts</code></a>. Meant to be used by calling <code>new</code> and then chaining
+methods setting each value, e.g.:</p>
+<pre><code><span class="kw">let</span> env = TestEnvironment::new_opts(
+    TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+        MessageDelivery::onchain_unconstrained(),
+        TaggingSecretStrategy::non_interactive_handshake(),
+    ),
+);</code></pre></div></li>
 <li><div class="item-name"><a href="struct.ViewPrivateOptions.html" class="struct">ViewPrivateOptions</a></div><div class="item-description">Configuration for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#view_private_opts"><code>TestEnvironment::view_private_opts</code></a>.</div></li>
 </ul>
 </main>

@@ -51,12 +51,18 @@ Same as <code>check_membership</code> but uses a custom hasher.
 <code>low_leaf_preimage</code> is the preimage for the low leaf of the key. The key should be larger than the low leaf's key,
 and smaller than the low leaf's next key.
 <code>low_leaf_membership_witness</code> is a hint to prove that the low leaf exists in the tree with the given <code>tree_root</code>.</div></li>
+<li><div class="item-name"><a href="fn.check_non_membership_with_hasher.html" class="fn">check_non_membership_with_hasher</a></div><div class="item-description">Same as <code>check_non_membership</code> but uses a custom hasher.
+Use this variant for indexed trees whose internal nodes use a tree-specific separator
+(e.g. <code>nullifier_merkle_hash</code>).</div></li>
 <li><div class="item-name"><a href="fn.conditionally_check_membership.html" class="fn">conditionally_check_membership</a></div><div class="item-description">Check either membership or non-membership depending on the value of <code>exists</code>:</p>
 <ul>
 <li>If <code>exists</code> == true, <code>key</code> is in the tree. <code>leaf_preimage</code> is for the key itself.</li>
 <li>If <code>exists</code> == false, <code>key</code> is not in the tree. <code>leaf_preimage</code> is for the low leaf of the key.
 <code>membership_witness</code> is the hint to prove that the <code>leaf_preimage</code> exists in the tree with the given <code>tree_root</code>.</li>
 </ul></div></li>
+<li><div class="item-name"><a href="fn.conditionally_check_membership_with_hasher.html" class="fn">conditionally_check_membership_with_hasher</a></div><div class="item-description">Same as <code>conditionally_check_membership</code> but uses a custom hasher.
+Use this variant for indexed trees whose internal nodes use a tree-specific separator
+(e.g. <code>public_data_merkle_hash</code>).</div></li>
 </ul>
 </main>
 </span>

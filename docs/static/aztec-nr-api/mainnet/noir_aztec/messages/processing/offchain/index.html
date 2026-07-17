@@ -21,17 +21,19 @@
 <h3>Module items</h3>
 <ul class="sidebar-list">
 <li><a href="#structs">Structs</a></li>
+<li><a href="#type-aliases">Type aliases</a></li>
 <li><a href="#functions">Functions</a></li>
 <li><a href="#globals">Globals</a></li>
 </ul>
 <h2>In module processing</h2>
 <h3>Modules</h3><ul class="item-list">
+<li><a href="../log_retrieval_request/index.html">log_retrieval_request</a></div></li>
+<li><a href="../log_retrieval_response/index.html">log_retrieval_response</a></div></li>
 <li><a href="../offchain/index.html">offchain</a></div></li>
 </ul>
 <h3>Structs</h3><ul class="item-list">
-<li><a href="../struct.MessageContext.html">MessageContext</a></div></li>
 <li><a href="../struct.NoteValidationRequest.html">NoteValidationRequest</a></div></li>
-<li><a href="../struct.OffchainMessageWithContext.html">OffchainMessageWithContext</a></div></li>
+<li><a href="../struct.OffchainMessageWithTx.html">OffchainMessageWithTx</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="../fn.enqueue_event_for_validation.html">enqueue_event_for_validation</a></div></li>
@@ -44,6 +46,9 @@
 <h1>Module <span id="mod" class="module">offchain</span></h1>
 <h2 id="structs">Structs</h2><ul class="item-list">
 <li><div class="item-name"><a href="struct.OffchainMessage.html" class="struct">OffchainMessage</a></div><div class="item-description">A message delivered via the <code>offchain_receive</code> utility function.</div></li>
+</ul>
+<h2 id="type-aliases">Type aliases</h2><ul class="item-list">
+<li><div class="item-name"><a href="type.OffchainInboxSync.html" class="type">OffchainInboxSync</a></div><div class="item-description">A function that manages offchain-delivered messages for processing during sync.</div></li>
 </ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.receive.html" class="fn">receive</a></div><div class="item-description">Delivers offchain messages to the given contract's offchain inbox for subsequent processing.</div></li>

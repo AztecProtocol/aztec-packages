@@ -48,8 +48,10 @@
 <li><a href="../nullifiers/index.html">nullifiers</a></div></li>
 <li><a href="../offchain_effect/index.html">offchain_effect</a></div></li>
 <li><a href="../random/index.html">random</a></div></li>
+<li><a href="../resolve_custom_request/index.html">resolve_custom_request</a></div></li>
 <li><a href="../shared_secret/index.html">shared_secret</a></div></li>
 <li><a href="../storage/index.html">storage</a></div></li>
+<li><a href="../tx_resolution/index.html">tx_resolution</a></div></li>
 <li><a href="../version/index.html">version</a></div></li>
 </ul>
 </nav>
@@ -57,6 +59,7 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::get_membership_witness</div>
 <h1>Module <span id="mod" class="module">get_membership_witness</span></h1>
 <h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.are_block_hashes_in_archive.html" class="fn">are_block_hashes_in_archive</a></div><div class="item-description">Returns whether each block hash is present in the archive tree whose root is defined in <code>anchor_block_header</code>.</div></li>
 <li><div class="item-name"><a href="fn.get_block_hash_membership_witness.html" class="fn">get_block_hash_membership_witness</a></div><div class="item-description">Returns a membership witness for a <code>block_hash</code> in the archive tree whose root is defined in <code>anchor_block_header</code>.</div></li>
 <li><div class="item-name"><a href="fn.get_maybe_block_hash_membership_witness.html" class="fn">get_maybe_block_hash_membership_witness</a></div><div class="item-description">Same as <a href="../../../noir_aztec/oracle/get_membership_witness/fn.get_block_hash_membership_witness.html"><code>get_block_hash_membership_witness</code></a>, but returns <code>None</code> instead of erroring when the block is not present
 in the archive tree. Intended for callers that need to handle absence (e.g. existence checks via <code>.is_some()</code>).</div></li>

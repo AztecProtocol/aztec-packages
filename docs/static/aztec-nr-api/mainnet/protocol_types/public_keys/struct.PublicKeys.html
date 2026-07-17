@@ -20,14 +20,17 @@
 <h2><a href="#struct">Struct PublicKeys</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
+<li><a href="#structfield.fbpk_m_hash">fbpk_m_hash</a></li>
 <li><a href="#structfield.ivpk_m">ivpk_m</a></li>
-<li><a href="#structfield.npk_m">npk_m</a></li>
-<li><a href="#structfield.ovpk_m">ovpk_m</a></li>
-<li><a href="#structfield.tpk_m">tpk_m</a></li>
+<li><a href="#structfield.mspk_m_hash">mspk_m_hash</a></li>
+<li><a href="#structfield.npk_m_hash">npk_m_hash</a></li>
+<li><a href="#structfield.ovpk_m_hash">ovpk_m_hash</a></li>
+<li><a href="#structfield.tpk_m_hash">tpk_m_hash</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#hash">hash</a></li>
+<li><a href="#validate_non_infinity">validate_non_infinity</a></li>
 <li><a href="#validate_on_curve">validate_on_curve</a></li>
 </ul>
 <h3>Trait implementations</h3>
@@ -41,30 +44,40 @@
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.AddressPoint.html">AddressPoint</a></div></li>
 <li><a href="struct.IvpkM.html">IvpkM</a></div></li>
-<li><a href="struct.NpkM.html">NpkM</a></div></li>
-<li><a href="struct.OvpkM.html">OvpkM</a></div></li>
 <li><a href="struct.PublicKeys.html">PublicKeys</a></div></li>
-<li><a href="struct.TpkM.html">TpkM</a></div></li>
 </ul>
 <h3>Traits</h3><ul class="item-list">
 <li><a href="trait.ToPoint.html">ToPoint</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.hash_public_key.html">hash_public_key</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">public_keys</a></div>
 <h1>Struct <span id="struct" class="struct">PublicKeys</span></h1>
 <pre><code>pub struct PublicKeys {
-    pub npk_m: <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a>,
+    pub npk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     pub ivpk_m: <a href="../../protocol_types/public_keys/struct.IvpkM.html" class="struct">IvpkM</a>,
-    pub ovpk_m: <a href="../../protocol_types/public_keys/struct.OvpkM.html" class="struct">OvpkM</a>,
-    pub tpk_m: <a href="../../protocol_types/public_keys/struct.TpkM.html" class="struct">TpkM</a>,
+    pub ovpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub tpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub mspk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub fbpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
 }
 </code></pre>
+<div class="comments">
+<p>A non-owner's view of an account's master public keys.</p>
+<p><code>npk_m_hash</code>, <code>ovpk_m_hash</code>, <code>tpk_m_hash</code>, <code>mspk_m_hash</code>, and <code>fbpk_m_hash</code> are the
+<a href="../../protocol_types/public_keys/fn.hash_public_key.html"><code>hash_public_key</code></a> digests of the underlying points. The points themselves are not exposed
+here - they are only known to the owner. <code>ivpk_m</code> remains a point because address derivation
+(encrypt-to-address) requires the raw point in-circuit.</p></div>
 <h2>Fields</h2>
-<div id="structfield.npk_m" class="struct-field"><code class="code-header">npk_m: <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a></code></div>
+<div id="structfield.npk_m_hash" class="struct-field"><code class="code-header">npk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.ivpk_m" class="struct-field"><code class="code-header">ivpk_m: <a href="../../protocol_types/public_keys/struct.IvpkM.html" class="struct">IvpkM</a></code></div>
-<div class="padded-description"></div><div id="structfield.ovpk_m" class="struct-field"><code class="code-header">ovpk_m: <a href="../../protocol_types/public_keys/struct.OvpkM.html" class="struct">OvpkM</a></code></div>
-<div class="padded-description"></div><div id="structfield.tpk_m" class="struct-field"><code class="code-header">tpk_m: <a href="../../protocol_types/public_keys/struct.TpkM.html" class="struct">TpkM</a></code></div>
+<div class="padded-description"></div><div id="structfield.ovpk_m_hash" class="struct-field"><code class="code-header">ovpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.tpk_m_hash" class="struct-field"><code class="code-header">tpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.mspk_m_hash" class="struct-field"><code class="code-header">mspk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.fbpk_m_hash" class="struct-field"><code class="code-header">fbpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></h3>
 
@@ -72,14 +85,25 @@
 
 <code id="validate_on_curve" class="code-header">pub fn <a href="#validate_on_curve"><span class="fn">validate_on_curve</span></a>(self)</code>
 
-</div><h2>Trait implementations</h2>
+<div class="padded-description"><div class="comments">
+<p>Validates that the (only) point-form key, <code>ivpk_m</code>, lies on the Grumpkin curve.</p>
+<p>The other five keys are exposed only as hashes and are unverifiable on-circuit; the PXE
+is responsible for ensuring they were derived from on-curve points before persistence.</p>
+</div>
+</div><code id="validate_non_infinity" class="code-header">pub fn <a href="#validate_non_infinity"><span class="fn">validate_non_infinity</span></a>(self)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Validates that <code>ivpk_m</code> is not the point at infinity.</p>
+<p>As with <a href="../../protocol_types/public_keys/struct.PublicKeys.html#validate_on_curve"><code>Self::validate_on_curve</code></a>, the other five keys are now exposed only as hashes
+and this property must be enforced PXE-side.</p></div>
+</div></div><h2>Trait implementations</h2>
 <h3 id="impl-Default-for-PublicKeys"><code class="code-header">impl <a href="../../std/default/trait.Default.html" class="trait">Default</a> for <a href="../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">default</span>() -> Self</code>
 
 </div><h3 id="impl-Deserialize-for-PublicKeys"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 12]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 7]) -> Self</code>
 
 <code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
@@ -89,7 +113,7 @@
 
 </div><h3 id="impl-Serialize-for-PublicKeys"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 12]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 7]</code>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
