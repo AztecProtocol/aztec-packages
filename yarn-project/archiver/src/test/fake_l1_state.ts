@@ -1,11 +1,10 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
-import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import type { CheckpointProposedLog, InboxContract, MessageSentLog, RollupContract } from '@aztec/ethereum/contracts';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { type BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -30,8 +29,6 @@ import {
   multicall3Abi,
   toHex,
 } from 'viem';
-
-import { updateRollingHash } from '../structs/inbox_message.js';
 
 /** Configuration for the fake L1 state. */
 export type FakeL1StateConfig = {
@@ -105,10 +102,8 @@ type CheckpointData = {
 /** Data stored for a message. */
 type MessageData = {
   l1BlockNumber: bigint;
-  checkpointNumber: CheckpointNumber;
   index: bigint;
   leaf: Fr;
-  rollingHash: Buffer16;
   inboxRollingHash: Fr;
   bucketSeq: bigint;
 };
@@ -142,7 +137,6 @@ export class FakeL1State {
   private l1BlockNumber: bigint;
   private checkpoints: CheckpointData[] = [];
   private messages: MessageData[] = [];
-  private messagesRollingHash: Buffer16 = Buffer16.ZERO;
   // Consensus rolling-hash and bucket-ring state, mirroring the on-chain Inbox.
   private messagesConsensusRollingHash: Fr = Fr.ZERO;
   private currentBucketSeq: bigint = 0n;
@@ -175,20 +169,17 @@ export class FakeL1State {
    * Note: For most use cases, use `addCheckpoint` which creates both checkpoint and messages.
    * Use this method only when you need to add messages without creating a checkpoint (e.g., for reorg tests).
    */
-  addMessages(checkpointNumber: CheckpointNumber, l1BlockNumber: bigint, messageLeaves: Fr[]): void {
+  addMessages(_checkpointNumber: CheckpointNumber, l1BlockNumber: bigint, messageLeaves: Fr[]): void {
     const timestamp = this.getTimestampAtL1Block(l1BlockNumber);
     messageLeaves.forEach(leaf => {
-      // Compact global insertion index (AZIP-22 Fast Inbox): position in the Inbox's insertion order.
+      // Compact global insertion index (AZIP-22 Fast Inbox): the position in the Inbox's insertion order.
       const index = BigInt(this.messages.length);
-      this.messagesRollingHash = updateRollingHash(this.messagesRollingHash, leaf);
       const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(leaf, timestamp);
 
       this.messages.push({
         l1BlockNumber,
-        checkpointNumber,
         index,
         leaf,
-        rollingHash: this.messagesRollingHash,
         inboxRollingHash,
         bucketSeq,
       });
@@ -213,20 +204,16 @@ export class FakeL1State {
 
   /** Rebuilds all per-message derived state (rolling hashes and bucket assignments) after the message set changes. */
   private recomputeDerivedMessageState(): void {
-    this.messagesRollingHash = Buffer16.ZERO;
     this.messagesConsensusRollingHash = Fr.ZERO;
     this.currentBucketSeq = 0n;
     this.currentBucketTimestamp = 0n;
     this.currentBucketMsgCount = 0;
     this.messages.forEach((msg, i) => {
-      this.messagesRollingHash = updateRollingHash(this.messagesRollingHash, msg.leaf);
       const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(
         msg.leaf,
         this.getTimestampAtL1Block(msg.l1BlockNumber),
       );
-      // Keep the compact global insertion index contiguous after the message set changes (e.g. reorgs).
       msg.index = BigInt(i);
-      msg.rollingHash = this.messagesRollingHash;
       msg.inboxRollingHash = inboxRollingHash;
       msg.bucketSeq = bucketSeq;
     });
@@ -469,11 +456,6 @@ export class FakeL1State {
     return this.checkpoints.findLast(cpData => cpData.checkpointNumber === checkpointNumber)?.checkpoint;
   }
 
-  /** Gets messages for a checkpoint. */
-  getMessages(checkpointNumber: CheckpointNumber): Fr[] {
-    return this.messages.filter(m => m.checkpointNumber === checkpointNumber).map(m => m.leaf);
-  }
-
   /** Gets the blobs for a checkpoint. */
   getCheckpointBlobs(checkpointNumber: CheckpointNumber): Blob[] {
     return this.checkpoints.findLast(cpData => cpData.checkpointNumber === checkpointNumber)?.blobs ?? [];
@@ -519,33 +501,26 @@ export class FakeL1State {
     const mockInbox = mock<InboxContract>();
 
     mockInbox.getState.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
-      // Filter messages visible at the given block number (or all if not specified)
       const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
       const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);
+      return Promise.resolve({ totalMessagesInserted: BigInt(visibleMessages.length) });
+    });
 
-      // treeInProgress must be > any sealed checkpoint. On L1, a checkpoint can only be proposed
-      // after its messages are sealed, so treeInProgress > checkpointNumber for all published checkpoints.
-      const maxFromMessages =
-        visibleMessages.length > 0 ? Math.max(...visibleMessages.map(m => Number(m.checkpointNumber))) + 1 : 0;
-      const maxFromCheckpoints =
-        this.checkpoints.length > 0
-          ? Math.max(
-              ...this.checkpoints
-                .filter(cp => !cp.pruned && cp.l1BlockNumber <= blockNumber)
-                .map(cp => Number(cp.checkpointNumber)),
-              0,
-            ) + 1
-          : 0;
-      const treeInProgress = Math.max(maxFromMessages, maxFromCheckpoints, INITIAL_CHECKPOINT_NUMBER);
-
-      // Compute rolling hash only for visible messages
-      const rollingHash =
-        visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].rollingHash : Buffer16.ZERO;
-
+    // Mirror the on-chain Inbox current bucket: its consensus rolling hash and cumulative total are the live chain
+    // position the archiver's message sync compares against (AZIP-22 Fast Inbox).
+    mockInbox.getCurrentBucket.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
+      const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
+      const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);
+      const last = visibleMessages.at(-1);
+      if (last === undefined) {
+        return Promise.resolve({ rollingHash: Fr.ZERO, totalMsgCount: 0n, timestamp: 0n, msgCount: 0 });
+      }
+      const msgCount = visibleMessages.filter(m => m.bucketSeq === last.bucketSeq).length;
       return Promise.resolve({
-        messagesRollingHash: rollingHash,
-        totalMessagesInserted: BigInt(visibleMessages.length),
-        treeInProgress: BigInt(treeInProgress),
+        rollingHash: last.inboxRollingHash,
+        totalMsgCount: BigInt(visibleMessages.length),
+        timestamp: this.getTimestampAtL1Block(last.l1BlockNumber),
+        msgCount,
       });
     });
 
@@ -676,10 +651,8 @@ export class FakeL1State {
         l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
         l1BlockTimestamp: this.getTimestampAtL1Block(msg.l1BlockNumber),
         args: {
-          checkpointNumber: msg.checkpointNumber,
           index: msg.index,
           leaf: msg.leaf,
-          rollingHash: msg.rollingHash,
           inboxRollingHash: msg.inboxRollingHash,
           bucketSeq: msg.bucketSeq,
         },
@@ -704,7 +677,6 @@ export class FakeL1State {
       args: {
         index: msg.index,
         leaf: msg.leaf,
-        rollingHash: msg.rollingHash,
         inboxRollingHash: msg.inboxRollingHash,
         bucketSeq: msg.bucketSeq,
       },

@@ -1,5 +1,5 @@
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -8,7 +8,7 @@ import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import '@aztec/stdlib/testing/jest';
 
 import { InboxBucketBoundaryNotSyncedError, InboxBucketNotSyncedError } from '../errors.js';
-import { type InboxMessage, updateRollingHash } from '../structs/inbox_message.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
 import {
   makeInboxMessage,
   makeInboxMessages,
@@ -78,9 +78,9 @@ describe('MessageStore', () => {
     it('returns the L1 block set via setMessageSyncState', async () => {
       const l1BlockHash = Buffer32.random();
       const l1BlockNumber = 10n;
-      await messageStore.setMessageSyncState({ l1BlockNumber, l1BlockHash }, 1n);
+      await messageStore.setMessageSyncState({ l1BlockNumber, l1BlockHash });
       await messageStore.addL1ToL2MessageBuckets([
-        makeInboxMessage(Buffer16.ZERO, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() }),
+        makeInboxMessage(Fr.ZERO, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() }),
       ]);
       await expect(getSynchPoint(blockStore, messageStore)).resolves.toEqual({
         blocksSynchedTo: undefined,
@@ -90,8 +90,6 @@ describe('MessageStore', () => {
   });
 
   describe('L1 to L2 Messages', () => {
-    const initialCheckpointNumber = CheckpointNumber(13);
-
     const checkMessages = async (msgs: InboxMessage[]) => {
       expect(await messageStore.getLastMessage()).toEqual(msgs.at(-1));
       expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual(msgs);
@@ -99,42 +97,48 @@ describe('MessageStore', () => {
     };
 
     it('stores first message ever', async () => {
-      const msg = makeInboxMessage(Buffer16.ZERO, { index: 0n, checkpointNumber: CheckpointNumber(1) });
+      const msg = makeInboxMessage(Fr.ZERO, { index: 0n });
       await messageStore.addL1ToL2MessageBuckets([msg]);
 
       await checkMessages([msg]);
     });
 
-    it('stores single message', async () => {
-      const msg = makeInboxMessage(Buffer16.ZERO, { checkpointNumber: CheckpointNumber(2) });
-      await messageStore.addL1ToL2MessageBuckets([msg]);
-
-      await checkMessages([msg]);
-    });
-
-    it('stores messages across different blocks', async () => {
-      const msgs = makeInboxMessages(5, { initialCheckpointNumber });
+    it('stores and returns messages across different blocks', async () => {
+      const msgs = makeInboxMessages(5);
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       await checkMessages(msgs);
     });
 
     it('stores the same messages again', async () => {
-      const msgs = makeInboxMessages(5, { initialCheckpointNumber });
+      const msgs = makeInboxMessages(5);
       await messageStore.addL1ToL2MessageBuckets(msgs);
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(2));
 
       await checkMessages(msgs);
     });
 
-    it('stores messages with block numbers larger than a byte', async () => {
-      const msgs = makeInboxMessages(5, { initialCheckpointNumber: CheckpointNumber(1000) });
+    it('stores messages added in two chained batches', async () => {
+      const msgs1 = makeInboxMessages(3);
+      const msgs2 = makeInboxMessages(3, {
+        initialInboxHash: msgs1.at(-1)!.inboxRollingHash,
+        initialIndex: BigInt(msgs1.length),
+      });
+
+      await messageStore.addL1ToL2MessageBuckets(msgs1);
+      await messageStore.addL1ToL2MessageBuckets(msgs2);
+
+      await checkMessages([...msgs1, ...msgs2]);
+    });
+
+    it('stores and returns messages with block numbers larger than a byte', async () => {
+      const msgs = makeInboxMessages(5, { overrideFn: (msg, i) => ({ ...msg, l1BlockNumber: BigInt(1000 + i) }) });
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       await checkMessages(msgs);
     });
 
-    it('stores multiple messages per block', async () => {
+    it('stores and returns multiple messages per block', async () => {
       const msgs = makeInboxMessagesWithFullBlocks(4);
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
@@ -142,7 +146,7 @@ describe('MessageStore', () => {
     });
 
     it('stores messages in multiple operations', async () => {
-      const msgs = makeInboxMessages(20, { initialCheckpointNumber });
+      const msgs = makeInboxMessages(20);
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 10));
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(10, 20));
 
@@ -150,7 +154,7 @@ describe('MessageStore', () => {
     });
 
     it('iterates over messages from start index', async () => {
-      const msgs = makeInboxMessages(10, { initialCheckpointNumber });
+      const msgs = makeInboxMessages(10);
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       const iterated = await toArray(messageStore.iterateL1ToL2Messages({ start: msgs[3].index }));
@@ -158,7 +162,7 @@ describe('MessageStore', () => {
     });
 
     it('iterates over messages in reverse', async () => {
-      const msgs = makeInboxMessages(10, { initialCheckpointNumber });
+      const msgs = makeInboxMessages(10);
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       const iterated = await toArray(messageStore.iterateL1ToL2Messages({ reverse: true, end: msgs[3].index }));
@@ -170,33 +174,47 @@ describe('MessageStore', () => {
       await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
     });
 
-    it('throws if rolling hash is not correct', async () => {
+    it('throws if index is not contiguous with the previous message', async () => {
       const msgs = makeInboxMessages(5);
-      msgs[1].rollingHash = Buffer16.random();
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
-    });
-
-    it('throws if rolling hash for first message is not correct', async () => {
-      const msgs = makeInboxMessages(4);
-      msgs[2].rollingHash = Buffer16.random();
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, CheckpointNumber(2)));
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
-    });
-
-    it('throws if index skips ahead', async () => {
-      const msgs = makeInboxMessages(5, { initialCheckpointNumber });
       msgs.at(-1)!.index += 100n;
       await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
     });
 
-    it('throws if index does not follow previous one', async () => {
-      const msgs = makeInboxMessages(4, { initialCheckpointNumber });
+    it('throws if there is a gap in the indices', async () => {
+      const msgs = makeInboxMessages(4);
       msgs[2].index++;
       await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
     });
 
+    it('throws if the first index of a batch does not follow the last stored message', async () => {
+      const msgs = makeInboxMessages(4);
+      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 2));
+      msgs[2].index++;
+      await expect(messageStore.addL1ToL2MessageBuckets(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
+    });
+
+    it('throws if the consensus rolling hash is not correct', async () => {
+      const msgs = makeInboxMessages(5);
+      msgs[1].inboxRollingHash = Fr.random();
+      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
+    });
+
+    it('removes messages inserted after a given L1 block', async () => {
+      // Two messages per L1 block: [100, 100, 101, 101, 102, 102].
+      const msgs = makeInboxMessages(6, {
+        overrideFn: (msg, i) => ({ ...msg, l1BlockNumber: BigInt(100 + Math.floor(i / 2)) }),
+      });
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await checkMessages(msgs);
+
+      await messageStore.rollbackL1ToL2MessagesAfterL1Block(101n);
+
+      // Only the messages inserted at or before L1 block 101 survive.
+      await checkMessages(msgs.slice(0, 4));
+    });
+
     it('removes messages starting with the given index', async () => {
-      const msgs = makeInboxMessagesWithFullBlocks(4, { initialCheckpointNumber: CheckpointNumber(1) });
+      const msgs = makeInboxMessagesWithFullBlocks(4);
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       await messageStore.removeL1ToL2Messages(msgs[13].index);
@@ -205,13 +223,10 @@ describe('MessageStore', () => {
   });
 
   describe('Inbox buckets', () => {
-    // Builds `count` consecutive valid messages in a single checkpoint, then reassigns their bucket sequence and
-    // timestamp per the given per-message spec so we can exercise multi-message and rollover buckets.
+    // Builds `count` consecutive valid messages, then reassigns their bucket sequence and timestamp per the given
+    // per-message spec so we can exercise multi-message and rollover buckets.
     const makeBucketedMessages = (spec: { seq: bigint; timestamp: bigint }[]): InboxMessage[] => {
-      const msgs = makeInboxMessages(spec.length, {
-        initialCheckpointNumber: CheckpointNumber(1),
-        messagesPerCheckpoint: spec.length,
-      });
+      const msgs = makeInboxMessages(spec.length);
       msgs.forEach((msg, i) => {
         msg.bucketSeq = spec[i].seq;
         msg.bucketTimestamp = spec[i].timestamp;
@@ -226,7 +241,6 @@ describe('MessageStore', () => {
         ...previous,
         leaf,
         index: previous.index + 1n,
-        rollingHash: updateRollingHash(previous.rollingHash, leaf),
         inboxRollingHash: updateInboxRollingHash(previous.inboxRollingHash, leaf),
         bucketSeq: bucket.seq,
         bucketTimestamp: bucket.timestamp,

@@ -316,10 +316,6 @@ export abstract class ArchiverDataSourceBase
     return this.stores.functionNames.register(signatures);
   }
 
-  public getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    return this.stores.messages.getL1ToL2Messages(checkpointNumber);
-  }
-
   public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.stores.messages.getL1ToL2MessageIndex(l1ToL2Message);
   }
