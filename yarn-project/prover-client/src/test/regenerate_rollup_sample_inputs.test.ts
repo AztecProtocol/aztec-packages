@@ -16,11 +16,16 @@ import { ChonkCache } from '../orchestrator/chonk-cache.js';
 import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator/top-tree-orchestrator.js';
 
 // Regenerates the committed `crates/rollup-*/Prover.toml` sample inputs that CI runs `nargo execute`
-// against. The rollup circuits push their serialized inputs via `pushTestData` whenever they run
-// through the prover, so driving representative epochs through the (simulated) orchestrator and then
-// dumping `getTestData(circuitName)` produces fresh, ABI-current fixtures. Run with:
+// against, for every rollup circuit at or above the transaction merge: the block-root variants, the
+// block-merge, both checkpoint roots, the checkpoint-merge, the tx-merge, and the root rollup. The
+// rollup circuits push their serialized inputs via `pushTestData` whenever they run through the
+// prover, so driving representative epochs through the (simulated) orchestrator and then dumping
+// `getTestData(circuitName)` produces fresh, ABI-current fixtures. Run with:
 //   AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
-// Without that flag the whole suite is skipped, so it is a no-op (no prover setup) in normal CI.
+// Without that flag the whole suite is skipped, so it is a no-op (no prover setup) in normal CI. The
+// `rollup-tx-base-private`/`rollup-tx-base-public` fixtures and the private-kernel fixtures depend on
+// real client-proved transactions the simulated orchestrator cannot produce, so those are regenerated
+// separately by the e2e `e2e_prover/full.test` dump instead.
 //
 // The scenarios are chosen to exercise each block-root variant the orchestrator selects (see
 // BlockProvingState#getBlockRootRollupTypeAndInputs): a first block with 0 txs, with >=2 txs, and
@@ -29,7 +34,10 @@ import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator
 // checkpoint epoch a checkpoint-merge; a merge node only exists above the tree root, so both merges
 // need three leaves — two would pair directly at the root. Single-block checkpoints feed the
 // checkpoint-root-single-block circuit and multi-block checkpoints the (two-input) checkpoint-root
-// circuit. Every scenario also produces the root rollup.
+// circuit. A block with three txs merges its transaction base proofs through the tx-merge circuit
+// before the (two-input) block root, whereas one- or two-tx blocks feed the block root directly, so a
+// dedicated three-tx scenario is what regenerates the tx-merge sample. Every scenario also produces
+// the root rollup.
 const describeOrSkip = isGenerateTestDataEnabled() ? describe : describe.skip;
 
 describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
@@ -82,6 +90,15 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numTxsPerBlock: 2,
       numL1ToL2Messages: withMessages,
       dump: ['rollup-block-root'],
+    },
+    // Three txs in a block force a tx-merge to pair the base proofs down to the two the block root
+    // takes; one- or two-tx blocks feed the block root directly and never exercise tx-merge.
+    {
+      numCheckpoints: 1,
+      numBlocksPerCheckpoint: 1,
+      numTxsPerBlock: 3,
+      numL1ToL2Messages: withMessages,
+      dump: ['rollup-tx-merge'],
     },
     // The checkpoint-merge only appears with three checkpoints. Independently-built checkpoints do
     // not carry the inbox message state forward, so this scenario runs with no L1-to-L2 messages and
