@@ -219,4 +219,77 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       await subTree.stop();
     }
   });
+
+  it('slices L1-to-L2 messages per block across a multi-block checkpoint', async () => {
+    // A checkpoint whose messages span more than one block: the first block carries a bundle, a middle block
+    // carries none (txs only), and a non-first block carries a bundle. The sub-tree must append each block's
+    // own slice at compact indices with contiguous, non-overlapping per-block snapshots (AZIP-22 Fast Inbox).
+    const l1ToL2MessagesPerBlock = [[new Fr(1001), new Fr(1002)], [], [new Fr(1003), new Fr(1004), new Fr(1005)]];
+    const numBlocks = l1ToL2MessagesPerBlock.length;
+    const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpointWithMessagesPerBlock(
+      l1ToL2MessagesPerBlock,
+      { numTxsPerBlock: 1 },
+    );
+    expect(l1ToL2Messages.length).toBe(5);
+
+    const subTree = await CheckpointSubTreeOrchestrator.start(
+      context.worldState,
+      context.prover,
+      EthAddress.ZERO,
+      chonkCache,
+      EpochNumber(1),
+      false,
+      makeTestDeferredJobQueue(),
+      constants,
+      l1ToL2Messages,
+      Fr.ZERO,
+      numBlocks,
+      previousBlockHeader,
+    );
+    try {
+      const resultPromise = subTree.getSubTreeResult();
+
+      for (const [blockIndex, block] of blocks.entries()) {
+        const { blockNumber, timestamp } = block.header.globalVariables;
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, l1ToL2MessagesPerBlock[blockIndex]);
+        if (block.txs.length > 0) {
+          await subTree.addTxs(block.txs);
+        }
+        await subTree.setBlockCompleted(blockNumber, block.header);
+      }
+
+      const result = await resultPromise;
+      expect(result.blockProofOutputs).toHaveLength(numBlocks);
+
+      // Order the block outputs by block number (the archive tree grows by exactly one leaf per block).
+      const ordered = [...result.blockProofOutputs].sort(
+        (a, b) => a.inputs.previousArchive.nextAvailableLeafIndex - b.inputs.previousArchive.nextAvailableLeafIndex,
+      );
+
+      // Walk the blocks in order, asserting the L1-to-L2 message tree partitions cleanly into per-block slices,
+      // with each block's start snapshot equal to the previous block's end snapshot (the "threaded" per-block
+      // L1-to-L2 tree state).
+      const baseLeaf = ordered[0].inputs.startState.l1ToL2MessageTree.nextAvailableLeafIndex;
+      let expectedStartLeaf = baseLeaf;
+      for (const [i, output] of ordered.entries()) {
+        const inputs = output.inputs;
+        const startLeaf = inputs.startState.l1ToL2MessageTree.nextAvailableLeafIndex;
+        const endLeaf = inputs.endState.l1ToL2MessageTree.nextAvailableLeafIndex;
+        const sliceLen = l1ToL2MessagesPerBlock[i].length;
+
+        // Only the checkpoint's first block flags isFirstBlock.
+        expect(inputs.isFirstBlock).toBe(i === 0);
+        // Contiguous, non-overlapping slices: this block starts where the previous one ended (no gap/overlap).
+        expect(startLeaf).toBe(expectedStartLeaf);
+        // Block slice = [prevBlockLeafCount, blockLeafCount): the tree grows by exactly this block's bundle size.
+        expect(endLeaf - startLeaf).toBe(sliceLen);
+        expectedStartLeaf = endLeaf;
+      }
+
+      // Every message is accounted for with no gap or overlap across the checkpoint's blocks.
+      expect(expectedStartLeaf - baseLeaf).toBe(l1ToL2Messages.length);
+    } finally {
+      await subTree.stop();
+    }
+  });
 });

@@ -283,6 +283,135 @@ export class TestContext {
     };
   }
 
+  /**
+   * Like {@link makeCheckpoint} but distributes the L1-to-L2 message bundle across the checkpoint's blocks
+   * (streaming Inbox / AZIP-22 Fast Inbox): `l1ToL2MessagesPerBlock[i]` is block `i`'s own message slice,
+   * appended at compact indices in insertion order. Lets tests exercise checkpoints whose messages span more
+   * than one block, including a non-first block carrying a bundle — the single-block-per-checkpoint
+   * `makeCheckpoint` puts every message in the first block. Non-first blocks must carry at least one tx (an
+   * empty non-first block is rejected by the builder), so `numTxsPerBlock` defaults to 1.
+   */
+  public async makeCheckpointWithMessagesPerBlock(
+    l1ToL2MessagesPerBlock: Fr[][],
+    {
+      numTxsPerBlock = 1,
+      makeProcessedTxOpts = () => ({}),
+      ...constantOpts
+    }: {
+      numTxsPerBlock?: number | number[];
+      makeProcessedTxOpts?: (
+        blockGlobalVariables: GlobalVariables,
+        txIndex: number,
+      ) => Partial<Parameters<typeof mockProcessedTx>[0]>;
+    } & Partial<FieldsOf<CheckpointConstantData>> = {},
+  ) {
+    const numBlocks = l1ToL2MessagesPerBlock.length;
+    if (numBlocks === 0) {
+      throw new Error('Cannot make a checkpoint with 0 blocks.');
+    }
+
+    const checkpointIndex = this.nextCheckpointIndex++;
+    const checkpointNumber = this.nextCheckpointNumber;
+    this.nextCheckpointNumber++;
+    const slotNumber = checkpointNumber * 15;
+
+    const constants = makeCheckpointConstants(slotNumber, constantOpts);
+    const l1ToL2Messages = l1ToL2MessagesPerBlock.flat();
+
+    const fork = await this.worldState.fork();
+
+    const startBlockNumber = this.nextBlockNumber;
+    const previousBlockHeader = this.getBlockHeader(BlockNumber(startBlockNumber - 1));
+    const timestamp = BigInt(slotNumber * 26);
+
+    const blockGlobalVariables = times(numBlocks, i =>
+      makeGlobals(startBlockNumber + i, slotNumber, {
+        coinbase: constants.coinbase,
+        feeRecipient: constants.feeRecipient,
+        gasFees: constants.gasFees,
+        timestamp,
+      }),
+    );
+    this.nextBlockNumber += numBlocks;
+
+    // Build txs per block. Append the block's message slice to the fork before its txs so the per-block end
+    // state matches the builder's (message-tree and tx-effect trees are independent, so append order does not
+    // matter, but the cumulative message tree must reflect the slices already inserted).
+    let totalTxs = 0;
+    const blockEndStates: StateReference[] = [];
+    const blockTxs = await timesAsync(numBlocks, async blockIndex => {
+      await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPerBlock[blockIndex]);
+      const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, fork);
+
+      const txIndexOffset = totalTxs;
+      const numTxs = typeof numTxsPerBlock === 'number' ? numTxsPerBlock : numTxsPerBlock[blockIndex];
+      totalTxs += numTxs;
+      const txs = await timesAsync(numTxs, txIndex =>
+        this.makeProcessedTx({
+          seed: (txIndexOffset + txIndex + 1) * 321 + (checkpointIndex + 1) * 123456 + this.epochNumber * 0x99999,
+          globalVariables: blockGlobalVariables[blockIndex],
+          anchorBlockHeader: previousBlockHeader,
+          newL1ToL2Snapshot,
+          ...makeProcessedTxOpts(blockGlobalVariables[blockIndex], txIndexOffset + txIndex),
+        }),
+      );
+
+      const endState = await this.updateTrees(txs, fork);
+      blockEndStates.push(endState);
+
+      return txs;
+    });
+
+    const cleanFork = await this.worldState.fork();
+    const previousCheckpointOutHashes = this.checkpointOutHashes;
+    // Empty checkpoint-level list + `insertMessagesPerBlock` so the builder inserts each block's slice via
+    // `addBlock` (and accumulates them into the checkpoint's rolling hash) rather than up front.
+    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+      checkpointNumber,
+      { ...constants, timestamp },
+      [],
+      previousCheckpointOutHashes,
+      Fr.ZERO,
+      cleanFork,
+      undefined,
+      0n,
+      true,
+    );
+
+    const blocks = [];
+    for (let i = 0; i < numBlocks; i++) {
+      const txs = blockTxs[i];
+      const state = blockEndStates[i];
+
+      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, {
+        expectedEndState: state,
+        insertTxsEffects: true,
+        l1ToL2Messages: l1ToL2MessagesPerBlock[i],
+      });
+
+      const header = block.header;
+      this.headers.set(block.number, header);
+
+      await this.worldState.handleL2BlockAndMessages(block, l1ToL2MessagesPerBlock[i]);
+
+      blocks.push({ header, txs });
+    }
+
+    const checkpoint = await builder.completeCheckpoint();
+    this.checkpoints.push(checkpoint);
+    this.checkpointOutHashes.push(checkpoint.getCheckpointOutHash());
+
+    return {
+      constants,
+      checkpoint,
+      header: checkpoint.header,
+      blocks,
+      l1ToL2Messages,
+      l1ToL2MessagesPerBlock,
+      previousBlockHeader,
+    };
+  }
+
   private async makeProcessedTx(opts: Parameters<typeof mockProcessedTx>[0] = {}): Promise<ProcessedTx> {
     const tx = await mockProcessedTx({
       vkTreeRoot: getVKTreeRoot(),
