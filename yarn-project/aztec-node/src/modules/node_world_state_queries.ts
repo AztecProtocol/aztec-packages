@@ -1,4 +1,9 @@
-import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import {
+  ARCHIVE_HEIGHT,
+  INITIAL_L2_BLOCK_NUM,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+} from '@aztec/constants';
 import { BlockNumber, type CheckpointNumber, type EpochNumber } from '@aztec/foundation/branded-types';
 import { chunkBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -7,6 +12,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { MembershipWitness, type SiblingPath } from '@aztec/foundation/trees';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type BlockData,
   type BlockHash,
   type BlockParameter,
   type DataInBlock,
@@ -16,7 +22,7 @@ import {
 } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { InboxLeaf, type L1ToL2MessageSource, type L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import {
   MerkleTreeId,
   type NullifierLeafPreimage,
@@ -179,7 +185,35 @@ export class NodeWorldStateQueries {
 
   public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex !== undefined ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
+    if (messageIndex === undefined) {
+      return undefined;
+    }
+    // Post-flip, an L1-to-L2 message at compact leaf index `i` is consumed by the first block whose L1-to-L2 tree leaf
+    // count exceeds `i` (leaf counts are monotonic in block number); that block's checkpoint is the answer, sourced
+    // from the stored block records rather than 1024-per-checkpoint index arithmetic (AZIP-22 Fast Inbox).
+    const block = await this.#findBlockConsumingL1ToL2MessageIndex(messageIndex);
+    return block?.checkpointNumber;
+  }
+
+  /** Binary-searches the block records for the first block whose L1-to-L2 tree leaf count exceeds `messageIndex`. */
+  async #findBlockConsumingL1ToL2MessageIndex(messageIndex: bigint): Promise<BlockData | undefined> {
+    let lo = INITIAL_L2_BLOCK_NUM;
+    let hi = await this.blockSource.getBlockNumber();
+    let result: BlockData | undefined;
+    while (lo <= hi) {
+      const mid = lo + Math.floor((hi - lo) / 2);
+      const block = await this.blockSource.getBlockData({ number: BlockNumber(mid) });
+      if (block === undefined) {
+        break;
+      }
+      if (BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex) > messageIndex) {
+        result = block;
+        hi = mid - 1;
+      } else {
+        lo = mid + 1;
+      }
+    }
+    return result;
   }
 
   /**
