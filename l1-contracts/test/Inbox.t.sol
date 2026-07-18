@@ -17,23 +17,13 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 contract InboxTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
 
-  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG;
-  // We set low depth (5) to ensure we sufficiently test the tree transitions
-  uint256 internal constant HEIGHT = 5;
-  uint256 internal constant SIZE = 2 ** HEIGHT;
-
   InboxHarness internal inbox;
   uint256 internal version = 0;
-  uint256 internal checkpointNumber = Constants.INITIAL_CHECKPOINT_NUMBER;
-  bytes32 internal emptyTreeRoot;
 
   function setUp() public {
     address rollup = address(this);
     IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
-    inbox = new InboxHarness(
-      rollup, feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG, TestConstants.AZTEC_INBOX_BUCKET_RING_SIZE
-    );
-    emptyTreeRoot = inbox.getEmptyRoot();
+    inbox = new InboxHarness(rollup, feeAsset, version, TestConstants.AZTEC_INBOX_BUCKET_RING_SIZE);
   }
 
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
@@ -46,10 +36,6 @@ contract InboxTest is Test {
       secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
       index: 0x01
     });
-  }
-
-  function _divideAndRoundUp(uint256 a, uint256 b) internal pure returns (uint256) {
-    return (a + b - 1) / b;
   }
 
   function _boundMessage(DataStructures.L1ToL2Msg memory _message, uint256 _globalLeafIndex)
@@ -73,25 +59,7 @@ contract InboxTest is Test {
     return _message;
   }
 
-  // Since there is a LAG checkpoint lag between tree to be consumed and tree in progress the following invariant should
-  // never be violated
-  modifier checkInvariant() {
-    _;
-    assertLt(checkpointNumber, inbox.getInProgress());
-  }
-
-  function testRevertIfNotConsumingFromRollup() public {
-    vm.prank(address(0x1));
-    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
-    inbox.consume(checkpointNumber);
-  }
-
-  function testRevertIFConsumingInFuture() public {
-    vm.expectRevert(Errors.Inbox__MustBuildBeforeConsume.selector);
-    inbox.consume(checkpointNumber + 1000);
-  }
-
-  function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public checkInvariant {
+  function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public {
     Inbox.InboxState memory stateBefore = inbox.getState();
     // Compact cumulative index: the message's index is the count inserted before it.
     uint256 globalLeafIndex = stateBefore.totalMessagesInserted;
@@ -102,9 +70,7 @@ contract InboxTest is Test {
     bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(
-      FIRST_REAL_TREE_NUM, globalLeafIndex, leaf, expectedRollingHash, expectedInboxRollingHash, 1
-    );
+    emit IInbox.MessageSent(globalLeafIndex, leaf, expectedRollingHash, expectedInboxRollingHash, 1);
     // event we will get
     (bytes32 insertedLeaf, uint256 insertedIndex) =
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
@@ -115,17 +81,13 @@ contract InboxTest is Test {
     Inbox.InboxState memory stateAfter = inbox.getState();
     assertEq(stateBefore.totalMessagesInserted + 1, stateAfter.totalMessagesInserted);
     assertEq(expectedRollingHash, stateAfter.rollingHash);
-    assertEq(stateBefore.inProgress, stateAfter.inProgress);
   }
 
-  function testSendDuplicateL2Messages() public checkInvariant {
+  function testSendDuplicateL2Messages() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     (bytes32 leaf1, uint256 index1) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
     (bytes32 leaf2, uint256 index2) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
     (bytes32 leaf3, uint256 index3) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-
-    // Only 1 tree should be non-zero
-    assertEq(inbox.getNumTrees(), TestConstants.AZTEC_INBOX_LAG);
 
     // All the leaves should be different since the index gets mixed in
     assertNotEq(leaf1, leaf2);
@@ -162,71 +124,5 @@ contract InboxTest is Test {
     message.secretHash = bytes32(Constants.P);
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash));
     inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-  }
-
-  function testFuzzSendAndConsume(
-    DataStructures.L1ToL2Msg[] memory _messagesFirstBatch,
-    DataStructures.L1ToL2Msg[] memory _messagesSecondBatch,
-    uint256 _numTreesToConsumeFirstBatch,
-    uint256 _numTreesToConsumeSecondBatch
-  ) public {
-    // Send first batch of messages
-    _send(_messagesFirstBatch);
-
-    // Consume first few trees
-    _consume(_numTreesToConsumeFirstBatch);
-
-    // Send second batch of messages
-    _send(_messagesSecondBatch);
-
-    // Consume second batch of trees
-    _consume(_numTreesToConsumeSecondBatch);
-  }
-
-  function _send(DataStructures.L1ToL2Msg[] memory _messages) internal checkInvariant {
-    bytes32 toConsumeRoot = inbox.getToConsumeRoot(checkpointNumber);
-
-    // We send the messages and then check that toConsume root did not change.
-    for (uint256 i = 0; i < _messages.length; i++) {
-      DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i], inbox.getNextMessageIndex());
-
-      // We check whether a new tree is correctly initialized when the one in progress is full
-      uint256 numTrees = inbox.getNumTrees();
-      uint256 expectedNumTrees = inbox.treeInProgressFull() ? numTrees + 1 : numTrees;
-
-      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-
-      assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
-    }
-
-    // Root of a tree waiting to be consumed should not change because we introduced a LAG checkpoint lag to prevent
-    // sequencer DOS attacks
-    assertEq(
-      inbox.getToConsumeRoot(checkpointNumber), toConsumeRoot, "Root of a tree waiting to be consumed should not change"
-    );
-  }
-
-  function _consume(uint256 _numTreesToConsume) internal checkInvariant {
-    uint256 initialNumTrees = inbox.getNumTrees();
-    // We use (initialNumTrees * 2) as upper bound here because we want to test the case where we go beyond
-    // the currently initalized number of trees. When consuming the newly initialized trees we should get zero roots.
-    uint256 numTreesToConsume = bound(_numTreesToConsume, 1, initialNumTrees * 2);
-
-    // Now we consume the trees
-    for (uint256 i = 0; i < numTreesToConsume; i++) {
-      uint256 numTrees = inbox.getNumTrees();
-      uint256 expectedNumTrees =
-        (checkpointNumber + TestConstants.AZTEC_INBOX_LAG == inbox.getInProgress()) ? numTrees + 1 : numTrees;
-      bytes32 root = inbox.consume(checkpointNumber);
-
-      // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume
-      assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
-
-      // If we go beyong the number of trees initialized before consuming we should get empty root
-      if (i > initialNumTrees) {
-        assertEq(root, emptyTreeRoot, "Root of a newly initialized tree not empty");
-      }
-      checkpointNumber += 1;
-    }
   }
 }

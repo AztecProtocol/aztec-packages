@@ -84,7 +84,6 @@ struct RollupConfigInput {
   RewardBoostConfig rewardBoostConfig;
   StakingQueueConfig stakingQueueConfig;
   uint256 localEjectionThreshold;
-  uint256 inboxLag;
 }
 
 struct RollupConfig {

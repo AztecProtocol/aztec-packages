@@ -40,7 +40,6 @@ contract ProposeInboxConsumptionTest is Test {
   uint256 internal constant GENESIS_TIME = 100_000;
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
-  uint256 internal constant HEIGHT = 10;
 
   Slot internal constant SLOT = Slot.wrap(10);
 
@@ -61,7 +60,7 @@ contract ProposeInboxConsumptionTest is Test {
 
   function _deployInbox(uint256 _ringSize) internal returns (InboxHarness) {
     IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
-    return new InboxHarness(address(rollup), feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG, _ringSize);
+    return new InboxHarness(address(rollup), feeAsset, version, _ringSize);
   }
 
   function _send(uint256 _salt) internal {
