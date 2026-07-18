@@ -128,6 +128,16 @@ std::vector<acir_components_check::Error> run_components_check(const Acir::Circu
     return checker.check();
 }
 
+std::vector<acir_components_check::Error> run_components_check_with_builder_circuit(
+    const Acir::Circuit& acir_circuit, const Acir::Circuit& builder_circuit)
+{
+    auto constraints = circuit_serde_to_acir_format(builder_circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
+    AcirProgram program{ .constraints = constraints, .witness = {} };
+    auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
+    acir_components_check::ComponentsChecker checker(acir_circuit, builder);
+    return checker.check();
+}
+
 void expect_no_component_errors(const std::vector<acir_components_check::Error>& errors)
 {
     if (errors.empty()) {
@@ -544,7 +554,18 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
-    Acir::Circuit circuit = make_circuit({
+    Acir::Circuit acir_circuit = make_circuit({
+        Acir::Opcode{ .value = Acir::Opcode::AssertZero{
+                          .value = Acir::Expression{
+                              .linear_combinations =
+                                  {
+                                      { bb::fr::one().to_buffer(), make_witness(8) },
+                                      { bb::fr(-1).to_buffer(), make_witness(1000) },
+                                  },
+                              .q_c = bb::fr::zero().to_buffer(),
+                          } } },
+    });
+    Acir::Circuit builder_circuit = make_circuit({
         Acir::Opcode{ .value = Acir::Opcode::AssertZero{
                           .value = Acir::Expression{
                               .linear_combinations =
@@ -556,14 +577,10 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
                           } } },
     });
 
-    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
-    AcirProgram program{ .constraints = constraints, .witness = {} };
-    auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
-
-    acir_components_check::ComponentsChecker checker(circuit, builder);
-    auto errors = checker.check();
+    // Model an ACIR-vs-circuit mismatch without corrupting the builder's internal witness map.
+    // Truncating real_variable_index violates the builder invariant and aborts in debug STL checks
+    // before ComponentsChecker can report the intended UNCONSTRAINED error.
+    auto errors = run_components_check_with_builder_circuit(acir_circuit, builder_circuit);
     expect_single_error_type(errors, acir_components_check::Error::Type::UNCONSTRAINED);
 }
 
