@@ -268,8 +268,8 @@ export class BlockProposal extends Gossipable implements Signable {
     } else {
       buffer.push(0); // hasSignedTxs = false
     }
-    // Optional bucket-reference tail (AZIP-22 Fast Inbox). Appended only when set, so pre-flip proposals serialize
-    // byte-identically to the legacy format and mixed-version peers keep decoding them.
+    // Optional bucket-reference tail (AZIP-22 Fast Inbox). Appended only when set, so a proposal without a reference
+    // serializes without the tail and a decoder that reaches EOF reads it as unset.
     if (this.bucketRef) {
       buffer.push(1); // hasBucketRef = true
       buffer.push(this.bucketRef.toBuffer());
@@ -299,8 +299,8 @@ export class BlockProposal extends Gossipable implements Signable {
       }
     }
 
-    // Optional bucket-reference tail (AZIP-22 Fast Inbox). Legacy buffers end after the signedTxs flag, so EOF here
-    // decodes as "no reference" — this is the cross-version tolerance that keeps mixed-version gossip working.
+    // Optional bucket-reference tail (AZIP-22 Fast Inbox). A buffer that ends after the signedTxs flag decodes as
+    // "no reference", so proposals written without the tail round-trip cleanly.
     let bucketRef: InboxBucketRef | undefined;
     if (!reader.isEmpty()) {
       const hasBucketRef = reader.readNumber();
