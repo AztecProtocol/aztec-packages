@@ -31,7 +31,7 @@ import type {
   ValidatorClientFullConfig,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { InboxBucketRef, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   type BlockProposalOptions,
@@ -922,6 +922,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions = {},
+    bucketRef?: InboxBucketRef,
   ): Promise<BlockProposal> {
     // Validate that we're not creating a proposal for an older or equal position
     if (this.lastProposedBlock) {
@@ -953,6 +954,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         broadcastInvalidBlockProposal:
           options.broadcastInvalidBlockProposal || this.config.broadcastInvalidBlockProposal,
       },
+      bucketRef,
     );
     this.lastProposedBlock = newProposal;
     return newProposal;

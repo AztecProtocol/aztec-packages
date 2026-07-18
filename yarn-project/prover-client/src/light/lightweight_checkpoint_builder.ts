@@ -70,9 +70,14 @@ export class LightweightCheckpointBuilder {
     db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
     feeAssetPriceModifier: bigint = 0n,
+    // Streaming Inbox (AZIP-22 Fast Inbox): messages are inserted per block via `addBlock`, so `l1ToL2Messages` here
+    // is empty and the up-front checkpoint-wide insertion is skipped.
+    insertMessagesPerBlock: boolean = false,
   ): Promise<LightweightCheckpointBuilder> {
-    // Insert l1-to-l2 messages into the tree.
-    await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
+    // Insert l1-to-l2 messages into the tree (legacy flow: the whole checkpoint's messages up front).
+    if (!insertMessagesPerBlock) {
+      await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
+    }
 
     return new LightweightCheckpointBuilder(
       checkpointNumber,
@@ -172,7 +177,7 @@ export class LightweightCheckpointBuilder {
   public async addBlock(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference } = {},
+    opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference; l1ToL2Messages?: Fr[] } = {},
   ): Promise<{ block: L2Block; timings: Record<string, number> }> {
     const timings: Record<string, number> = {};
     const isFirstBlock = this.blocks.length === 0;
@@ -201,6 +206,20 @@ export class LightweightCheckpointBuilder {
         msInsertSideEffects += ms;
       }
       timings.insertSideEffects = msInsertSideEffects;
+    }
+
+    // Streaming Inbox (AZIP-22 Fast Inbox): insert this block's L1-to-L2 message bundle before reading the end state,
+    // so the block header's L1-to-L2 tree snapshot reflects it. First-in-checkpoint bundles are padded to
+    // NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP (matching the legacy per-checkpoint insertion and the world-state
+    // synchronizer); non-first bundles are appended compactly. The rolling hash and inHash are then recomputed over
+    // the accumulated logical (unpadded) messages at checkpoint completion.
+    if (opts.l1ToL2Messages !== undefined) {
+      if (isFirstBlock) {
+        await appendL1ToL2MessagesToTree(this.db, opts.l1ToL2Messages);
+      } else {
+        await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, opts.l1ToL2Messages);
+      }
+      this.l1ToL2Messages.push(...opts.l1ToL2Messages);
     }
 
     const [msGetEndState, endState] = await elapsed(() => this.db.getStateReference());

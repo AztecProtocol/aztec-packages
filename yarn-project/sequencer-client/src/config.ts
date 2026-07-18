@@ -68,6 +68,7 @@ export const DefaultSequencerConfig = {
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
   maxBlocksPerCheckpoint: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+  streamingInbox: false,
 } satisfies ResolvedSequencerConfig;
 
 /**

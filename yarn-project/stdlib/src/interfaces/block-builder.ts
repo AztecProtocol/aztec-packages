@@ -56,6 +56,12 @@ export type PublicProcessorLimits = {
 type BlockBuilderOptionsBase = PublicProcessorLimits & {
   /** Minimum number of successfully processed txs required. Block is rejected if fewer succeed. */
   minValidTxs: number;
+  /**
+   * L1-to-L2 message leaves this block consumes, inserted into the fork's L1-to-L2 message tree before the block
+   * header is built (AZIP-22 Fast Inbox streaming). Omitted (or empty) in the legacy flow, where the whole
+   * checkpoint's messages are inserted up front at `startCheckpoint`.
+   */
+  l1ToL2Messages?: Fr[];
 };
 
 /** Proposer mode: redistribution params are required. */
@@ -159,5 +165,8 @@ export interface ICheckpointsBuilder {
     previousInboxRollingHash: Fr,
     fork: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
+    // When true, the checkpoint's messages are inserted per block (via `buildBlock`'s `l1ToL2Messages`) rather than
+    // as one padded bundle up front, so `l1ToL2Messages` here must be empty (AZIP-22 Fast Inbox streaming).
+    insertMessagesPerBlock?: boolean,
   ): Promise<ICheckpointBlockBuilder>;
 }
