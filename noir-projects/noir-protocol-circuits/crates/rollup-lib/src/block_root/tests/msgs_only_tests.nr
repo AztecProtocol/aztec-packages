@@ -79,7 +79,6 @@ impl TestBuilder {
             message_bundle: L1ToL2MessageBundle {
                 messages: self.l1_to_l2_messages,
                 num_msgs: self.num_msgs,
-                num_real_msgs: self.num_msgs,
             },
             l1_to_l2_message_frontier_hint: self.l1_to_l2_message_frontier_hint,
             new_archive_sibling_path: self.new_archive_sibling_path,
@@ -109,7 +108,6 @@ impl TestBuilder {
             pi.end_state,
             0, // num_txs
             0, // total_mana_used
-            false, // is_first_block
         );
         assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 

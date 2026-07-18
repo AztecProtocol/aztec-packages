@@ -59,7 +59,7 @@ pub fn execute(inputs: BlockRootMsgsOnlyRollupPrivateInputs) -> BlockRollupPubli
     // A message-only block exists solely to insert L1-to-L2 messages, so it must carry at least one real message. This
     // prevents a provable, fully-empty non-first filler block.
     assert(
-        inputs.message_bundle.num_real_msgs != 0,
+        inputs.message_bundle.num_msgs != 0,
         "A message-only block must insert at least one L1-to-L2 message",
     );
 

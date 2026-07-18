@@ -94,7 +94,7 @@ fn sponge_matches_block_root_real_count_absorb() {
     };
     let public_inputs = inbox_parity::execute(private_inputs);
 
-    // A block root absorbing the same two real leaves out of its 1024-wide bundle reaches the same sponge.
+    // A block root absorbing the same two real leaves out of its wider bundle reaches the same sponge.
     let mut block_sponge = L1ToL2MessageSponge::empty();
     block_sponge.absorb([101, 202, 0, 0, 0], 2);
     assert_eq(public_inputs.end_sponge, block_sponge);
