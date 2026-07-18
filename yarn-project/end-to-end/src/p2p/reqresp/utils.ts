@@ -45,7 +45,6 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
       aztecEpochDuration: 64, // stable committee
       // Pipelining: target-slot is one ahead of build-slot; inboxLag sources L1->L2
       // messages from the previous checkpoint to avoid L1ToL2MessagesNotReadyError.
-      inboxLag: 2,
     },
   });
   await t.setup();

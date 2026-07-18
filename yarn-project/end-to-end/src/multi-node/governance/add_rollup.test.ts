@@ -93,7 +93,6 @@ describe('multi-node/governance/add_rollup', () => {
       minTxsPerBlock: 0,
       // inboxLag: 2 sources L1->L2 messages from an already-sealed checkpoint under pipelining, avoiding
       // L1ToL2MessagesNotReadyError.
-      inboxLag: 2,
       // Fund the bridging accounts (and the sponsored FPC) at genesis. Skip the hardcoded-account
       // fast-path so our additionallyFundedAccounts are not clobbered.
       skipHardcodedAccount: true,
@@ -160,7 +159,6 @@ describe('multi-node/governance/add_rollup', () => {
         aztecTargetCommitteeSize: context.aztecNodeConfig.aztecTargetCommitteeSize,
         lagInEpochsForValidatorSet: context.aztecNodeConfig.lagInEpochsForValidatorSet,
         lagInEpochsForRandao: context.aztecNodeConfig.lagInEpochsForRandao,
-        inboxLag: context.aztecNodeConfig.inboxLag,
         aztecProofSubmissionEpochs: context.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: context.aztecNodeConfig.slashingQuorum,
         slashingRoundSizeInEpochs: context.aztecNodeConfig.slashingRoundSizeInEpochs,

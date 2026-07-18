@@ -57,7 +57,6 @@ describe('multi-node/block-production/multi_validator_node', () => {
       anvilSlotsInAnEpoch: 4,
       blockDurationMs: 2000,
       minTxsPerBlock: 0,
-      inboxLag: 2,
     });
 
     // All 5 validators in a single physical node.

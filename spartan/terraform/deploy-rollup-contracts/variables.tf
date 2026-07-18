@@ -86,12 +86,6 @@ variable "AZTEC_PROOF_SUBMISSION_EPOCHS" {
   nullable    = true
 }
 
-variable "AZTEC_INBOX_LAG" {
-  description = "Checkpoints to lag in inbox (prevents sequencer DOS attacks)"
-  type        = string
-  nullable    = true
-}
-
 variable "AZTEC_ACTIVATION_THRESHOLD" {
   description = "Aztec activation threshold"
   type        = string

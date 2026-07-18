@@ -265,7 +265,6 @@ export class SingleNodeTestContext {
         slasherEnabled: false,
         // `inboxLag: 2` is the intended value when running with pipelining (the production config
         // default of 1 is a separate bug). Set before `...opts` so tests can still override.
-        inboxLag: 2,
         ...opts,
         ...(hardcodedAccountData ? { additionallyFundedAccounts: [hardcodedAccountData], numberOfAccounts: 0 } : {}),
       },

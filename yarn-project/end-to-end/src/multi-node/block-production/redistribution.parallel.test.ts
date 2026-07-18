@@ -56,7 +56,6 @@ describe('multi-node/block-production/redistribution', () => {
     const test = await MultiNodeTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
-      inboxLag: 2,
       mockGossipSubNetwork: true,
       startProverNode: true,
       aztecEpochDuration: 4,

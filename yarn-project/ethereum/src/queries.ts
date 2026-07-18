@@ -77,7 +77,7 @@ export async function getL1ContractsConfig(
   publicClient: ViemPublicClient,
   addresses: { governanceAddress: EthAddress; rollupAddress?: EthAddress },
 ): Promise<
-  Omit<L1ContractsConfig, 'ethereumSlotDuration' | 'inboxLag'> & {
+  Omit<L1ContractsConfig, 'ethereumSlotDuration'> & {
     l1StartBlock: bigint;
     l1GenesisTime: bigint;
     rollupVersion: number;

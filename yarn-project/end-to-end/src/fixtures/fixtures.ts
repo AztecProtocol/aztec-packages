@@ -44,7 +44,6 @@ export const PIPELINED_FEE_PADDING = TEST_FEE_PADDING;
  * - `walletMinFeePadding: PIPELINED_FEE_PADDING` (30x) to absorb the wider fee evolution window.
  */
 export const PIPELINING_SETUP_OPTS = {
-  inboxLag: 2,
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
@@ -75,7 +74,6 @@ export const PIPELINING_SETUP_OPTS = {
  */
 export const AUTOMINE_E2E_OPTS = {
   useAutomineSequencer: true,
-  inboxLag: 1,
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,

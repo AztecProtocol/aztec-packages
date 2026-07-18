@@ -38,7 +38,6 @@ describe('multi-node/governance/upgrade_governance_proposer', () => {
       governanceProposerRoundSize: 10,
       activationThreshold: 10n ** 22n,
       ejectionThreshold: 5n ** 22n,
-      inboxLag: 2,
       minTxsPerBlock: 0,
       initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
