@@ -14,6 +14,7 @@ import {
 import {TimeLib, Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {MIN_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {InboxHarness} from "../harnesses/InboxHarness.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
@@ -40,7 +41,6 @@ contract ProposeInboxConsumptionTest is Test {
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
   uint256 internal constant HEIGHT = 10;
-  uint256 internal constant SMALL_RING_SIZE = 4;
 
   Slot internal constant SLOT = Slot.wrap(10);
 
@@ -198,13 +198,14 @@ contract ProposeInboxConsumptionTest is Test {
   }
 
   function testHintOnOverwrittenBucketRejected() public {
-    InboxHarness smallRingInbox = _deployInbox(SMALL_RING_SIZE);
+    InboxHarness ringInbox = _deployInbox(MIN_BUCKET_RING_SIZE);
 
-    uint256 timestamp = cutoff - 100;
-    for (uint256 i = 1; i <= SMALL_RING_SIZE + 1; i++) {
+    // One bucket per L1 block; after MIN_BUCKET_RING_SIZE + 1 buckets the ring has wrapped past bucket 1,
+    // so a hint pointing at it must be rejected before any cutoff logic runs.
+    for (uint256 i = 1; i <= MIN_BUCKET_RING_SIZE + 1; i++) {
       vm.roll(block.number + 1);
-      vm.warp(timestamp + i);
-      smallRingInbox.sendL2Message(
+      vm.warp(block.timestamp + 1);
+      ringInbox.sendL2Message(
         DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + i)), version: version}),
         bytes32(uint256(0x2000 + i)),
         bytes32(uint256(0x3000 + i))
@@ -212,8 +213,8 @@ contract ProposeInboxConsumptionTest is Test {
     }
 
     vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 1, SMALL_RING_SIZE + 1));
-    rollup.validateInboxConsumption(smallRingInbox, bytes32(0), 1, SLOT, 0);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 1, MIN_BUCKET_RING_SIZE + 1));
+    rollup.validateInboxConsumption(ringInbox, bytes32(0), 1, SLOT, 0);
   }
 
   function testConsumeBackwardsReverts() public {
