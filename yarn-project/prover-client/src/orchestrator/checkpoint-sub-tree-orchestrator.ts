@@ -1,8 +1,7 @@
 import type { SpongeBlob } from '@aztec/blob-lib/types';
 import {
   type ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { BlockNumber, type EpochNumber } from '@aztec/foundation/branded-types';
@@ -47,10 +46,10 @@ import { inspect } from 'util';
 
 import {
   buildHeaderFromCircuitOutputs,
+  getFrontierSiblingPath,
   getLastSiblingPath,
   getPublicChonkVerifierPrivateInputsFromTx,
   getRootTreeSiblingPath,
-  getSubtreeSiblingPath,
   getTreeSnapshot,
   insertSideEffectsAndBuildBaseRollupHints,
   validatePartialState,
@@ -265,7 +264,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
   @trackSpan('CheckpointSubTreeOrchestrator.startNewBlock', blockNumber => ({
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
-  public async startNewBlock(blockNumber: BlockNumber, timestamp: UInt64, totalNumTxs: number) {
+  public async startNewBlock(blockNumber: BlockNumber, timestamp: UInt64, totalNumTxs: number, l1ToL2Messages: Fr[]) {
     if (!this.provingState) {
       throw new Error('Empty proving state. The checkpoint sub-tree has not been started.');
     }
@@ -289,12 +288,26 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     const lastArchiveTreeSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const lastArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
+    // Streaming Inbox (AZIP-22 Fast Inbox): insert this block's own real message slice at compact indices, capturing
+    // the start snapshot + full-height frontier before the append and the block's own post-bundle end snapshot after.
+    const startL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
+    const l1ToL2FrontierHint = assertLength(
+      await getFrontierSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
+      L1_TO_L2_MSG_TREE_HEIGHT,
+    );
+    await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
+    const endL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
+
     const blockProvingState = this.provingState.startNewBlock(
       blockNumber,
       timestamp,
       totalNumTxs,
       lastArchiveTreeSnapshot,
       lastArchiveSiblingPath,
+      startL1ToL2Snapshot,
+      endL1ToL2Snapshot,
+      l1ToL2FrontierHint,
+      l1ToL2Messages,
     );
 
     // Because `addTxs` won't be called for a block without txs, and that's where the sponge blob state is computed,
@@ -519,16 +532,9 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     // Get archive sibling path before any block in this checkpoint lands.
     const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
 
-    // Insert all the l1 to l2 messages into the db. Get the states before and after the insertion.
-    const {
-      lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeRootSiblingPath,
-      newL1ToL2MessageTreeSnapshot,
-      newL1ToL2MessageSubtreeRootSiblingPath,
-    } = await this.updateL1ToL2MessageTree(l1ToL2Messages, db);
-
-    // The message sponge absorbs the checkpoint's real messages (real-count), matching the checkpoint's single
-    // InboxParity proof; non-first block roots inherit this sponge (AZIP-22 Fast Inbox).
+    // Streaming Inbox (AZIP-22 Fast Inbox): messages are inserted per block in `startNewBlock`, not the whole
+    // checkpoint up front. The message sponge still absorbs the checkpoint's real messages (real-count), matching the
+    // checkpoint's single InboxParity proof; non-first block roots inherit this sponge.
     const checkpointMsgSponge = L1ToL2MessageSponge.empty();
     await checkpointMsgSponge.absorb(l1ToL2Messages);
 
@@ -540,10 +546,6 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       lastArchiveSiblingPath,
       l1ToL2Messages,
       startInboxRollingHash,
-      lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeRootSiblingPath,
-      newL1ToL2MessageTreeSnapshot,
-      newL1ToL2MessageSubtreeRootSiblingPath,
       checkpointMsgSponge,
       Number(this.epochNumber),
       /* isAlive */ () => !this.cancelled,
@@ -556,30 +558,6 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
   }
 
   // ---------------- private: per-block proof orchestration ----------------
-
-  private async updateL1ToL2MessageTree(l1ToL2Messages: Fr[], db: MerkleTreeWriteOperations) {
-    const lastL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
-    const lastL1ToL2MessageSubtreeRootSiblingPath = assertLength(
-      await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
-      L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
-    );
-
-    // Update the local trees to include the new l1 to l2 messages.
-    await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
-
-    const newL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
-    const newL1ToL2MessageSubtreeRootSiblingPath = assertLength(
-      await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
-      L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
-    );
-
-    return {
-      lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeRootSiblingPath,
-      newL1ToL2MessageTreeSnapshot,
-      newL1ToL2MessageSubtreeRootSiblingPath,
-    };
-  }
 
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction.
   @trackSpan('CheckpointSubTreeOrchestrator.prepareBaseRollupInputs', tx => ({

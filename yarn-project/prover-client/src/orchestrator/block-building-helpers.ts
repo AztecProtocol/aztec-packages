@@ -400,6 +400,15 @@ export async function getSubtreeSiblingPath(
   return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight).toFields();
 }
 
+/**
+ * Returns the full-height frontier (left-sibling path) at a tree's next-available leaf index — the hint the append
+ * circuits re-hash against the snapshot root when appending leaves at a compact (unaligned) index (AZIP-22 Fast Inbox).
+ */
+export async function getFrontierSiblingPath(treeId: MerkleTreeId, db: MerkleTreeReadOperations): Promise<Fr[]> {
+  const nextAvailableLeafIndex = await db.getTreeInfo(treeId).then(t => t.size);
+  return (await db.getSiblingPath(treeId, nextAvailableLeafIndex)).toFields();
+}
+
 // Scan a tree searching for a specific value and return a membership witness proof for it
 export async function getMembershipWitnessFor<N extends number>(
   value: Fr,

@@ -1,7 +1,7 @@
 import { SpongeBlob } from '@aztec/blob-lib';
 import type {
   ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
@@ -42,18 +42,6 @@ export class CheckpointProvingState {
     // Inbox rolling hash before this checkpoint's messages (the previous checkpoint's end value; genesis is zero).
     // Threaded into the InboxParity circuit so the resulting checkpoint header rolling hash matches the proposer's.
     private readonly startInboxRollingHash: Fr,
-    // The snapshot and sibling path before the new l1 to l2 message subtree is inserted.
-    private readonly lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<
-      Fr,
-      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
-    >,
-    // The snapshot and sibling path after the new l1 to l2 message subtree is inserted.
-    private readonly newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly newL1ToL2MessageSubtreeRootSiblingPath: Tuple<
-      Fr,
-      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
-    >,
     // Message-bundle sponge over the checkpoint's real messages (real-count absorb). Equals the InboxParity proof's
     // end sponge and the sponge the block roots accumulate, so it is threaded into non-first block roots as their
     // inherited `startMsgSponge`.
@@ -84,19 +72,17 @@ export class CheckpointProvingState {
     totalNumTxs: number,
     lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    // Per-block L1-to-L2 message state (AZIP-22 Fast Inbox): the block's start snapshot (its parent's end), its own
+    // post-bundle end snapshot, the full-height frontier at the start index, and its own real message slice.
+    startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
+    l1ToL2Messages: Fr[],
   ): BlockProvingState {
     const index = Number(blockNumber) - Number(this.firstBlockNumber);
     if (index >= this.totalNumBlocks) {
       throw new Error(`Unable to start a new block at index ${index}. Expected at most ${this.totalNumBlocks} blocks.`);
     }
-
-    // If this is the first block, we use the snapshot and sibling path before the new l1 to l2 messages are inserted.
-    // Otherwise, we use the snapshot and sibling path after the new l1 to l2 messages are inserted, which will always
-    // happen in the first block.
-    const lastL1ToL2MessageTreeSnapshot =
-      index === 0 ? this.lastL1ToL2MessageTreeSnapshot : this.newL1ToL2MessageTreeSnapshot;
-    const lastL1ToL2MessageSubtreeRootSiblingPath =
-      index === 0 ? this.lastL1ToL2MessageSubtreeRootSiblingPath : this.newL1ToL2MessageSubtreeRootSiblingPath;
 
     const startSpongeBlob = index === 0 ? SpongeBlob.init() : this.blocks[index - 1]?.getEndSpongeBlob();
     if (!startSpongeBlob) {
@@ -113,9 +99,10 @@ export class CheckpointProvingState {
       timestamp,
       lastArchiveTreeSnapshot,
       lastArchiveSiblingPath,
-      lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeRootSiblingPath,
-      this.newL1ToL2MessageTreeSnapshot,
+      startL1ToL2MessageTreeSnapshot,
+      endL1ToL2MessageTreeSnapshot,
+      l1ToL2MessageFrontierHint,
+      l1ToL2Messages,
       this.headerOfLastBlockInPreviousCheckpoint,
       startSpongeBlob,
       this,

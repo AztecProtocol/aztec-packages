@@ -1,6 +1,5 @@
-import { type ARCHIVE_HEIGHT, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import type { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { BlockNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
@@ -332,21 +331,31 @@ export class CheckpointProver {
         }
       }
 
+      // Streaming Inbox (AZIP-22 Fast Inbox): the checkpoint's messages are consumed contiguously across its blocks;
+      // each block's slice runs from its parent block's L1-to-L2 leaf count to its own (compact indices make leaf
+      // count equal cumulative message count).
+      const l1ToL2LeafCount = (block: L2Block) => Number(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+      const checkpointStartLeafCount = l1ToL2LeafCount(this.checkpoint.blocks.at(-1)!) - this.l1ToL2Messages.length;
+
       for (let blockIndex = 0; blockIndex < this.checkpoint.blocks.length; blockIndex++) {
         const blockTimer = new Timer();
         const block = this.checkpoint.blocks[blockIndex];
         const globalVariables = block.header.globalVariables;
         const blockTxs = this.getTxsForBlock(block, txs);
 
-        await this.subTree.startNewBlock(block.number, globalVariables.timestamp, blockTxs.length);
+        const prevLeafCount =
+          blockIndex === 0 ? checkpointStartLeafCount : l1ToL2LeafCount(this.checkpoint.blocks[blockIndex - 1]);
+        const blockMessages = this.l1ToL2Messages.slice(
+          prevLeafCount - checkpointStartLeafCount,
+          l1ToL2LeafCount(block) - checkpointStartLeafCount,
+        );
+
+        await this.subTree.startNewBlock(block.number, globalVariables.timestamp, blockTxs.length, blockMessages);
         if (signal.aborted) {
           return;
         }
 
-        const db = await this.createFork(
-          BlockNumber(block.number - 1),
-          blockIndex === 0 ? this.l1ToL2Messages : undefined,
-        );
+        const db = await this.createFork(BlockNumber(block.number - 1), blockMessages);
         try {
           if (signal.aborted) {
             return;
@@ -491,19 +500,10 @@ export class CheckpointProver {
     return processedTxs;
   }
 
-  private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[] | undefined) {
+  private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[]) {
     const db = await this.deps.dbProvider.fork(blockNumber);
-
-    if (l1ToL2Messages !== undefined) {
-      const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
-        l1ToL2Messages,
-        Fr.ZERO,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        'Too many L1 to L2 messages',
-      );
-      await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
-    }
-
+    // Append the block's real message leaves unpadded at compact indices (AZIP-22 Fast Inbox).
+    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
     return db;
   }
 }

@@ -93,7 +93,7 @@ describe('prover/bb_prover/full-rollup', () => {
             const { blockNumber, timestamp } = header.globalVariables;
 
             log.info(`Starting new block #${blockNumber}`);
-            await subTree.startNewBlock(blockNumber, timestamp, txs.length);
+            await subTree.startNewBlock(blockNumber, timestamp, txs.length, i === 0 ? l1ToL2Messages : []);
             if (txs.length > 0) {
               await subTree.addTxs(txs);
             }

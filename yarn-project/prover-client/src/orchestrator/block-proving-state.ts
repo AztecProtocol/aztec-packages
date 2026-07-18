@@ -1,10 +1,7 @@
 import { type BlockBlobData, type BlockEndBlobData, type SpongeBlob, encodeBlockEndBlobData } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_L1_TO_L2_MSGS_PER_BLOCK,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -77,12 +74,14 @@ export class BlockProvingState {
     private readonly timestamp: UInt64,
     public readonly lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-    private readonly lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<
-      Fr,
-      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
-    >,
+    // This block's L1-to-L2 message tree snapshot before and after its own bundle (AZIP-22 Fast Inbox). The start is
+    // the previous block's end (block-merge continuity); the end is this block's own post-bundle snapshot.
+    private readonly startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     public readonly newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    // Full-height frontier (left-sibling path) at the block's start index, pinning the append at a compact index.
+    private readonly l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
+    // This block's own real L1-to-L2 message leaves (unpadded slice).
+    private readonly l1ToL2Messages: Fr[],
     private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     private readonly startSpongeBlob: SpongeBlob,
     public parentCheckpoint: CheckpointProvingState,
@@ -315,7 +314,7 @@ export class BlockProvingState {
         inputs: new BlockRootSingleTxRollupPrivateInputs(
           leftRollup,
           messageBundle,
-          this.lastL1ToL2MessageTreeSnapshot,
+          this.startL1ToL2MessageTreeSnapshot,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -327,7 +326,7 @@ export class BlockProvingState {
         inputs: new BlockRootRollupPrivateInputs(
           [leftRollup, rightRollup],
           messageBundle,
-          this.lastL1ToL2MessageTreeSnapshot,
+          this.startL1ToL2MessageTreeSnapshot,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -362,7 +361,7 @@ export class BlockProvingState {
         inputs: new BlockRootSingleTxFirstRollupPrivateInputs(
           leftRollup,
           messageBundle,
-          this.lastL1ToL2MessageTreeSnapshot,
+          this.startL1ToL2MessageTreeSnapshot,
           frontierHint,
           this.lastArchiveSiblingPath,
         ),
@@ -373,7 +372,7 @@ export class BlockProvingState {
         inputs: new BlockRootFirstRollupPrivateInputs(
           [leftRollup, rightRollup],
           messageBundle,
-          this.lastL1ToL2MessageTreeSnapshot,
+          this.startL1ToL2MessageTreeSnapshot,
           frontierHint,
           this.lastArchiveSiblingPath,
         ),
@@ -382,31 +381,21 @@ export class BlockProvingState {
   }
 
   /**
-   * The real-count message bundle this block appends (AZIP-22 Fast Inbox): the real leaves inserted at compact indices
-   * and absorbed into the message sponge.
-   *
-   * TODO(fast-inbox): the prover still assigns the whole checkpoint's messages to the first block. Post-flip a block
-   * carries at most `MAX_L1_TO_L2_MSGS_PER_BLOCK` and a checkpoint drains its consumption across up to four blocks, so
-   * this must split the checkpoint's messages per block (with per-block start/end snapshots and full-height frontier
-   * hints at compact indices). Requires the proving-path rework; verified by epoch-proving e2e on CI.
+   * The real-count message bundle this block appends (AZIP-22 Fast Inbox): the block's own message slice, inserted at
+   * compact indices and absorbed into its block-root message sponge.
    */
   #getMessageBundle(): L1ToL2MessageBundle {
-    if (this.isFirstBlock) {
-      return makeL1ToL2MessageBundle(this.parentCheckpoint.getL1ToL2Messages());
-    }
-    return L1ToL2MessageBundle.empty();
+    return this.l1ToL2Messages.length === 0
+      ? L1ToL2MessageBundle.empty()
+      : makeL1ToL2MessageBundle(this.l1ToL2Messages);
   }
 
   /**
-   * Full-height frontier hint for the bundle append. The l1-to-l2 tree index is always subtree-aligned in the
-   * transitional wiring, so the bottom `L1_TO_L2_MSG_SUBTREE_HEIGHT` levels are left-child (unread, zero) and the top
-   * levels are exactly the subtree-root sibling path already captured for this block.
+   * Full-height frontier hint for the bundle append: the left-sibling path at the block's compact start index, which
+   * the block-root circuit re-hashes against its start snapshot root (AZIP-22 Fast Inbox).
    */
   #getFrontierHint(): Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT> {
-    return [
-      ...Array.from({ length: L1_TO_L2_MSG_SUBTREE_HEIGHT }, () => Fr.ZERO),
-      ...this.lastL1ToL2MessageSubtreeRootSiblingPath,
-    ] as Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>;
+    return this.l1ToL2MessageFrontierHint;
   }
 
   // Returns a specific transaction proving state

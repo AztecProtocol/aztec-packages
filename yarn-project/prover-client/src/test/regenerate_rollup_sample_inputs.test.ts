@@ -146,7 +146,7 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
             const { header, txs } = blocks[i];
             const { blockNumber, timestamp } = header.globalVariables;
 
-            await subTree.startNewBlock(blockNumber, timestamp, txs.length);
+            await subTree.startNewBlock(blockNumber, timestamp, txs.length, i === 0 ? l1ToL2Messages : []);
             if (txs.length > 0) {
               await subTree.addTxs(txs);
             }

@@ -72,9 +72,14 @@ describe('prover/orchestrator/top-tree', () => {
     );
     const resultPromise = subTree.getSubTreeResult();
 
-    for (const block of fixture.blocks) {
+    for (const [blockIndex, block] of fixture.blocks.entries()) {
       const { blockNumber, timestamp } = block.header.globalVariables;
-      await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+      await subTree.startNewBlock(
+        blockNumber,
+        timestamp,
+        block.txs.length,
+        blockIndex === 0 ? fixture.l1ToL2Messages : [],
+      );
       if (block.txs.length > 0) {
         await subTree.addTxs(block.txs);
       }
