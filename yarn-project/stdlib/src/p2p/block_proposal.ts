@@ -18,6 +18,7 @@ import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
 import { DutyType, type SigningContext } from '../ha-signing/index.js';
+import { InboxBucketRef } from '../messaging/inbox_bucket.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
 import type { Tx } from '../tx/tx.js';
@@ -87,6 +88,13 @@ export class BlockProposal extends Gossipable implements Signable {
 
     /** The signed transactions in the block (optional, for DA guarantees) */
     public readonly signedTxs?: SignedTxs,
+
+    /**
+     * Reference to the Inbox bucket this block proposes to consume (AZIP-22 Fast Inbox). Optional pre-flip: the
+     * sequencer leaves it unset until the streaming Inbox is enabled, at which point validators derive the consumed
+     * message bundle from it. Covered by the proposal signature (part of `getPayloadToSign`).
+     */
+    public readonly bucketRef?: InboxBucketRef,
   ) {
     super();
   }
@@ -124,7 +132,9 @@ export class BlockProposal extends Gossipable implements Signable {
 
   /**
    * Get the payload to sign for this block proposal.
-   * The signature is over: blockHeader + indexWithinCheckpoint + inHash + archiveRoot + txHashes
+   * The signature is over: blockHeader + indexWithinCheckpoint + inHash + archiveRoot + txHashes, plus the bucket
+   * reference when set. Appending only when set keeps the pre-flip signed payload byte-identical to the legacy format,
+   * while binding the reference to the signature so a relay cannot strip or inject it without breaking recovery.
    */
   getPayloadToSign(): Buffer {
     return serializeToBuffer([
@@ -134,6 +144,7 @@ export class BlockProposal extends Gossipable implements Signable {
       this.archiveRoot,
       this.txHashes.length,
       this.txHashes,
+      ...(this.bucketRef ? [this.bucketRef] : []),
     ]);
   }
 
@@ -163,6 +174,7 @@ export class BlockProposal extends Gossipable implements Signable {
     signatureContext: CoordinationSignatureContext,
     proposalSigner: (typedData: TypedDataDefinition, context: SigningContext) => Promise<Signature>,
     txsSigner?: (typedData: TypedDataDefinition, context: SigningContext) => Promise<Signature>,
+    bucketRef?: InboxBucketRef,
   ): Promise<BlockProposal> {
     // Create a temporary proposal to get the payload to sign
     const tempProposal = new BlockProposal(
@@ -173,6 +185,8 @@ export class BlockProposal extends Gossipable implements Signable {
       txHashes,
       Signature.empty(),
       signatureContext,
+      undefined,
+      bucketRef,
     );
 
     // Create the block signing context
@@ -208,6 +222,7 @@ export class BlockProposal extends Gossipable implements Signable {
       sig,
       signatureContext,
       signedTxs,
+      bucketRef,
     );
   }
 
@@ -261,6 +276,12 @@ export class BlockProposal extends Gossipable implements Signable {
     } else {
       buffer.push(0); // hasSignedTxs = false
     }
+    // Optional bucket-reference tail (AZIP-22 Fast Inbox). Appended only when set, so pre-flip proposals serialize
+    // byte-identically to the legacy format and mixed-version peers keep decoding them.
+    if (this.bucketRef) {
+      buffer.push(1); // hasBucketRef = true
+      buffer.push(this.bucketRef.toBuffer());
+    }
     return serializeToBuffer(buffer);
   }
 
@@ -279,20 +300,21 @@ export class BlockProposal extends Gossipable implements Signable {
     }
     const txHashes = reader.readArray(txHashCount, TxHash);
 
+    let signedTxs: SignedTxs | undefined;
     if (!reader.isEmpty()) {
       const hasSignedTxs = reader.readNumber();
       if (hasSignedTxs) {
-        const signedTxs = SignedTxs.fromBuffer(reader);
-        return new BlockProposal(
-          blockHeader,
-          indexWithinCheckpoint,
-          inHash,
-          archiveRoot,
-          txHashes,
-          signature,
-          signatureContext,
-          signedTxs,
-        );
+        signedTxs = SignedTxs.fromBuffer(reader);
+      }
+    }
+
+    // Optional bucket-reference tail (AZIP-22 Fast Inbox). Legacy buffers end after the signedTxs flag, so EOF here
+    // decodes as "no reference" — this is the cross-version tolerance that keeps mixed-version gossip working.
+    let bucketRef: InboxBucketRef | undefined;
+    if (!reader.isEmpty()) {
+      const hasBucketRef = reader.readNumber();
+      if (hasBucketRef) {
+        bucketRef = InboxBucketRef.fromBuffer(reader);
       }
     }
 
@@ -304,6 +326,8 @@ export class BlockProposal extends Gossipable implements Signable {
       txHashes,
       signature,
       signatureContext,
+      signedTxs,
+      bucketRef,
     );
   }
 
@@ -319,7 +343,8 @@ export class BlockProposal extends Gossipable implements Signable {
       4 /* txHashes.length */ +
       this.txHashes.length * TxHash.SIZE +
       4 /* hasSignedTxs flag */ +
-      (this.signedTxs ? this.signedTxs.getSize() : 0)
+      (this.signedTxs ? this.signedTxs.getSize() : 0) +
+      (this.bucketRef ? 4 /* hasBucketRef flag */ + this.bucketRef.getSize() : 0)
     );
   }
 
@@ -357,6 +382,7 @@ export class BlockProposal extends Gossipable implements Signable {
       txHashes: this.txHashes.map(h => h.toString()),
       chainId: this.signatureContext.chainId,
       rollupAddress: this.signatureContext.rollupAddress.toString(),
+      bucketRef: this.bucketRef?.toInspect(),
     };
   }
 
@@ -383,6 +409,8 @@ export class BlockProposal extends Gossipable implements Signable {
       this.txHashes,
       this.signature,
       this.signatureContext,
+      undefined,
+      this.bucketRef,
     );
   }
 }
