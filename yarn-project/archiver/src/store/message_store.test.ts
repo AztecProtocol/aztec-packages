@@ -401,6 +401,20 @@ describe('MessageStore', () => {
       expect(await messageStore.getInboxBucket(4n)).toBeUndefined();
     });
 
+    it('resolves a bucket by its cumulative message total', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      // Each bucket boundary (cumulative totals 3, 5, 6) resolves to its bucket.
+      expect((await messageStore.getInboxBucketByTotalMsgCount(3n))?.seq).toEqual(1n);
+      expect((await messageStore.getInboxBucketByTotalMsgCount(5n))?.seq).toEqual(2n);
+      expect((await messageStore.getInboxBucketByTotalMsgCount(6n))?.seq).toEqual(3n);
+      // A total inside a bucket (not on a boundary) does not resolve.
+      expect(await messageStore.getInboxBucketByTotalMsgCount(4n)).toBeUndefined();
+      // A total past the last synced bucket does not resolve.
+      expect(await messageStore.getInboxBucketByTotalMsgCount(7n)).toBeUndefined();
+    });
+
     it('rejects a bucket delivered without the messages already stored for it', async () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 2));

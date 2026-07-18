@@ -1,7 +1,12 @@
 import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, encodeCheckpointBlobDataFromBlocks, getBlobsPerL1Block } from '@aztec/blob-lib';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import {
+  INBOX_LAG_SECONDS,
+  INITIAL_L2_BLOCK_NUM,
+  MAX_L1_TO_L2_MSGS_PER_BLOCK,
+  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+} from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import {
@@ -39,6 +44,8 @@ import {
   type L1ToL2MessageSource,
   accumulateCheckpointOutHashes,
   computeInHashFromL1ToL2Messages,
+  getInboxCutoffTimestamp,
+  isInboxConsumptionSufficient,
 } from '@aztec/stdlib/messaging';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
@@ -55,6 +62,11 @@ import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/te
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
+import {
+  type StreamingBlockCheckReason,
+  type StreamingBlockCheckResult,
+  checkStreamingBlockProposal,
+} from './streaming_inbox_checks.js';
 
 export type BlockProposalValidationFailureReason =
   | 'invalid_signature'
@@ -62,6 +74,8 @@ export type BlockProposalValidationFailureReason =
   | 'parent_block_not_found'
   | 'parent_block_wrong_slot'
   | 'in_hash_mismatch'
+  // Streaming Inbox (AZIP-22 Fast Inbox) per-block acceptance failures, gated behind `streamingInbox`.
+  | StreamingBlockCheckReason
   | 'global_variables_mismatch'
   | 'block_number_already_exists'
   | 'txs_not_available'
@@ -109,6 +123,8 @@ export type CheckpointProposalValidationFailureReason =
   | 'checkpoint_header_mismatch'
   | 'archive_mismatch'
   | 'out_hash_mismatch'
+  // Streaming Inbox (AZIP-22 Fast Inbox) last-block censorship failure, gated behind `streamingInbox`.
+  | 'inbox_consumption_insufficient'
   | 'checkpoint_validation_failed';
 
 /**
@@ -134,6 +150,7 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   checkpoint_header_mismatch: 'invalid',
   archive_mismatch: 'invalid',
   out_hash_mismatch: 'invalid',
+  inbox_consumption_insufficient: 'invalid',
   checkpoint_validation_failed: 'invalid',
 };
 
@@ -196,6 +213,9 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   ['last_block_archive_mismatch']: true,
 
   // disabled
+  // Streaming Inbox last-block censorship: new and flag-gated (default off), so keep it out of slashing while the
+  // path lands; L1 `propose` is the authoritative reject (Rollup__UnconsumedInboxMessages) pre-flip.
+  ['inbox_consumption_insufficient']: false,
   ['invalid_signature']: false,
   ['last_block_not_found']: false,
   ['block_fetch_error']: false,
@@ -556,17 +576,36 @@ export class ProposalHandler {
     const checkpointNumber = checkpointResult.checkpointNumber;
     proposalInfo.checkpointNumber = checkpointNumber;
 
-    // Check that I have the same set of l1ToL2Messages as the proposal
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
-    const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const proposalInHash = proposal.inHash;
-    if (!computedInHash.equals(proposalInHash)) {
-      this.log.warn(`L1 to L2 messages in hash mismatch, skipping processing`, {
-        proposalInHash: proposalInHash.toString(),
-        computedInHash: computedInHash.toString(),
-        ...proposalInfo,
-      });
-      return { isValid: false, blockNumber, reason: 'in_hash_mismatch' };
+    // Resolve this block's L1-to-L2 message bundle. Under the streaming Inbox (AZIP-22 Fast Inbox) the block consumes
+    // a per-block bundle derived from its proposal bucket reference, gated by the four acceptance checks; the legacy
+    // flow compares the whole checkpoint's `inHash` and inserts all its messages up front. Flag off ⇒ byte-identical
+    // to before.
+    const streamingInbox = this.config.streamingInbox === true;
+    let l1ToL2Messages: Fr[];
+    if (streamingInbox) {
+      const streamingResult = await this.runStreamingBlockChecks(proposal, blockNumber, parentBlock);
+      if (!streamingResult.accepted) {
+        this.log.warn(`Streaming Inbox block acceptance check failed, skipping processing`, {
+          reason: streamingResult.reason,
+          bucketRef: proposal.bucketRef?.toInspect(),
+          ...proposalInfo,
+        });
+        return { isValid: false, blockNumber, reason: streamingResult.reason };
+      }
+      l1ToL2Messages = streamingResult.bundle;
+    } else {
+      // Check that I have the same set of l1ToL2Messages as the proposal
+      l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
+      const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
+      const proposalInHash = proposal.inHash;
+      if (!computedInHash.equals(proposalInHash)) {
+        this.log.warn(`L1 to L2 messages in hash mismatch, skipping processing`, {
+          proposalInHash: proposalInHash.toString(),
+          computedInHash: computedInHash.toString(),
+          ...proposalInfo,
+        });
+        return { isValid: false, blockNumber, reason: 'in_hash_mismatch' };
+      }
     }
 
     // Check that all of the transactions in the proposal are available
@@ -606,6 +645,7 @@ export class ProposalHandler {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         previousInboxRollingHash,
+        streamingInbox,
       );
     } catch (error) {
       this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
@@ -886,6 +926,98 @@ export class ProposalHandler {
     }
   }
 
+  /**
+   * Runs the streaming-Inbox per-block acceptance checks (AZIP-22 Fast Inbox) for a block proposal and returns the
+   * derived L1-to-L2 message bundle for re-execution, or a rejection reason. The parent block's consumed total and the
+   * checkpoint's starting total are derived from L1-to-L2 tree leaf counts (post-flip compact indexing); a parent that
+   * does not sit on a bucket boundary (a pre-flip padded parent) is rejected inside {@link checkStreamingBlockProposal}.
+   */
+  private async runStreamingBlockChecks(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    parentBlock: 'genesis' | BlockData,
+  ): Promise<StreamingBlockCheckResult> {
+    const parentTotalMsgCount = this.getConsumedMsgTotal(parentBlock);
+    const checkpointStartTotalMsgCount = await this.resolveCheckpointStartTotal(
+      blockNumber,
+      proposal.indexWithinCheckpoint,
+      parentTotalMsgCount,
+    );
+    if (checkpointStartTotalMsgCount === undefined) {
+      // The block before the checkpoint's first block has not synced locally, so the per-checkpoint cap origin is
+      // unavailable: treat as an unknown local view (the bounded-wait soft path is A-1393).
+      return { accepted: false, reason: 'bucket_unknown' };
+    }
+    const nowSeconds = BigInt(Math.floor(this.dateProvider.now() / 1000));
+    return checkStreamingBlockProposal({
+      messageSource: this.l1ToL2MessageSource,
+      bucketRef: proposal.bucketRef,
+      parentTotalMsgCount,
+      checkpointStartTotalMsgCount,
+      nowSeconds,
+      lagSeconds: INBOX_LAG_SECONDS,
+      perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
+      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+    });
+  }
+
+  /** The cumulative Inbox message count consumed through a block: its L1-to-L2 tree leaf count (0 at genesis). */
+  private getConsumedMsgTotal(block: 'genesis' | BlockData): bigint {
+    return block === 'genesis' ? 0n : BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+  }
+
+  /**
+   * The cumulative Inbox message count consumed as of the parent checkpoint (the per-checkpoint cap origin). For a
+   * checkpoint's first block this is the parent block's total; for a later block it is the leaf count of the block
+   * before the checkpoint's first block. Returns undefined when that block has not synced locally.
+   */
+  private resolveCheckpointStartTotal(
+    blockNumber: BlockNumber,
+    indexWithinCheckpoint: number,
+    parentTotalMsgCount: bigint,
+  ): Promise<bigint | undefined> {
+    return indexWithinCheckpoint === 0
+      ? Promise.resolve(parentTotalMsgCount)
+      : this.getPreBlockConsumedTotal(blockNumber - indexWithinCheckpoint);
+  }
+
+  /**
+   * The cumulative Inbox message count consumed as of the block immediately before `firstBlockNumber` (its L1-to-L2
+   * tree leaf count): 0 when that block is genesis, undefined when it has not synced locally.
+   */
+  private async getPreBlockConsumedTotal(firstBlockNumber: number): Promise<bigint | undefined> {
+    const preBlockNumber = firstBlockNumber - 1;
+    if (preBlockNumber < INITIAL_L2_BLOCK_NUM) {
+      return 0n;
+    }
+    const preBlock = await this.blockSource.getBlockData({ number: BlockNumber(preBlockNumber) });
+    return preBlock === undefined ? undefined : BigInt(preBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+  }
+
+  /**
+   * Enforces the streaming-Inbox last-block minimum-consumption (censorship) rule for a checkpoint (AZIP-22 Fast
+   * Inbox), mirroring `ProposeLib.validateInboxConsumption`: the first bucket the checkpoint left unconsumed must be
+   * absent, past the cutoff, or a cap-escape. Returns true (sufficient) when the checkpoint's consumption cannot be
+   * resolved against the local Inbox view (e.g. a pre-flip padded leaf count), deferring to L1 `propose` as the
+   * authoritative reject pre-flip; the flip (A-1384) removes the padding so the check resolves.
+   */
+  private async isLastBlockConsumptionSufficient(slot: SlotNumber, blocks: L2Block[]): Promise<boolean> {
+    const lastBlockTotal = BigInt(blocks[blocks.length - 1].header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    const checkpointStartTotal = await this.getPreBlockConsumedTotal(blocks[0].number);
+    const lastConsumedBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
+    if (checkpointStartTotal === undefined || lastConsumedBucket === undefined) {
+      return true;
+    }
+    const nextBucket = await this.l1ToL2MessageSource.getInboxBucket(lastConsumedBucket.seq + 1n);
+    const cutoffTimestamp = getInboxCutoffTimestamp(slot, this.epochCache.getL1Constants(), INBOX_LAG_SECONDS);
+    return isInboxConsumptionSufficient({
+      nextBucket,
+      cutoffTimestamp,
+      checkpointStartTotalMsgCount: checkpointStartTotal,
+      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+    });
+  }
+
   async reexecuteTransactions(
     proposal: BlockProposal,
     blockNumber: BlockNumber,
@@ -894,6 +1026,9 @@ export class ProposalHandler {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     previousInboxRollingHash: Fr,
+    // Streaming Inbox (AZIP-22 Fast Inbox): when true, `l1ToL2Messages` is this block's per-block bundle, inserted
+    // into the fork during `buildBlock` rather than the whole checkpoint's messages up front.
+    streamingInbox: boolean = false,
   ): Promise<ReexecuteTransactionsResult> {
     const { blockHeader, txHashes } = proposal;
 
@@ -935,17 +1070,19 @@ export class ProposalHandler {
       gasFees: blockHeader.globalVariables.gasFees,
     };
 
-    // Create checkpoint builder with prior blocks
+    // Create checkpoint builder with prior blocks. Under the streaming Inbox the checkpoint-wide message list is empty
+    // and this block's bundle is inserted per block (below); the legacy flow inserts the whole checkpoint up front.
     const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
       checkpointNumber,
       constants,
       0n, // only takes effect in the following checkpoint.
-      l1ToL2Messages,
+      streamingInbox ? [] : l1ToL2Messages,
       previousCheckpointOutHashes,
       previousInboxRollingHash,
       fork,
       priorBlocks,
       this.log.getBindings(),
+      streamingInbox,
     );
 
     // Build the new block
@@ -961,6 +1098,7 @@ export class ProposalHandler {
       expectedEndState: blockHeader.state,
       maxTransactions: this.config.validateMaxTxsPerBlock,
       maxBlockGas,
+      l1ToL2Messages: streamingInbox ? l1ToL2Messages : undefined,
     });
 
     const { block, failedTxs } = result;
@@ -1170,6 +1308,17 @@ export class ProposalHandler {
     const firstBlock = blocks[0];
     const constants = this.extractCheckpointConstants(firstBlock);
     const checkpointNumber = firstBlock.checkpointNumber;
+
+    // Streaming Inbox (AZIP-22 Fast Inbox): on the last block of a checkpoint, enforce the minimum-consumption
+    // (censorship) rule before attesting. Reject (no attestation) if a mandatory bucket was left unconsumed. Flag off,
+    // this is skipped and behavior is byte-identical.
+    if (this.config.streamingInbox === true && !(await this.isLastBlockConsumptionSufficient(slot, blocks))) {
+      this.log.warn(`Streaming Inbox last-block censorship check failed, refusing to attest`, {
+        ...proposalInfo,
+        checkpointNumber,
+      });
+      return { isValid: false, reason: 'inbox_consumption_insufficient', checkpointNumber };
+    }
 
     // Get L1-to-L2 messages for this checkpoint
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);

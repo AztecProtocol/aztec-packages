@@ -40,6 +40,17 @@ export interface L1ToL2MessageSource {
   getInboxBucket(seq: bigint): Promise<InboxBucket | undefined>;
 
   /**
+   * Returns the Inbox bucket whose cumulative message total equals `totalMsgCount`, or undefined if no synced bucket
+   * sits on that boundary (AZIP-22 Fast Inbox). A block's or checkpoint's L1-to-L2 tree leaf count equals the
+   * cumulative total of the last bucket it consumed (post-flip compact indexing), so validators use this to resolve the
+   * bucket a block consumed through from the block's leaf count, without trusting a wire hint. `totalMsgCount === 0`
+   * resolves the genesis sentinel bucket (sequence 0); a total that does not land on a bucket boundary (e.g. a pre-flip
+   * padded leaf count) returns undefined.
+   * @param totalMsgCount - The cumulative Inbox message count (leaf count) to resolve to a bucket boundary.
+   */
+  getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined>;
+
+  /**
    * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion
    * order, for streaming message-bundle derivation (AZIP-22 Fast Inbox). Both bounds must name buckets the source
    * has synced; it throws otherwise, so that an empty result means the range holds no messages instead of hiding an

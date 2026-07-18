@@ -496,6 +496,25 @@ export class MessageStore {
   }
 
   /**
+   * Returns the Inbox bucket whose cumulative message total equals `totalMsgCount`, or undefined if no synced bucket
+   * sits on that boundary (AZIP-22 Fast Inbox). Sequence 0 (total 0) is the genesis sentinel base case; otherwise the
+   * message at global index `totalMsgCount - 1` is the last message of the bucket with that cumulative total, so its
+   * `bucketSeq` resolves the bucket. A total that does not land on a bucket boundary (e.g. a pre-flip padded leaf
+   * count) returns undefined.
+   */
+  public async getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
+    if (totalMsgCount === 0n) {
+      return this.getInboxBucket(0n);
+    }
+    const buffer = await this.#l1ToL2Messages.getAsync(this.indexToKey(totalMsgCount - 1n));
+    if (buffer === undefined) {
+      return undefined;
+    }
+    const bucket = await this.getInboxBucket(deserializeInboxMessage(buffer).bucketSeq);
+    return bucket !== undefined && bucket.totalMsgCount === totalMsgCount ? bucket : undefined;
+  }
+
+  /**
    * Returns the latest Inbox bucket opened at or before the given L1 timestamp, or undefined if every synced bucket
    * was opened strictly after it (AZIP-22 Fast Inbox).
    */
