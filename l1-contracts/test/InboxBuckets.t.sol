@@ -132,7 +132,8 @@ contract InboxBucketsTest is Test {
       recipient: recipient,
       content: content,
       secretHash: secretHash,
-      index: (FIRST_REAL_TREE_NUM - 1) * (2 ** HEIGHT)
+      // Compact cumulative index (AZIP-22 Fast Inbox): the first message against a fresh Inbox has index 0.
+      index: inbox.getState().totalMessagesInserted
     });
     bytes32 leaf = Hash.sha256ToField(message);
     bytes16 legacyHash = bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, leaf)));

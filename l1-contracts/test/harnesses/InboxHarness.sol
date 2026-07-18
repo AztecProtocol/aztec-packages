@@ -40,8 +40,7 @@ contract InboxHarness is Inbox {
   }
 
   function getNextMessageIndex() external view returns (uint256) {
-    FrontierLib.Tree storage currentTree = trees[state.inProgress];
-    uint256 index = (state.inProgress - Constants.INITIAL_CHECKPOINT_NUMBER) * SIZE + currentTree.nextIndex;
-    return index;
+    // Compact cumulative index (AZIP-22 Fast Inbox): the next message's index is the count inserted so far.
+    return state.totalMessagesInserted;
   }
 }

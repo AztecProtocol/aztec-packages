@@ -35,6 +35,13 @@ struct TempCheckpointLog {
   bytes32 payloadDigest;
   Slot slotNumber;
   FeeHeader feeHeader;
+  // Streaming Inbox consumption record (AZIP-22 Fast Inbox). `inboxRollingHash` is the consensus rolling hash the
+  // checkpoint header committed to; `inboxMsgTotal` is the cumulative Inbox message count consumed as of this
+  // checkpoint (the child's parent-total origin); `inboxConsumedBucket` is the bucket sequence number the header's
+  // rolling hash corresponds to. The two counts pack into a single storage slot.
+  bytes32 inboxRollingHash;
+  uint64 inboxMsgTotal;
+  uint64 inboxConsumedBucket;
 }
 
 struct CompressedTempCheckpointLog {
@@ -45,6 +52,9 @@ struct CompressedTempCheckpointLog {
   bytes32 payloadDigest;
   CompressedSlot slotNumber;
   CompressedFeeHeader feeHeader;
+  bytes32 inboxRollingHash;
+  uint64 inboxMsgTotal;
+  uint64 inboxConsumedBucket;
 }
 
 library CompressedTempCheckpointLogLib {
@@ -61,7 +71,10 @@ library CompressedTempCheckpointLogLib {
       attestationsHash: _checkpoint.attestationsHash,
       payloadDigest: _checkpoint.payloadDigest,
       slotNumber: _checkpoint.slotNumber.compress(),
-      feeHeader: _checkpoint.feeHeader.compress()
+      feeHeader: _checkpoint.feeHeader.compress(),
+      inboxRollingHash: _checkpoint.inboxRollingHash,
+      inboxMsgTotal: _checkpoint.inboxMsgTotal,
+      inboxConsumedBucket: _checkpoint.inboxConsumedBucket
     });
   }
 
@@ -77,7 +90,10 @@ library CompressedTempCheckpointLogLib {
       attestationsHash: _compressedCheckpoint.attestationsHash,
       payloadDigest: _compressedCheckpoint.payloadDigest,
       slotNumber: _compressedCheckpoint.slotNumber.decompress(),
-      feeHeader: _compressedCheckpoint.feeHeader.decompress()
+      feeHeader: _compressedCheckpoint.feeHeader.decompress(),
+      inboxRollingHash: _compressedCheckpoint.inboxRollingHash,
+      inboxMsgTotal: _compressedCheckpoint.inboxMsgTotal,
+      inboxConsumedBucket: _compressedCheckpoint.inboxConsumedBucket
     });
   }
 }

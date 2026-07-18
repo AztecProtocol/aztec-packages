@@ -132,7 +132,12 @@ library STFLib {
         slotNumber: Slot.wrap(0),
         feeHeader: FeeHeader({
           excessMana: 0, manaUsed: 0, ethPerFeeAsset: _initialEthPerFeeAsset, congestionCost: 0, proverCost: 0
-        })
+        }),
+        // Genesis Inbox consumption base case, matching the Inbox's genesis bucket-0 sentinel {0, 0, 0}, so
+        // checkpoint 1 validates its consumption against it (AZIP-22 Fast Inbox).
+        inboxRollingHash: bytes32(0),
+        inboxMsgTotal: 0,
+        inboxConsumedBucket: 0
       }).compress();
   }
 
@@ -303,6 +308,26 @@ library STFLib {
    */
   function getSlotNumber(uint256 _checkpointNumber) internal view returns (Slot) {
     return getStorageTempCheckpointLog(_checkpointNumber).slotNumber.decompress();
+  }
+
+  /**
+   * @notice Retrieves the cumulative Inbox message count consumed as of a checkpoint (AZIP-22 Fast Inbox)
+   * @dev Gas-efficient accessor reading only the streaming-inbox consumed total. Reverts if the checkpoint is stale.
+   * @param _checkpointNumber The checkpoint number to get the consumed total for
+   * @return The cumulative Inbox message count consumed as of the checkpoint
+   */
+  function getInboxMsgTotal(uint256 _checkpointNumber) internal view returns (uint64) {
+    return getStorageTempCheckpointLog(_checkpointNumber).inboxMsgTotal;
+  }
+
+  /**
+   * @notice Retrieves the Inbox rolling hash a checkpoint committed to (AZIP-22 Fast Inbox)
+   * @dev Gas-efficient accessor reading only the streaming-inbox rolling hash. Reverts if the checkpoint is stale.
+   * @param _checkpointNumber The checkpoint number to get the rolling hash for
+   * @return The consensus Inbox rolling hash recorded for the checkpoint
+   */
+  function getInboxRollingHash(uint256 _checkpointNumber) internal view returns (bytes32) {
+    return getStorageTempCheckpointLog(_checkpointNumber).inboxRollingHash;
   }
 
   /**

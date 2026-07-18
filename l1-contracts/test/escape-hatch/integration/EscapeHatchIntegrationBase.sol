@@ -155,7 +155,13 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       accumulatedFees: 0
     });
 
-    args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
+    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (genesis here; nothing is seeded).
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
+
+    args = ProposeArgs({
+      header: header, archive: archive, oracleInput: OracleInput({feeAssetPriceModifier: 0}), bucketHint: bucketHint
+    });
 
     blobs = full.checkpoint.blobCommitments;
   }
@@ -205,8 +211,13 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 
-    ProposeArgs memory proposeArgs =
-      ProposeArgs({header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
+    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (genesis here; nothing is seeded).
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
+
+    ProposeArgs memory proposeArgs = ProposeArgs({
+      header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0), bucketHint: bucketHint
+    });
 
     skipBlobCheck(address(rollup));
 

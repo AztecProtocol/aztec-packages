@@ -289,6 +289,22 @@ library EpochProofLib {
           expectedEndArchive == _args.endArchive, Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
         );
       }
+
+      {
+        // Start-boundary anchoring for the Inbox rolling-hash chain (AZIP-22 Fast Inbox), mirroring previousArchive:
+        // the proof's claimed chain start must match the rolling hash recorded at propose for checkpoint _start - 1.
+        // No end-side check is needed: the checkpoint root writes the parity end into both the checkpoint header and
+        // end_inbox_rolling_hash, checkpoint merges assert start/end continuity, and verifyHeaders pins the supplied
+        // headers (whose hash covers inboxRollingHash) to the stored header hashes, so a wrong endInboxRollingHash
+        // fails proof verification.
+        bytes32 expectedPreviousInboxRollingHash = STFLib.getInboxRollingHash(_start - 1);
+        require(
+          expectedPreviousInboxRollingHash == _args.previousInboxRollingHash,
+          Errors.Rollup__InvalidPreviousInboxRollingHash(
+            expectedPreviousInboxRollingHash, _args.previousInboxRollingHash
+          )
+        );
+      }
     }
 
     bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);

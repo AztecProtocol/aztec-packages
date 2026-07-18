@@ -549,7 +549,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 
-    ree.proposeArgs = ProposeArgs({header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
+    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket, consuming the messages seeded above.
+    uint256 bucketHint = inbox.getCurrentBucketSeq();
+    header.inboxRollingHash = inbox.getBucket(bucketHint).rollingHash;
+
+    ree.proposeArgs = ProposeArgs({
+      header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0), bucketHint: bucketHint
+    });
 
     skipBlobCheck(address(rollup));
 
