@@ -387,6 +387,9 @@ function mapLogInboxMessage(log: MessageSentLog): InboxMessage {
     l1BlockHash: log.l1BlockHash,
     checkpointNumber: log.args.checkpointNumber,
     rollingHash: log.args.rollingHash,
+    inboxRollingHash: log.args.inboxRollingHash,
+    bucketSeq: log.args.bucketSeq,
+    bucketTimestamp: log.l1BlockTimestamp,
   };
 }
 

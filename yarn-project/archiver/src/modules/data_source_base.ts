@@ -40,7 +40,7 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
-import type { L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { InboxBucket, L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader, IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -322,6 +322,18 @@ export abstract class ArchiverDataSourceBase
 
   public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.stores.messages.getL1ToL2MessageIndex(l1ToL2Message);
+  }
+
+  public getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
+    return this.stores.messages.getLatestInboxBucketAtOrBefore(timestamp);
+  }
+
+  public getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
+    return this.stores.messages.getInboxBucket(seq);
+  }
+
+  public getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+    return this.stores.messages.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
   }
 
   private async getPublishedCheckpointFromCheckpointData(checkpoint: CheckpointData): Promise<PublishedCheckpoint> {

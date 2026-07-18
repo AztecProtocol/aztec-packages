@@ -4,7 +4,7 @@ import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import {
   type AztecAsyncKVStore,
   type AztecAsyncMap,
@@ -12,7 +12,7 @@ import {
   type CustomRange,
   mapRange,
 } from '@aztec/kv-store';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { type InboxBucket, InboxLeaf, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 
 import { L1ToL2MessagesNotReadyError } from '../errors.js';
 import {
@@ -21,6 +21,38 @@ import {
   serializeInboxMessage,
   updateRollingHash,
 } from '../structs/inbox_message.js';
+
+/**
+ * Persisted snapshot of an Inbox rolling-hash bucket. Mirrors the fields the on-chain Inbox tracks per bucket,
+ * plus the last absorbed message index so the between-buckets query can range-scan messages directly.
+ */
+type BucketSnapshot = {
+  inboxRollingHash: Fr;
+  totalMsgCount: bigint;
+  timestamp: bigint;
+  msgCount: number;
+  lastMessageIndex: bigint;
+};
+
+function serializeBucketSnapshot(snapshot: BucketSnapshot): Buffer {
+  return serializeToBuffer([
+    snapshot.inboxRollingHash,
+    bigintToUInt64BE(snapshot.totalMsgCount),
+    bigintToUInt64BE(snapshot.timestamp),
+    numToUInt32BE(snapshot.msgCount),
+    bigintToUInt64BE(snapshot.lastMessageIndex),
+  ]);
+}
+
+function deserializeBucketSnapshot(buffer: Buffer): BucketSnapshot {
+  const reader = BufferReader.asReader(buffer);
+  const inboxRollingHash = reader.readObject(Fr);
+  const totalMsgCount = reader.readUInt64();
+  const timestamp = reader.readUInt64();
+  const msgCount = reader.readNumber();
+  const lastMessageIndex = reader.readUInt64();
+  return { inboxRollingHash, totalMsgCount, timestamp, msgCount, lastMessageIndex };
+}
 
 export class MessageStoreError extends Error {
   constructor(
@@ -45,6 +77,10 @@ export class MessageStore {
   #inboxTreeInProgress: AztecAsyncSingleton<bigint>;
   /** Stores the L1 finalized block as of the last successful message sync. */
   #messagesFinalizedL1Block: AztecAsyncSingleton<Buffer>;
+  /** Maps from Inbox bucket sequence number to its serialized snapshot. */
+  #inboxBuckets: AztecAsyncMap<number, Buffer>;
+  /** Maps from a bucket's L1 timestamp (key) to the highest bucket sequence number opened at that timestamp. */
+  #bucketTimestampToSeq: AztecAsyncMap<number, number>;
 
   #log = createLogger('archiver:message_store');
 
@@ -55,6 +91,8 @@ export class MessageStore {
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
     this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
+    this.#inboxBuckets = db.openMap('archiver_inbox_buckets');
+    this.#bucketTimestampToSeq = db.openMap('archiver_inbox_bucket_timestamps');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -112,6 +150,14 @@ export class MessageStore {
       let lastMessage = await this.getLastMessage();
       let messageCount = 0;
 
+      // Running cumulative message count and in-progress bucket state, threaded across the batch so we can snapshot
+      // each Inbox bucket as its messages are inserted. Seeded from the last stored message so a bucket that spans
+      // two batches keeps accumulating.
+      let cumulativeTotal = await this.getTotalL1ToL2MessageCount();
+      let currentBucketSeq: bigint | undefined = lastMessage?.bucketSeq;
+      let currentBucketMsgCount =
+        currentBucketSeq !== undefined ? ((await this.getBucketSnapshotBySeq(currentBucketSeq))?.msgCount ?? 0) : 0;
+
       for (const message of messages) {
         // Check messages are inserted in increasing order, but allow reinserting messages.
         if (lastMessage && message.index <= lastMessage.index) {
@@ -137,6 +183,20 @@ export class MessageStore {
             `Invalid rolling hash for incoming L1 to L2 message ${message.leaf.toString()} ` +
               `with index ${message.index} ` +
               `(expected ${expectedRollingHash.toString()} from previous hash ${previousRollingHash} but got ${message.rollingHash.toString()})`,
+            message,
+          );
+        }
+
+        // Check the full-width consensus rolling hash is valid (AZIP-22 Fast Inbox). Runs alongside the legacy
+        // 128-bit check above until the streaming inbox flips on and the legacy hash is removed.
+        const previousInboxRollingHash = lastMessage?.inboxRollingHash ?? Fr.ZERO;
+        const expectedInboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, message.leaf);
+        if (!expectedInboxRollingHash.equals(message.inboxRollingHash)) {
+          throw new MessageStoreError(
+            `Invalid inbox rolling hash for incoming L1 to L2 message ${message.leaf.toString()} ` +
+              `with index ${message.index} ` +
+              `(expected ${expectedInboxRollingHash.toString()} from previous hash ${previousInboxRollingHash.toString()} ` +
+              `but got ${message.inboxRollingHash.toString()})`,
             message,
           );
         }
@@ -180,6 +240,23 @@ export class MessageStore {
         await this.#l1ToL2Messages.set(this.indexToKey(message.index), serializeInboxMessage(message));
         await this.#l1ToL2MessageIndices.set(this.leafToIndexKey(message.leaf), message.index);
         messageCount++;
+
+        // Snapshot the bucket this message was absorbed into. A message opens a new bucket whenever its bucket
+        // sequence differs from the one currently being accumulated; otherwise it extends the current bucket.
+        cumulativeTotal += 1n;
+        if (currentBucketSeq === undefined || message.bucketSeq !== currentBucketSeq) {
+          currentBucketSeq = message.bucketSeq;
+          currentBucketMsgCount = 0;
+        }
+        currentBucketMsgCount += 1;
+        await this.writeBucketSnapshot(message.bucketSeq, {
+          inboxRollingHash: message.inboxRollingHash,
+          totalMsgCount: cumulativeTotal,
+          timestamp: message.bucketTimestamp,
+          msgCount: currentBucketMsgCount,
+          lastMessageIndex: message.index,
+        });
+
         this.#log.trace(`Inserted L1 to L2 message ${message.leaf} with index ${message.index} into the store`);
         lastMessage = message;
       }
@@ -281,8 +358,124 @@ export class MessageStore {
         deleteCount++;
       }
       await this.increaseTotalMessageCount(-deleteCount);
+      await this.rewindBucketsAfterRemoval();
       this.#log.warn(`Deleted ${deleteCount} L1 to L2 messages from index ${startIndex} from the store`);
     });
+  }
+
+  /**
+   * Rewinds the Inbox bucket snapshots to match the messages remaining after a removal. Buckets whose messages
+   * were all removed are deleted, and the boundary bucket (the one holding the last surviving message) is
+   * recomputed from its remaining messages, since a checkpoint-aligned removal can split a bucket. Must run
+   * inside the removal transaction, after the total message count has been updated.
+   */
+  private async rewindBucketsAfterRemoval(): Promise<void> {
+    const lastRemaining = await this.getLastMessage();
+    const boundarySeq = lastRemaining?.bucketSeq;
+
+    // Delete snapshots (and their timestamp index entries) for buckets entirely past the surviving tip.
+    const deleteFromKey = boundarySeq === undefined ? 0 : this.bucketSeqToKey(boundarySeq) + 1;
+    for await (const [seqKey, snapBuffer] of this.#inboxBuckets.entriesAsync({ start: deleteFromKey })) {
+      const snapshot = deserializeBucketSnapshot(snapBuffer);
+      await this.#bucketTimestampToSeq.delete(this.timestampToKey(snapshot.timestamp));
+      await this.#inboxBuckets.delete(seqKey);
+    }
+
+    // Recompute the boundary bucket from its surviving messages. This also restores its timestamp index entry if a
+    // just-deleted rollover bucket shared the timestamp.
+    if (lastRemaining !== undefined && boundarySeq !== undefined) {
+      let msgCount = 0;
+      for await (const msg of this.iterateL1ToL2Messages({ reverse: true })) {
+        if (msg.bucketSeq !== boundarySeq) {
+          break;
+        }
+        msgCount += 1;
+      }
+      await this.writeBucketSnapshot(boundarySeq, {
+        inboxRollingHash: lastRemaining.inboxRollingHash,
+        totalMsgCount: await this.getTotalL1ToL2MessageCount(),
+        timestamp: lastRemaining.bucketTimestamp,
+        msgCount,
+        lastMessageIndex: lastRemaining.index,
+      });
+    }
+  }
+
+  /**
+   * Returns the Inbox bucket with the given sequence number, or undefined if it has not been synced (AZIP-22 Fast
+   * Inbox).
+   */
+  public async getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
+    const snapshot = await this.getBucketSnapshotBySeq(seq);
+    return snapshot && this.toInboxBucket(seq, snapshot);
+  }
+
+  /**
+   * Returns the latest Inbox bucket opened at or before the given L1 timestamp, or undefined if every synced bucket
+   * was opened strictly after it (AZIP-22 Fast Inbox).
+   */
+  public async getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
+    // Bucket timestamps are non-decreasing in sequence number, and the index holds the highest sequence per
+    // timestamp. A reverse scan bounded above (inclusively) by the requested timestamp yields, first, the value
+    // at the largest timestamp at-or-before it — the bucket sequence we want.
+    const [seq] = await toArray(
+      this.#bucketTimestampToSeq.valuesAsync({ end: this.timestampToKey(timestamp), reverse: true, limit: 1 }),
+    );
+    return seq === undefined ? undefined : this.getInboxBucket(BigInt(seq));
+  }
+
+  /**
+   * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion
+   * order (AZIP-22 Fast Inbox). Returns an empty array if the upper bucket has not been synced.
+   */
+  public async getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+    const toBucket = await this.getBucketSnapshotBySeq(toInclusive);
+    if (toBucket === undefined) {
+      return [];
+    }
+    const fromBucket = fromExclusive > 0n ? await this.getBucketSnapshotBySeq(fromExclusive) : undefined;
+    const startIndex = fromBucket ? fromBucket.lastMessageIndex + 1n : 0n;
+    const endIndexExclusive = toBucket.lastMessageIndex + 1n;
+
+    const leaves: Fr[] = [];
+    for await (const msgBuffer of this.#l1ToL2Messages.valuesAsync({
+      start: this.indexToKey(startIndex),
+      end: this.indexToKey(endIndexExclusive),
+    })) {
+      leaves.push(deserializeInboxMessage(msgBuffer).leaf);
+    }
+    return leaves;
+  }
+
+  private async getBucketSnapshotBySeq(seq: bigint): Promise<BucketSnapshot | undefined> {
+    const buffer = await this.#inboxBuckets.getAsync(this.bucketSeqToKey(seq));
+    return buffer && deserializeBucketSnapshot(buffer);
+  }
+
+  private async writeBucketSnapshot(seq: bigint, snapshot: BucketSnapshot): Promise<void> {
+    await this.#inboxBuckets.set(this.bucketSeqToKey(seq), serializeBucketSnapshot(snapshot));
+    await this.#bucketTimestampToSeq.set(this.timestampToKey(snapshot.timestamp), this.bucketSeqToKey(seq));
+  }
+
+  private async toInboxBucket(seq: bigint, snapshot: BucketSnapshot): Promise<InboxBucket> {
+    const lastMessage = await this.getLastMessage();
+    return {
+      seq,
+      inboxRollingHash: snapshot.inboxRollingHash,
+      totalMsgCount: snapshot.totalMsgCount,
+      timestamp: snapshot.timestamp,
+      msgCount: snapshot.msgCount,
+      lastMessageIndex: snapshot.lastMessageIndex,
+      isOpen: lastMessage?.bucketSeq === seq,
+    };
+  }
+
+  private bucketSeqToKey(seq: bigint): number {
+    return Number(seq);
+  }
+
+  private timestampToKey(timestamp: bigint): number {
+    return Number(timestamp);
   }
 
   public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {

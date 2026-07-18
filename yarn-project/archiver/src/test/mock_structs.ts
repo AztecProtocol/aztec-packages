@@ -15,7 +15,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { InboxLeaf, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
@@ -34,6 +34,10 @@ export function makeInboxMessage(
   const { leaf = Fr.random() } = overrides;
   const { rollingHash = updateRollingHash(previousRollingHash, leaf) } = overrides;
   const { index = InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) } = overrides;
+  const { inboxRollingHash = updateInboxRollingHash(Fr.ZERO, leaf) } = overrides;
+  // Default each message to its own bucket, keyed monotonically off its global index.
+  const { bucketSeq = index + 1n } = overrides;
+  const { bucketTimestamp = index + 1n } = overrides;
 
   return {
     index,
@@ -42,6 +46,9 @@ export function makeInboxMessage(
     l1BlockNumber,
     l1BlockHash,
     rollingHash,
+    inboxRollingHash,
+    bucketSeq,
+    bucketTimestamp,
   };
 }
 
@@ -49,6 +56,7 @@ export function makeInboxMessages(
   totalCount: number,
   opts: {
     initialHash?: Buffer16;
+    initialInboxHash?: Fr;
     initialCheckpointNumber?: CheckpointNumber;
     messagesPerCheckpoint?: number;
     overrideFn?: (msg: InboxMessage, index: number) => InboxMessage;
@@ -56,6 +64,7 @@ export function makeInboxMessages(
 ): InboxMessage[] {
   const {
     initialHash = Buffer16.ZERO,
+    initialInboxHash = Fr.ZERO,
     overrideFn = msg => msg,
     initialCheckpointNumber = CheckpointNumber(1),
     messagesPerCheckpoint = 1,
@@ -63,6 +72,7 @@ export function makeInboxMessages(
 
   const messages: InboxMessage[] = [];
   let rollingHash = initialHash;
+  let inboxRollingHash = initialInboxHash;
   for (let i = 0; i < totalCount; i++) {
     const msgIndex = i % messagesPerCheckpoint;
     const checkpointNumber = CheckpointNumber.fromBigInt(
@@ -74,10 +84,12 @@ export function makeInboxMessages(
         leaf,
         checkpointNumber,
         index: InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(msgIndex),
+        inboxRollingHash: updateInboxRollingHash(inboxRollingHash, leaf),
       }),
       i,
     );
     rollingHash = message.rollingHash;
+    inboxRollingHash = message.inboxRollingHash;
     messages.push(message);
   }
   return messages;

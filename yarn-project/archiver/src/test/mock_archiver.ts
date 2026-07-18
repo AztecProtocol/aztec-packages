@@ -2,7 +2,7 @@ import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 import { MockL1ToL2MessageSource } from './mock_l1_to_l2_message_source.js';
 import { MockL2BlockSource } from './mock_l2_block_source.js';
@@ -17,12 +17,28 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
     this.messageSource.setL1ToL2Messages(checkpointNumber, msgs);
   }
 
+  public setInboxBucket(bucket: InboxBucket, msgs: Fr[] = []) {
+    this.messageSource.setInboxBucket(bucket, msgs);
+  }
+
   getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
     return this.messageSource.getL1ToL2Messages(checkpointNumber);
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.messageSource.getL1ToL2MessageIndex(_l1ToL2Message);
+  }
+
+  getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
+    return this.messageSource.getLatestInboxBucketAtOrBefore(timestamp);
+  }
+
+  getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
+    return this.messageSource.getInboxBucket(seq);
+  }
+
+  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+    return this.messageSource.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
   }
 }
 

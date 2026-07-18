@@ -26,8 +26,11 @@ export type MessageSentArgs = {
   bucketSeq: bigint;
 };
 
-/** Log type for MessageSent events. */
-export type MessageSentLog = L1EventLog<MessageSentArgs>;
+/** Log type for MessageSent events, enriched with the emitting L1 block's timestamp (the bucket recency key). */
+export type MessageSentLog = L1EventLog<MessageSentArgs> & {
+  /** Timestamp (in seconds) of the L1 block that emitted the event; the key of the message's Inbox bucket. */
+  l1BlockTimestamp: bigint;
+};
 
 export class InboxContract {
   private readonly inbox: GetContractReturnType<typeof InboxAbi, ViemClient>;
@@ -81,10 +84,11 @@ export class InboxContract {
 
   /** Fetches MessageSent events within the given block range. */
   async getMessageSentEvents(fromBlock: bigint, toBlock: bigint): Promise<MessageSentLog[]> {
-    const logs = await this.inbox.getEvents.MessageSent({}, { fromBlock, toBlock });
-    return logs
-      .filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock)
-      .map(log => this.mapMessageSentLog(log));
+    const logs = (await this.inbox.getEvents.MessageSent({}, { fromBlock, toBlock })).filter(
+      log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock,
+    );
+    const timestamps = await this.getBlockTimestamps(logs.map(log => log.blockNumber!));
+    return logs.map(log => this.mapMessageSentLog(log, timestamps.get(log.blockNumber!)!));
   }
 
   /** Fetches MessageSent events for a specific message hash around a specific block. */
@@ -97,26 +101,47 @@ export class InboxContract {
       { hash: msgHash },
       { fromBlock: maxBigint(aroundL1BlockNumber - 5n, 1n), toBlock: aroundL1BlockNumber + 5n },
     );
-    return log && this.mapMessageSentLog(log);
+    if (!log) {
+      return log as unknown as MessageSentLog;
+    }
+    const [timestamp] = (await this.getBlockTimestamps([log.blockNumber!])).values();
+    return this.mapMessageSentLog(log, timestamp);
   }
 
-  private mapMessageSentLog(log: {
-    blockNumber: bigint | null;
-    blockHash: `0x${string}` | null;
-    transactionHash: `0x${string}` | null;
-    args: {
-      index?: bigint;
-      hash?: `0x${string}`;
-      checkpointNumber?: bigint;
-      rollingHash?: `0x${string}`;
-      inboxRollingHash?: `0x${string}`;
-      bucketSeq?: bigint;
-    };
-  }): MessageSentLog {
+  /** Fetches the timestamp of each distinct L1 block number, so each MessageSent log can carry its bucket key. */
+  private async getBlockTimestamps(blockNumbers: bigint[]): Promise<Map<bigint, bigint>> {
+    const uniqueBlockNumbers = [...new Set(blockNumbers)];
+    const timestamps = new Map<bigint, bigint>();
+    await Promise.all(
+      uniqueBlockNumbers.map(async blockNumber => {
+        const block = await this.client.getBlock({ blockNumber, includeTransactions: false });
+        timestamps.set(blockNumber, block.timestamp);
+      }),
+    );
+    return timestamps;
+  }
+
+  private mapMessageSentLog(
+    log: {
+      blockNumber: bigint | null;
+      blockHash: `0x${string}` | null;
+      transactionHash: `0x${string}` | null;
+      args: {
+        index?: bigint;
+        hash?: `0x${string}`;
+        checkpointNumber?: bigint;
+        rollingHash?: `0x${string}`;
+        inboxRollingHash?: `0x${string}`;
+        bucketSeq?: bigint;
+      };
+    },
+    l1BlockTimestamp: bigint,
+  ): MessageSentLog {
     return {
       l1BlockNumber: log.blockNumber!,
       l1BlockHash: Buffer32.fromString(log.blockHash!),
       l1TransactionHash: log.transactionHash!,
+      l1BlockTimestamp,
       args: {
         index: log.args.index!,
         leaf: Fr.fromString(log.args.hash!),

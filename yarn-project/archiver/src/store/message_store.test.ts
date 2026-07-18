@@ -1,6 +1,7 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -136,6 +137,7 @@ describe('MessageStore', () => {
       const msgs2 = makeInboxMessages(3, {
         initialCheckpointNumber: CheckpointNumber(20),
         initialHash: msgs1.at(-1)!.rollingHash,
+        initialInboxHash: msgs1.at(-1)!.inboxRollingHash,
       });
 
       await messageStore.addL1ToL2Messages(msgs1);
@@ -325,6 +327,166 @@ describe('MessageStore', () => {
         // No setMessageSyncState call — guard should be permissive
         await expect(messageStore.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
       });
+    });
+  });
+
+  describe('Inbox buckets', () => {
+    // Builds `count` consecutive valid messages in a single checkpoint, then reassigns their bucket sequence and
+    // timestamp per the given per-message spec so we can exercise multi-message and rollover buckets.
+    const makeBucketedMessages = (spec: { seq: bigint; timestamp: bigint }[]): InboxMessage[] => {
+      const msgs = makeInboxMessages(spec.length, {
+        initialCheckpointNumber: CheckpointNumber(1),
+        messagesPerCheckpoint: spec.length,
+      });
+      msgs.forEach((msg, i) => {
+        msg.bucketSeq = spec[i].seq;
+        msg.bucketTimestamp = spec[i].timestamp;
+      });
+      return msgs;
+    };
+
+    // Three buckets over six messages: bucket 1 = [0,1,2], bucket 2 = [3,4], bucket 3 = [5].
+    const threeBucketSpec = [
+      { seq: 1n, timestamp: 100n },
+      { seq: 1n, timestamp: 100n },
+      { seq: 1n, timestamp: 100n },
+      { seq: 2n, timestamp: 200n },
+      { seq: 2n, timestamp: 200n },
+      { seq: 3n, timestamp: 300n },
+    ];
+
+    it('snapshots buckets as messages are inserted', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2Messages(msgs);
+
+      expect(await messageStore.getInboxBucket(1n)).toEqual({
+        seq: 1n,
+        inboxRollingHash: msgs[2].inboxRollingHash,
+        totalMsgCount: 3n,
+        timestamp: 100n,
+        msgCount: 3,
+        lastMessageIndex: msgs[2].index,
+        isOpen: false,
+      });
+      expect(await messageStore.getInboxBucket(2n)).toEqual({
+        seq: 2n,
+        inboxRollingHash: msgs[4].inboxRollingHash,
+        totalMsgCount: 5n,
+        timestamp: 200n,
+        msgCount: 2,
+        lastMessageIndex: msgs[4].index,
+        isOpen: false,
+      });
+      expect(await messageStore.getInboxBucket(3n)).toEqual({
+        seq: 3n,
+        inboxRollingHash: msgs[5].inboxRollingHash,
+        totalMsgCount: 6n,
+        timestamp: 300n,
+        msgCount: 1,
+        lastMessageIndex: msgs[5].index,
+        isOpen: true,
+      });
+      expect(await messageStore.getInboxBucket(4n)).toBeUndefined();
+    });
+
+    it('continues a bucket that spans two insertion batches', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2Messages(msgs.slice(0, 2));
+      await messageStore.addL1ToL2Messages(msgs.slice(2));
+
+      // Bucket 1 keeps accumulating across the batch boundary rather than restarting its message count.
+      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ msgCount: 3, totalMsgCount: 3n });
+      expect(await messageStore.getInboxBucket(3n)).toMatchObject({ msgCount: 1, totalMsgCount: 6n });
+    });
+
+    it('throws if the consensus rolling hash is not correct', async () => {
+      const msgs = makeInboxMessages(5);
+      msgs[1].inboxRollingHash = Fr.random();
+      await expect(messageStore.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
+    });
+
+    it('resolves the latest bucket at or before a timestamp', async () => {
+      await messageStore.addL1ToL2Messages(makeBucketedMessages(threeBucketSpec));
+
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(100n))!.seq).toEqual(1n);
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(150n))!.seq).toEqual(1n);
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(300n))!.seq).toEqual(3n);
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(10_000n))!.seq).toEqual(3n);
+      expect(await messageStore.getLatestInboxBucketAtOrBefore(99n)).toBeUndefined();
+    });
+
+    it('resolves rollover buckets that share a timestamp to the highest sequence', async () => {
+      // Buckets 2 and 3 share timestamp 200 (a full bucket rolling over within the same L1 block).
+      const msgs = makeBucketedMessages([
+        { seq: 1n, timestamp: 100n },
+        { seq: 2n, timestamp: 200n },
+        { seq: 3n, timestamp: 200n },
+      ]);
+      await messageStore.addL1ToL2Messages(msgs);
+
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(200n))!.seq).toEqual(3n);
+    });
+
+    it('returns messages between buckets in insertion order', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2Messages(msgs);
+      const leaves = msgs.map(m => m.leaf);
+
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual(leaves);
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual(leaves.slice(3, 5));
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual(leaves.slice(5));
+      // An empty (fromExclusive, toInclusive] range yields no messages.
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(3n, 3n)).toEqual([]);
+      // Unknown upper bucket yields no messages.
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 9n)).toEqual([]);
+    });
+
+    it('rewinds buckets when messages are removed', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2Messages(msgs);
+
+      // Remove the last two messages (msgs[4] in bucket 2, msgs[5] in bucket 3), splitting bucket 2.
+      await messageStore.removeL1ToL2Messages(msgs[4].index);
+
+      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
+      expect(await messageStore.getInboxBucket(2n)).toEqual({
+        seq: 2n,
+        inboxRollingHash: msgs[3].inboxRollingHash,
+        totalMsgCount: 4n,
+        timestamp: 200n,
+        msgCount: 1,
+        lastMessageIndex: msgs[3].index,
+        isOpen: true,
+      });
+      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ msgCount: 3, totalMsgCount: 3n, isOpen: false });
+
+      // Bucket 3's timestamp index entry is gone, so an at-or-before lookup falls back to bucket 2.
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(300n))!.seq).toEqual(2n);
+    });
+
+    it('rewinds a rollover bucket sharing a timestamp with the surviving boundary', async () => {
+      const msgs = makeBucketedMessages([
+        { seq: 1n, timestamp: 100n },
+        { seq: 2n, timestamp: 200n },
+        { seq: 3n, timestamp: 200n },
+      ]);
+      await messageStore.addL1ToL2Messages(msgs);
+
+      // Removing the last message deletes bucket 3, whose timestamp (200) is shared with the surviving bucket 2.
+      await messageStore.removeL1ToL2Messages(msgs[2].index);
+
+      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(200n))!.seq).toEqual(2n);
+    });
+
+    it('clears all buckets when every message is removed', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2Messages(msgs);
+
+      await messageStore.removeL1ToL2Messages(msgs[0].index);
+
+      expect(await messageStore.getInboxBucket(1n)).toBeUndefined();
+      expect(await messageStore.getLatestInboxBucketAtOrBefore(300n)).toBeUndefined();
     });
   });
 });
