@@ -961,9 +961,14 @@ export class ProposalHandler {
     });
   }
 
+  /** A block's L1-to-L2 message tree leaf count: the cumulative Inbox message count it consumed through. */
+  private blockLeafCount(block: BlockData | L2Block): bigint {
+    return BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+  }
+
   /** The cumulative Inbox message count consumed through a block: its L1-to-L2 tree leaf count (0 at genesis). */
   private getConsumedMsgTotal(block: 'genesis' | BlockData): bigint {
-    return block === 'genesis' ? 0n : BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    return block === 'genesis' ? 0n : this.blockLeafCount(block);
   }
 
   /**
@@ -991,7 +996,7 @@ export class ProposalHandler {
       return 0n;
     }
     const preBlock = await this.blockSource.getBlockData({ number: BlockNumber(preBlockNumber) });
-    return preBlock === undefined ? undefined : BigInt(preBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    return preBlock === undefined ? undefined : this.blockLeafCount(preBlock);
   }
 
   /**
@@ -1002,7 +1007,7 @@ export class ProposalHandler {
    * authoritative reject pre-flip; the flip (A-1384) removes the padding so the check resolves.
    */
   private async isLastBlockConsumptionSufficient(slot: SlotNumber, blocks: L2Block[]): Promise<boolean> {
-    const lastBlockTotal = BigInt(blocks[blocks.length - 1].header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
     const checkpointStartTotal = await this.getPreBlockConsumedTotal(blocks[0].number);
     const lastConsumedBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
     if (checkpointStartTotal === undefined || lastConsumedBucket === undefined) {
