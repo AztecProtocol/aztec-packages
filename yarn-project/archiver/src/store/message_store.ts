@@ -85,6 +85,20 @@ function groupMessagesByBucket(messages: InboxMessage[]): IncomingBucket[] {
   return buckets;
 }
 
+// The genesis sentinel bucket (AZIP-22 Fast Inbox): sequence 0 with a zero rolling hash and no messages, mirroring the
+// on-chain Inbox's base case. The archiver never ingests a snapshot for it (no message is absorbed into sequence 0), so
+// it is synthesized on read. Consumers use its sequence number and zero total; its deploy-time timestamp is not tracked
+// here and is unused.
+const GENESIS_INBOX_BUCKET: InboxBucket = {
+  seq: 0n,
+  inboxRollingHash: Fr.ZERO,
+  totalMsgCount: 0n,
+  timestamp: 0n,
+  msgCount: 0,
+  lastMessageIndex: 0n,
+  isOpen: false,
+};
+
 export class MessageStoreError extends Error {
   constructor(
     message: string,
@@ -488,11 +502,16 @@ export class MessageStore {
 
   /**
    * Returns the Inbox bucket with the given sequence number, or undefined if it has not been synced (AZIP-22 Fast
-   * Inbox).
+   * Inbox). Sequence 0 is the genesis sentinel: the on-chain Inbox reserves it as the "consumed nothing" base case
+   * and never absorbs a message into it, so the archiver ingests no snapshot for it; it is synthesized here (rolling
+   * hash 0, total 0) so streaming consumers can resolve a genesis parent or an empty checkpoint's last-consumed bucket.
    */
   public async getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
     const snapshot = await this.getBucketSnapshotBySeq(seq);
-    return snapshot && this.toInboxBucket(seq, snapshot);
+    if (snapshot !== undefined) {
+      return this.toInboxBucket(seq, snapshot);
+    }
+    return seq === 0n ? GENESIS_INBOX_BUCKET : undefined;
   }
 
   /**

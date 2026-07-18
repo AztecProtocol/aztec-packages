@@ -415,6 +415,14 @@ describe('MessageStore', () => {
       expect(await messageStore.getInboxBucketByTotalMsgCount(7n)).toBeUndefined();
     });
 
+    it('synthesizes the genesis sentinel bucket (sequence 0, total 0) which is never ingested', async () => {
+      // With real messages present but no ingested sequence-0 snapshot, both lookups still resolve genesis.
+      await messageStore.addL1ToL2MessageBuckets(makeBucketedMessages(threeBucketSpec));
+
+      expect(await messageStore.getInboxBucket(0n)).toMatchObject({ seq: 0n, totalMsgCount: 0n, msgCount: 0 });
+      expect(await messageStore.getInboxBucketByTotalMsgCount(0n)).toMatchObject({ seq: 0n, totalMsgCount: 0n });
+    });
+
     it('rejects a bucket delivered without the messages already stored for it', async () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 2));
