@@ -154,8 +154,8 @@ impl TestBuilder {
         let start_block_number = fixture_builder.start_block_number;
         if !is_first_block(left_rollup_vk_index)
             & (left_rollup_vk_index != BLOCK_MERGE_ROLLUP_VK_INDEX) {
-            // Change the start_block_number to be smaller than the left rollup's start_block_number so that the in_hash
-            // won't be set on the left rollup.
+            // Change the start_block_number to be smaller than the left rollup's start_block_number so that the
+            // first-block designation is not on the left rollup.
             fixture_builder.start_block_number = start_block_number - 1;
         }
         let mut left_rollup = fixture_builder.get_merged_block_rollup_public_inputs(
@@ -163,8 +163,8 @@ impl TestBuilder {
             start_block_number + num_left_blocks - 1,
         );
         if is_first_block(right_rollup_vk_index) {
-            // Change the start_block_number to be the right rollup's start_block_number so that the in_hash will be set
-            // on the right rollup.
+            // Change the start_block_number to be the right rollup's start_block_number so that the first-block
+            // designation is on the right rollup.
             fixture_builder.start_block_number = start_block_number + num_left_blocks;
         }
         let mut right_rollup = fixture_builder.get_merged_block_rollup_public_inputs(
@@ -192,8 +192,8 @@ impl TestBuilder {
         left_rollup.start_state = hints.previous_block_header.state;
 
         // The InboxParity proof commits to the same checkpoint messages the block roots absorbed. Its message sponge
-        // (empty to the checkpoint's accumulated value) matches the blocks' merged sponge; its rolling hash and in_hash
-        // feed the checkpoint header. Built at the base slot the block fixtures use for their sponge.
+        // (empty to the checkpoint's accumulated value) matches the blocks' merged sponge; its rolling hash feeds the
+        // checkpoint header. Built at the base slot the block fixtures use for their sponge.
         let inbox_parity = fixture_builder.get_parity_public_inputs(fixture_builder.start_slot_number);
 
         Self {
@@ -445,7 +445,6 @@ impl TestBuilder {
             last_archive_root: left.previous_archive.root,
             block_headers_hash,
             blobs_hash: self.hints.blobs_hash,
-            in_hash: self.inbox_parity.in_hash,
             inbox_rolling_hash: self.inbox_parity.end_rolling_hash,
             epoch_out_hash,
             slot_number: left.constants.slot_number,
