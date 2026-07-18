@@ -19,7 +19,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
@@ -115,7 +114,6 @@ describe('ValidatorClient HA Integration', () => {
     blockSource = mock<L2BlockSource & L2BlockSink>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     dateProvider = new TestDateProvider();
     blobClient = mock<BlobClientInterface>();
     blobClient.canUpload.mockReturnValue(false);
@@ -306,7 +304,6 @@ describe('ValidatorClient HA Integration', () => {
       // Use all 5 validators - all try to create the same block proposal
       const blockHeader = makeBlockHeader(1);
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
-      const inHash = computeInHashFromL1ToL2Messages([]);
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3].map(() => mockTx()));
       const proposerAddress = EthAddress.fromString(validatorAccounts[0].address);
@@ -318,7 +315,6 @@ describe('ValidatorClient HA Integration', () => {
             blockHeader,
             CheckpointNumber(1),
             indexWithinCheckpoint,
-            inHash,
             archive,
             txs,
             proposerAddress,
@@ -348,7 +344,6 @@ describe('ValidatorClient HA Integration', () => {
     it('should allow different validators to create proposals for different slots', async () => {
       const proposerAddress = EthAddress.fromString(validatorAccounts[0].address);
       const txs = await Promise.all([1, 2, 3].map(() => mockTx()));
-      const inHash = computeInHashFromL1ToL2Messages([]);
 
       // Each of the 5 validators creates a proposal for a different slot
       const proposals = await Promise.all(
@@ -359,7 +354,6 @@ describe('ValidatorClient HA Integration', () => {
             blockHeader,
             CheckpointNumber(1),
             IndexWithinCheckpoint(0),
-            inHash,
             archive,
             txs,
             proposerAddress,

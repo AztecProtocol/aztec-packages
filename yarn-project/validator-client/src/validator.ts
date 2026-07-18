@@ -478,7 +478,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         'invalid_proposal',
         'state_mismatch',
         'failed_txs',
-        'in_hash_mismatch',
         'parent_block_wrong_slot',
       ];
 
@@ -917,7 +916,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     blockHeader: BlockHeader,
     checkpointNumber: CheckpointNumber,
     indexWithinCheckpoint: IndexWithinCheckpoint,
-    inHash: Fr,
     archive: Fr,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
@@ -945,7 +943,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       blockHeader,
       checkpointNumber,
       indexWithinCheckpoint,
-      inHash,
       archive,
       txs,
       proposerAddress,
