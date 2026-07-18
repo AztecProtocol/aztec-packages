@@ -3,11 +3,9 @@ import {
   type ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
-  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { BlockNumber, type EpochNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AbortError } from '@aztec/foundation/error';
 import type { LoggerBindings } from '@aztec/foundation/log';
@@ -529,10 +527,8 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       newL1ToL2MessageSubtreeRootSiblingPath,
     } = await this.updateL1ToL2MessageTree(l1ToL2Messages, db);
 
-    // The first block inserts the whole checkpoint's messages as a full padded subtree into the L1-to-L2 tree, so keep
-    // the padded array for the block-root bundle. The message sponge, however, absorbs only the real messages
-    // (real-count), so it matches the checkpoint's single InboxParity proof; non-first block roots inherit this sponge.
-    const paddedL1ToL2Messages = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
+    // The message sponge absorbs the checkpoint's real messages (real-count), matching the checkpoint's single
+    // InboxParity proof; non-first block roots inherit this sponge (AZIP-22 Fast Inbox).
     const checkpointMsgSponge = L1ToL2MessageSponge.empty();
     await checkpointMsgSponge.absorb(l1ToL2Messages);
 
@@ -548,7 +544,6 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       lastL1ToL2MessageSubtreeRootSiblingPath,
       newL1ToL2MessageTreeSnapshot,
       newL1ToL2MessageSubtreeRootSiblingPath,
-      paddedL1ToL2Messages,
       checkpointMsgSponge,
       Number(this.epochNumber),
       /* isAlive */ () => !this.cancelled,

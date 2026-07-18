@@ -12,7 +12,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { L1ToL2MessageBundle } from '@aztec/stdlib/messaging';
+import { L1ToL2MessageBundle, makeL1ToL2MessageBundle } from '@aztec/stdlib/messaging';
 import type { RollupHonkProofData } from '@aztec/stdlib/proofs';
 import {
   BlockRollupPublicInputs,
@@ -382,18 +382,17 @@ export class BlockProvingState {
   }
 
   /**
-   * The message bundle this block appends. Transitionally the first block carries the whole checkpoint's messages
-   * padded to `MAX_L1_TO_L2_MSGS_PER_BLOCK` — inserted as a full aligned subtree into the L1-to-L2 tree (`numMsgs` =
-   * the cap), while only the real messages are absorbed into the message sponge (`numRealMsgs`, matching the
-   * checkpoint's InboxParity proof). Non-first blocks carry an empty bundle.
+   * The real-count message bundle this block appends (AZIP-22 Fast Inbox): the real leaves inserted at compact indices
+   * and absorbed into the message sponge.
+   *
+   * TODO(fast-inbox): the prover still assigns the whole checkpoint's messages to the first block. Post-flip a block
+   * carries at most `MAX_L1_TO_L2_MSGS_PER_BLOCK` and a checkpoint drains its consumption across up to four blocks, so
+   * this must split the checkpoint's messages per block (with per-block start/end snapshots and full-height frontier
+   * hints at compact indices). Requires the proving-path rework; verified by epoch-proving e2e on CI.
    */
   #getMessageBundle(): L1ToL2MessageBundle {
     if (this.isFirstBlock) {
-      return new L1ToL2MessageBundle(
-        this.parentCheckpoint.getPaddedL1ToL2Messages(),
-        MAX_L1_TO_L2_MSGS_PER_BLOCK,
-        this.parentCheckpoint.getNumRealL1ToL2Messages(),
-      );
+      return makeL1ToL2MessageBundle(this.parentCheckpoint.getL1ToL2Messages());
     }
     return L1ToL2MessageBundle.empty();
   }

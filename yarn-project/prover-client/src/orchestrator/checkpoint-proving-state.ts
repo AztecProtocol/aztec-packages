@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { L1ToL2MessageSponge, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
 import { InboxParityPrivateInputs, type ParityPublicInputs } from '@aztec/stdlib/parity';
 import { BlockMergeRollupPrivateInputs, BlockRollupPublicInputs, CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -54,9 +54,6 @@ export class CheckpointProvingState {
       Fr,
       typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
     >,
-    // The checkpoint's messages padded to `MAX_L1_TO_L2_MSGS_PER_CHECKPOINT` (the first block's transitional bundle,
-    // inserted as a full subtree into the L1-to-L2 tree).
-    private readonly paddedL1ToL2Messages: Fr[],
     // Message-bundle sponge over the checkpoint's real messages (real-count absorb). Equals the InboxParity proof's
     // end sponge and the sponge the block roots accumulate, so it is threaded into non-first block roots as their
     // inherited `startMsgSponge`.
@@ -71,14 +68,9 @@ export class CheckpointProvingState {
     this.firstBlockNumber = BlockNumber(headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1);
   }
 
-  /** The checkpoint's messages padded to the per-checkpoint cap (the first block's transitional bundle). */
-  public getPaddedL1ToL2Messages(): Fr[] {
-    return this.paddedL1ToL2Messages;
-  }
-
-  /** Number of real (non-padding) L1-to-L2 messages in the checkpoint — the sponge/InboxParity real-count. */
-  public getNumRealL1ToL2Messages(): number {
-    return this.l1ToL2Messages.length;
+  /** The checkpoint's real L1-to-L2 messages (unpadded), consumed across its blocks (AZIP-22 Fast Inbox). */
+  public getL1ToL2Messages(): Fr[] {
+    return this.l1ToL2Messages;
   }
 
   /** The message-bundle sponge over the checkpoint's real messages (real-count absorb) — inherited by non-first block roots. */
@@ -179,7 +171,8 @@ export class CheckpointProvingState {
       this.l1ToL2Messages,
       this.startInboxRollingHash,
       L1ToL2MessageSponge.empty(),
-      computeInHashFromL1ToL2Messages(this.l1ToL2Messages),
+      // Legacy in_hash is dead post-flip; the InboxParity pass-through hint carries zero (AZIP-22 Fast Inbox).
+      Fr.ZERO,
       this.constants.vkTreeRoot,
       this.constants.proverId,
     );
