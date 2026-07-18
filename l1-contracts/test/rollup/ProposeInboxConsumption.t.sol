@@ -212,7 +212,8 @@ contract ProposeInboxConsumptionTest is Test {
       );
     }
 
-    vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
+    // No proposal-time warp: the loop above has already moved past SLOT's proposal time, and the revert fires
+    // in getBucket before any cutoff logic reads the clock.
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 1, MIN_BUCKET_RING_SIZE + 1));
     rollup.validateInboxConsumption(ringInbox, bytes32(0), 1, SLOT, 0);
   }
