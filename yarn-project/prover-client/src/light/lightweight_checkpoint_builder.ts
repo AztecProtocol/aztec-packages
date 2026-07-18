@@ -11,7 +11,6 @@ import {
   accumulateInboxRollingHash,
   appendL1ToL2MessagesToTree,
   computeCheckpointOutHash,
-  computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
 import { CheckpointHeader, computeBlockHeadersHash } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -295,7 +294,9 @@ export class LightweightCheckpointBuilder {
     const blobs = await getBlobsPerL1Block(this.blobFields);
     const blobsHash = computeBlobsHashFromBlobs(blobs);
 
-    const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
+    // Legacy inHash is dead post-flip; the checkpoint header carries zero (AZIP-22 Fast Inbox). The consensus
+    // rolling hash over the consumed messages is the authoritative Inbox commitment.
+    const inHash = Fr.ZERO;
     const inboxRollingHash = accumulateInboxRollingHash(this.previousInboxRollingHash, this.l1ToL2Messages);
 
     const { slotNumber, coinbase, feeRecipient, gasFees } = this.constants;

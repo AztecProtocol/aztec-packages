@@ -1,9 +1,9 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
-import { assert } from '@aztec/foundation/validation';
 import {
   type BlockHash,
   EventDrivenL2BlockStream,
@@ -369,16 +369,25 @@ export class ServerWorldStateSynchronizer
   private async handleL2Blocks(l2Blocks: L2Block[]) {
     this.log.debug(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
-    // Fetch the L1->L2 messages for the first block in a checkpoint.
+    // Derive each block's real L1-to-L2 message bundle from the compact leaf-index range it inserted (AZIP-22 Fast
+    // Inbox): the messages between the parent block's L1-to-L2 tree leaf count and this block's, resolved via the
+    // Inbox buckets. Blocks in a batch are consecutive, so we track the running leaf count.
     const messagesForBlocks = new Map<BlockNumber, Fr[]>();
-    await Promise.all(
-      l2Blocks
-        .filter(b => b.indexWithinCheckpoint === 0)
-        .map(async block => {
-          const l1ToL2Messages = await this.l2BlockSource.getL1ToL2Messages(block.checkpointNumber);
-          messagesForBlocks.set(block.number, l1ToL2Messages);
-        }),
-    );
+    let prevLeafCount = await this.getL1ToL2LeafCountBefore(l2Blocks[0].number);
+    for (const block of l2Blocks) {
+      const blockLeafCount = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+      if (blockLeafCount > prevLeafCount) {
+        const startBucket = await this.l2BlockSource.getInboxBucketByTotalMsgCount(prevLeafCount);
+        const endBucket = await this.l2BlockSource.getInboxBucketByTotalMsgCount(blockLeafCount);
+        if (startBucket !== undefined && endBucket !== undefined) {
+          messagesForBlocks.set(
+            block.number,
+            await this.l2BlockSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq),
+          );
+        }
+      }
+      prevLeafCount = blockLeafCount;
+    }
 
     let updateStatus: WorldStateStatusFull | undefined = undefined;
     for (const block of l2Blocks) {
@@ -401,6 +410,16 @@ export class ServerWorldStateSynchronizer
     this.instrumentation.updateWorldStateMetrics(updateStatus);
   }
 
+  /** The L1-to-L2 message tree leaf count as of the block before `blockNumber` (0 if that block is genesis). */
+  private async getL1ToL2LeafCountBefore(blockNumber: BlockNumber): Promise<bigint> {
+    const parentNumber = blockNumber - 1;
+    if (parentNumber < INITIAL_L2_BLOCK_NUM) {
+      return 0n;
+    }
+    const parentBlock = await this.l2BlockSource.getBlockData({ number: BlockNumber(parentNumber) });
+    return parentBlock === undefined ? 0n : BigInt(parentBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+  }
+
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param l2Block - The L2 block to handle.
@@ -408,13 +427,6 @@ export class ServerWorldStateSynchronizer
    * @returns Whether the block handled was produced by this same node.
    */
   protected async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    // Transitional invariant (pre-flip): the legacy per-checkpoint fetch only ever attaches messages to the first
-    // block of a checkpoint, so no non-first block should carry a bundle here. World state itself now accepts a bundle
-    // on any block; this rule is owned by the synchronizer until the flip switches it to per-block message derivation.
-    assert(
-      l2Block.indexWithinCheckpoint === 0 || l1ToL2Messages.length === 0,
-      `L1 to L2 messages must be empty for non-first blocks, but got ${l1ToL2Messages.length} messages for block ${l2Block.number} (index ${l2Block.indexWithinCheckpoint} within checkpoint).`,
-    );
     this.log.debug(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
       blockNumber: l2Block.number,
       blockHash: await l2Block.hash().then(h => h.toString()),

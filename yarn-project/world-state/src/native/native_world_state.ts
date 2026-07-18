@@ -1,4 +1,4 @@
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -264,21 +264,12 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    // Any block may carry an L1-to-L2 message bundle and transition the L1-to-L2 message tree. Pre-flip the legacy
-    // synchronizer only ever attaches messages to the first block of a checkpoint (the whole padded checkpoint bundle),
-    // so first-in-checkpoint bundles are padded to NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP to match how the circuits build
-    // the tree, producing bit-identical trees. Non-first bundles are appended exactly as given (the post-flip compact
-    // append from the circuits). The "non-first blocks carry no messages" invariant of the legacy flow is now enforced
-    // by the caller (the synchronizer) rather than here, so the API accepts the new per-block shape ahead of the flip.
-    // Padding is the caller's transitional concern and moves entirely to the caller at the flip.
-    const isFirstBlock = l2Block.indexWithinCheckpoint === 0;
+    // Any block may carry an L1-to-L2 message bundle and transition the L1-to-L2 message tree by its real (unpadded,
+    // compact) leaves, matching how the circuits build the tree post-flip (AZIP-22 Fast Inbox).
+    const paddedL1ToL2Messages = l1ToL2Messages;
 
-    // We have to pad the note hashes and nullifiers within tx effects (and, for a first-in-checkpoint block, the l1 to
-    // l2 messages) because that's how the trees are built by circuits.
-    const paddedL1ToL2Messages = isFirstBlock
-      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
-      : l1ToL2Messages;
-
+    // We have to pad the note hashes and nullifiers within tx effects because that's how the trees are built by
+    // circuits.
     const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );

@@ -503,7 +503,10 @@ describe('ProposalHandler checkpoint validation', () => {
         archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
         number: 1,
         checkpointNumber: CheckpointNumber(1),
-        header: { globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }) },
+        header: {
+          globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }),
+          state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 0 } },
+        },
       } as unknown as L2Block;
 
       blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
@@ -842,7 +845,7 @@ describe('ProposalHandler checkpoint validation', () => {
         blockProposalValidator,
         epochCache,
         consensusTimetable,
-        { ...config, streamingInbox: true } as ValidatorClientFullConfig,
+        config,
         mock<BlobClientInterface>(),
         new CheckpointReexecutionTracker(),
         metrics,
@@ -899,7 +902,7 @@ describe('ProposalHandler checkpoint validation', () => {
       const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
       expect(result.isValid).toBe(true);
-      // The block re-executes with the derived per-block bundle and the streaming flag set.
+      // The block re-executes with the derived per-block bundle (streaming is the only path post-flip).
       expect(reexecuteSpy).toHaveBeenCalledWith(
         proposal,
         BlockNumber(INITIAL_L2_BLOCK_NUM),
@@ -908,7 +911,6 @@ describe('ProposalHandler checkpoint validation', () => {
         derivedBundle,
         expect.anything(),
         expect.anything(),
-        true,
       );
     });
   });
@@ -951,7 +953,6 @@ describe('ProposalHandler checkpoint validation', () => {
     }
 
     it('refuses to attest when a mandatory bucket (at or before the cutoff) is left unconsumed', async () => {
-      config = { ...config, streamingInbox: true } as ValidatorClientFullConfig;
       handler.updateConfig(config);
       const { archiveRoot } = setupCensorshipMocks(2);
       // cutoff(slot=10) with l1GenesisTime=0, slotDuration=24, lag=12 is (10-1)*24 - 12 = 204.
@@ -976,7 +977,6 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     it('does not reject on censorship when the first unconsumed bucket is past the cutoff', async () => {
-      config = { ...config, streamingInbox: true } as ValidatorClientFullConfig;
       handler.updateConfig(config);
       const { archiveRoot } = setupCensorshipMocks(2);
       l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({

@@ -21,9 +21,9 @@ export type { ValidatorClientConfig };
 export const DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS = 500;
 
 export const validatorClientConfigMappings: ConfigMappingsType<
-  ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs' | 'streamingInbox'>
+  ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs'>
 > = {
-  ...pickConfigMappings(sharedSequencerConfigMappings, ['blockDurationMs', 'streamingInbox']),
+  ...pickConfigMappings(sharedSequencerConfigMappings, ['blockDurationMs']),
   validatorPrivateKeys: {
     env: 'VALIDATOR_PRIVATE_KEYS',
     description: 'List of private keys of the validators participating in attestation duties',
@@ -124,8 +124,8 @@ export const validatorClientConfigMappings: ConfigMappingsType<
  * @returns The validator configuration.
  */
 export function getProverEnvVars(): ValidatorClientConfig &
-  Pick<SequencerConfig, 'blockDurationMs' | 'streamingInbox'> {
-  return getConfigFromMappings<ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs' | 'streamingInbox'>>(
+  Pick<SequencerConfig, 'blockDurationMs'> {
+  return getConfigFromMappings<ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs'>>(
     validatorClientConfigMappings,
   );
 }

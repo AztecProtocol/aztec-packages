@@ -1394,10 +1394,9 @@ describe('CheckpointProposalJob', () => {
     });
   });
 
-  describe('streaming inbox (flag on)', () => {
+  describe('streaming inbox', () => {
     beforeEach(() => {
       job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 3000 }));
-      job.updateConfig({ streamingInbox: true });
     });
 
     it('streams per-block bucket bundles, advances the reference, and skips the bulk message fetch', async () => {
