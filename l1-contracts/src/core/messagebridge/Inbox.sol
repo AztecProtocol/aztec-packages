@@ -18,6 +18,12 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 // protection on unconsumed buckets, not by growing the ring.
 uint256 constant INBOX_BUCKET_RING_SIZE = 1024;
 
+// Constructor floor for the bucket ring. The ring must cover the longest stall the chain recovers from on
+// its own: the prune-and-repropose window of 64 checkpoints (2 epochs = 384 L1 blocks) at the natural cadence
+// of one bucket per L1 block, so buckets re-consumed after a prune are not overwritten first. 384 rounded up
+// to the next power of two, kept at or below the production ring.
+uint256 constant MIN_BUCKET_RING_SIZE = 512;
+
 /**
  * @title Inbox
  * @author Aztec Labs
@@ -75,7 +81,7 @@ contract Inbox is IInbox {
     require(_lag > 0, "LAG TOO SMALL");
     LAG = _lag;
 
-    require(_bucketRingSize > 1, "BUCKET RING TOO SMALL");
+    require(_bucketRingSize >= MIN_BUCKET_RING_SIZE, "BUCKET RING TOO SMALL");
     BUCKET_RING_SIZE = _bucketRingSize;
 
     state = InboxState({

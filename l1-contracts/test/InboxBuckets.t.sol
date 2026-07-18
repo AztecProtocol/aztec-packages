@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {TestERC20} from "src/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {MIN_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -16,7 +17,6 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 contract InboxBucketsTest is Test {
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG;
   uint256 internal constant HEIGHT = 10;
-  uint256 internal constant SMALL_RING_SIZE = 4;
 
   InboxHarness internal inbox;
   uint256 internal version = 0;
@@ -194,39 +194,46 @@ contract InboxBucketsTest is Test {
   }
 
   function testRingWraparound() public {
-    InboxHarness smallRingInbox = _deployInbox(SMALL_RING_SIZE);
+    InboxHarness ringInbox = _deployInbox(MIN_BUCKET_RING_SIZE);
     expectedRollingHash = 0;
 
-    // One bucket per L1 block; after SMALL_RING_SIZE + 1 buckets the ring has wrapped past bucket 1.
-    for (uint256 i = 1; i <= SMALL_RING_SIZE + 1; i++) {
+    // One bucket per L1 block; after MIN_BUCKET_RING_SIZE + 1 buckets the ring has wrapped past bucket 1.
+    for (uint256 i = 1; i <= MIN_BUCKET_RING_SIZE + 1; i++) {
       vm.roll(block.number + 1);
       vm.warp(block.timestamp + 12);
-      _send(smallRingInbox, i);
+      _send(ringInbox, i);
     }
 
-    uint256 current = smallRingInbox.getCurrentBucketSeq();
-    assertEq(current, SMALL_RING_SIZE + 1, "one bucket per block");
+    uint256 current = ringInbox.getCurrentBucketSeq();
+    assertEq(current, MIN_BUCKET_RING_SIZE + 1, "one bucket per block");
 
-    // Buckets 0 and 1 have been overwritten (their ring slots were reused by buckets 4 and 5).
+    // Buckets 0 and 1 have been overwritten: their ring slots were reused by buckets
+    // MIN_BUCKET_RING_SIZE and MIN_BUCKET_RING_SIZE + 1.
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 0, current));
-    smallRingInbox.getBucket(0);
+    ringInbox.getBucket(0);
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 1, current));
-    smallRingInbox.getBucket(1);
+    ringInbox.getBucket(1);
 
     // The live window is intact, with per-bucket data at the right ring slots.
     uint64 previousTimestamp = 0;
-    for (uint256 seq = current - SMALL_RING_SIZE + 1; seq <= current; seq++) {
-      IInbox.InboxBucket memory bucket = smallRingInbox.getBucket(seq);
+    for (uint256 seq = current - MIN_BUCKET_RING_SIZE + 1; seq <= current; seq++) {
+      IInbox.InboxBucket memory bucket = ringInbox.getBucket(seq);
       assertEq(bucket.totalMsgCount, seq, "cumulative total");
       assertEq(bucket.msgCount, 1, "one message per bucket");
       assertGt(bucket.timestamp, previousTimestamp, "timestamps increase per bucket");
       previousTimestamp = bucket.timestamp;
     }
-    assertEq(smallRingInbox.getBucket(current).rollingHash, expectedRollingHash, "chain matches reference");
+    assertEq(ringInbox.getBucket(current).rollingHash, expectedRollingHash, "chain matches reference");
 
     // Buckets ahead of the current one do not exist yet.
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, current + 1, current));
-    smallRingInbox.getBucket(current + 1);
+    ringInbox.getBucket(current + 1);
+  }
+
+  function testConstructorRevertsBelowRingFloor() public {
+    IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
+    vm.expectRevert("BUCKET RING TOO SMALL");
+    new InboxHarness(address(this), feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG, MIN_BUCKET_RING_SIZE - 1);
   }
 
   // Gas cost of a message absorbed into an already-open bucket (the common per-message case): the
