@@ -705,7 +705,6 @@ describe('ProverNode', () => {
    */
   function setupRegistrationSuccess() {
     worldState.syncImmediate.mockResolvedValue(undefined as any);
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     l2BlockSource.getBlockData.mockResolvedValue({
       header: { lastArchive: { root: Fr.ZERO }, state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 0 } } },
     } as any);

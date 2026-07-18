@@ -241,7 +241,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.nodePublicCallsSimulator = new NodePublicCallsSimulator({
       blockSource: this.blockSource,
       worldStateSynchronizer: this.worldStateSynchronizer,
-      l1ToL2MessageSource: this.l1ToL2MessageSource,
       contractDataSource: this.contractDataSource,
       globalVariableBuilder: this.globalVariableBuilder,
       rollupContract: this.rollupContract,

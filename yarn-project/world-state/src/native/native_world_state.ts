@@ -266,7 +266,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     // Any block may carry an L1-to-L2 message bundle and transition the L1-to-L2 message tree by its real (unpadded,
     // compact) leaves, matching how the circuits build the tree.
-    const paddedL1ToL2Messages = l1ToL2Messages;
 
     // We have to pad the note hashes and nullifiers within tx effects because that's how the trees are built by
     // circuits.
@@ -294,7 +293,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         // Forwarded so the native sync verifies the archive root against canonical and rejects a divergent tree.
         expectedArchiveRoot: l2Block.archive.root.toBuffer(),
         expectedPreviousArchiveRoot: l2Block.header.lastArchive.root.toBuffer(),
-        paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+        paddedL1ToL2Messages: l1ToL2Messages.map(serializeLeaf),
         paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
         paddedNullifiers: paddedNullifiers.map(serializeLeaf),
         publicDataWrites: publicDataWrites.map(serializeLeaf),

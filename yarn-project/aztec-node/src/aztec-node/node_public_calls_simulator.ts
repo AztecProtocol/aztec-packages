@@ -1,4 +1,3 @@
-import { L1ToL2MessagesNotReadyError } from '@aztec/archiver';
 import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import {
@@ -8,12 +7,10 @@ import {
 } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { isErrorClass } from '@aztec/foundation/types';
 import { type AvmSimulator, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -21,7 +18,6 @@ import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
 import { type ProposedCheckpointData, buildCheckpointSimulationOverridesPlan } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import {
   type GlobalVariableBuilder,
@@ -46,7 +42,6 @@ export interface NodePublicCallsSimulatorConfig {
 export interface NodePublicCallsSimulatorDeps {
   blockSource: L2BlockSource;
   worldStateSynchronizer: WorldStateSynchronizer;
-  l1ToL2MessageSource: L1ToL2MessageSource;
   contractDataSource: ContractDataSource;
   globalVariableBuilder: GlobalVariableBuilder;
   /**
@@ -87,7 +82,6 @@ export interface NodePublicCallsSimulatorDeps {
 export class NodePublicCallsSimulator {
   private readonly blockSource: L2BlockSource;
   private readonly worldStateSynchronizer: WorldStateSynchronizer;
-  private readonly l1ToL2MessageSource: L1ToL2MessageSource;
   private readonly contractDataSource: ContractDataSource;
   private readonly globalVariableBuilder: GlobalVariableBuilder;
   private readonly rollupContract: RollupContract | undefined;
@@ -101,7 +95,6 @@ export class NodePublicCallsSimulator {
   constructor(deps: NodePublicCallsSimulatorDeps) {
     this.blockSource = deps.blockSource;
     this.worldStateSynchronizer = deps.worldStateSynchronizer;
-    this.l1ToL2MessageSource = deps.l1ToL2MessageSource;
     this.contractDataSource = deps.contractDataSource;
     this.globalVariableBuilder = deps.globalVariableBuilder;
     this.rollupContract = deps.rollupContract;
@@ -157,9 +150,7 @@ export class NodePublicCallsSimulator {
     // the proposed-checkpoint terminating block; it opens a new checkpoint when they coincide.
     const atCheckpointBoundary = proposedCheckpointLastBlock === l2Tips.proposed.number;
 
-    // `targetCheckpoint` is the checkpoint whose L1-to-L2 messages must be inserted into the fork
-    // before simulation. Only set when opening a new checkpoint, where the next block is its first block.
-    const { globalVariables: newGlobalVariables, targetCheckpoint } = atCheckpointBoundary
+    const { globalVariables: newGlobalVariables } = atCheckpointBoundary
       ? await this.buildGlobalVariablesForNewCheckpoint(l2Tips, proposedCheckpointData, blockNumber)
       : { globalVariables: await this.copyGlobalVariablesFromLatestProposedBlock(latestBlockNumber, blockNumber) };
 
@@ -184,18 +175,11 @@ export class NodePublicCallsSimulator {
     // Ensure world-state has caught up with the latest block we loaded from the archiver
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
 
-    const nextCheckpointMessages = await this.getNextCheckpointMessages(targetCheckpoint);
-
-    // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
+    // Request a new fork of the world state at the latest block number, and apply any overrides to it before
+    // simulation. The next checkpoint's L1-to-L2 messages are not inserted here: under the streaming Inbox
+    // (AZIP-22 Fast Inbox) a checkpoint's messages are consumed per block, so the simulation runs against the
+    // fork's current tree without predicting the next block's message bundle.
     await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
-
-    if (nextCheckpointMessages !== undefined) {
-      this.log.debug(
-        `Appending ${nextCheckpointMessages.length} L1-to-L2 messages to the world state tree for the next checkpoint`,
-        { checkpointNumber: targetCheckpoint },
-      );
-      await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
-    }
 
     await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
 
@@ -236,37 +220,6 @@ export class NodePublicCallsSimulator {
   }
 
   /**
-   * Fetches the next checkpoint's L1-to-L2 messages to insert into the fork before simulation. Only set
-   * when opening a new checkpoint; when continuing an in-progress checkpoint the ongoing checkpoint's
-   * messages were already applied when its first block synced, so inserting here would double-count them
-   * — which is why a missing header for the latest proposed block throws rather than falling through to
-   * this path. A not-ready or failed fetch degrades to simulating without the messages rather than
-   * failing the request.
-   */
-  private async getNextCheckpointMessages(targetCheckpoint: CheckpointNumber | undefined): Promise<Fr[] | undefined> {
-    if (targetCheckpoint === undefined) {
-      return undefined;
-    }
-    try {
-      return await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint);
-    } catch (err) {
-      if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
-        this.log.warn(
-          `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
-          { checkpointNumber: targetCheckpoint },
-        );
-      } else {
-        this.log.error(
-          `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
-          err,
-          { checkpointNumber: targetCheckpoint },
-        );
-      }
-      return undefined;
-    }
-  }
-
-  /**
    * Continues an in-progress checkpoint: the next block extends the checkpoint the latest proposed
    * block belongs to. Every block in a checkpoint shares the same `CheckpointGlobalVariables`, so the
    * next block's globals are the latest proposed block's globals with only the block number bumped —
@@ -298,19 +251,14 @@ export class NodePublicCallsSimulator {
    * sequencer applies so the simulated mana min fee matches what the sequencer will write into the
    * block header. Coinbase and fee recipient stay zero (we cannot know the future proposer's payout
    * addresses), unlike continuing an in-progress checkpoint which inherits the real ones from the
-   * proposed header. Returns the target checkpoint so the caller inserts that checkpoint's L1-to-L2
-   * messages into the fork.
+   * proposed header.
    */
   private async buildGlobalVariablesForNewCheckpoint(
     l2Tips: L2Tips,
     proposedCheckpointData: ProposedCheckpointData | undefined,
     blockNumber: BlockNumber,
-  ): Promise<{ globalVariables: GlobalVariables; targetCheckpoint: CheckpointNumber }> {
+  ): Promise<{ globalVariables: GlobalVariables }> {
     const checkpointedCheckpointNumber = l2Tips.checkpointed.checkpoint.number;
-    // The new checkpoint sits on top of the proposed one when pipelining, otherwise on the
-    // checkpointed tip. The target slot and the overrides plan both derive from the single
-    // `proposedCheckpointData` read, so they cannot disagree about the proposed parent.
-    const proposedCheckpointNumber = proposedCheckpointData?.checkpointNumber ?? checkpointedCheckpointNumber;
 
     const targetSlot = this.computeTargetSlot(proposedCheckpointData);
     const plan = await this.buildSimulationOverridesPlan(proposedCheckpointData, checkpointedCheckpointNumber);
@@ -324,7 +272,6 @@ export class NodePublicCallsSimulator {
 
     return {
       globalVariables: GlobalVariables.from({ blockNumber, ...checkpointGlobalVariables }),
-      targetCheckpoint: CheckpointNumber(proposedCheckpointNumber + 1),
     };
   }
 

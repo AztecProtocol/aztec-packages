@@ -1,4 +1,3 @@
-import { L1ToL2MessagesNotReadyError } from '@aztec/archiver';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
 import {
@@ -26,10 +25,9 @@ import type { ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
-import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   type CheckpointGlobalVariables,
@@ -50,7 +48,6 @@ const ROLLUP_ADDRESS = EthAddress.random();
 describe('NodePublicCallsSimulator', () => {
   let blockSource: MockProxy<L2BlockSource>;
   let worldStateSynchronizer: MockProxy<WorldStateSynchronizer>;
-  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let rollupContract: MockProxy<RollupContract>;
@@ -127,7 +124,6 @@ describe('NodePublicCallsSimulator', () => {
 
     blockSource = mock<L2BlockSource>();
     worldStateSynchronizer = mock<WorldStateSynchronizer>();
-    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     rollupContract = mock<RollupContract>();
@@ -140,7 +136,6 @@ describe('NodePublicCallsSimulator', () => {
     (merkleTreeFork as unknown as { [Symbol.asyncDispose]: () => Promise<void> })[Symbol.asyncDispose] = () =>
       Promise.resolve();
     worldStateSynchronizer.fork.mockResolvedValue(merkleTreeFork);
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     blockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
     blockSource.getProposedCheckpointData.mockResolvedValue(undefined);
 
@@ -168,7 +163,6 @@ describe('NodePublicCallsSimulator', () => {
     simulator = new NodePublicCallsSimulator({
       blockSource,
       worldStateSynchronizer,
-      l1ToL2MessageSource,
       contractDataSource,
       globalVariableBuilder,
       rollupContract,
@@ -232,7 +226,6 @@ describe('NodePublicCallsSimulator', () => {
 
       await simulator.simulate(tx);
 
-      expect(l1ToL2MessageSource.getL1ToL2Messages).not.toHaveBeenCalled();
       expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
     });
 
@@ -245,8 +238,7 @@ describe('NodePublicCallsSimulator', () => {
 
       await expect(simulator.simulate(tx)).rejects.toThrow();
 
-      // Must not treat the next block as opening a new checkpoint and re-insert the ongoing checkpoint's messages.
-      expect(l1ToL2MessageSource.getL1ToL2Messages).not.toHaveBeenCalled();
+      // Must not treat the next block as opening a new checkpoint.
       expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
       expect(globalVariableBuilder.buildCheckpointGlobalVariables).not.toHaveBeenCalled();
     });
@@ -281,35 +273,17 @@ describe('NodePublicCallsSimulator', () => {
       expect(plan?.chainTipsOverride).toEqual({ pending: CheckpointNumber(1), proven: CheckpointNumber(1) });
     });
 
-    it('inserts L1-to-L2 messages for the next checkpoint', async () => {
-      const tx = await lowGasTx();
-      const messages = [Fr.fromString('0x1234'), Fr.fromString('0x5678')];
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary());
-      blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
-        Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(5)) : undefined),
-      );
-      mockNextL1Slot(SlotNumber(20));
-      l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(messages);
-
-      await simulator.simulate(tx);
-
-      // targetCheckpoint = proposedCheckpoint.number + 1
-      expect(l1ToL2MessageSource.getL1ToL2Messages).toHaveBeenCalledWith(CheckpointNumber(2));
-      const [treeId, appended] = merkleTreeFork.appendLeaves.mock.calls[0];
-      expect(treeId).toEqual(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
-      expect(appended.slice(0, 2)).toEqual(messages);
-    });
-
-    it('tolerates L1ToL2MessagesNotReadyError and simulates without messages', async () => {
+    it('does not insert L1-to-L2 messages when opening a new checkpoint', async () => {
       const tx = await lowGasTx();
       blockSource.getL2Tips.mockResolvedValue(setupBoundary());
       blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
         Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(5)) : undefined),
       );
       mockNextL1Slot(SlotNumber(20));
-      l1ToL2MessageSource.getL1ToL2Messages.mockRejectedValue(new L1ToL2MessagesNotReadyError(CheckpointNumber(2), 0n));
 
       await expect(simulator.simulate(tx)).resolves.toBeDefined();
+
+      // Streaming Inbox: the next checkpoint's messages are consumed per block, so none are appended here.
       expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
     });
 
@@ -408,7 +382,6 @@ describe('NodePublicCallsSimulator', () => {
       new NodePublicCallsSimulator({
         blockSource,
         worldStateSynchronizer,
-        l1ToL2MessageSource,
         contractDataSource,
         globalVariableBuilder,
         epochCache,
