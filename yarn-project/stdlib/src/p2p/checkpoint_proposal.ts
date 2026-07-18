@@ -150,7 +150,6 @@ export class CheckpointProposal extends Gossipable implements Signable {
     return new BlockProposal(
       this.lastBlock.blockHeader,
       this.lastBlock.indexWithinCheckpoint,
-      Fr.ZERO,
       this.archive,
       this.lastBlock.txHashes,
       this.lastBlock.signature,

@@ -542,7 +542,6 @@ export interface MakeBlockProposalOptions {
   signer?: Secp256k1Signer;
   blockHeader?: BlockHeader;
   indexWithinCheckpoint?: IndexWithinCheckpoint;
-  inHash?: Fr;
   archiveRoot?: Fr;
   txHashes?: TxHash[];
   txs?: Tx[];
@@ -595,7 +594,6 @@ export const makeAndSignCommitteeAttestationsAndSigners = (
 export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<BlockProposal> => {
   const blockHeader = options?.blockHeader ?? makeBlockHeader(1);
   const indexWithinCheckpoint = options?.indexWithinCheckpoint ?? IndexWithinCheckpoint(0);
-  const inHash = options?.inHash ?? Fr.random();
   const archiveRoot = options?.archiveRoot ?? Fr.random();
   const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
   const txs = options?.txs;
@@ -607,7 +605,6 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
     blockHeader,
     CheckpointNumber(1),
     indexWithinCheckpoint,
-    inHash,
     archiveRoot,
     txHashes,
     txs,
@@ -630,7 +627,6 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
     ? await makeBlockProposal({
         blockHeader: options.lastBlock.blockHeader,
         indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4),
-        inHash: Fr.ZERO,
         archiveRoot,
         txHashes: options.lastBlock.txHashes,
         txs: options.lastBlock.txs,

@@ -1,6 +1,4 @@
-import { INITIAL_CHECKPOINT_NUMBER, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -21,24 +19,5 @@ export class InboxLeaf {
     const index = toBigIntBE(reader.readBytes(32));
     const leaf = reader.readObject(Fr);
     return new InboxLeaf(index, leaf);
-  }
-
-  static smallestIndexForCheckpoint(checkpointNumber: CheckpointNumber): bigint {
-    return BigInt(checkpointNumber - INITIAL_CHECKPOINT_NUMBER) * BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
-  }
-
-  /**
-   * Returns the range of valid indices for a given checkpoint.
-   * Start index is inclusive, end index is exclusive.
-   */
-  static indexRangeForCheckpoint(checkpointNumber: CheckpointNumber): [bigint, bigint] {
-    const start = this.smallestIndexForCheckpoint(checkpointNumber);
-    const end = start + BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
-    return [start, end];
-  }
-
-  /** Returns the checkpoint number for a given leaf index */
-  static checkpointNumberFromIndex(index: bigint): CheckpointNumber {
-    return CheckpointNumber(Number(index / BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT)) + INITIAL_CHECKPOINT_NUMBER);
   }
 }

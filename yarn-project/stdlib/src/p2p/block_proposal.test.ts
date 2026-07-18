@@ -23,7 +23,6 @@ const makeLegacyFixtureProposal = () =>
   new BlockProposal(
     BlockHeader.empty(),
     IndexWithinCheckpoint(3),
-    new Fr(42n),
     new Fr(99n),
     [TxHash.fromField(new Fr(7n)), TxHash.fromField(new Fr(8n))],
     Signature.empty(),
@@ -105,7 +104,6 @@ describe('Block Proposal serialization / deserialization', () => {
     const tampered = new BlockProposal(
       proposal.blockHeader,
       proposal.indexWithinCheckpoint,
-      proposal.inHash,
       proposal.archiveRoot,
       proposal.txHashes,
       proposal.signature,
@@ -161,7 +159,6 @@ describe('Block Proposal serialization / deserialization', () => {
       const withoutRef = await makeBlockProposal({
         blockHeader: withRef.blockHeader,
         indexWithinCheckpoint: withRef.indexWithinCheckpoint,
-        inHash: withRef.inHash,
         archiveRoot: withRef.archiveRoot,
         txHashes: withRef.txHashes,
       });
@@ -195,7 +192,6 @@ describe('Block Proposal serialization / deserialization', () => {
       const tampered = new BlockProposal(
         proposal.blockHeader,
         proposal.indexWithinCheckpoint,
-        proposal.inHash,
         proposal.archiveRoot,
         proposal.txHashes,
         proposal.signature,
@@ -215,7 +211,6 @@ describe('Block Proposal serialization / deserialization', () => {
       const injected = new BlockProposal(
         proposal.blockHeader,
         proposal.indexWithinCheckpoint,
-        proposal.inHash,
         proposal.archiveRoot,
         proposal.txHashes,
         proposal.signature,
