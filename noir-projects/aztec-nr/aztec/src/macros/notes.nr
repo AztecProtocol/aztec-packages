@@ -1,5 +1,4 @@
-use crate::note::note_getter_options::PropertySelector;
-use std::{collections::bounded_vec::BoundedVec, meta::type_of};
+use std::collections::bounded_vec::BoundedVec;
 
 /// Maximum number of note types within 1 contract.
 comptime global MAX_NOTE_TYPES: u32 = 128;
@@ -113,43 +112,66 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
 
 /// Generates note properties struct for a given note struct `s`.
 ///
-/// Example:
+/// Each selector's `index` is the field's offset in the note's packed representation, assuming the field-by-field
+/// layout of `#[derive(Packable)]`.
+///
+/// Example, for a note whose first field packs to two fields (`Point` packs to `[x, y]`), placing the fields after
+/// it at packed indices 2 and 3:
 /// ```
-/// struct TokenNoteProperties {
-///     amount: aztec::note::note_getter_options::PropertySelector,
-///     npk_m_hash: aztec::note::note_getter_options::PropertySelector
-///     randomness: aztec::note::note_getter_options::PropertySelector
+/// struct OwnedNoteProperties {
+///     owner_pubkey: aztec::note::note_getter_options::PropertySelector<Point>,
+///     value: aztec::note::note_getter_options::PropertySelector<Field>,
+///     randomness: aztec::note::note_getter_options::PropertySelector<Field>
 /// }
 ///
-/// impl aztec::note::note_interface::NoteProperties<TokenNoteProperties> for TokenNote {
-///     fn properties() -> TokenNoteProperties {
-///         Self {
-///             amount: aztec::note::note_getter_options::PropertySelector { index: 0, offset: 0, length: 32 },
-///             npk_m_hash: aztec::note::note_getter_options::PropertySelector { index: 1, offset: 0, length: 32 },
-///             randomness: aztec::note::note_getter_options::PropertySelector { index: 2, offset: 0, length: 32 }
+/// impl aztec::note::note_interface::NoteProperties<OwnedNoteProperties> for OwnedNote {
+///     fn properties() -> OwnedNoteProperties {
+///         OwnedNoteProperties {
+///             owner_pubkey: aztec::note::note_getter_options::PropertySelector { index: 0, offset: 0, length: 32 },
+///             value: aztec::note::note_getter_options::PropertySelector { index: 2, offset: 0, length: 32 },
+///             randomness: aztec::note::note_getter_options::PropertySelector { index: 3, offset: 0, length: 32 }
 ///         }
 ///     }
 /// }
 /// ```
+///
+/// WARNING: a hand-written `Packable` implementation can lay fields out differently, making that assumption wrong.
+/// `properties()` statically asserts that the note's packed length equals the sum of its field packed lengths, which
+/// rejects most custom layouts. However, a custom layout that packs to the same total length but re-orders the fields
+/// is not detectable: its generated selectors point at the wrong packed fields.
 comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     let name = s.name();
+    let typ = s.as_type();
+    let note_type_name = f"{name}".as_quoted_str!();
 
     let struct_name = f"{name}Properties".quoted_contents();
 
-    let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
-
     let note_fields = s.fields_as_written();
 
-    let properties_types = note_fields.map(|(name, _, _)| quote { pub $name: $property_selector_type }).join(quote {,});
+    let properties_types = note_fields
+        .map(|(name, typ, _)| quote { pub $name: aztec::note::note_getter_options::PropertySelector<$typ> })
+        .join(quote {,});
 
-    // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
     let mut properties_list = @[];
+    // The packed offset of the field being processed, i.e. the sum of the packed lengths of all preceding fields.
+    let mut accumulated_offset = quote { 0 };
     for i in 0..note_fields.len() {
-        let (name, _, _) = note_fields[i];
-        let i = i as u8;
+        let (name, field_type, _) = note_fields[i];
         properties_list = properties_list.push_back(
-            quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } },
+            quote {
+                $name: aztec::note::note_getter_options::PropertySelector {
+                    index: ($accumulated_offset) as u8,
+                    offset: 0,
+                    length: 32,
+                }
+            },
         );
+        // If a "No matching impl found for `<type>: Packable`" error points here, a note struct has a field whose
+        // type does not implement Packable. Every note field type must, even when the note's own Packable
+        // implementation is hand-written, because the note's auto-generated property selectors locate each field by
+        // its packed offset. Derive or implement Packable on the field's type, or, when the type belongs to another
+        // crate (implementing Packable for it there is not possible), wrap it in a local struct that implements it.
+        accumulated_offset = quote { $accumulated_offset + <$field_type as aztec::protocol::traits::Packable>::N };
     }
 
     let properties = properties_list.join(quote {,});
@@ -161,6 +183,14 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
 
         impl aztec::note::note_interface::NoteProperties<$struct_name> for $name {
             fn properties() -> $struct_name {
+                let note_type_name = $note_type_name;
+                let fields_packed_len: u32 = $accumulated_offset;
+                let note_packed_len: u32 = <$typ as aztec::protocol::traits::Packable>::N;
+                std::static_assert(
+                    fields_packed_len == note_packed_len,
+                    f"{note_type_name}'s auto-generated note properties assume the #[derive(Packable)] layout ({fields_packed_len} fields), but its hand-written Packable packs to {note_packed_len}. Derive Packable, or define property selectors manually for the custom layout. See https://docs.aztec.network/errors/15",
+                );
+
                 $struct_name {
                     $properties
                 }
