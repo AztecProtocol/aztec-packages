@@ -76,7 +76,11 @@ import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
-import { type InboxBucketSelection, selectInboxBucketForBlock } from './inbox_bucket_selector.js';
+import {
+  type ConsumedBucketCursor,
+  type InboxBucketSelection,
+  selectInboxBucketForBlock,
+} from './inbox_bucket_selector.js';
 import type { SequencerMetrics } from './metrics.js';
 import type { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
@@ -108,7 +112,7 @@ type StreamingCheckpointState = {
   /** Cumulative Inbox message count consumed as of the parent checkpoint; the per-checkpoint cap origin (fixed). */
   checkpointStartTotalMsgCount: bigint;
   /** The last bucket consumed so far (parent checkpoint's at the first block); advances as blocks consume. */
-  parent: { seq: bigint; totalMsgCount: bigint };
+  parent: ConsumedBucketCursor;
   /** Reference to the last consumed bucket; reused by blocks that consume nothing. */
   lastBucketRef: InboxBucketRef;
   /** All message leaves consumed so far this checkpoint, in insertion order; drives the running `inHash`. */
