@@ -544,23 +544,29 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
-    Acir::Circuit circuit = make_circuit({
-        Acir::Opcode{ .value = Acir::Opcode::AssertZero{
-                          .value = Acir::Expression{
-                              .linear_combinations =
-                                  {
-                                      { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
-                                  },
-                              .q_c = bb::fr::zero().to_buffer(),
-                          } } },
-    });
+    auto linked_pair = [](uint32_t lhs, uint32_t rhs) {
+        return Acir::Opcode{ .value = Acir::Opcode::AssertZero{
+                                 .value = Acir::Expression{
+                                     .linear_combinations =
+                                         {
+                                             { bb::fr::one().to_buffer(), make_witness(lhs) },
+                                             { bb::fr(-1).to_buffer(), make_witness(rhs) },
+                                         },
+                                     .q_c = bb::fr::zero().to_buffer(),
+                                 } } };
+    };
 
-    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
+    // Build the circuit from the first pair only, so witnesses 100/101 never become circuit
+    // variables. Checking the wider ACIR circuit against that builder exercises the "ACIR witness
+    // has no circuit variable" path, which is what the checker must report as UNCONSTRAINED.
+    // Truncating builder.real_variable_index instead would leave gates referencing variable indices
+    // past its end, and the static analyzer reads those out of bounds.
+    auto constraints =
+        circuit_serde_to_acir_format(make_circuit({ linked_pair(0, 1) }), IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
+
+    Acir::Circuit circuit = make_circuit({ linked_pair(0, 1), linked_pair(100, 101) });
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
