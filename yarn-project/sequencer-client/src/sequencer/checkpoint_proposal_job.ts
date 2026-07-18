@@ -52,7 +52,12 @@ import {
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import { InboxBucketRef, type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import {
+  InboxBucketRef,
+  type L1ToL2MessageSource,
+  computeInHashFromL1ToL2Messages,
+  getInboxCutoffTimestamp,
+} from '@aztec/stdlib/messaging';
 import type {
   BlockProposal,
   BlockProposalOptions,
@@ -1127,9 +1132,7 @@ export class CheckpointProposalJob implements Traceable {
     isLastBlock: boolean,
     nowSeconds: number,
   ): Promise<InboxBucketSelection> {
-    // Mirror ProposeLib's cutoff exactly: buildFrameStart = toTimestamp(slot - 1), cutoff = buildFrameStart - lag.
-    const buildFrameStart = getTimestampForSlot(SlotNumber(this.targetSlot - 1), this.l1Constants);
-    const cutoffTimestamp = buildFrameStart - BigInt(INBOX_LAG_SECONDS);
+    const cutoffTimestamp = getInboxCutoffTimestamp(this.targetSlot, this.l1Constants, INBOX_LAG_SECONDS);
     return selectInboxBucketForBlock({
       messageSource: this.l1ToL2MessageSource,
       now: BigInt(Math.floor(nowSeconds)),
