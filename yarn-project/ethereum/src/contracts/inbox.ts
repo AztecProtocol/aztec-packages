@@ -1,6 +1,5 @@
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -19,11 +18,11 @@ import { checkBlockTag } from './utils.js';
 export type MessageSentArgs = {
   index: bigint;
   leaf: Fr;
-  checkpointNumber: CheckpointNumber;
+  /** Legacy 128-bit keccak rolling hash of all messages inserted up to and including this one. */
   rollingHash: Buffer16;
-  /** Consensus rolling hash (truncated sha256 chain) after this message (AZIP-22 Fast Inbox). Not yet consumed by the node. */
+  /** Consensus rolling hash (truncated sha256 chain) after this message (AZIP-22 Fast Inbox). */
   inboxRollingHash: Fr;
-  /** Sequence number of the Inbox bucket this message was absorbed into (AZIP-22 Fast Inbox). Not yet consumed by the node. */
+  /** Sequence number of the Inbox bucket this message was absorbed into (AZIP-22 Fast Inbox). */
   bucketSeq: bigint;
 };
 
@@ -68,18 +67,12 @@ export class InboxContract {
     return this.inbox;
   }
 
-  public async getLag(opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<bigint> {
-    await checkBlockTag(opts.blockNumber, this.client);
-    return await this.inbox.read.LAG(opts);
-  }
-
   public async getState(opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<InboxContractState> {
     await checkBlockTag(opts.blockNumber, this.client);
     const state = await this.inbox.read.getState(opts);
     return {
       totalMessagesInserted: state.totalMessagesInserted,
       messagesRollingHash: Buffer16.fromString(state.rollingHash),
-      treeInProgress: state.inProgress,
     };
   }
 
@@ -135,7 +128,6 @@ export class InboxContract {
       args: {
         index?: bigint;
         hash?: `0x${string}`;
-        checkpointNumber?: bigint;
         rollingHash?: `0x${string}`;
         inboxRollingHash?: `0x${string}`;
         bucketSeq?: bigint;
@@ -151,7 +143,6 @@ export class InboxContract {
       args: {
         index: log.args.index!,
         leaf: Fr.fromString(log.args.hash!),
-        checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber!),
         rollingHash: Buffer16.fromString(log.args.rollingHash!),
         inboxRollingHash: Fr.fromString(log.args.inboxRollingHash!),
         bucketSeq: log.args.bucketSeq!,
@@ -163,5 +154,9 @@ export class InboxContract {
 export type InboxContractState = {
   totalMessagesInserted: bigint;
   messagesRollingHash: Buffer16;
-  treeInProgress: bigint;
+  /**
+   * Checkpoint currently accumulating messages, when known. No longer tracked on-chain post-flip (AZIP-22 Fast
+   * Inbox); used only by the legacy per-checkpoint message-readiness gate.
+   */
+  treeInProgress?: bigint;
 };
