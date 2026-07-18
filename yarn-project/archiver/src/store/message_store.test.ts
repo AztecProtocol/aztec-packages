@@ -439,6 +439,8 @@ describe('MessageStore', () => {
       expect(await messageStore.getL1ToL2MessagesBetweenBuckets(3n, 3n)).toEqual([]);
       // Unknown upper bucket yields no messages.
       expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 9n)).toEqual([]);
+      // An unknown nonzero lower bucket is treated as unavailable, not as genesis.
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(4n, 3n)).toEqual([]);
     });
 
     it('rewinds buckets when messages are removed', async () => {

@@ -433,8 +433,17 @@ export class MessageStore {
     if (toBucket === undefined) {
       return [];
     }
-    const fromBucket = fromExclusive > 0n ? await this.getBucketSnapshotBySeq(fromExclusive) : undefined;
-    const startIndex = fromBucket ? fromBucket.lastMessageIndex + 1n : 0n;
+    // A nonzero lower bound must reference a synced bucket; otherwise the range is unavailable (rather than
+    // defaulting to genesis, which would silently over-return). Sequence 0 is the genesis base case: start from
+    // the beginning of the Inbox.
+    let startIndex = 0n;
+    if (fromExclusive > 0n) {
+      const fromBucket = await this.getBucketSnapshotBySeq(fromExclusive);
+      if (fromBucket === undefined) {
+        return [];
+      }
+      startIndex = fromBucket.lastMessageIndex + 1n;
+    }
     const endIndexExclusive = toBucket.lastMessageIndex + 1n;
 
     const leaves: Fr[] = [];

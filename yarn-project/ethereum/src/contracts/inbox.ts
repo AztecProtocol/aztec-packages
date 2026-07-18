@@ -1,3 +1,4 @@
+import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
@@ -108,16 +109,19 @@ export class InboxContract {
     return this.mapMessageSentLog(log, timestamp);
   }
 
-  /** Fetches the timestamp of each distinct L1 block number, so each MessageSent log can carry its bucket key. */
+  /**
+   * Fetches the timestamp of each distinct L1 block number, so each MessageSent log can carry its bucket key.
+   * Fetched with bounded concurrency to keep a large sync batch from fanning out unbounded RPC requests. Blocks
+   * are resolved by number rather than hash so a concurrent L1 reorg does not throw; a resulting cross-fork
+   * timestamp is transient and re-corrected by the archiver's rolling-hash reorg detection on the next sync.
+   */
   private async getBlockTimestamps(blockNumbers: bigint[]): Promise<Map<bigint, bigint>> {
     const uniqueBlockNumbers = [...new Set(blockNumbers)];
     const timestamps = new Map<bigint, bigint>();
-    await Promise.all(
-      uniqueBlockNumbers.map(async blockNumber => {
-        const block = await this.client.getBlock({ blockNumber, includeTransactions: false });
-        timestamps.set(blockNumber, block.timestamp);
-      }),
-    );
+    await asyncPool(10, uniqueBlockNumbers, async blockNumber => {
+      const block = await this.client.getBlock({ blockNumber, includeTransactions: false });
+      timestamps.set(blockNumber, block.timestamp);
+    });
     return timestamps;
   }
 
