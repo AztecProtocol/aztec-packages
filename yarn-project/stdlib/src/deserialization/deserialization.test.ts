@@ -1,7 +1,6 @@
 import {
   NUM_BLOCK_END_BLOB_FIELDS,
   NUM_CHECKPOINT_END_MARKER_FIELDS,
-  NUM_FIRST_BLOCK_END_BLOB_FIELDS,
   getNumTxBlobFields,
 } from '@aztec/blob-lib/encoding';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
@@ -23,13 +22,14 @@ describe('MAX_CAPACITY_BLOCKS_PER_CHECKPOINT', () => {
   });
 
   // Largest checkpoint that fits in the blob budget with the most compact construction:
-  // one (possibly empty) first block + (N - 1) single-nullifier blocks + a checkpoint-end marker.
+  // one (possibly empty) first block + (N - 1) single-nullifier blocks + a checkpoint-end marker. Every block
+  // spends the same block-end overhead (including the per-block l1-to-l2 root) post-flip (AZIP-22 Fast Inbox).
   // This is the real ceiling the proving system / L1 enforce — there is no explicit block-count cap.
   const blobBudget = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB;
   const maxBlocksThatFitInBlobs =
     1 +
     Math.floor(
-      (blobBudget - NUM_CHECKPOINT_END_MARKER_FIELDS - NUM_FIRST_BLOCK_END_BLOB_FIELDS) /
+      (blobBudget - NUM_CHECKPOINT_END_MARKER_FIELDS - NUM_BLOCK_END_BLOB_FIELDS) /
         (NUM_BLOCK_END_BLOB_FIELDS + MIN_TX_BLOB_FIELDS),
     );
 
@@ -42,7 +42,7 @@ describe('MAX_CAPACITY_BLOCKS_PER_CHECKPOINT', () => {
   it('matches the documented ceiling for the current blob constants', () => {
     // Pins the arithmetic so a change to BLOBS_PER_CHECKPOINT / FIELDS_PER_BLOB / block-field counts
     // is noticed and the constant + its comment get revisited.
-    expect(maxBlocksThatFitInBlobs).toBe(2457);
-    expect(MAX_CAPACITY_BLOCKS_PER_CHECKPOINT).toBe(2457);
+    expect(maxBlocksThatFitInBlobs).toBe(2234);
+    expect(MAX_CAPACITY_BLOCKS_PER_CHECKPOINT).toBe(2234);
   });
 });

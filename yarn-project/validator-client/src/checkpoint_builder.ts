@@ -204,8 +204,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     // Remaining blob fields (block blob fields include both tx data and block-end overhead)
     const usedBlobFields = sum(existingBlocks.map(b => b.toBlobFields().length));
     const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
-    const isFirstBlock = existingBlocks.length === 0;
-    const blockEndOverhead = getNumBlockEndBlobFields(isFirstBlock);
+    const blockEndOverhead = getNumBlockEndBlobFields();
     const maxBlobFieldsForTxs = totalBlobCapacity - usedBlobFields - blockEndOverhead;
 
     // Remaining txs

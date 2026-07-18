@@ -263,7 +263,8 @@ export class BlockProvingState {
       noteHashRoot: partial.noteHashTree.root,
       nullifierRoot: partial.nullifierTree.root,
       publicDataRoot: partial.publicDataTree.root,
-      l1ToL2MessageRoot: this.isFirstBlock ? this.newL1ToL2MessageTreeSnapshot.root : undefined,
+      // Every block carries its own post-bundle l1-to-l2 message tree root (AZIP-22 Fast Inbox).
+      l1ToL2MessageRoot: this.newL1ToL2MessageTreeSnapshot.root,
     };
   }
 
