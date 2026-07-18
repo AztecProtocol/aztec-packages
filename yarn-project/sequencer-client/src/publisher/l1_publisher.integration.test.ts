@@ -1,5 +1,4 @@
 import type { ArchiverDataSource } from '@aztec/archiver';
-import { MockL1ToL2MessageSource } from '@aztec/archiver/test';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
@@ -48,7 +47,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
@@ -87,7 +86,7 @@ import { NativeWorldStateService, ServerWorldStateSynchronizer, type WorldStateC
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type Address, encodeFunctionData, getAbiItem, getAddress, getContract, multicall3Abi } from 'viem';
+import { type Address, encodeFunctionData, getAbiItem, getAddress, multicall3Abi } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -112,8 +111,7 @@ const logger = createLogger('integration_l1_publisher');
 // depending on @aztec/aztec-node, which would create a sequencer-client <-> aztec-node cycle.
 const config: SequencerClientConfig & L1ContractsConfig = { ...getL1ContractsConfigEnvVars(), ...getConfigEnvVars() };
 
-// Several consecutive checkpoints, each consuming the L1->L2 messages sent while it was being built, so real
-// messages are genuinely consumed and validated on L1 (AZIP-22 Fast Inbox).
+// Must exceed the inbox lag (network default 2) so at least one checkpoint consumes a real L1->L2 message.
 const numberOfConsecutiveBlocks = 3;
 
 jest.setTimeout(1000000);
@@ -139,11 +137,6 @@ describe('L1Publisher integration', () => {
   let publisher: SequencerPublisher;
 
   let builderDb: NativeWorldStateService;
-
-  // Backs the blockSource mock's streaming L1->L2 message queries. The world-state synchronizer reconstructs each
-  // block's consumed message bundle from Inbox buckets (AZIP-22 Fast Inbox) when it syncs a block back, so the test
-  // registers one bucket per published block here (see buildAndPublishBlock).
-  let messageSource: MockL1ToL2MessageSource;
 
   // The header of the last block
   let prevHeader: BlockHeader;
@@ -281,20 +274,6 @@ describe('L1Publisher integration', () => {
       checkpointNumber: CheckpointNumber.ZERO,
       indexWithinCheckpoint: IndexWithinCheckpoint(0),
     };
-    // Seed the genesis sentinel bucket (seq 0, no messages) so the world-state synchronizer can resolve a
-    // totalMsgCount of 0 to a bucket when reconstructing the first block's message bundle.
-    messageSource = new MockL1ToL2MessageSource(0);
-    messageSource.setInboxBucket(
-      {
-        seq: 0n,
-        inboxRollingHash: Fr.ZERO,
-        totalMsgCount: 0n,
-        timestamp: 0n,
-        msgCount: 0,
-        lastMessageIndex: 0n,
-      },
-      [],
-    );
     blockSource = mock<ArchiverDataSource>({
       getBlocks(query: BlocksQuery) {
         if (!('from' in query)) {
@@ -369,14 +348,6 @@ describe('L1Publisher integration', () => {
       },
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
-      },
-      // Streaming L1->L2 message reconstruction (AZIP-22 Fast Inbox): the world-state synchronizer resolves each
-      // block's consumed message bundle from the Inbox buckets registered per published block in buildAndPublishBlock.
-      getInboxBucketByTotalMsgCount(totalMsgCount: bigint) {
-        return messageSource.getInboxBucketByTotalMsgCount(totalMsgCount);
-      },
-      getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint) {
-        return messageSource.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
       },
     });
 
@@ -473,16 +444,13 @@ describe('L1Publisher integration', () => {
 
   /**
    * Build a checkpoint with a single block using the LightweightCheckpointBuilder.
-   * This properly computes all checkpoint header fields (blobsHash, blockHeadersHash, inHash, inboxRollingHash,
-   * epochOutHash, etc.). `previousInboxRollingHash` is the previous checkpoint's rolling hash (zero at genesis), so
-   * the header's `inboxRollingHash` continues the on-chain Inbox chain over `l1ToL2Messages`.
+   * This properly computes all checkpoint header fields (blobsHash, blockHeadersHash, inHash, epochOutHash, etc.)
    */
   const buildCheckpoint = async (
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[] = [],
-    previousInboxRollingHash: Fr = Fr.ZERO,
   ): Promise<Checkpoint> => {
     await worldStateSynchronizer.syncImmediate();
     const tempFork = await worldStateSynchronizer.fork(BlockNumber(globalVariables.blockNumber - 1));
@@ -503,7 +471,7 @@ describe('L1Publisher integration', () => {
       checkpointNumber,
       checkpointConstants,
       previousCheckpointOutHashes,
-      previousInboxRollingHash,
+      Fr.ZERO,
       tempFork,
     );
 
@@ -517,8 +485,7 @@ describe('L1Publisher integration', () => {
   const buildSingleCheckpoint = async (
     opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber; slot?: SlotNumber } = {},
   ) => {
-    // By default a single checkpoint consumes no Inbox messages (bucketHint 0 against the genesis bucket).
-    const l1ToL2Messages = opts.l1ToL2Messages ?? [];
+    const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).fill(Fr.ZERO);
 
     const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
     const ts = (await l1Client.getBlock()).timestamp;
@@ -535,6 +502,7 @@ describe('L1Publisher integration', () => {
       new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
     );
     const checkpoint = await buildCheckpoint(globalVariables, txs, l1ToL2Messages);
+    blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
     return { checkpoint, l1ToL2Messages };
   };
 
@@ -548,8 +516,10 @@ describe('L1Publisher integration', () => {
 
   describe('block building', () => {
     beforeEach(async () => {
-      // This suite proposes consecutive checkpoints, each consuming the streaming-Inbox messages sent while it was
-      // being built (AZIP-22 Fast Inbox), so real messages are genuinely consumed and validated on L1.
+      // This suite proposes consecutive checkpoints and models the inbox lag by hand (a checkpoint
+      // consumes the L1->L2 messages sent inboxLag checkpoints earlier -- see the shift register in
+      // buildAndPublishBlock). It inherits the network default lag and proposes enough checkpoints
+      // that a real message is actually consumed and validated on L1.
       await setup();
     });
 
@@ -564,18 +534,11 @@ describe('L1Publisher integration', () => {
         '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
       );
 
-      // Streaming Inbox consumption (AZIP-22 Fast Inbox): each checkpoint consumes every message sent so far, so its
-      // header rolling hash continues the previous checkpoint's and matches the Inbox's current bucket. Consuming
-      // through the newest bucket trivially satisfies the mandatory-consumption assert. A checkpoint's messages are
-      // sent one per L1 block, so they span several Inbox buckets; the checkpoint's consumed bucket is the newest,
-      // whose sequence we read straight off the deployed Inbox and mirror into messageSource so the propose bucket
-      // hint can be looked up by the checkpoint's cumulative message count.
-      const inbox = getContract({
-        address: getAddress(l1ContractAddresses.inboxAddress.toString()),
-        abi: InboxAbi,
-        client: l1Client,
-      });
-      let previousInboxRollingHash = Fr.ZERO;
+      // The deployed rollup consumes L1->L2 messages with a lag of `inboxLag` checkpoints: a message
+      // inserted while building checkpoint N is only consumable at checkpoint N + inboxLag. Model that
+      // with a shift register so a real message is genuinely consumed and validated on L1.
+      const inboxLag = getL1ContractsConfigEnvVars().inboxLag;
+      const messagesInFlight: Fr[][] = Array.from({ length: inboxLag }, () => []);
       const blobFieldsPerCheckpoint: Fr[][] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
       // For real usage, always collect ALL epoch blobs first then call .batch().
@@ -586,10 +549,14 @@ describe('L1Publisher integration', () => {
         // and causes a chain prune
         const l1ToL2Content = range(Math.min(16, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT), 128 * i + 1 + 0x400).map(fr);
 
-        const currentL1ToL2Messages: Fr[] = [];
+        const sentThisCheckpoint: Fr[] = [];
         for (let j = 0; j < l1ToL2Content.length; j++) {
-          currentL1ToL2Messages.push(await sendToL2(l1ToL2Content[j], recipientAddress));
+          sentThisCheckpoint.push(await sendToL2(l1ToL2Content[j], recipientAddress));
         }
+
+        // Consume the messages sent inboxLag checkpoints ago, then enqueue this checkpoint's messages.
+        const currentL1ToL2Messages = messagesInFlight.shift()!;
+        messagesInFlight.push(sentThisCheckpoint);
 
         // Ensure that each transaction has unique (non-intersecting nullifier values)
         const totalNullifiersPerBlock = 4 * MAX_NULLIFIERS_PER_TX;
@@ -612,38 +579,14 @@ describe('L1Publisher integration', () => {
           new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
         );
 
-        const checkpoint = await buildCheckpoint(
-          globalVariables,
-          txs,
-          currentL1ToL2Messages,
-          [],
-          previousInboxRollingHash,
-        );
-        previousInboxRollingHash = checkpoint.header.inboxRollingHash;
+        const checkpoint = await buildCheckpoint(globalVariables, txs, currentL1ToL2Messages);
         const block = checkpoint.blocks[0];
-
-        // Mirror the Inbox's newest bucket into messageSource so the world-state synchronizer can rebuild this
-        // block's consumed bundle when it syncs the block back on the next iteration, and so the propose bucket hint
-        // resolves to the sequence whose rolling hash the checkpoint header committed to. One bucket per block keyed
-        // by its cumulative L1->L2 tree leaf count -- exactly the value world-state looks the bucket up by.
-        const currentBucketSeq = await inbox.read.getCurrentBucketSeq();
-        const cumulativeMsgCount = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-        messageSource.setInboxBucket(
-          {
-            seq: currentBucketSeq,
-            inboxRollingHash: checkpoint.header.inboxRollingHash,
-            totalMsgCount: cumulativeMsgCount,
-            timestamp,
-            msgCount: currentL1ToL2Messages.length,
-            lastMessageIndex: cumulativeMsgCount - 1n,
-          },
-          currentL1ToL2Messages,
-        );
 
         const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
         prevHeader = block.header;
+        blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
         const checkpointBlobFields = checkpoint.toBlobFields();
         const blockBlobs = await getBlobsPerL1Block(checkpointBlobFields);
@@ -667,13 +610,11 @@ describe('L1Publisher integration', () => {
           deployerAccount.address,
         );
 
-        // The checkpoint consumed everything sent so far, so its consumed bucket is the Inbox's newest.
-        const bucketHint = (await messageSource.getInboxBucketByTotalMsgCount(cumulativeMsgCount))!.seq;
         await publisher.enqueueProposeCheckpoint(
           checkpoint,
           CommitteeAttestationsAndSigners.empty(getSignatureContext()),
           Signature.empty(),
-          bucketHint,
+          0n,
         );
         // Align chain time so the bundle simulate and the L1 send both run at the header's slot.
         await progressToSlot(BigInt(checkpoint.header.slotNumber));
@@ -719,7 +660,7 @@ describe('L1Publisher integration', () => {
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
-              bucketHint,
+              bucketHint: 0n,
             },
             CommitteeAttestationsAndSigners.packAttestations([]),
             [],
@@ -1027,8 +968,9 @@ describe('L1Publisher integration', () => {
     });
 
     it(`shows propose custom errors if tx simulation fails`, async () => {
-      // Set up different l1-to-l2 messages than the ones on the inbox, so the checkpoint's inboxRollingHash does not
-      // match the referenced Inbox bucket and the submission reverts at the streaming-consumption check.
+      // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts because the
+      // INBOX.consume does not match the header.inHash and we get a Rollup__BlobHash that is not caught by
+      // validateHeader before.
       const l1ToL2Messages = new Array(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).fill(new Fr(1n));
       const { checkpoint } = await buildSingleCheckpoint({ l1ToL2Messages });
 
@@ -1044,12 +986,12 @@ describe('L1Publisher integration', () => {
       await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result).toBeUndefined();
-      // 0xed1f7bb5 == Rollup__InvalidInboxRollingHash selector
+      // 0xcd6f4233 == Rollup__InvalidInHash selector
       expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Bundle entry dropped: action reverted in sim',
         expect.objectContaining({
           action: 'propose',
-          returnData: expect.stringMatching(/^0xed1f7bb5/),
+          returnData: expect.stringMatching(/^0xcd6f4233/),
         }),
       );
     });

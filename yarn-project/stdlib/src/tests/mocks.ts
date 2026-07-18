@@ -50,7 +50,6 @@ import {
 import { PrivateToAvmAccumulatedData } from '../kernel/private_to_avm_accumulated_data.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
 import { PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
-import { computeInHashFromL1ToL2Messages } from '../messaging/in_hash.js';
 import { InboxBucketRef } from '../messaging/inbox_bucket.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
@@ -477,11 +476,9 @@ export async function mockCheckpointAndMessages(
   }
 
   const messages = blocksAndMessages[0].messages;
-  const inHash = computeInHashFromL1ToL2Messages(messages);
   const firstBlockLastArchive = blocksAndMessages[0].block.header.lastArchive;
   const checkpoint = await Checkpoint.random(checkpointNumber, {
     numBlocks: 0,
-    inHash,
     ...options,
     ...globals,
     lastArchive: firstBlockLastArchive,
@@ -633,7 +630,7 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
     ? await makeBlockProposal({
         blockHeader: options.lastBlock.blockHeader,
         indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4),
-        inHash: checkpointHeader.inHash,
+        inHash: Fr.ZERO,
         archiveRoot,
         txHashes: options.lastBlock.txHashes,
         txs: options.lastBlock.txs,

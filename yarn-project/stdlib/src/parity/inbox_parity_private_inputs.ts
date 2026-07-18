@@ -43,8 +43,6 @@ export class InboxParityPrivateInputs {
     public readonly startRollingHash: Fr,
     /** Message-bundle sponge before this checkpoint's messages (empty at checkpoint start). */
     public readonly startSponge: L1ToL2MessageSponge,
-    /** The L1 `in_hash` (sha256 frontier root), passed through unconstrained by the circuit. */
-    public readonly inHash: Fr,
     /** Root of the VK tree. */
     public readonly vkTreeRoot: Fr,
     /** Prover identity committed to by the circuit, for sybil protection. */
@@ -63,7 +61,6 @@ export class InboxParityPrivateInputs {
     messages: Fr[],
     startRollingHash: Fr,
     startSponge: L1ToL2MessageSponge,
-    inHash: Fr,
     vkTreeRoot: Fr,
     proverId: Fr,
   ): InboxParityPrivateInputs {
@@ -75,7 +72,6 @@ export class InboxParityPrivateInputs {
       messages.length,
       startRollingHash,
       startSponge,
-      inHash,
       vkTreeRoot,
       proverId,
     );
@@ -89,7 +85,6 @@ export class InboxParityPrivateInputs {
       new Fr(this.numMessages),
       this.startRollingHash,
       this.startSponge,
-      this.inHash,
       this.vkTreeRoot,
       this.proverId,
     );
@@ -115,7 +110,6 @@ export class InboxParityPrivateInputs {
       Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
       reader.readObject(L1ToL2MessageSponge),
-      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
