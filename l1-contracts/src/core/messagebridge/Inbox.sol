@@ -20,8 +20,8 @@ uint256 constant INBOX_BUCKET_RING_SIZE = 1024;
 
 // Constructor floor for the bucket ring. The ring must cover the longest stall the chain recovers from on
 // its own: the prune-and-repropose window of 64 checkpoints (2 epochs = 384 L1 blocks) at the natural cadence
-// of one bucket per L1 block, so buckets re-consumed after a prune are not overwritten first. 384 rounded up
-// to the next power of two, kept at or below the production ring.
+// of one bucket per L1 block, so the buckets it must re-consume after a prune have not been overwritten. 384
+// rounded up to the next power of two, kept at or below the production ring.
 uint256 constant MIN_BUCKET_RING_SIZE = 512;
 
 /**
