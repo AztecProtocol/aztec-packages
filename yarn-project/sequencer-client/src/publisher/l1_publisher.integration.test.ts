@@ -968,9 +968,8 @@ describe('L1Publisher integration', () => {
     });
 
     it(`shows propose custom errors if tx simulation fails`, async () => {
-      // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts because the
-      // INBOX.consume does not match the header.inHash and we get a Rollup__BlobHash that is not caught by
-      // validateHeader before.
+      // Set up different l1-to-l2 messages than the ones on the inbox, so the checkpoint's inboxRollingHash does not
+      // match the referenced Inbox bucket and the submission reverts at the streaming-consumption check.
       const l1ToL2Messages = new Array(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).fill(new Fr(1n));
       const { checkpoint } = await buildSingleCheckpoint({ l1ToL2Messages });
 
@@ -986,12 +985,12 @@ describe('L1Publisher integration', () => {
       await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result).toBeUndefined();
-      // 0xcd6f4233 == Rollup__InvalidInHash selector
+      // 0xed1f7bb5 == Rollup__InvalidInboxRollingHash selector
       expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Bundle entry dropped: action reverted in sim',
         expect.objectContaining({
           action: 'propose',
-          returnData: expect.stringMatching(/^0xcd6f4233/),
+          returnData: expect.stringMatching(/^0xed1f7bb5/),
         }),
       );
     });
