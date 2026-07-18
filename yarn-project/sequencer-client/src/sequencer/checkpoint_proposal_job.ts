@@ -950,9 +950,12 @@ export class CheckpointProposalJob implements Traceable {
       // Streaming Inbox: select this block's message bundle against the current (not-yet-advanced) consumption
       // cursor. The state is only advanced once the block builds successfully, so a failed build (retried in a
       // later sub-slot) re-derives the bundle rather than losing it. The builder inserts the bundle and rolls it
-      // back with the fork on failure.
+      // back with the fork on failure. The censorship cutoff floor must apply on whichever block ends the
+      // checkpoint, which includes the block that reaches the per-checkpoint block cap, not just the timetable's
+      // last sub-slot.
+      const isCheckpointFinalBlock = timingInfo.isLastBlock || blocksBuilt + 1 >= this.config.maxBlocksPerCheckpoint;
       const selection = streamingState
-        ? await this.selectStreamingBundle(streamingState, timingInfo.isLastBlock, nowSeconds)
+        ? await this.selectStreamingBundle(streamingState, isCheckpointFinalBlock, nowSeconds)
         : undefined;
       const streamingBundle = streamingState ? (selection && selection.consume ? selection.bundle : []) : undefined;
 
