@@ -52,10 +52,13 @@ void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
     info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 
     info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
-    info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
-    info("Did we find a failure? ", circuit.failed() ? "true" : "false");
     if (circuit.failed()) {
+        info("Is the circuit valid? false");
+        info("Did we find a failure? true");
         info("\t\t\tError message? ", circuit.err());
+    } else {
+        info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
+        info("Did we find a failure? false");
     }
 
     // Compare precomputed VK with the one generated during accumulation.

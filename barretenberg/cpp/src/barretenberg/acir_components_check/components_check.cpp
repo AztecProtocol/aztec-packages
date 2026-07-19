@@ -11,6 +11,16 @@ namespace acir_components_check {
  *  not a recognized singleton/range-list variable). Compare step emits UNCONSTRAINED for these. */
 static constexpr size_t NO_CIRCUIT_CC = SIZE_MAX;
 
+template <typename Builder> Builder make_analyzer_builder(const Builder& builder)
+{
+    Builder analyzer_builder = builder;
+    if (analyzer_builder.real_variable_index.size() < analyzer_builder.get_variables().size()) {
+        analyzer_builder.real_variable_index.resize(analyzer_builder.get_variables().size(),
+                                                    analyzer_builder.zero_idx());
+    }
+    return analyzer_builder;
+}
+
 template <typename Builder> std::vector<Error> ComponentsChecker_<Builder>::check()
 {
     build_acir_component_map();
@@ -28,7 +38,8 @@ template <typename Builder> void ComponentsChecker_<Builder>::build_acir_compone
 template <typename Builder> void ComponentsChecker_<Builder>::build_circuit_component_map()
 {
     // Real CCs: variables that share arithmetic gates form connected components.
-    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder_);
+    auto analyzer_builder = make_analyzer_builder(builder_);
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(analyzer_builder);
     auto circuit_cc = analyzer.find_connected_components();
 
     // Map each circuit CC variable to its CC index
@@ -44,6 +55,9 @@ template <typename Builder> void ComponentsChecker_<Builder>::build_circuit_comp
     // Collect range_list variables
     for (const auto& [_, range_list] : builder_.range_lists) {
         for (auto var_idx : range_list.variable_indices) {
+            if (var_idx >= builder_.real_variable_index.size()) {
+                continue;
+            }
             range_list_vars_.insert(builder_.real_variable_index[var_idx]);
         }
     }
