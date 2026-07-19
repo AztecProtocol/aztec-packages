@@ -13,7 +13,6 @@ import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { ChonkCache } from '@aztec/prover-client/orchestrator';
 import { type AvmSimulator, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
-  type BlockHeader,
   EventDrivenL2BlockStream,
   type L2Block,
   type L2BlockId,
@@ -39,6 +38,7 @@ import {
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import {
   L1Metrics,
   type TelemetryClient,

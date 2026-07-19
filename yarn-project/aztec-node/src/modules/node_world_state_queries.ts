@@ -197,8 +197,8 @@ export class NodeWorldStateQueries {
 
   /** Binary-searches the block records for the first block whose L1-to-L2 tree leaf count exceeds `messageIndex`. */
   async #findBlockConsumingL1ToL2MessageIndex(messageIndex: bigint): Promise<BlockData | undefined> {
-    let lo = INITIAL_L2_BLOCK_NUM;
-    let hi = await this.blockSource.getBlockNumber();
+    let lo: number = INITIAL_L2_BLOCK_NUM;
+    let hi: number = await this.blockSource.getBlockNumber();
     let result: BlockData | undefined;
     while (lo <= hi) {
       const mid = lo + Math.floor((hi - lo) / 2);

@@ -311,7 +311,7 @@ export class CheckpointProposalJob implements Traceable {
   ): Promise<void> {
     const { checkpoint } = broadcast;
     // The checkpoint's consumed Inbox bucket is the last block's bucket reference (undefined ⇒ genesis bucket 0).
-    const bucketHint = broadcast.proposal.bucketRef?.bucketSeq ?? 0n;
+    const bucketHint = broadcast.proposal.lastBlock?.bucketRef?.bucketSeq ?? 0n;
 
     try {
       // Wait for all votes actions, enqueued at the beginning, to resolve

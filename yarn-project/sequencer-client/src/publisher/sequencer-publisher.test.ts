@@ -293,6 +293,7 @@ describe('SequencerPublisher', () => {
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
+        bucketHint: 0n,
       },
       CommitteeAttestationsAndSigners.packAttestations([]),
       [],

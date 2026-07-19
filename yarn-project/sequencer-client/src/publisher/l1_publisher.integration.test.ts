@@ -661,6 +661,7 @@ describe('L1Publisher integration', () => {
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
+              bucketHint: 0n,
             },
             CommitteeAttestationsAndSigners.packAttestations([]),
             [],
