@@ -18,9 +18,9 @@ import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelec
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
-import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 // Streaming-inbox protocol constants (AZIP-22 Fast Inbox). These mirror the protocol circuit constants and
 // should move into the generated Constants library once the Solidity emitter includes them.
