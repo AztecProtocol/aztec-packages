@@ -4,7 +4,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { ScopedL2ToL1Message, computeBlockOutHash } from '@aztec/stdlib/messaging';
+import { L1ToL2MessageSponge, ScopedL2ToL1Message, computeBlockOutHash } from '@aztec/stdlib/messaging';
 import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
 
 import { TestContext, makeTestDeferredJobQueue } from '../mocks/test_context.js';
@@ -222,13 +222,15 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
 
   it('slices L1-to-L2 messages per block across a multi-block checkpoint', async () => {
     // A checkpoint whose messages span more than one block: the first block carries a bundle, a middle block
-    // carries none (txs only), and a non-first block carries a bundle. The sub-tree must append each block's
-    // own slice at compact indices with contiguous, non-overlapping per-block snapshots (AZIP-22 Fast Inbox).
+    // carries none (txs only), and the last block carries a bundle with zero txs (a message-only block, proven by
+    // the msgs-only block root). The sub-tree must append each block's own slice at compact indices with
+    // contiguous, non-overlapping per-block snapshots, and thread the message sponge across the blocks (AZIP-22
+    // Fast Inbox).
     const l1ToL2MessagesPerBlock = [[new Fr(1001), new Fr(1002)], [], [new Fr(1003), new Fr(1004), new Fr(1005)]];
     const numBlocks = l1ToL2MessagesPerBlock.length;
     const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpointWithMessagesPerBlock(
       l1ToL2MessagesPerBlock,
-      { numTxsPerBlock: 1 },
+      { numTxsPerBlock: [1, 1, 0] },
     );
     expect(l1ToL2Messages.length).toBe(5);
 
@@ -271,6 +273,10 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       // L1-to-L2 tree state).
       const baseLeaf = ordered[0].inputs.startState.l1ToL2MessageTree.nextAvailableLeafIndex;
       let expectedStartLeaf = baseLeaf;
+      // The message sponge threads across the checkpoint's blocks: the first block starts from the empty sponge and
+      // each block absorbs exactly its own slice (the block merge and checkpoint root circuits assert this
+      // continuity against the InboxParity sponge).
+      const expectedSponge = L1ToL2MessageSponge.empty();
       for (const [i, output] of ordered.entries()) {
         const inputs = output.inputs;
         const startLeaf = inputs.startState.l1ToL2MessageTree.nextAvailableLeafIndex;
@@ -284,10 +290,17 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
         // Block slice = [prevBlockLeafCount, blockLeafCount): the tree grows by exactly this block's bundle size.
         expect(endLeaf - startLeaf).toBe(sliceLen);
         expectedStartLeaf = endLeaf;
+
+        // Sponge continuity: this block starts from the previous block's end sponge and absorbs its own slice.
+        expect(inputs.startMsgSponge.toBuffer()).toEqual(expectedSponge.toBuffer());
+        await expectedSponge.absorb(l1ToL2MessagesPerBlock[i]);
+        expect(inputs.endMsgSponge.toBuffer()).toEqual(expectedSponge.toBuffer());
       }
 
       // Every message is accounted for with no gap or overlap across the checkpoint's blocks.
       expect(expectedStartLeaf - baseLeaf).toBe(l1ToL2Messages.length);
+      // The last block's end sponge equals the checkpoint's InboxParity end sponge.
+      expect(result.inboxParityProof.inputs.endSponge.toBuffer()).toEqual(expectedSponge.toBuffer());
     } finally {
       await subTree.stop();
     }

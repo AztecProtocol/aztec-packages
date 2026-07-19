@@ -87,7 +87,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
    * Inbox a message enters the tree at the block that consumes its Inbox bucket, which need not be the first
    * block of a checkpoint. Returns the block-data (checkpoint number + index within checkpoint) of that block.
    */
-  const findInsertingBlock = async (msgHash: Fr, fromBlock: BlockNumber) => {
+  const findInsertingBlock = (msgHash: Fr, fromBlock: BlockNumber) => {
     return retryUntil(
       async () => {
         const tip = await aztecNode.getBlockNumber();
