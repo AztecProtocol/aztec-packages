@@ -746,6 +746,7 @@ export class FakeL1State {
           header,
           archive,
           oracleInput: { feeAssetPriceModifier: 0n },
+          bucketHint: 0n,
         },
         verbatimAttestations,
         attestationsAndSigners.getSigners().map(signer => signer.toString()),
