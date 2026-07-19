@@ -173,7 +173,7 @@ describe('ProverNode', () => {
     // getBlockData also feeds collectRegisterData when the rebuild re-registers, so it carries a header too.
     l2BlockSource.getBlockData.mockResolvedValue({
       checkpointNumber: CheckpointNumber(2),
-      header: { lastArchive: { root: Fr.ZERO } },
+      header: { lastArchive: { root: Fr.ZERO }, state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 0 } } },
     } as any);
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -691,9 +691,9 @@ describe('ProverNode', () => {
     l2BlockSource.getBlockNumber.mockResolvedValue(undefined);
     setupRegistrationSuccess();
     // getBlockData returns a header that lets isEpochFullyProven bail out as "not proven"
-    // and supplies a lastArchive.root for collectRegisterData.
+    // and supplies a lastArchive.root plus an L1-to-L2 leaf count for collectRegisterData.
     l2BlockSource.getBlockData.mockResolvedValue({
-      header: { lastArchive: { root: Fr.ZERO } },
+      header: { lastArchive: { root: Fr.ZERO }, state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 0 } } },
     } as any);
   }
 
@@ -707,7 +707,7 @@ describe('ProverNode', () => {
     worldState.syncImmediate.mockResolvedValue(undefined as any);
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     l2BlockSource.getBlockData.mockResolvedValue({
-      header: { lastArchive: { root: Fr.ZERO } },
+      header: { lastArchive: { root: Fr.ZERO }, state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 0 } } },
     } as any);
     worldState.getSnapshot.mockReturnValue({
       getTreeInfo: () => Promise.resolve({ size: 1n }),
@@ -725,7 +725,15 @@ describe('ProverNode', () => {
       number: CheckpointNumber(checkpointNumber),
       header: { slotNumber: SlotNumber(slot), inboxRollingHash: Fr.ZERO },
       archive: { root: archiveRoot },
-      blocks: [{ number: blockNumber, header: { hash: () => Promise.resolve('0x01') } }],
+      blocks: [
+        {
+          number: blockNumber,
+          header: {
+            hash: () => Promise.resolve('0x01'),
+            state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 0 } },
+          },
+        },
+      ],
       hash: () => new Fr(checkpointNumber),
     } as unknown as Checkpoint;
   }
