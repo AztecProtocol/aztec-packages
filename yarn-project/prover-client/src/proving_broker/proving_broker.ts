@@ -410,9 +410,16 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
         : Object.values(ProvingRequestType).filter((x): x is ProvingRequestType => typeof x === 'number');
     allowedProofs.sort(proofTypeComparator);
 
+    // Select the oldest-epoch job across the allowed queues, tie-breaking by proof-type priority: an epoch's
+    // remaining jobs always outrank younger epochs' work, so the oldest epoch completes instead of starving
+    // behind the continuous arrival of new higher-priority-type jobs. The legacy L1-to-L2 tree got this ordering
+    // for free (block roots waited on parity outputs); the streaming inbox parity only gates the checkpoint
+    // root, so a purely type-major order would leave it unscheduled under sustained block production.
+    let selected: { proofType: ProvingRequestType; enqueuedJob: EnqueuedProvingJob; job: ProvingJob } | undefined;
     for (const proofType of allowedProofs) {
       const queue = this.queues[proofType];
       let enqueuedJob: EnqueuedProvingJob | undefined;
+      let candidate: { enqueuedJob: EnqueuedProvingJob; job: ProvingJob } | undefined;
       // exhaust the queue and make sure we're not sending a job that's already in progress
       // or has already been completed
       // this can happen if the broker crashes and restarts
@@ -420,25 +427,42 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       while ((enqueuedJob = queue.getImmediate())) {
         const job = this.jobsCache.get(enqueuedJob.id);
         if (job && !this.inProgress.has(enqueuedJob.id) && !this.resultsCache.has(enqueuedJob.id)) {
-          const time = this.msTimeSource();
-          this.inProgress.set(job.id, {
-            id: job.id,
-            startedAt: time,
-            lastUpdatedAt: time,
-          });
-          const enqueuedAt = this.enqueuedAt.get(job.id);
-          if (enqueuedAt) {
-            this.instrumentation.recordJobWait(job.type, enqueuedAt);
-            // we can clear this flag now.
-            this.enqueuedAt.delete(job.id);
-          }
-
-          return { job, time };
+          candidate = { enqueuedJob, job };
+          break;
         }
+      }
+      if (!candidate) {
+        continue;
+      }
+      if (selected === undefined || candidate.enqueuedJob.epochNumber < selected.enqueuedJob.epochNumber) {
+        if (selected) {
+          this.queues[selected.proofType].put(selected.enqueuedJob);
+        }
+        selected = { proofType, ...candidate };
+      } else {
+        queue.put(candidate.enqueuedJob);
       }
     }
 
-    return undefined;
+    if (!selected) {
+      return undefined;
+    }
+
+    const { job } = selected;
+    const time = this.msTimeSource();
+    this.inProgress.set(job.id, {
+      id: job.id,
+      startedAt: time,
+      lastUpdatedAt: time,
+    });
+    const enqueuedAt = this.enqueuedAt.get(job.id);
+    if (enqueuedAt) {
+      this.instrumentation.recordJobWait(job.type, enqueuedAt);
+      // we can clear this flag now.
+      this.enqueuedAt.delete(job.id);
+    }
+
+    return { job, time };
   }
 
   async #reportProvingJobError(
