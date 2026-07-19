@@ -1,4 +1,4 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -45,7 +45,9 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
     dump: CircuitName[];
   }
 
-  const withMessages = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP;
+  // `makeCheckpoint` puts the scenario's whole message list into the first block, so the most a
+  // scenario can carry is one full per-block bundle, not the per-checkpoint cap.
+  const withMessages = MAX_L1_TO_L2_MSGS_PER_BLOCK;
 
   const scenarios: Scenario[] = [
     {
