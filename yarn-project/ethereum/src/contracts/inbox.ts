@@ -80,7 +80,10 @@ export class InboxContract {
   }
 
   /** Returns the Inbox bucket with the given sequence number (AZIP-22 Fast Inbox). */
-  public async getBucket(seq: bigint, opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<InboxContractBucket> {
+  public async getBucket(
+    seq: bigint,
+    opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
+  ): Promise<InboxContractBucket> {
     await checkBlockTag(opts.blockNumber, this.client);
     const bucket = await this.inbox.read.getBucket([seq], opts);
     return {
@@ -96,7 +99,9 @@ export class InboxContract {
    * total are the Inbox's live chain position, used by the archiver's message sync and L1-reorg detection (AZIP-22
    * Fast Inbox).
    */
-  public async getCurrentBucket(opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<InboxContractBucket> {
+  public async getCurrentBucket(
+    opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
+  ): Promise<InboxContractBucket> {
     const seq = await this.getCurrentBucketSeq(opts);
     return this.getBucket(seq, opts);
   }
