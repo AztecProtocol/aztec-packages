@@ -38,6 +38,7 @@ import {
   InsufficientValidTxsError,
   type MerkleTreeWriteOperations,
   type ResolvedSequencerConfig,
+  type TreeInfo,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -229,6 +230,9 @@ describe('CheckpointProposalJob', () => {
     const mockFork = mock<MerkleTreeWriteOperations>({
       [Symbol.asyncDispose]: jest.fn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
     });
+    // The streaming Inbox cursor resolves the parent bucket from the fork's L1-to-L2 tree leaf count; default to
+    // an empty tree so checkpoints start at the genesis bucket unless a test seeds buckets.
+    mockFork.getTreeInfo.mockResolvedValue({ size: 0n } as TreeInfo);
     worldState.fork.mockResolvedValue(mockFork);
 
     // Create fake CheckpointsBuilder and CheckpointBuilder
@@ -246,6 +250,17 @@ describe('CheckpointProposalJob', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
+    // Genesis bucket for the empty-tree cursor above; with no newer synced buckets mocked, block bundle
+    // selection consumes nothing by default.
+    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
+      seq: 0n,
+      inboxRollingHash: Fr.ZERO,
+      totalMsgCount: 0n,
+      timestamp: 0n,
+      msgCount: 0,
+      lastMessageIndex: 0n,
+      isOpen: false,
+    });
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
@@ -1443,6 +1458,39 @@ describe('CheckpointProposalJob', () => {
       expect(bucketRefArgs).toHaveLength(2);
       expect(bucketRefArgs[0]?.bucketSeq).toBe(2n);
       expect(bucketRefArgs[1]?.bucketSeq).toBe(2n);
+    });
+
+    it('produces a message-only block when a non-empty bundle is selected and no txs are pending', async () => {
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, true))
+        .mockReturnValue(noSubslot());
+
+      const bucket: InboxBucket = {
+        seq: 2n,
+        inboxRollingHash: new Fr(99),
+        totalMsgCount: 5n,
+        timestamp: 0n,
+        msgCount: 2,
+        lastMessageIndex: 4n,
+        isOpen: false,
+      };
+      const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
+      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+
+      // Empty tx pool with the min-txs threshold at its default of one and no empty-checkpoint building: the
+      // non-empty bundle alone must count as work, producing a zero-tx (message-only) block.
+      const { lastBlock } = await setupMultipleBlocks(1, [0]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      job.updateConfig({ minTxsPerBlock: 1, buildCheckpointIfEmpty: false });
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(checkpointBuilder.buildBlockCalls[0].opts.l1ToL2Messages).toEqual(bundle);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
     });
   });
 

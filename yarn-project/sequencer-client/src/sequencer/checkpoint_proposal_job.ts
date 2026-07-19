@@ -1383,11 +1383,14 @@ export class CheckpointProposalJob implements Traceable {
   }): Promise<{ canStartBuilding: boolean; minTxs: number }> {
     const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate } = opts;
 
-    // A non-first block normally needs >= 1 tx to avoid empty filler blocks, but a message-only block (a non-empty
-    // streaming Inbox bundle) may carry zero txs (AZIP-22 Fast Inbox).
+    // A non-empty streaming Inbox bundle is work on its own: the block must be produced even with zero txs,
+    // regardless of minTxsPerBlock, so the messages get inserted (message-only block, AZIP-22 Fast Inbox).
+    // Without a bundle, a non-first block needs at least one tx to avoid empty filler blocks even when
+    // minTxsPerBlock is zero.
     const hasStreamingBundle = (opts.l1ToL2Messages?.length ?? 0) > 0;
-    const minTxs =
-      indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0 && !hasStreamingBundle
+    const minTxs = hasStreamingBundle
+      ? 0
+      : indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0
         ? 1
         : this.config.minTxsPerBlock;
 
