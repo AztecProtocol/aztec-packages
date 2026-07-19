@@ -169,47 +169,6 @@ contract Inbox is IInbox {
   }
 
   /**
-   * @notice Absorbs a message leaf into the consensus rolling hash and snapshots it into the bucket ring
-   *
-   * @dev A bucket only holds messages from a single L1 block, up to MAX_MSGS_PER_BUCKET; the first message
-   * of a new L1 block — or the message after a full bucket, spilling over within the same block — opens the
-   * next bucket, inheriting the rolling hash and cumulative count. Bucket 0 is the pristine genesis base
-   * case and never absorbs. Opening a bucket overwrites the ring entry from BUCKET_RING_SIZE buckets ago;
-   * protection against overwriting unconsumed buckets is not enforced yet.
-   *
-   * @param _leaf - The message leaf to absorb
-   *
-   * @return The sequence number of the bucket the leaf was absorbed into and the updated rolling hash
-   */
-  function _absorbIntoBucket(bytes32 _leaf) internal returns (uint64, bytes32) {
-    uint64 bucketSeq = currentBucketSeq;
-    InboxBucket memory bucket = buckets[bucketSeq % BUCKET_RING_SIZE];
-
-    // Buckets are keyed by L1 block timestamp: a strictly larger timestamp opens a new bucket (a full bucket
-    // also rolls over within the same block). Post-merge Ethereum increases block.timestamp strictly per block,
-    // so messages from different L1 blocks always land in different buckets. Under anvil with manual mining two
-    // blocks can share a timestamp and therefore a bucket; this is harmless because the consumption cutoff is
-    // computed over timestamps, so co-timestamped blocks are indistinguishable to it.
-    if (bucketSeq == 0 || bucket.timestamp < block.timestamp || bucket.msgCount == MAX_MSGS_PER_BUCKET) {
-      bucketSeq += 1;
-      currentBucketSeq = bucketSeq;
-      bucket = InboxBucket({
-        rollingHash: bucket.rollingHash,
-        totalMsgCount: bucket.totalMsgCount,
-        timestamp: SafeCast.toUint64(block.timestamp),
-        msgCount: 0
-      });
-    }
-
-    bucket.rollingHash = Hash.accumulateInboxRollingHash(bucket.rollingHash, _leaf);
-    bucket.totalMsgCount += 1;
-    bucket.msgCount += 1;
-    buckets[bucketSeq % BUCKET_RING_SIZE] = bucket;
-
-    return (bucketSeq, bucket.rollingHash);
-  }
-
-  /**
    * @notice Consumes the current tree, and starts a new one if needed
    *
    * @dev Only callable by the rollup contract
@@ -268,5 +227,46 @@ contract Inbox is IInbox {
     uint256 current = currentBucketSeq;
     require(_seq <= current && current - _seq < BUCKET_RING_SIZE, Errors.Inbox__BucketOutOfWindow(_seq, current));
     return buckets[_seq % BUCKET_RING_SIZE];
+  }
+
+  /**
+   * @notice Absorbs a message leaf into the consensus rolling hash and snapshots it into the bucket ring
+   *
+   * @dev A bucket only holds messages from a single L1 block, up to MAX_MSGS_PER_BUCKET; the first message
+   * of a new L1 block — or the message after a full bucket, spilling over within the same block — opens the
+   * next bucket, inheriting the rolling hash and cumulative count. Bucket 0 is the pristine genesis base
+   * case and never absorbs. Opening a bucket overwrites the ring entry from BUCKET_RING_SIZE buckets ago;
+   * protection against overwriting unconsumed buckets is not enforced yet.
+   *
+   * @param _leaf - The message leaf to absorb
+   *
+   * @return The sequence number of the bucket the leaf was absorbed into and the updated rolling hash
+   */
+  function _absorbIntoBucket(bytes32 _leaf) internal returns (uint64, bytes32) {
+    uint64 bucketSeq = currentBucketSeq;
+    InboxBucket memory bucket = buckets[bucketSeq % BUCKET_RING_SIZE];
+
+    // Buckets are keyed by L1 block timestamp: a strictly larger timestamp opens a new bucket (a full bucket
+    // also rolls over within the same block). Post-merge Ethereum increases block.timestamp strictly per block,
+    // so messages from different L1 blocks always land in different buckets. Under anvil with manual mining two
+    // blocks can share a timestamp and therefore a bucket; this is harmless because the consumption cutoff is
+    // computed over timestamps, so co-timestamped blocks are indistinguishable to it.
+    if (bucketSeq == 0 || bucket.timestamp < block.timestamp || bucket.msgCount == MAX_MSGS_PER_BUCKET) {
+      bucketSeq += 1;
+      currentBucketSeq = bucketSeq;
+      bucket = InboxBucket({
+        rollingHash: bucket.rollingHash,
+        totalMsgCount: bucket.totalMsgCount,
+        timestamp: SafeCast.toUint64(block.timestamp),
+        msgCount: 0
+      });
+    }
+
+    bucket.rollingHash = Hash.accumulateInboxRollingHash(bucket.rollingHash, _leaf);
+    bucket.totalMsgCount += 1;
+    bucket.msgCount += 1;
+    buckets[bucketSeq % BUCKET_RING_SIZE] = bucket;
+
+    return (bucketSeq, bucket.rollingHash);
   }
 }
