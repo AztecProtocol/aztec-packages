@@ -28,10 +28,6 @@ import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseRollupHints,
   type BlockRollupPublicInputs,
-  BlockRootEmptyTxFirstRollupPrivateInputs,
-  BlockRootFirstRollupPrivateInputs,
-  BlockRootSingleTxFirstRollupPrivateInputs,
-  BlockRootSingleTxRollupPrivateInputs,
   CheckpointConstantData,
   PrivateTxBaseRollupPrivateInputs,
   type PublicChonkVerifierPublicInputs,
@@ -760,7 +756,9 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       return;
     }
 
-    const { rollupType, inputs } = provingState.getBlockRootRollupTypeAndInputs();
+    // Kept whole (not destructured) so the switch on the `rollupType` discriminant narrows `inputs` per case.
+    const rollup = provingState.getBlockRootRollupTypeAndInputs();
+    const rollupType = rollup.rollupType;
 
     this.logger.debug(`Enqueuing ${rollupType} for block ${provingState.blockNumber}.`);
 
@@ -769,16 +767,17 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       this.wrapCircuitCall(
         'getBlockRootRollupProof',
         signal => {
-          if (inputs instanceof BlockRootFirstRollupPrivateInputs) {
-            return this.prover.getBlockRootFirstRollupProof(inputs, signal, provingState.epochNumber);
-          } else if (inputs instanceof BlockRootSingleTxFirstRollupPrivateInputs) {
-            return this.prover.getBlockRootSingleTxFirstRollupProof(inputs, signal, provingState.epochNumber);
-          } else if (inputs instanceof BlockRootEmptyTxFirstRollupPrivateInputs) {
-            return this.prover.getBlockRootEmptyTxFirstRollupProof(inputs, signal, provingState.epochNumber);
-          } else if (inputs instanceof BlockRootSingleTxRollupPrivateInputs) {
-            return this.prover.getBlockRootSingleTxRollupProof(inputs, signal, provingState.epochNumber);
-          } else {
-            return this.prover.getBlockRootRollupProof(inputs, signal, provingState.epochNumber);
+          switch (rollup.rollupType) {
+            case 'rollup-block-root-first':
+              return this.prover.getBlockRootFirstRollupProof(rollup.inputs, signal, provingState.epochNumber);
+            case 'rollup-block-root-first-single-tx':
+              return this.prover.getBlockRootSingleTxFirstRollupProof(rollup.inputs, signal, provingState.epochNumber);
+            case 'rollup-block-root-first-empty-tx':
+              return this.prover.getBlockRootEmptyTxFirstRollupProof(rollup.inputs, signal, provingState.epochNumber);
+            case 'rollup-block-root-single-tx':
+              return this.prover.getBlockRootSingleTxRollupProof(rollup.inputs, signal, provingState.epochNumber);
+            case 'rollup-block-root':
+              return this.prover.getBlockRootRollupProof(rollup.inputs, signal, provingState.epochNumber);
           }
         },
         { [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType },
