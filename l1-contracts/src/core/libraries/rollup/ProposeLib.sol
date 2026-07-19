@@ -4,8 +4,8 @@ pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {RollupStore, IRollupCore, CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
