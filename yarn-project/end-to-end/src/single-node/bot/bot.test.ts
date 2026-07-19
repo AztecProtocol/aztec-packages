@@ -2,7 +2,6 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MinedTxReceipt, type TxReceipt } from '@aztec/aztec.js/tx';
-import type { CheatCodes } from '@aztec/aztec/testing';
 import {
   AmmBot,
   Bot,
@@ -36,7 +35,6 @@ describe('single-node/bot/bot', () => {
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
-  let cheatCodes: CheatCodes;
   let config: BotConfig;
   let l1RpcUrls: string[];
 
@@ -51,7 +49,6 @@ describe('single-node/bot/bot', () => {
       teardown,
       aztecNode,
       aztecNodeAdmin,
-      cheatCodes,
       config: { l1RpcUrls },
     } = setupResult);
     wallet = await testSpan('setup:wallet', () => EmbeddedWallet.create(aztecNode, { ephemeral: true }));
