@@ -123,8 +123,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<
  * Note: If an environment variable is not set, the default value is used.
  * @returns The validator configuration.
  */
-export function getProverEnvVars(): ValidatorClientConfig &
-  Pick<SequencerConfig, 'blockDurationMs'> {
+export function getProverEnvVars(): ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs'> {
   return getConfigFromMappings<ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs'>>(
     validatorClientConfigMappings,
   );
