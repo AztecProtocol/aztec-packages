@@ -222,8 +222,8 @@ AZTEC_GENERATE_TEST_DATA=1 \
 
 Regenerates `Prover.toml` for `rollup-block-root-first-empty-tx`,
 `rollup-block-root-first`, `rollup-block-root-first-single-tx`,
-`rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-merge`,
-`rollup-checkpoint-root`, `rollup-checkpoint-root-single-block`,
+`rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-root-msgs-only`,
+`rollup-block-merge`, `rollup-checkpoint-root`, `rollup-checkpoint-root-single-block`,
 `rollup-checkpoint-merge`, `rollup-tx-merge`, `rollup-root`.
 
 **Private-kernel + transaction-base circuits — e2e prover full test** (spins up
@@ -231,7 +231,7 @@ an L1/anvil sandbox):
 
 ```bash
 AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 \
-  yarn workspace @aztec/end-to-end test:e2e e2e_prover/full.test
+  yarn workspace @aztec/end-to-end test:e2e single-node/prover/server/full.test
 ```
 
 Regenerates `Prover.toml` for: `private-kernel-init` and its `private-kernel-init-N`

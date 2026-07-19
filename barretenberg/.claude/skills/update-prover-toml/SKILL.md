@@ -31,7 +31,7 @@ Two commands cover the protocol-circuit tomls, split by whether the sample needs
 AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
 ```
 
-Regenerates: `rollup-block-root-first-empty-tx`, `rollup-block-root-first`, `rollup-block-root-first-single-tx`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-checkpoint-root-single-block`, `rollup-checkpoint-merge`, `rollup-tx-merge`, `rollup-root`. The scenario list lives in the `scenarios` array in that test; each scenario's `dump` field names the tomls it owns.
+Regenerates: `rollup-block-root-first-empty-tx`, `rollup-block-root-first`, `rollup-block-root-first-single-tx`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-root-msgs-only`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-checkpoint-root-single-block`, `rollup-checkpoint-merge`, `rollup-tx-merge`, `rollup-root`. The scenario list lives in the `scenarios` array in that test; each scenario's `dump` field names the tomls it owns.
 
 ### Private-kernel and transaction-base circuits — e2e prover full test
 
@@ -40,10 +40,10 @@ Regenerates: `rollup-block-root-first-empty-tx`, `rollup-block-root-first`, `rol
 From the repo root:
 
 ```bash
-AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn-project/end-to-end/scripts/run_test.sh simple e2e_prover/full
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn-project/end-to-end/scripts/run_test.sh simple single-node/prover/server/full
 ```
 
-(Equivalently, from `yarn-project/end-to-end`: `AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e e2e_prover/full.test`.) This is a full-stack run (L1 anvil + node + prover), ~15 min with fake proofs.
+(Equivalently, from `yarn-project/end-to-end`: `AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e single-node/prover/server/full.test`.) This is a full-stack run (L1 anvil + node + prover), ~15 min with fake proofs.
 
 Regenerates:
 

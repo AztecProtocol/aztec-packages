@@ -1,6 +1,6 @@
 import { MAX_L1_TO_L2_MSGS_PER_BLOCK } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
+import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -25,7 +25,7 @@ import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator
 // Without that flag the whole suite is skipped, so it is a no-op (no prover setup) in normal CI. The
 // `rollup-tx-base-private`/`rollup-tx-base-public` fixtures and the private-kernel fixtures depend on
 // real client-proved transactions the simulated orchestrator cannot produce, so those are regenerated
-// separately by the e2e `e2e_prover/full.test` dump instead.
+// separately by the e2e `single-node/prover/server/full.test` dump instead.
 //
 // The scenarios are chosen to exercise each block-root variant the orchestrator selects (see
 // BlockProvingState#getBlockRootRollupTypeAndInputs): a first block with 0 txs, with >=2 txs, and
@@ -36,7 +36,9 @@ import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator
 // checkpoint-root-single-block circuit and multi-block checkpoints the (two-input) checkpoint-root
 // circuit. A block with three txs merges its transaction base proofs through the tx-merge circuit
 // before the (two-input) block root, whereas one- or two-tx blocks feed the block root directly, so a
-// dedicated three-tx scenario is what regenerates the tx-merge sample. Every scenario also produces
+// dedicated three-tx scenario is what regenerates the tx-merge sample. A zero-tx non-first block that
+// carries a message bundle (a message-only block, AZIP-22 Fast Inbox) routes through the msgs-only
+// block root, so that variant needs a per-block message distribution. Every scenario also produces
 // the root rollup.
 const describeOrSkip = isGenerateTestDataEnabled() ? describe : describe.skip;
 
@@ -47,8 +49,13 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
   interface Scenario {
     numCheckpoints: number;
     numBlocksPerCheckpoint: number;
-    numTxsPerBlock: number;
+    numTxsPerBlock: number | number[];
     numL1ToL2Messages: number;
+    /**
+     * Per-block message distribution. When set it overrides `numL1ToL2Messages`, and a zero-tx non-first block with
+     * a non-empty slice routes through the msgs-only block root.
+     */
+    l1ToL2MessagesPerBlock?: Fr[][];
     /** Circuits whose sample inputs this scenario is responsible for regenerating. */
     dump: CircuitName[];
   }
@@ -100,6 +107,16 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numL1ToL2Messages: withMessages,
       dump: ['rollup-tx-merge'],
     },
+    // A zero-tx non-first block carrying a message bundle is a message-only block (AZIP-22 Fast
+    // Inbox), the only shape that selects the msgs-only block root.
+    {
+      numCheckpoints: 1,
+      numBlocksPerCheckpoint: 2,
+      numTxsPerBlock: [1, 0],
+      numL1ToL2Messages: 0, // Overridden by l1ToL2MessagesPerBlock.
+      l1ToL2MessagesPerBlock: [times(2, i => new Fr(0x900 + i)), times(3, i => new Fr(0xa00 + i))],
+      dump: ['rollup-block-root-msgs-only'],
+    },
     // The checkpoint-merge only appears with three checkpoints. Independently-built checkpoints do
     // not carry the inbox message state forward, so this scenario runs with no L1-to-L2 messages and
     // a zero previous rolling hash, matching the multi-checkpoint case in top-tree-orchestrator.test.
@@ -123,13 +140,19 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
 
   it.each(scenarios)(
     'regenerates $dump from an epoch with $numCheckpoints checkpoints, $numBlocksPerCheckpoint blocks, $numTxsPerBlock txs',
-    async ({ numCheckpoints, numBlocksPerCheckpoint, numTxsPerBlock, numL1ToL2Messages, dump }) => {
+    async ({
+      numCheckpoints,
+      numBlocksPerCheckpoint,
+      numTxsPerBlock,
+      numL1ToL2Messages,
+      l1ToL2MessagesPerBlock,
+      dump,
+    }) => {
+      const makeProcessedTxOpts = (_: unknown, txIndex: number) => ({ privateOnly: txIndex % 2 === 0 });
       const checkpoints = await timesAsync(numCheckpoints, () =>
-        context.makeCheckpoint(numBlocksPerCheckpoint, {
-          numTxsPerBlock,
-          numL1ToL2Messages,
-          makeProcessedTxOpts: (_, txIndex) => ({ privateOnly: txIndex % 2 === 0 }),
-        }),
+        l1ToL2MessagesPerBlock
+          ? context.makeCheckpointWithMessagesPerBlock(l1ToL2MessagesPerBlock, { numTxsPerBlock, makeProcessedTxOpts })
+          : context.makeCheckpoint(numBlocksPerCheckpoint, { numTxsPerBlock, numL1ToL2Messages, makeProcessedTxOpts }),
       );
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
@@ -165,7 +188,8 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
             const { header, txs } = blocks[i];
             const { blockNumber, timestamp } = header.globalVariables;
 
-            await subTree.startNewBlock(blockNumber, timestamp, txs.length, i === 0 ? l1ToL2Messages : []);
+            const blockMessages = l1ToL2MessagesPerBlock?.[i] ?? (i === 0 ? l1ToL2Messages : []);
+            await subTree.startNewBlock(blockNumber, timestamp, txs.length, blockMessages);
             if (txs.length > 0) {
               await subTree.addTxs(txs);
             }

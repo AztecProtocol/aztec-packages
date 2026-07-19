@@ -149,7 +149,7 @@ The private-kernel samples and the transaction-base rollup samples (`rollup-tx-b
 
 ```bash
 cd yarn-project
-AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test e2e_prover/full.test
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test single-node/prover/server/full.test
 ```
 
 `FAKE_PROOFS=1` skips real proving. Both write into `noir-projects/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
