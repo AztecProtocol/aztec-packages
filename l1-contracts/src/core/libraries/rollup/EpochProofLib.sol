@@ -335,9 +335,9 @@ library EpochProofLib {
 
       publicInputs[2] = _args.outHash;
 
-      // Inbox rolling-hash chain segment consumed across the epoch (AZIP-22 Fast Inbox). Deliberately UNVALIDATED
-      // until the Fast Inbox flip, when they get checked against per-checkpoint records written at propose; for now
-      // they are only passed through to the proof's public inputs.
+      // Inbox rolling-hash chain segment consumed across the epoch (AZIP-22 Fast Inbox). The start is validated above
+      // against the record written at propose for checkpoint _start - 1; the end is pinned transitively through the
+      // stored checkpoint header hashes (see the anchoring block in assertAcceptable).
       publicInputs[3] = _args.previousInboxRollingHash;
       publicInputs[4] = _args.endInboxRollingHash;
     }

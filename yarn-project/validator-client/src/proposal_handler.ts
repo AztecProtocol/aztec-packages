@@ -212,8 +212,8 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   ['last_block_archive_mismatch']: true,
 
   // disabled
-  // Streaming Inbox last-block censorship: new and flag-gated (default off), so keep it out of slashing while the
-  // path lands; L1 `propose` is the authoritative reject (Rollup__UnconsumedInboxMessages) pre-flip.
+  // Streaming Inbox last-block censorship: kept out of slashing while the streaming path is new; L1 `propose` is the
+  // authoritative reject (Rollup__UnconsumedInboxMessages).
   ['inbox_consumption_insufficient']: false,
   ['invalid_signature']: false,
   ['last_block_not_found']: false,

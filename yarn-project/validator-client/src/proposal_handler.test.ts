@@ -802,9 +802,9 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
-  // AZIP-22 Fast Inbox: with `streamingInbox` on, a block proposal's L1-to-L2 bundle is derived from its bucket
-  // reference and gated by the four acceptance checks, replacing the legacy per-checkpoint inHash comparison.
-  describe('handleBlockProposal streaming inbox checks (flag on)', () => {
+  // AZIP-22 Fast Inbox: a block proposal's L1-to-L2 bundle is derived from its bucket reference and gated by the four
+  // acceptance checks, replacing the legacy per-checkpoint inHash comparison.
+  describe('handleBlockProposal streaming inbox checks', () => {
     const bucket = (overrides: Partial<InboxBucket> = {}): InboxBucket => ({
       seq: 1n,
       inboxRollingHash: new Fr(0xabc),
@@ -915,9 +915,9 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
-  // AZIP-22 Fast Inbox: with `streamingInbox` on, the checkpoint handler enforces the last-block minimum-consumption
-  // (censorship) rule before attesting.
-  describe('checkpoint proposal last-block censorship (flag on)', () => {
+  // AZIP-22 Fast Inbox: the checkpoint handler enforces the last-block minimum-consumption (censorship) rule before
+  // attesting.
+  describe('checkpoint proposal last-block censorship', () => {
     /** Two-block checkpoint at slot 10 whose last block consumed through leaf count `lastBlockTotal`. */
     function setupCensorshipMocks(lastBlockTotal: number) {
       const archiveRoot = Fr.random();

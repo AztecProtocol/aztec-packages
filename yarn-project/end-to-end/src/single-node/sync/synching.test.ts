@@ -502,6 +502,7 @@ describe('single-node/sync/synching', () => {
           rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
         }),
         Signature.empty(),
+        0n,
       );
 
       await cheatCodes.rollup.markAsProven(CheckpointNumber(provenThrough));

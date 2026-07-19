@@ -615,6 +615,7 @@ describe('L1Publisher integration', () => {
           checkpoint,
           CommitteeAttestationsAndSigners.empty(getSignatureContext()),
           Signature.empty(),
+          0n,
         );
         // Align chain time so the bundle simulate and the L1 send both run at the header's slot.
         await progressToSlot(BigInt(checkpoint.header.slotNumber));
@@ -723,6 +724,7 @@ describe('L1Publisher integration', () => {
         checkpoint,
         new CommitteeAttestationsAndSigners(attestations, getSignatureContext()),
         signature,
+        0n,
       );
       // Align chain time so the bundle simulate and the L1 send both run at the header's slot.
       await progressToSlot(BigInt(checkpoint.header.slotNumber));
@@ -768,7 +770,7 @@ describe('L1Publisher integration', () => {
       // warn log carrying the on-chain revert reason (raw hex selector since the propose request
       // has no ABI attached).
       const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
-      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, Signature.empty());
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, Signature.empty(), 0n);
       await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result).toBeUndefined();
@@ -805,6 +807,7 @@ describe('L1Publisher integration', () => {
         checkpoint,
         attestationsAndSigners,
         flipSignature(attestationsAndSignersSignature),
+        0n,
       );
       await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
@@ -844,7 +847,7 @@ describe('L1Publisher integration', () => {
       // Enqueue no longer simulates — the bundle simulate at send time drops the failing propose
       // and sendRequests returns undefined.
       const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
-      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, wrongSig);
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, wrongSig, 0n);
       await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result).toBeUndefined();
@@ -928,7 +931,7 @@ describe('L1Publisher integration', () => {
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
       publisher.enqueueInvalidateCheckpoint(invalidateRequest);
-      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature);
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature, 0n);
       await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
@@ -949,6 +952,7 @@ describe('L1Publisher integration', () => {
         checkpoint,
         CommitteeAttestationsAndSigners.empty(getSignatureContext()),
         Signature.empty(),
+        0n,
       );
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
@@ -977,6 +981,7 @@ describe('L1Publisher integration', () => {
         checkpoint,
         CommitteeAttestationsAndSigners.empty(getSignatureContext()),
         Signature.empty(),
+        0n,
       );
       await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
@@ -1033,6 +1038,7 @@ describe('L1Publisher integration', () => {
         checkpoint,
         CommitteeAttestationsAndSigners.empty(getSignatureContext()),
         Signature.empty(),
+        0n,
         { txTimeoutAt: getProposeTxTimeoutAt(checkpoint) },
       );
     };

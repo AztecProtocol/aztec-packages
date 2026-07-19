@@ -1,20 +1,21 @@
 import { type BlockBlobData, type BlockEndBlobData, type SpongeBlob, encodeBlockEndBlobData } from '@aztec/blob-lib';
-import {
-  type ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+import type {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { L1ToL2MessageBundle, makeL1ToL2MessageBundle } from '@aztec/stdlib/messaging';
+import { L1ToL2MessageBundle, type L1ToL2MessageSponge, makeL1ToL2MessageBundle } from '@aztec/stdlib/messaging';
 import type { RollupHonkProofData } from '@aztec/stdlib/proofs';
 import {
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
+  BlockRootMsgsOnlyRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
@@ -44,6 +45,7 @@ export type BlockRootRollupTypeAndInputs =
   | { rollupType: 'rollup-block-root-first'; inputs: BlockRootFirstRollupPrivateInputs }
   | { rollupType: 'rollup-block-root-first-single-tx'; inputs: BlockRootSingleTxFirstRollupPrivateInputs }
   | { rollupType: 'rollup-block-root-first-empty-tx'; inputs: BlockRootEmptyTxFirstRollupPrivateInputs }
+  | { rollupType: 'rollup-block-root-msgs-only'; inputs: BlockRootMsgsOnlyRollupPrivateInputs }
   | { rollupType: 'rollup-block-root-single-tx'; inputs: BlockRootSingleTxRollupPrivateInputs }
   | { rollupType: 'rollup-block-root'; inputs: BlockRootRollupPrivateInputs };
 
@@ -74,6 +76,9 @@ export class BlockProvingState {
     private readonly timestamp: UInt64,
     public readonly lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    // The full state reference of the previous block, before this block's bundle is appended. Feeds the msgs-only
+    // block root, whose zero-tx block has no tx constants to pin the previous state.
+    private readonly previousState: StateReference,
     // This block's L1-to-L2 message tree snapshot before and after its own bundle (AZIP-22 Fast Inbox). The start is
     // the previous block's end (block-merge continuity); the end is this block's own post-bundle snapshot.
     private readonly startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -82,16 +87,29 @@ export class BlockProvingState {
     private readonly l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
     // This block's own real L1-to-L2 message leaves (unpadded slice).
     private readonly l1ToL2Messages: Fr[],
+    // Message sponge threaded across the checkpoint's blocks (AZIP-22 Fast Inbox): the start is the previous block's
+    // end sponge (empty for the first block), the end absorbs this block's own slice. Block merges assert the
+    // continuity, so the end is exposed for the next block to inherit.
+    private readonly startMsgSponge: L1ToL2MessageSponge,
+    private readonly endMsgSponge: L1ToL2MessageSponge,
     private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     private readonly startSpongeBlob: SpongeBlob,
     public parentCheckpoint: CheckpointProvingState,
   ) {
     this.isFirstBlock = index === 0;
-    if (!totalNumTxs && !this.isFirstBlock) {
-      throw new Error(`Cannot create a block with 0 txs, unless it's the first block.`);
+    if (!totalNumTxs && !this.isFirstBlock && l1ToL2Messages.length === 0) {
+      throw new Error(
+        `Cannot create a non-first block with 0 txs and no L1-to-L2 messages (block ${blockNumber}). ` +
+          `A zero-tx non-first block must carry a message bundle (the msgs-only block root).`,
+      );
     }
 
     this.baseOrMergeProofs = new UnbalancedTreeStore(totalNumTxs);
+  }
+
+  /** The message sponge after absorbing this block's slice; inherited by the next block as its start sponge. */
+  public getEndMsgSponge(): L1ToL2MessageSponge {
+    return this.endMsgSponge;
   }
 
   public get epochNumber(): number {
@@ -305,7 +323,25 @@ export class BlockProvingState {
 
     const messageBundle = this.#getMessageBundle();
     const frontierHint = this.#getFrontierHint();
-    const startMsgSponge = this.parentCheckpoint.getCheckpointMsgSponge();
+    const startMsgSponge = this.startMsgSponge;
+
+    // A non-first block with no txs exists solely to insert its message bundle (the constructor rejects an empty one).
+    if (this.totalNumTxs === 0) {
+      return {
+        rollupType: 'rollup-block-root-msgs-only' satisfies CircuitName,
+        inputs: new BlockRootMsgsOnlyRollupPrivateInputs(
+          this.lastArchiveTreeSnapshot,
+          this.previousState,
+          this.constants,
+          this.timestamp,
+          this.startSpongeBlob,
+          startMsgSponge,
+          messageBundle,
+          frontierHint,
+          this.lastArchiveSiblingPath,
+        ),
+      };
+    }
 
     const [leftRollup, rightRollup] = previousRollups;
     if (!rightRollup) {
