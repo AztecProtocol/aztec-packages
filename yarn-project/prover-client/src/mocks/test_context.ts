@@ -59,6 +59,10 @@ export class TestContext {
   private nextBlockNumber = 1;
   private epochNumber = 1;
   private feePayerBalance: Fr;
+  // Running inbox rolling hash across the checkpoints built by this context (never resets: the protocol threads it
+  // from genesis). Each checkpoint's builder starts from it, and it advances by the checkpoint's messages, so a
+  // checkpoint built after a message-carrying one commits the correct continuation in its header.
+  private currentInboxRollingHash = Fr.ZERO;
 
   constructor(
     public worldState: MerkleTreeAdminDatabase,
@@ -241,11 +245,12 @@ export class TestContext {
 
     const cleanFork = await this.worldState.fork();
     const previousCheckpointOutHashes = this.checkpointOutHashes;
+    const startInboxRollingHash = this.currentInboxRollingHash;
     const builder = LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       { ...constants, timestamp },
       previousCheckpointOutHashes,
-      Fr.ZERO,
+      startInboxRollingHash,
       cleanFork,
     );
 
@@ -272,6 +277,7 @@ export class TestContext {
     const checkpoint = await builder.completeCheckpoint();
     this.checkpoints.push(checkpoint);
     this.checkpointOutHashes.push(checkpoint.getCheckpointOutHash());
+    this.currentInboxRollingHash = checkpoint.header.inboxRollingHash;
 
     return {
       constants,
@@ -280,6 +286,7 @@ export class TestContext {
       blocks,
       l1ToL2Messages,
       previousBlockHeader,
+      startInboxRollingHash,
     };
   }
 
@@ -288,8 +295,9 @@ export class TestContext {
    * (streaming Inbox / AZIP-22 Fast Inbox): `l1ToL2MessagesPerBlock[i]` is block `i`'s own message slice,
    * appended at compact indices in insertion order. Lets tests exercise checkpoints whose messages span more
    * than one block, including a non-first block carrying a bundle — the single-block-per-checkpoint
-   * `makeCheckpoint` puts every message in the first block. Non-first blocks must carry at least one tx (an
-   * empty non-first block is rejected by the builder), so `numTxsPerBlock` defaults to 1.
+   * `makeCheckpoint` puts every message in the first block. `numTxsPerBlock` defaults to 1 because the builder
+   * rejects a non-first block with neither txs nor messages; a zero-tx entry whose slice is non-empty is valid
+   * and produces a message-only block.
    */
   public async makeCheckpointWithMessagesPerBlock(
     l1ToL2MessagesPerBlock: Fr[][],
@@ -364,6 +372,7 @@ export class TestContext {
 
     const cleanFork = await this.worldState.fork();
     const previousCheckpointOutHashes = this.checkpointOutHashes;
+    const startInboxRollingHash = this.currentInboxRollingHash;
     // Empty checkpoint-level list + `insertMessagesPerBlock` so the builder inserts each block's slice via
     // `addBlock` (and accumulates them into the checkpoint's rolling hash) rather than up front.
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
@@ -371,7 +380,7 @@ export class TestContext {
       { ...constants, timestamp },
       [],
       previousCheckpointOutHashes,
-      Fr.ZERO,
+      startInboxRollingHash,
       cleanFork,
       undefined,
       0n,
@@ -400,6 +409,7 @@ export class TestContext {
     const checkpoint = await builder.completeCheckpoint();
     this.checkpoints.push(checkpoint);
     this.checkpointOutHashes.push(checkpoint.getCheckpointOutHash());
+    this.currentInboxRollingHash = checkpoint.header.inboxRollingHash;
 
     return {
       constants,
@@ -409,6 +419,7 @@ export class TestContext {
       l1ToL2Messages,
       l1ToL2MessagesPerBlock,
       previousBlockHeader,
+      startInboxRollingHash,
     };
   }
 
