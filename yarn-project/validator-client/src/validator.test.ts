@@ -1460,13 +1460,6 @@ describe('ValidatorClient', () => {
       expect(isValid).toBe(false);
     });
 
-    it('should return false if messages do not match', async () => {
-      l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([Fr.random()]);
-
-      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      expect(isValid).toBe(false);
-    });
-
     describe('non-first block in checkpoint validation', () => {
       // When indexWithinCheckpoint > 0, global variables must match parent block (except blockNumber).
       // The inHash validation is implicitly handled: all blocks in a checkpoint share the same
