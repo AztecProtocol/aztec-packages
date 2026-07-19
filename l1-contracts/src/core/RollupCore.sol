@@ -18,6 +18,7 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {EpochProofExtLib} from "@aztec/core/libraries/rollup/EpochProofExtLib.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
 import {SlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/SlasherDeploymentExtLib.sol";
@@ -466,7 +467,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _args Contains the epoch range, public inputs, fees, attestations, and the ZK proof
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollupCore) {
-    RollupOperationsExtLib.submitEpochRootProof(_args);
+    EpochProofExtLib.submitEpochRootProof(_args);
   }
 
   /**
