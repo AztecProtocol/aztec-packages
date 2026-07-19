@@ -91,11 +91,14 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
         'rollup-checkpoint-root',
       ],
     },
+    // Messages split across both blocks so the non-first block-root sample carries a non-empty
+    // bundle, exercising the per-block sponge continuity asserts in the circuit.
     {
       numCheckpoints: 1,
       numBlocksPerCheckpoint: 2,
       numTxsPerBlock: 2,
-      numL1ToL2Messages: withMessages,
+      numL1ToL2Messages: 0, // Overridden by l1ToL2MessagesPerBlock.
+      l1ToL2MessagesPerBlock: [times(2, i => new Fr(0xb00 + i)), times(3, i => new Fr(0xc00 + i))],
       dump: ['rollup-block-root'],
     },
     // Three txs in a block force a tx-merge to pair the base proofs down to the two the block root
