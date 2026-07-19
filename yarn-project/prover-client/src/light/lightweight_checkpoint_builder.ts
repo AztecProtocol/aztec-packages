@@ -230,7 +230,7 @@ export class LightweightCheckpointBuilder {
     }
 
     const [msBuildHeaderAndBody, { header, body, blockBlobFields }] = await elapsed(() =>
-      buildHeaderAndBodyFromTxs(txs, lastArchive, endState, globalVariables, this.spongeBlob, isFirstBlock),
+      buildHeaderAndBodyFromTxs(txs, lastArchive, endState, globalVariables, this.spongeBlob),
     );
     timings.buildHeaderAndBody = msBuildHeaderAndBody;
 

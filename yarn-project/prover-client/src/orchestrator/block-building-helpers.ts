@@ -312,7 +312,6 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     endState: StateReference,
     globalVariables: GlobalVariables,
     startSpongeBlob: SpongeBlob,
-    isFirstBlock: boolean,
   ) => {
     span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
 
