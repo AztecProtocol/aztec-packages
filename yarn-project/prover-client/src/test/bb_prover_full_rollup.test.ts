@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { parseBooleanEnv } from '@aztec/foundation/config';
@@ -52,7 +52,8 @@ describe('prover/bb_prover/full-rollup', () => {
       const checkpoints = await timesAsync(numCheckpoints, () =>
         context.makeCheckpoint(numBlockPerCheckpoint, {
           numTxsPerBlock,
-          numL1ToL2Messages: NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+          // makeCheckpoint puts the whole message list into the first block, so cap at the per-block limit.
+          numL1ToL2Messages: MAX_L1_TO_L2_MSGS_PER_BLOCK,
           makeProcessedTxOpts: (_, txIndex) => ({ privateOnly: txIndex % 2 === 0 }),
         }),
       );
