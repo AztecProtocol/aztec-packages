@@ -1,6 +1,6 @@
 import { MAX_L2_TO_L1_MSGS_PER_TX } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { padArrayEnd, sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -225,7 +225,8 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     // carries none (txs only), and the last block carries a bundle with zero txs (a message-only block, proven by
     // the msgs-only block root). The sub-tree must append each block's own slice at compact indices with
     // contiguous, non-overlapping per-block snapshots, and thread the message sponge across the blocks (AZIP-22
-    // Fast Inbox).
+    // Fast Inbox). The sub-tree result surfaces post-merge top-level nodes (at most two, for the binary
+    // checkpoint root), not one output per block.
     const l1ToL2MessagesPerBlock = [[new Fr(1001), new Fr(1002)], [], [new Fr(1003), new Fr(1004), new Fr(1005)]];
     const numBlocks = l1ToL2MessagesPerBlock.length;
     const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpointWithMessagesPerBlock(
@@ -261,15 +262,19 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       }
 
       const result = await resultPromise;
-      expect(result.blockProofOutputs).toHaveLength(numBlocks);
+      // Three block roots reduce to two top-level outputs: a block-merge over blocks 0-1 and block 2's msgs-only
+      // root. Merge public inputs span their range: is_first_block propagates from the left child, the start
+      // sponge/state come from the left child and the end sponge/state from the right.
+      const expectedOutputBlockRanges = [[0, 1], [2]];
+      expect(result.blockProofOutputs).toHaveLength(expectedOutputBlockRanges.length);
 
-      // Order the block outputs by block number (the archive tree grows by exactly one leaf per block).
+      // Order the outputs by position in the checkpoint (the archive tree grows by one leaf per block).
       const ordered = [...result.blockProofOutputs].sort(
         (a, b) => a.inputs.previousArchive.nextAvailableLeafIndex - b.inputs.previousArchive.nextAvailableLeafIndex,
       );
 
-      // Walk the blocks in order, asserting the L1-to-L2 message tree partitions cleanly into per-block slices,
-      // with each block's start snapshot equal to the previous block's end snapshot (the "threaded" per-block
+      // Walk the outputs in order, asserting the L1-to-L2 message tree partitions cleanly into per-output slices,
+      // with each output's start snapshot equal to the previous output's end snapshot (the "threaded" per-block
       // L1-to-L2 tree state).
       const baseLeaf = ordered[0].inputs.startState.l1ToL2MessageTree.nextAvailableLeafIndex;
       let expectedStartLeaf = baseLeaf;
@@ -279,21 +284,24 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       const expectedSponge = L1ToL2MessageSponge.empty();
       for (const [i, output] of ordered.entries()) {
         const inputs = output.inputs;
+        const blockIndexes = expectedOutputBlockRanges[i];
         const startLeaf = inputs.startState.l1ToL2MessageTree.nextAvailableLeafIndex;
         const endLeaf = inputs.endState.l1ToL2MessageTree.nextAvailableLeafIndex;
-        const sliceLen = l1ToL2MessagesPerBlock[i].length;
+        const sliceLen = sum(blockIndexes.map(b => l1ToL2MessagesPerBlock[b].length));
 
-        // Only the checkpoint's first block flags isFirstBlock.
-        expect(inputs.isFirstBlock).toBe(i === 0);
-        // Contiguous, non-overlapping slices: this block starts where the previous one ended (no gap/overlap).
+        // Only the output covering the checkpoint's first block flags isFirstBlock.
+        expect(inputs.isFirstBlock).toBe(blockIndexes.includes(0));
+        // Contiguous, non-overlapping slices: this output starts where the previous one ended (no gap/overlap).
         expect(startLeaf).toBe(expectedStartLeaf);
-        // Block slice = [prevBlockLeafCount, blockLeafCount): the tree grows by exactly this block's bundle size.
+        // The tree grows by exactly the covered blocks' bundle sizes.
         expect(endLeaf - startLeaf).toBe(sliceLen);
         expectedStartLeaf = endLeaf;
 
-        // Sponge continuity: this block starts from the previous block's end sponge and absorbs its own slice.
+        // Sponge continuity: this output starts from the previous one's end sponge and absorbs its blocks' slices.
         expect(inputs.startMsgSponge.toBuffer()).toEqual(expectedSponge.toBuffer());
-        await expectedSponge.absorb(l1ToL2MessagesPerBlock[i]);
+        for (const blockIndex of blockIndexes) {
+          await expectedSponge.absorb(l1ToL2MessagesPerBlock[blockIndex]);
+        }
         expect(inputs.endMsgSponge.toBuffer()).toEqual(expectedSponge.toBuffer());
       }
 
