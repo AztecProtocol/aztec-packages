@@ -369,11 +369,7 @@ describe('CalldataRetriever', () => {
             archive,
             oracleInput: { feeAssetPriceModifier },
             header,
-<<<<<<< HEAD
-            bucketHint: 0n,
-=======
             bucketHint: BigInt(0),
->>>>>>> e74ca75577 (chore(fast-inbox): follow the L1 inbox cleanup through the TS clients (A-1386))
           },
           attestations,
           [], // signers
