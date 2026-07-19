@@ -43,8 +43,6 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
       ...(disableStatusHandshake ? { p2pDisableStatusHandshake: true } : {}),
       listenAddress: '127.0.0.1',
       aztecEpochDuration: 64, // stable committee
-      // Pipelining: target-slot is one ahead of build-slot; inboxLag sources L1->L2
-      // messages from the previous checkpoint to avoid L1ToL2MessagesNotReadyError.
     },
   });
   await t.setup();

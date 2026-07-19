@@ -46,8 +46,6 @@ describe('e2e_p2p_network', () => {
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',
-        // Pipelining: target-slot is one ahead of build-slot; inboxLag sources L1->L2
-        // messages from the previous checkpoint to avoid L1ToL2MessagesNotReadyError.
       },
     });
 

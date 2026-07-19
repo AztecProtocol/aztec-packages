@@ -89,10 +89,8 @@ describe('multi-node/governance/add_rollup', () => {
       aztecTargetCommitteeSize: NUM_VALIDATORS,
       governanceProposerRoundSize: 10,
       // Allow validators to build empty checkpoints so the chain keeps advancing while we wait for
-      // L1->L2 messages to land in the next checkpoint's inbox tree.
+      // L1->L2 messages to be consumed from the streaming Inbox.
       minTxsPerBlock: 0,
-      // inboxLag: 2 sources L1->L2 messages from an already-sealed checkpoint under pipelining, avoiding
-      // L1ToL2MessagesNotReadyError.
       // Fund the bridging accounts (and the sponsored FPC) at genesis. Skip the hardcoded-account
       // fast-path so our additionallyFundedAccounts are not clobbered.
       skipHardcodedAccount: true,

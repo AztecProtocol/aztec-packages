@@ -30,8 +30,6 @@ export const PIPELINED_FEE_PADDING = TEST_FEE_PADDING;
  *
  * The preset runs the production Sequencer with the always-enforced timetable at real (wall-clock)
  * timing, yielding exactly 2 blocks per slot. It sets:
- * - `inboxLag: 2` so the sequencer sources L1->L2 messages from checkpoint N-1 (already sealed),
- *   avoiding `L1ToL2MessagesNotReadyError` when building for slot N during slot N-1.
  * - `minTxsPerBlock: 0` so empty checkpoints land even when a tx arrives late in the build window
  *   (otherwise the chain stalls on alternating slots).
  * - `aztecSlotDuration: 12` / `ethereumSlotDuration: 4` so the pipelined cycle fits inside the
