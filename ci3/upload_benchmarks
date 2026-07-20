@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Upload a benchmark datapoint to the benchmark dashboard data repo, writing the same
+# window.BENCHMARK_DATA format as benchmark-action/github-action-benchmark.
+#
+# Replaces that action for uploads: the action full-clones the data repo (multiple GB of
+# append-only history) to add a single datapoint. This script does a shallow, blob-filtered,
+# sparse clone of just the target data dir instead, and in --maintain mode enforces a retention
+# policy so the repo cannot grow without bound:
+#   - data dirs with no update in RETENTION_MONTHS are pruned from the tip
+#   - history older than RETENTION_MONTHS is squashed into a single root commit (cheap: uses a
+#     blob-less clone; squashing rewrites only commit objects, never trees or blobs)
+#
+# Usage: upload_benchmarks <entry-name> <data-dir> <bench-json> <commit-sha> [--maintain]
+#   entry-name  Chart entry name, e.g. "Aztec Benchmarks"
+#   data-dir    Directory in the data repo, e.g. "bench/next"
+#   bench-json  Path to a customSmallerIsBetter JSON file: [{name, value, unit}, ...]
+#   commit-sha  The source-repo commit the results belong to
+#
+# Env:
+#   GITHUB_TOKEN      Token with push access to the data repo (required unless BENCH_REPO_URL).
+#   BENCH_REPO        Data repo slug (default: AztecProtocol/benchmark-page-data).
+#   BENCH_REPO_URL    Full clone URL override; bypasses token auth (used by tests).
+#   SOURCE_REPO_URL   Repo the commit sha belongs to (default: https://github.com/AztecProtocol/aztec-packages).
+#   MAX_ITEMS         Datapoints kept per entry series (default: 100).
+#   RETENTION_MONTHS  Retention window for prune and squash (default: 6).
+
+entry_name=$1
+data_dir=${2%/}
+bench_json=$3
+commit_sha=$4
+maintain=${5:-}
+
+bench_repo=${BENCH_REPO:-AztecProtocol/benchmark-page-data}
+repo_url=${BENCH_REPO_URL:-https://x-access-token:${GITHUB_TOKEN:-}@github.com/$bench_repo}
+source_repo_url=${SOURCE_REPO_URL:-https://github.com/AztecProtocol/aztec-packages}
+max_items=${MAX_ITEMS:-100}
+retention_months=${RETENTION_MONTHS:-6}
+
+[ -f "$bench_json" ] || { echo "upload_benchmarks: bench json not found: $bench_json" >&2; exit 1; }
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# Build the datapoint entry. Commit metadata comes from the GitHub API when available so the
+# dashboard can render author/link info; degrade to bare sha metadata otherwise.
+build_entry() {
+  local commit_info
+  if ! commit_info=$(curl -sf --max-time 15 \
+      ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+      "https://api.github.com/repos/${source_repo_url##*github.com/}/commits/$commit_sha" 2>/dev/null); then
+    commit_info='{}'
+  fi
+  jq -n \
+    --argjson info "$commit_info" \
+    --arg id "$commit_sha" \
+    --arg url "$source_repo_url/commit/$commit_sha" \
+    --arg now_iso "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --slurpfile benches "$bench_json" \
+    '{
+      commit: {
+        author: { name: ($info.commit.author.name // "unknown"), username: ($info.author.login // "") },
+        committer: { name: ($info.commit.committer.name // "unknown"), username: ($info.committer.login // "") },
+        id: $id,
+        message: ($info.commit.message // "" | split("\n")[0]),
+        timestamp: ($info.commit.author.date // $now_iso),
+        url: ($info.html_url // $url)
+      },
+      date: (now * 1000 | floor),
+      tool: "customSmallerIsBetter",
+      benches: $benches[0]
+    }'
+}
+
+# Append the entry to <data-dir>/data.js in a fresh shallow sparse clone and push.
+# Also removes any dirs listed in $tmp/prune_dirs (populated by maintain).
+append_and_push() {
+  local dir="$tmp/append"
+  rm -rf "$dir"
+  git clone -q --depth=1 --single-branch -b gh-pages --filter=blob:none --sparse "$repo_url" "$dir"
+  git -C "$dir" sparse-checkout set "$data_dir" >/dev/null
+
+  local data_js="$dir/$data_dir/data.js"
+  mkdir -p "$dir/$data_dir"
+  local current='{"lastUpdate":0,"repoUrl":"","entries":{}}'
+  if [ -f "$data_js" ]; then
+    # Strip the "window.BENCHMARK_DATA = " prefix (and any trailing semicolon/newline).
+    current=$(sed '1s/^window\.BENCHMARK_DATA *= *//' "$data_js")
+  else
+    # New data dir: give it the same dashboard page as an existing dir.
+    local template
+    template=$(git -C "$dir" ls-tree -r --name-only HEAD | grep '/index.html$' | head -1 || true)
+    if [ -n "$template" ]; then
+      git -C "$dir" show "HEAD:$template" > "$dir/$data_dir/index.html"
+    fi
+  fi
+
+  jq --arg name "$entry_name" \
+     --arg repo_url "$source_repo_url" \
+     --argjson entry "$(cat "$tmp/entry.json")" \
+     --argjson max "$max_items" \
+     '.lastUpdate = (now * 1000 | floor)
+      | .repoUrl = $repo_url
+      | .entries[$name] = ((.entries[$name] // []) + [$entry] | if length > $max then .[length - $max:] else . end)' \
+     <<< "$current" > "$tmp/data.json"
+  { printf 'window.BENCHMARK_DATA = '; cat "$tmp/data.json"; } > "$data_js"
+
+  git -C "$dir" add "$data_dir"
+
+  if [ -f "$tmp/did_squash" ]; then
+    date +%s > "$dir/bench/.squash-stamp"
+    git -C "$dir" add bench/.squash-stamp
+  fi
+
+  if [ -s "$tmp/prune_dirs" ]; then
+    while IFS= read -r stale; do
+      # --cached + --sparse: removes from the tree without needing the blobs checked out.
+      git -C "$dir" rm -rq --cached --sparse --ignore-unmatch -- "$stale"
+      echo "Pruned stale benchmark dir: $stale"
+    done < "$tmp/prune_dirs"
+  fi
+
+  git -C "$dir" -c user.name="aztec-bot" -c user.email="tech@aztecprotocol.com" \
+    commit -qm "$entry_name ($data_dir) @ $commit_sha"
+  git -C "$dir" push -q origin HEAD:gh-pages
+}
+
+# Retention maintenance, run against a blob-less clone of the retention window:
+#  - collect data dirs whose newest touching commit is older than the retention window
+#  - if history extends beyond the window, squash it into a single root commit. Trees and blobs
+#    are content-addressed and reused as-is, so only commit objects are rewritten and pushed.
+maintain() {
+  local dir="$tmp/maintain"
+  # Clone 2 months beyond the retention window. The graft boundary lands on the oldest included
+  # commit, so the buffer guarantees every commit relevant to the retention cutoff is present
+  # with real parentage, making the per-dir last-touch computation below exact.
+  local since="-$((retention_months + 2)) months"
+  if ! git clone -q --bare --single-branch -b gh-pages --filter=blob:none --shallow-since="$since" \
+      "$repo_url" "$dir" 2>/dev/null; then
+    echo "maintain: clone failed (no commits in window?); skipping maintenance" >&2
+    return 0
+  fi
+  local orig_head
+  orig_head=$(git -C "$dir" rev-parse gh-pages)
+
+  # In a shallow clone the graft root diffs against the empty tree, claiming to "touch" every
+  # file; exclude roots from last-touch queries there. A dir no commit besides the root touched
+  # was then last modified before the clone window began, i.e. well past the retention cutoff.
+  local not_root=()
+  if [ -s "$dir/shallow" ]; then
+    local graft_roots
+    mapfile -t graft_roots < <(git -C "$dir" rev-list --max-parents=0 gh-pages)
+    not_root=(--not "${graft_roots[@]}")
+  fi
+  local cutoff
+  cutoff=$(date -d "-$retention_months months" +%s)
+  git -C "$dir" ls-tree -r --name-only gh-pages | grep '/.*/data.js$' | while IFS= read -r f; do
+    local d=${f%/data.js} last
+    [ "$d" = "$data_dir" ] && continue
+    last=$(git -C "$dir" log -1 --format=%ct gh-pages ${not_root[@]+"${not_root[@]}"} -- "$d/" 2>/dev/null || true)
+    if [ "${last:-0}" -lt "$cutoff" ]; then
+      echo "$d"
+    fi
+  done > "$tmp/prune_dirs" || true
+
+  # Shallow graft present => commits older than the buffered window exist => squash them.
+  # Rate-limited to monthly via a stamp file at the tip (a marker commit wouldn't work: the
+  # graft trails the cutoff daily, and right after a squash the marker sits below the graft
+  # where the next clone can't see it).
+  if [ ! -s "$dir/shallow" ]; then
+    return 0
+  fi
+  local last_squash
+  last_squash=$(git -C "$dir" show gh-pages:bench/.squash-stamp 2>/dev/null || echo 0)
+  if [ "${last_squash:-0}" -gt "$(date -d '-1 month' +%s)" ] 2>/dev/null; then
+    return 0
+  fi
+  local squash_msg="chore(bench): squash history older than $retention_months months"
+  echo "Squashing benchmark history older than $retention_months months..."
+  local commits new c
+  mapfile -t commits < <(git -C "$dir" rev-list --reverse --first-parent gh-pages)
+  new=$(GIT_AUTHOR_NAME="aztec-bot" GIT_AUTHOR_EMAIL="tech@aztecprotocol.com" \
+    GIT_AUTHOR_DATE="$(git -C "$dir" log -1 --format=%aI "${commits[0]}")" \
+    GIT_COMMITTER_NAME="aztec-bot" GIT_COMMITTER_EMAIL="tech@aztecprotocol.com" \
+    git -C "$dir" commit-tree "${commits[0]}^{tree}" -m "$squash_msg")
+  for c in "${commits[@]:1}"; do
+    local an ae ad cn ce cd
+    IFS=$'\x01' read -r an ae ad cn ce cd < <(git -C "$dir" log -1 --format=$'%an\x01%ae\x01%aI\x01%cn\x01%ce\x01%cI' "$c")
+    new=$(git -C "$dir" log -1 --format=%B "$c" |
+      GIT_AUTHOR_NAME="$an" GIT_AUTHOR_EMAIL="$ae" GIT_AUTHOR_DATE="$ad" \
+      GIT_COMMITTER_NAME="$cn" GIT_COMMITTER_EMAIL="$ce" GIT_COMMITTER_DATE="$cd" \
+      git -C "$dir" commit-tree "$c^{tree}" -p "$new" -F -)
+  done
+  # Lease on the sha we cloned: if someone pushed meanwhile, skip; next maintain retries.
+  if git -C "$dir" push -q --force-with-lease="gh-pages:$orig_head" origin "$new:refs/heads/gh-pages"; then
+    touch "$tmp/did_squash"
+  else
+    echo "Concurrent push detected; skipping squash this round." >&2
+  fi
+}
+
+build_entry > "$tmp/entry.json"
+: > "$tmp/prune_dirs"
+
+if [ "$maintain" = "--maintain" ]; then
+  maintain
+fi
+
+for attempt in 1 2 3; do
+  if append_and_push; then
+    echo "Benchmark datapoint uploaded to $bench_repo:$data_dir (entry: $entry_name)"
+    exit 0
+  fi
+  echo "Push attempt $attempt failed (concurrent update?); retrying..." >&2
+  sleep $((attempt * 5))
+done
+echo "upload_benchmarks: failed to push after 3 attempts" >&2
+exit 1

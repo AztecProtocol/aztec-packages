@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Self-contained test for ci3/upload_benchmarks against a local fixture data repo. Run directly.
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/upload_benchmarks"
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+cd "$WORK"
+
+fail() { echo "FAIL: $1" >&2; exit 1; }
+pass() { echo "PASS: $1"; }
+
+# --- Build fixture: bare repo with 8 months of weekly commits ---
+git init -q --bare origin.git -b gh-pages
+git -C origin.git config uploadpack.allowFilter true
+git -C origin.git config uploadpack.allowAnySHA1InWant true
+
+git clone -q origin.git seed 2>/dev/null
+cd seed
+git checkout -q -b gh-pages
+mkdir -p bench/next bench/stale bench/data-top
+echo "<html>dashboard</html>" > bench/next/index.html
+echo "<html>dashboard</html>" > bench/stale/index.html
+echo "top-level" > bench/index.html
+
+datapoint() { # sha value
+  echo "{\"commit\":{\"id\":\"$1\"},\"date\":0,\"tool\":\"customSmallerIsBetter\",\"benches\":[{\"name\":\"t\",\"value\":$2,\"unit\":\"ms\"}]}"
+}
+
+commit_at() { # date msg
+  GIT_AUTHOR_DATE="$1" GIT_COMMITTER_DATE="$1" git -c user.name=fixture -c user.email=f@x commit -qam "$2"
+}
+
+# 41 weekly commits, from 40 weeks ago (~9 months) to now. bench/stale stops being updated at
+# week -28 (~6.5 months ago), so it is past the 6-month retention cutoff.
+for i in $(seq 40 -1 0); do
+  when=$(date -d "-$i weeks" --iso-8601=seconds)
+  echo "window.BENCHMARK_DATA = $(jq -n --argjson e "$(datapoint c$i $i)" '{lastUpdate:0,repoUrl:"r",entries:{"Aztec Benchmarks":[$e]}}')" > bench/next/data.js
+  if [ "$i" -ge 28 ]; then
+    cp bench/next/data.js bench/stale/data.js
+  fi
+  git add -A
+  commit_at "$when" "bench update week -$i"
+done
+git push -q origin gh-pages
+cd "$WORK"
+total_commits=$(git -C origin.git rev-list --count gh-pages)
+[ "$total_commits" -eq 41 ] || fail "fixture should have 41 commits, has $total_commits"
+
+# bench.json input
+echo '[{"name":"proof_time","value":123.4,"unit":"ms"},{"name":"mem","value":9,"unit":"MB"}]' > bench.json
+
+run_script() {
+  BENCH_REPO_URL="file://$WORK/origin.git" GITHUB_TOKEN= SOURCE_REPO_URL=https://github.com/AztecProtocol/aztec-packages \
+    "$SCRIPT" "$@"
+}
+
+check_tip() { # path -> stdout data.js json
+  git -C origin.git show "gh-pages:$1" | sed '1s/^window\.BENCHMARK_DATA *= *//'
+}
+
+# --- Test 1: plain append, no maintain ---
+run_script "Aztec Benchmarks" bench/next bench.json deadbeef1 > /dev/null
+n=$(check_tip bench/next/data.js | jq '.entries["Aztec Benchmarks"] | length')
+[ "$n" -eq 2 ] || fail "test1: expected 2 entries, got $n"
+last=$(check_tip bench/next/data.js | jq -r '.entries["Aztec Benchmarks"][-1].commit.id')
+[ "$last" = "deadbeef1" ] || fail "test1: last entry commit id: $last"
+benchname=$(check_tip bench/next/data.js | jq -r '.entries["Aztec Benchmarks"][-1].benches[0].name')
+[ "$benchname" = "proof_time" ] || fail "test1: bench name: $benchname"
+git -C origin.git show gh-pages:bench/stale/data.js > /dev/null || fail "test1: stale dir should be untouched"
+[ "$(git -C origin.git rev-list --count gh-pages)" -eq 42 ] || fail "test1: expected 42 commits"
+pass "test1: append without maintain"
+
+# --- Test 2: maintain squashes >6mo history and prunes stale dir ---
+run_script "Aztec Benchmarks" bench/next bench.json deadbeef2 --maintain > /dev/null
+new_count=$(git -C origin.git rev-list --count gh-pages)
+# squash boundary = retention+2 months ≈ 35 weeks: root + weeks -33..-0 + 2 appends ≈ 37
+[ "$new_count" -lt 39 ] || fail "test2: history not squashed (count=$new_count)"
+root=$(git -C origin.git rev-list --max-parents=0 gh-pages)
+[ "$(echo "$root" | wc -l)" -eq 1 ] || fail "test2: multiple roots"
+# stale dir pruned, active + top-level preserved
+git -C origin.git show gh-pages:bench/stale/data.js > /dev/null 2>&1 && fail "test2: stale dir not pruned"
+git -C origin.git show gh-pages:bench/index.html > /dev/null || fail "test2: top-level file lost"
+n=$(check_tip bench/next/data.js | jq '.entries["Aztec Benchmarks"] | length')
+[ "$n" -eq 3 ] || fail "test2: expected 3 entries after second append, got $n"
+# recent commit messages preserved through rewrite
+git -C origin.git log --format=%s gh-pages | grep -q "bench update week -30" || fail "test2: recent history lost"
+git -C origin.git log --format=%s gh-pages | grep -q "bench update week -36" && fail "test2: old history survived"
+git -C origin.git show gh-pages:bench/.squash-stamp > /dev/null || fail "test2: squash stamp missing"
+pass "test2: maintain squash + prune (commits: 42 -> $new_count)"
+
+# --- Test 3: maintain is idempotent (no shallow -> no squash, nothing new pruned) ---
+count_before=$(git -C origin.git rev-list --count gh-pages)
+run_script "Aztec Benchmarks" bench/next bench.json deadbeef3 --maintain > /dev/null
+count_after=$(git -C origin.git rev-list --count gh-pages)
+[ "$count_after" -eq $((count_before + 1)) ] || fail "test3: expected exactly one new commit ($count_before -> $count_after)"
+pass "test3: maintain idempotent"
+
+# --- Test 4: append to a brand-new data dir creates data.js + index.html ---
+run_script "Spartan" bench/pr-1234 bench.json cafef00d > /dev/null
+n=$(check_tip bench/pr-1234/data.js | jq '.entries["Spartan"] | length')
+[ "$n" -eq 1 ] || fail "test4: new dir entry count: $n"
+git -C origin.git show gh-pages:bench/pr-1234/index.html > /dev/null || fail "test4: index.html not created"
+pass "test4: new data dir initialized"
+
+# --- Test 5: MAX_ITEMS trims the series ---
+for i in 1 2 3; do
+  MAX_ITEMS=3 BENCH_REPO_URL="file://$WORK/origin.git" GITHUB_TOKEN= "$SCRIPT" "Spartan" bench/pr-1234 bench.json trim$i > /dev/null
+done
+n=$(check_tip bench/pr-1234/data.js | jq '.entries["Spartan"] | length')
+[ "$n" -eq 3 ] || fail "test5: expected 3 entries after trim, got $n"
+first=$(check_tip bench/pr-1234/data.js | jq -r '.entries["Spartan"][0].commit.id')
+[ "$first" = "trim1" ] || fail "test5: oldest kept entry: $first"
+pass "test5: MAX_ITEMS trim"
+
+echo "ALL TESTS PASSED"
