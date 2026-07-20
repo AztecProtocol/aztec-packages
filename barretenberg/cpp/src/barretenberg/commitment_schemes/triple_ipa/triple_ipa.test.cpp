@@ -104,10 +104,16 @@ class TripleIPATest : public CommitmentTest<Curve> {
         return prover_transcript->export_proof();
     }
 
+    static std::shared_ptr<NativeTranscript> transcript_for(const NativeTranscript::Proof& proof)
+    {
+        auto transcript = std::make_shared<NativeTranscript>();
+        transcript->load_proof(proof);
+        return transcript;
+    }
+
     static bool verify(const PCS::TripleIpaInput& input, const NativeTranscript::Proof& proof)
     {
-        auto verifier_transcript = std::make_shared<NativeTranscript>(proof);
-        return PCS::reduce_verify(vk, input.claim_data.batch(), verifier_transcript);
+        return PCS::reduce_verify(vk, input.claim_data.batch(), transcript_for(proof));
     }
 };
 
@@ -144,8 +150,8 @@ TEST_F(TripleIPATest, NativeBatchVerifyAccumulatorsDischargesMultipleProofs)
     const auto proof2 = prove(input2);
 
     std::array<PCS::NativeAccumulator, 2> accumulators{
-        PCS::reduce_to_accumulator(input1.claim_data.batch(), std::make_shared<NativeTranscript>(proof1)),
-        PCS::reduce_to_accumulator(input2.claim_data.batch(), std::make_shared<NativeTranscript>(proof2)),
+        PCS::reduce_to_accumulator(input1.claim_data.batch(), transcript_for(proof1)),
+        PCS::reduce_to_accumulator(input2.claim_data.batch(), transcript_for(proof2)),
     };
 
     EXPECT_TRUE(PCS::batch_verify_accumulators(vk, std::span<const PCS::NativeAccumulator>(accumulators)));
@@ -162,8 +168,8 @@ TEST_F(TripleIPATest, NativeBatchVerifyAccumulatorsRejectsTamperedProof)
     proof2[0] += bb::fr::one();
 
     std::array<PCS::NativeAccumulator, 2> accumulators{
-        PCS::reduce_to_accumulator(input1.claim_data.batch(), std::make_shared<NativeTranscript>(proof1)),
-        PCS::reduce_to_accumulator(input2.claim_data.batch(), std::make_shared<NativeTranscript>(proof2)),
+        PCS::reduce_to_accumulator(input1.claim_data.batch(), transcript_for(proof1)),
+        PCS::reduce_to_accumulator(input2.claim_data.batch(), transcript_for(proof2)),
     };
 
     EXPECT_FALSE(PCS::batch_verify_accumulators(vk, std::span<const PCS::NativeAccumulator>(accumulators)));
