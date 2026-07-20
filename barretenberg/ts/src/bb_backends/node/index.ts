@@ -26,7 +26,12 @@ export async function createAsyncBackend(
         throw new Error('Native backend requires bb binary.');
       }
       logger(`Using native Unix socket backend: ${bbPath}`);
-      const socket = new BarretenbergNativeSocketAsyncBackend(bbPath, options.threads, options.logger, options.unref);
+      const socket = await BarretenbergNativeSocketAsyncBackend.new(
+        bbPath,
+        options.threads,
+        options.logger,
+        options.unref,
+      );
       return new Barretenberg(socket, options);
     }
 
