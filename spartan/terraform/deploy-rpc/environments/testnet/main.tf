@@ -71,6 +71,18 @@ locals {
       })
     })
   }
+
+  consumer_secret_names = [
+    "testnet-rpc-consumer-client1"
+  ]
+
+  consumers = {
+    for name in local.consumer_secret_names : name => {
+      username                       = name
+      gcp_secret_manager_secret_name = name
+      rate_limit_minute              = 0
+    }
+  }
 }
 
 module "environment" {
@@ -86,6 +98,7 @@ module "environment" {
   RELEASE_PREFIX  = "testnet"
   RPCS            = local.rpcs
   ALLOW_ANONYMOUS = true
+  CONSUMERS       = local.consumers
 
   IRM_METRICS_ENABLED = false
 }
