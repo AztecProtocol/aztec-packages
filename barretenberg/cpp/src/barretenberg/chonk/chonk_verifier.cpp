@@ -98,12 +98,8 @@ ChonkVerifier<false>::TripleIpaReductionResult ChonkVerifier<false>::reduce_to_t
         return { false };
     }
 
-    // All proof segments loaded into the shared transcript (hiding oink, merge, ECCVM, joint) must have been
-    // consumed: trailing field elements the transcript never read are not authenticated by Fiat-Shamir.
-    if (!transcript->is_proof_fully_consumed()) {
-        info("ChonkVerifier: proof contains trailing data not consumed by the transcript");
-        return { false };
-    }
+    // Covers all segments loaded into the shared transcript (hiding oink, merge, ECCVM, joint).
+    transcript->enforce_proof_fully_consumed("ChonkVerifier");
 
     return { .all_checks_passed = true,
              .triple_ipa_opening = { .claim = std::move(eccvm_result.triple_ipa_claim), .proof = proof.ipa_proof } };
