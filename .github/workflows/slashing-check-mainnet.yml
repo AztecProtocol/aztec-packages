@@ -1,0 +1,42 @@
+name: Slashing Check (mainnet)
+
+# Every 12 hours, query the mainnet fisherman node for pending slash offenses and
+# post them to Slack. This is an internal early-warning alert. It reads logs only.
+# It adds no logs or metrics to the node. Payloads, votes, and executed rounds are
+# out of scope, because they are visible on-chain.
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  slashing-check:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - name: Run pending-slash check
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          CI: "1"
+        run: |
+          PROMPT="Query pending slash offenses on mainnet for the last 12 hours.
+
+          Use the network-logs skill. Follow the 'Pending Slashes (mainnet fisherman node)' recipe in .claude/agents/network-logs.md.
+          Cluster: aztec-gke-public. Namespace: mainnet. Pod: mainnet-fisherman-aztec-node-0. Freshness: 13h.
+
+          Report every pending slash offense that the fisherman node recorded. For each offense, give the validator, the offense type, the amount, and the epoch or slot. Match only the 'Adding pending offense' log. Do not add a severity filter, because the log is INFO. Do not report votes, ready-to-execute rounds, or executed rounds. Those are visible on-chain.
+
+          First, run the liveness query in the recipe. If the pod wrote no logs in the window, or if the pod is active but the offense query returns no rows, report a possible log-format drift. Do not report an all-clear.
+
+          Post the result to #alerts-mainnet via respond_to_user as a table:
+          | Validator | Offense | Amount | Epoch/Slot |
+          If there are no pending offenses and the pod is active, say that clearly."
+
+          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-mainnet" \
+            "Pending-slash check for mainnet (last 12h)" \
+            "$PROMPT"

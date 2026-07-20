@@ -328,6 +328,42 @@ When the user asks for a healthcheck across multiple networks (e.g., "how are al
 
 Use ✅ for healthy, ⚠️ for degraded, ❌ for down/erroring. Follow the table with brief per-network details only if there are issues worth calling out. Remember deployment-specific notes: next-net resets daily (check block height is reasonable for time of day), mainnet runs in fisherman mode (no L1 submissions, `0xf3e591ac` errors are expected).
 
+### 12. Pending Slashes (mainnet fisherman node)
+
+Report the validators that the mainnet fisherman node has queued for slashing, with the reason and the amount. Each pending offense is an INFO log. The node writes it before any on-chain payload or vote. This signal is earlier than the on-chain slash round.
+
+**Scope rules for this recipe:**
+- Query **only** the pending-offense log. Do **not** query votes, ready-to-execute rounds, or executed rounds. Those steps are visible on-chain, so they are out of scope here.
+- Do **not** add a `severity` filter. The pending-offense log is INFO, not WARNING. A `severity>=WARNING` filter returns no results.
+- There is no p2p signal for how many other validators want to slash. The node does not gossip slash intent. The on-chain round vote tally is the only cross-validator count, and it is out of scope for this recipe.
+
+```bash
+gcloud logging read '
+  resource.type="k8s_container"
+  resource.labels.cluster_name="aztec-gke-public"
+  resource.labels.namespace_name="mainnet"
+  resource.labels.pod_name="mainnet-fisherman-aztec-node-0"
+  resource.labels.container_name="aztec"
+  jsonPayload.message=~"Adding pending offense"
+' --limit=200 --format='table[no-heading](timestamp.date("%m-%d %H:%M"), jsonPayload.validator, jsonPayload.offenseType, jsonPayload.amount, jsonPayload.epochOrSlot)' --freshness=13h --project=<project>
+```
+
+Each row is one pending slash: **validator, offense type, amount, epoch or slot**. The `offenseType` field is already a readable name. The `amount` field is the amount that the watcher proposed. The final slash amount uses the configured tiers, so treat the amount as indicative.
+
+**Fail loud (required).** Run the liveness query below first. If the pod wrote no logs in the window, or if the pod is active but the pending-offense query returns no rows, report a **possible log-format drift**. Do not report an all-clear. A silent empty result is the failure mode that hid the July 2026 slashing incident.
+
+```bash
+gcloud logging read '
+  resource.type="k8s_container"
+  resource.labels.cluster_name="aztec-gke-public"
+  resource.labels.namespace_name="mainnet"
+  resource.labels.pod_name="mainnet-fisherman-aztec-node-0"
+  resource.labels.container_name="aztec"
+' --limit=1 --format='table[no-heading](timestamp)' --freshness=13h --project=<project>
+```
+
+**Version note.** The message text `Adding pending offense` is coupled to the running node image. This recipe is validated against v5.0.1. The mainnet image is set at deploy time, so it can change. Re-validate this recipe when mainnet upgrades.
+
 ## Known Noise Patterns
 
 These patterns appear frequently and are usually harmless — exclude or downplay them:
