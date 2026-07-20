@@ -60,6 +60,7 @@ members = [
     "contracts/test/nested_utility_contract",
     "contracts/test/no_constructor_contract",
     "contracts/test/note_hash_and_nullifier/note_hash_and_nullifier_contract",
+    "contracts/test/no_notes_contract",
     "contracts/test/note_getter_contract",
     "contracts/test/offchain_effect_contract",
     "contracts/test/offchain_payment_contract",
