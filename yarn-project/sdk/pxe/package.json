@@ -21,10 +21,10 @@
   },
   "bin": "./dest/bin/index.js",
   "scripts": {
-    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
-    "build:dev": "../scripts/tsc.sh --watch",
+    "build": "yarn clean && yarn generate && ../../scripts/tsc.sh",
+    "build:dev": "../../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "generate": "node ./scripts/generate_package_info.js",
     "check_oracle_version": "node ./dest/bin/check_oracle_version.js"
   },
@@ -63,16 +63,16 @@
     ],
     "testTimeout": 120000,
     "setupFiles": [
-      "../../foundation/src/jest/setup.mjs"
+      "../../../foundation/src/jest/setup.mjs"
     ],
-    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "testEnvironment": "../../../foundation/src/jest/env.mjs",
     "setupFilesAfterEnv": [
-      "../../foundation/src/jest/setupAfterEnv.mjs"
+      "../../../foundation/src/jest/setupAfterEnv.mjs"
     ]
   },
   "dependencies": {
     "@aztec/bb-prover": "workspace:^",
-    "@aztec/bb.js": "portal:../../barretenberg/ts/bb.js",
+    "@aztec/bb.js": "portal:../../../barretenberg/ts/bb.js",
     "@aztec/builder": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",

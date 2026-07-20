@@ -40,7 +40,7 @@ if $watch; then
   elif [[ -d "src" ]]; then
     parallel --halt now,fail=1 ::: "$tsgo_cmd" "cd . && $swc $swc_args"
   else
-    { echo "$tsgo_cmd"; dirname */src | while read d; do echo "cd $d && $swc $swc_args"; done; } | parallel --halt now,fail=1 --line-buffered
+    { echo "$tsgo_cmd"; dirname */src sdk/*/src | while read d; do echo "cd $d && $swc $swc_args"; done; } | parallel --halt now,fail=1 --line-buffered
   fi
   exit 0
 fi
@@ -69,6 +69,6 @@ if $skip_swc; then
 elif [[ -d "src" ]]; then
   run_parallel ::: "$tsgo_cmd" "cd . && $swc $swc_args"
 else
-  { echo "$tsgo_cmd"; dirname */src | while read d; do echo "cd $d && $swc $swc_args"; done; } | run_parallel
+  { echo "$tsgo_cmd"; dirname */src sdk/*/src | while read d; do echo "cd $d && $swc $swc_args"; done; } | run_parallel
 fi
 echo "Typescript build succeeded"

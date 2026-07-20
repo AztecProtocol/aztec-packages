@@ -1,9 +1,9 @@
 {
   "scripts": {
-    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
+    "build": "yarn clean && yarn generate && ../../scripts/tsc.sh",
     "generate": "yarn generate:noir-contracts",
     "generate:noir-contracts": "./scripts/copy-contracts.sh",
-    "build:dev": "../scripts/tsc.sh --watch",
+    "build:dev": "../../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts"
   },
   "files": ["dest", "src", "artifacts", "!*.test.*"]

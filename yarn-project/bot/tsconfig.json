@@ -7,13 +7,13 @@
   },
   "references": [
     {
-      "path": "../accounts"
+      "path": "../sdk/accounts"
     },
     {
-      "path": "../aztec.js"
+      "path": "../sdk/aztec.js"
     },
     {
-      "path": "../entrypoints"
+      "path": "../sdk/entrypoints"
     },
     {
       "path": "../ethereum"
@@ -25,13 +25,13 @@
       "path": "../kv-store"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../sdk/noir-contracts.js"
     },
     {
       "path": "../noir-protocol-circuits-types"
     },
     {
-      "path": "../noir-test-contracts.js"
+      "path": "../sdk/noir-test-contracts.js"
     },
     {
       "path": "../protocol-contracts"
@@ -43,7 +43,7 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../wallets"
+      "path": "../sdk/wallets"
     }
   ],
   "include": ["src"]

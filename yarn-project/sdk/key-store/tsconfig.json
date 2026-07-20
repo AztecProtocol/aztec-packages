@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,16 +7,16 @@
   },
   "references": [
     {
-      "path": "../constants"
+      "path": "../../constants"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
-      "path": "../kv-store"
+      "path": "../../kv-store"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     }
   ],
   "include": ["src"]

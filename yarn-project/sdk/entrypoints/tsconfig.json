@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,19 +7,19 @@
   },
   "references": [
     {
-      "path": "../constants"
+      "path": "../../constants"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
-      "path": "../protocol-contracts"
+      "path": "../../protocol-contracts"
     },
     {
       "path": "../standard-contracts"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     }
   ],
   "include": ["src", "src/**/*.json"]

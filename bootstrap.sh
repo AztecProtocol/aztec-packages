@@ -354,14 +354,14 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((txe_base_port + i))
     kill_port $port
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/sdk/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
   # Start the oracle test resolver for __oracle_test__-prefixed tests.
   local resolver_port=14830
   kill_port $resolver_port
-  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
+  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/sdk/txe/dest/bin/oracle_test_server.js" &
   txe_pids+="$! "
 
   wait_for_port() {

@@ -26,7 +26,7 @@
       "path": "../noir-protocol-circuits-types"
     },
     {
-      "path": "../noir-test-contracts.js"
+      "path": "../sdk/noir-test-contracts.js"
     },
     {
       "path": "../simulator"

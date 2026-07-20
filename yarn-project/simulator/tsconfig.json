@@ -22,7 +22,7 @@
       "path": "../protocol-contracts"
     },
     {
-      "path": "../standard-contracts"
+      "path": "../sdk/standard-contracts"
     },
     {
       "path": "../stdlib"
@@ -37,10 +37,10 @@
       "path": "../kv-store"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../sdk/noir-contracts.js"
     },
     {
-      "path": "../noir-test-contracts.js"
+      "path": "../sdk/noir-test-contracts.js"
     }
   ],
   "include": ["src"]

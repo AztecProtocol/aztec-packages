@@ -22,14 +22,16 @@
 !/yarn-project/yarn.lock
 !/yarn-project/*/package.json
 !/yarn-project/*/dest/
+!/yarn-project/sdk/*/package.json
+!/yarn-project/sdk/*/dest/
 !/yarn-project/cli/public_include_metric_prefixes.json
-!/yarn-project/accounts/artifacts/
+!/yarn-project/sdk/accounts/artifacts/
 !/yarn-project/bb-prover/artifacts/
 !/yarn-project/noir-protocol-circuits-types/artifacts/
 !/yarn-project/protocol-contracts/artifacts/
-!/yarn-project/standard-contracts/artifacts/
-!/yarn-project/noir-contracts.js/artifacts/
-!/yarn-project/noir-test-contracts.js/artifacts/
+!/yarn-project/sdk/standard-contracts/artifacts/
+!/yarn-project/sdk/noir-contracts.js/artifacts/
+!/yarn-project/sdk/noir-test-contracts.js/artifacts/
 !/yarn-project/simulator/artifacts/
 # l1-artifacts is a portal dependency of @aztec/aztec but lives outside yarn-project, so it isn't
 # covered by the /yarn-project/* globs above. We need its manifest, compiled output, and the bundled

@@ -124,7 +124,7 @@ docker exec "$CONTAINER_NAME" bash -c '
 
 # Verify the wallet works
 docker exec "$CONTAINER_NAME" node --no-warnings \
-    /usr/src/yarn-project/cli-wallet/dest/bin/index.js --version >/dev/null 2>&1 \
+    /usr/src/yarn-project/sdk/cli-wallet/dest/bin/index.js --version >/dev/null 2>&1 \
     || die "Wallet CLI is broken after inquirer fix"
 log "Wallet CLI is working"
 
@@ -257,7 +257,7 @@ fi
 cat > "$WRAPPER_PATH" <<WRAPPER
 #!/usr/bin/env bash
 exec docker exec ${CONTAINER_NAME} node --no-warnings \\
-    /usr/src/yarn-project/cli-wallet/dest/bin/index.js "\$@"
+    /usr/src/yarn-project/sdk/cli-wallet/dest/bin/index.js "\$@"
 WRAPPER
 chmod +x "$WRAPPER_PATH"
 

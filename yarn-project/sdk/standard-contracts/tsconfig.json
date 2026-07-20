@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,10 +7,10 @@
   },
   "references": [
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     }
   ],
   "include": ["src", "artifacts/*.d.json.ts"],

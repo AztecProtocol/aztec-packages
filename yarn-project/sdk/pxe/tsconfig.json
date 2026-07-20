@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,46 +7,46 @@
   },
   "references": [
     {
-      "path": "../bb-prover"
+      "path": "../../bb-prover"
     },
     {
       "path": "../builder"
     },
     {
-      "path": "../constants"
+      "path": "../../constants"
     },
     {
-      "path": "../ethereum"
+      "path": "../../ethereum"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
       "path": "../key-store"
     },
     {
-      "path": "../kv-store"
+      "path": "../../kv-store"
     },
     {
-      "path": "../noir-protocol-circuits-types"
+      "path": "../../noir-protocol-circuits-types"
     },
     {
-      "path": "../protocol-contracts"
+      "path": "../../protocol-contracts"
     },
     {
-      "path": "../simulator"
+      "path": "../../simulator"
     },
     {
       "path": "../standard-contracts"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     },
     {
       "path": "../noir-test-contracts.js"
     },
     {
-      "path": "../world-state"
+      "path": "../../world-state"
     }
   ],
   "include": ["src"]

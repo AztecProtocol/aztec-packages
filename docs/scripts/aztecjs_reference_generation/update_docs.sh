@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 readonly SCRIPT_DIR DOCS_ROOT TARGET_VERSION
 
-readonly AZTEC_JS_SRC="$SCRIPT_DIR/../../../yarn-project/aztec.js/src"
+readonly AZTEC_JS_SRC="$SCRIPT_DIR/../../../yarn-project/sdk/aztec.js/src"
 readonly OUTPUT_FILE="aztec_js_reference.md"
 readonly SIDEBAR_POSITION="98"
 readonly TITLE="Reference"

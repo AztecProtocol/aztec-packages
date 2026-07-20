@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -7,25 +7,25 @@
   },
   "references": [
     {
-      "path": "../constants"
+      "path": "../../constants"
     },
     {
       "path": "../entrypoints"
     },
     {
-      "path": "../ethereum"
+      "path": "../../ethereum"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
-      "path": "../protocol-contracts"
+      "path": "../../protocol-contracts"
     },
     {
       "path": "../standard-contracts"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     },
     {
       "path": "../builder"

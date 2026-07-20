@@ -13,7 +13,7 @@ function on_exit {
 trap on_exit EXIT
 
 aztec-wallet() {
-  node --no-warnings ../cli-wallet/dest/bin/index.js "$@"
+  node --no-warnings ../sdk/cli-wallet/dest/bin/index.js "$@"
 }
 
 aztec-wallet import-test-accounts
@@ -23,7 +23,7 @@ aztec-wallet create-account -a bob -f test0
 
 aztec-wallet bridge-fee-juice 1000000000000000000000 accounts:alice --mint --no-wait
 
-DEPLOY_OUTPUT=$(aztec-wallet deploy ../noir-contracts.js/artifacts/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0)
+DEPLOY_OUTPUT=$(aztec-wallet deploy ../sdk/noir-contracts.js/artifacts/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0)
 TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oE 'Contract deployed at 0x[0-9a-fA-F]+' | cut -d ' ' -f4)
 echo "Deployed contract at $TOKEN_ADDRESS"
 

@@ -96,7 +96,7 @@ The version uses two components, `major.minor`, with the following compatibility
 - **`major`** must match exactly. A major bump is a breaking change: oracles were removed or their signatures changed, and a PXE on a different major cannot safely run the contract.
 - **`minor`** indicates additive changes (new oracles). The PXE uses a best-effort approach here: a contract compiled against a higher `minor` than the PXE supports is still allowed to run, and an error is only thrown if the contract actually invokes an oracle the PXE does not know about. In practice, a contract built with a newer Aztec.nr may not use any of the newly added oracles at all, in which case it runs fine on an older PXE.
 
-The canonical version constants live in the PXE (`ORACLE_VERSION_MAJOR` / `ORACLE_VERSION_MINOR` in `yarn-project/pxe/src/oracle_version.ts`) and in Aztec.nr (`noir-projects/aztec-nr/aztec/src/oracle/version.nr`). The two are kept in lockstep as part of each release.
+The canonical version constants live in the PXE (`ORACLE_VERSION_MAJOR` / `ORACLE_VERSION_MINOR` in `yarn-project/sdk/pxe/src/oracle_version.ts`) and in Aztec.nr (`noir-projects/aztec-nr/aztec/src/oracle/version.nr`). The two are kept in lockstep as part of each release.
 
 ### Resolving a version mismatch
 

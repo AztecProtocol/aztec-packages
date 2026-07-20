@@ -64,7 +64,7 @@
       "path": "../slasher"
     },
     {
-      "path": "../standard-contracts"
+      "path": "../sdk/standard-contracts"
     },
     {
       "path": "../stdlib"

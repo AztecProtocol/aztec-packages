@@ -3,7 +3,7 @@ title: Transactions
 sidebar_position: 3
 tags: [protocol]
 description: Comprehensive guide to the Aztec transaction lifecycle, covering private execution, PXE interactions, kernel circuits, and the step-by-step process from user request to L1 settlement.
-references: ["noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/*", "yarn-project/aztec.js/src/contract/*", "yarn-project/stdlib/src/tx/*"]
+references: ["noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/*", "yarn-project/sdk/aztec.js/src/contract/*", "yarn-project/stdlib/src/tx/*"]
 ---
 
 import Image from '@theme/IdealImage';
@@ -81,17 +81,17 @@ Most transaction requests are created as interactions with specific contracts. T
 
 ##### `simulate`
 
-#include_code simulate yarn-project/aztec.js/src/contract/contract_function_interaction.ts javascript
+#include_code simulate yarn-project/sdk/aztec.js/src/contract/contract_function_interaction.ts javascript
 
 ##### `send`
 
-#include_code send yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
+#include_code send yarn-project/sdk/aztec.js/src/contract/base_contract_interaction.ts javascript
 
 ### Batch Transactions
 
 Batched transactions are a way to send multiple transactions in a single call. They are created by the `BatchCall` class in Aztec.js. This allows a batch of function calls from a single wallet to be sent as a single transaction through a wallet.
 
-#include_code batch_call_class yarn-project/aztec.js/src/contract/batch_call.ts javascript
+#include_code batch_call_class yarn-project/sdk/aztec.js/src/contract/batch_call.ts javascript
 
 ### Enabling Transaction Semantics
 

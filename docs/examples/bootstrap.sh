@@ -123,7 +123,7 @@ function validate-webapp-tutorial {
   echo_header "Validating webapp-tutorial build"
   local TUTORIAL_DIR="$REPO_ROOT/docs/examples/webapp-tutorial"
   local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-  local BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
+  local BUILDER_CLI="$REPO_ROOT/yarn-project/sdk/builder/dest/bin/cli.js"
   local YP="$REPO_ROOT/yarn-project"
 
   # Compile the pod_racing_contract (uses existing compile infrastructure)
@@ -175,7 +175,7 @@ function validate-webapp-tutorial {
         }
       }
 
-      for (const base of [yp, path.join(repoRoot, 'barretenberg/ts'), path.join(repoRoot, 'noir/packages')]) {
+      for (const base of [yp, path.join(yp, 'sdk'), path.join(repoRoot, 'barretenberg/ts'), path.join(repoRoot, 'noir/packages')]) {
         if (!fs.existsSync(base)) continue;
         addPackageDir(base);
         for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
@@ -329,7 +329,7 @@ function test-contracts {
         exit 1
       }
     fi
-    cd "$REPO_ROOT/yarn-project/txe"
+    cd "$REPO_ROOT/yarn-project/sdk/txe"
     UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT="$txe_port" yarn start >/dev/null &
     txe_pid=$!
     trap 'kill "$txe_pid" &>/dev/null || true' EXIT

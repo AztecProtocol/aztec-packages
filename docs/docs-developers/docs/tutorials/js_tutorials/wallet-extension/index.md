@@ -151,5 +151,5 @@ Start with [Architecture](./01-architecture.md) to understand why this multi-com
 
 :::tip Related Resources
 - [Webapp Tutorial](../webapp/index.md) - Build a dApp that connects to this wallet
-- [BaseWallet Source](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/wallet-sdk/src/base-wallet/base_wallet.ts) - The class you extend
+- [BaseWallet Source](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/sdk/wallet-sdk/src/base-wallet/base_wallet.ts) - The class you extend
 :::

@@ -8,7 +8,7 @@
   },
   "references": [
     {
-      "path": "../accounts"
+      "path": "../sdk/accounts"
     },
     {
       "path": "../archiver"
@@ -20,7 +20,7 @@
       "path": "../aztec-node"
     },
     {
-      "path": "../aztec.js"
+      "path": "../sdk/aztec.js"
     },
     {
       "path": "../bb-prover"
@@ -41,7 +41,7 @@
       "path": "../constants"
     },
     {
-      "path": "../entrypoints"
+      "path": "../sdk/entrypoints"
     },
     {
       "path": "../epoch-cache"
@@ -59,13 +59,13 @@
       "path": "../node-keystore"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../sdk/noir-contracts.js"
     },
     {
       "path": "../noir-protocol-circuits-types"
     },
     {
-      "path": "../noir-test-contracts.js"
+      "path": "../sdk/noir-test-contracts.js"
     },
     {
       "path": "../p2p"
@@ -80,7 +80,7 @@
       "path": "../prover-node"
     },
     {
-      "path": "../pxe"
+      "path": "../sdk/pxe"
     },
     {
       "path": "../sequencer-client"
@@ -92,7 +92,7 @@
       "path": "../slasher"
     },
     {
-      "path": "../standard-contracts"
+      "path": "../sdk/standard-contracts"
     },
     {
       "path": "../stdlib"
@@ -107,10 +107,10 @@
       "path": "../validator-ha-signer"
     },
     {
-      "path": "../wallet-sdk"
+      "path": "../sdk/wallet-sdk"
     },
     {
-      "path": "../wallets"
+      "path": "../sdk/wallets"
     },
     {
       "path": "../world-state"

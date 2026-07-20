@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
+    "build": "yarn clean && yarn generate && ../../scripts/tsc.sh",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
     "generate": "node ./scripts/generate_package_info.js"
   }

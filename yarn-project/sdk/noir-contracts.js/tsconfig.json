@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -13,11 +13,6 @@
       "path": "../builder"
     }
   ],
-  "include": [
-    "src",
-    "artifacts/*.d.json.ts"
-  ],
-  "exclude": [
-    "dest"
-  ]
+  "include": ["src", "artifacts/*.d.json.ts"],
+  "exclude": ["dest"]
 }

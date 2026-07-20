@@ -21,7 +21,7 @@
       "path": "../native"
     },
     {
-      "path": "../sqlite3mc-wasm"
+      "path": "../sdk/sqlite3mc-wasm"
     },
     {
       "path": "../stdlib"

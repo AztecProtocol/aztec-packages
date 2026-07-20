@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -10,19 +10,19 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../constants"
+      "path": "../../constants"
     },
     {
       "path": "../entrypoints"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
       "path": "../pxe"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     },
     {
       "path": "../noir-contracts.js"

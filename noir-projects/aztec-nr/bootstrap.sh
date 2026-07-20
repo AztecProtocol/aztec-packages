@@ -49,10 +49,10 @@ function test {
   trap 'kill $(jobs -p)' EXIT
 
   check_port $txe_base_port || echo "WARNING: port $txe_base_port is in use, TXE may fail to start"
-  (cd $root/yarn-project/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=error TXE_PORT=$txe_base_port yarn start) &
+  (cd $root/yarn-project/sdk/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=error TXE_PORT=$txe_base_port yarn start) &
 
   check_port $resolver_port || echo "WARNING: port $resolver_port is in use, oracle test resolver may fail to start"
-  (cd $root/yarn-project/txe && LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port yarn start:oracle-test-resolver) &
+  (cd $root/yarn-project/sdk/txe && LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port yarn start:oracle-test-resolver) &
 
   wait_for_port() {
     local port=$1 name=$2 j=0

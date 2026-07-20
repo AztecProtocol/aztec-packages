@@ -17,7 +17,7 @@ In addition to these usual responsibilities, wallets in Aztec also need to track
 
 The first step for any wallet is to let the user set up their [accounts](./accounts/index.md). An account in Aztec is represented onchain by its corresponding account contract that the user must deploy to begin interacting with the network. This account contract dictates how transactions are authenticated and executed.
 
-A wallet must support at least one specific account contract implementation, which means being able to deploy such a contract, as well as interacting with it when sending transactions. Code-wise, this requires [implementing the `AccountContract` interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/account/account_contract.ts).
+A wallet must support at least one specific account contract implementation, which means being able to deploy such a contract, as well as interacting with it when sending transactions. Code-wise, this requires [implementing the `AccountContract` interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/sdk/aztec.js/src/account/account_contract.ts).
 
 Note that users must be able to receive funds in Aztec before deploying their account. A wallet should let a user generate a [deterministic complete address](./accounts/keys.md#address-derivation) without having to interact with the network, so they can share it with others to receive funds. This requires that the wallet pins a specific contract implementation, its initialization arguments, a deployment salt, and the user's keys. These values yield a deterministic address, so when the account contract is actually deployed, it is available at the precalculated address. Once the account contract is deployed, the user can start sending transactions using it as the transaction origin.
 
@@ -75,4 +75,4 @@ Dapps may require access to the user's private state, in order to show informati
 
 The account interface is used for creating an _execution request_ out of one or more _function calls_ requested by a dapp, as well as creating an _auth witness_ for a given message hash. Account contracts are expected to handle multiple function calls per transaction, since dapps may choose to batch multiple actions into a single request to the wallet.
 
-#include_code account-interface yarn-project/aztec.js/src/account/account.ts typescript
+#include_code account-interface yarn-project/sdk/aztec.js/src/account/account.ts typescript

@@ -82,7 +82,7 @@ setup_project() {
 
     if [ "$contract_count" -gt 0 ]; then
         local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-        local BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
+        local BUILDER_CLI="$REPO_ROOT/yarn-project/sdk/builder/dest/bin/cli.js"
 
         while IFS= read -r contract_name; do
             local artifact="$ARTIFACTS_DIR/${contract_name}.json"

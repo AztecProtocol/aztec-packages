@@ -159,7 +159,7 @@ function test_cmds {
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
 
   # compose-based tests with custom scripts
-  for flow in ../cli-wallet/test/flows/*.sh; do
+  for flow in ../sdk/cli-wallet/test/flows/*.sh; do
     # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
     # Run at LOG_LEVEL=verbose so the captured local-network logs are detailed enough for diagnostics.
     echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=verbose $run_test_script compose $flow"

@@ -85,7 +85,7 @@ If the real transaction will pay through a fee payment contract (FPC) with priva
 
 A simulation can run with multiple scoped accounts via `additionalScopes`. If you build a stub-account override for the sender only, the simulation will still prompt for authwits from any other in-scope account it touches. The override map must cover every account in scope, not just `from`.
 
-The canonical implementation is `EmbeddedWallet.buildAccountOverrides` in `yarn-project/wallets/src/embedded/embedded_wallet.ts`: for each scoped address, fetch the live contract instance from the PXE, copy it, and rewrite `currentContractClassId` to point at the stub class id registered at wallet startup. When implementing overrides in your own wallet, follow this pattern and make sure the scope list you build against matches the one the simulation will run with.
+The canonical implementation is `EmbeddedWallet.buildAccountOverrides` in `yarn-project/sdk/wallets/src/embedded/embedded_wallet.ts`: for each scoped address, fetch the live contract instance from the PXE, copy it, and rewrite `currentContractClassId` to point at the stub class id registered at wallet startup. When implementing overrides in your own wallet, follow this pattern and make sure the scope list you build against matches the one the simulation will run with.
 
 ## When you might still want a full simulation
 

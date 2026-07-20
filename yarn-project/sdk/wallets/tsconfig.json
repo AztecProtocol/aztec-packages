@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -16,13 +16,13 @@
       "path": "../entrypoints"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
-      "path": "../kv-store"
+      "path": "../../kv-store"
     },
     {
-      "path": "../protocol-contracts"
+      "path": "../../protocol-contracts"
     },
     {
       "path": "../pxe"
@@ -31,7 +31,7 @@
       "path": "../standard-contracts"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     },
     {
       "path": "../wallet-sdk"

@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -10,46 +10,46 @@
       "path": "../accounts"
     },
     {
-      "path": "../archiver"
+      "path": "../../archiver"
     },
     {
-      "path": "../aztec-node"
+      "path": "../../aztec-node"
     },
     {
       "path": "../aztec.js"
     },
     {
-      "path": "../bb-prover"
+      "path": "../../bb-prover"
     },
     {
-      "path": "../constants"
+      "path": "../../constants"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
       "path": "../key-store"
     },
     {
-      "path": "../kv-store"
+      "path": "../../kv-store"
     },
     {
-      "path": "../protocol-contracts"
+      "path": "../../protocol-contracts"
     },
     {
       "path": "../pxe"
     },
     {
-      "path": "../simulator"
+      "path": "../../simulator"
     },
     {
       "path": "../standard-contracts"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     },
     {
-      "path": "../world-state"
+      "path": "../../world-state"
     }
   ],
   "include": ["src"]

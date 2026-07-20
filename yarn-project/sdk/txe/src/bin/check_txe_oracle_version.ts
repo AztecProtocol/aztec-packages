@@ -45,9 +45,9 @@ function assertTxeOracleInterfaceMatches(): void {
  */
 function assertTxeOracleVersionMajorInSync(): void {
   const currentDir = dirname(fileURLToPath(import.meta.url));
-  // Go up from dest/bin/ or src/bin/ to the package root (txe/), then up two more to the git root.
+  // Go up from dest/bin/ or src/bin/ to the package root (sdk/txe/), then up three more to the git root.
   const packageRoot = dirname(dirname(currentDir));
-  const gitRoot = join(packageRoot, '..', '..');
+  const gitRoot = join(packageRoot, '..', '..', '..');
 
   const copies = [
     { label: 'txe/src/txe_oracle_version.ts', value: TXE_ORACLE_VERSION_MAJOR },

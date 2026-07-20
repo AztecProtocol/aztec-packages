@@ -26,9 +26,9 @@ RUN jq --arg v "$VERSION" '.version = $v' /usr/src/yarn-project/stdlib/package.j
 # noir-projects/noir-contracts/bootstrap.sh writes "dev" unconditionally; $VERSION here is the authoritative release
 # version for this image.
 RUN for dir in \
-        /usr/src/yarn-project/accounts/artifacts \
-        /usr/src/yarn-project/noir-contracts.js/artifacts \
-        /usr/src/yarn-project/noir-test-contracts.js/artifacts; do \
+        /usr/src/yarn-project/sdk/accounts/artifacts \
+        /usr/src/yarn-project/sdk/noir-contracts.js/artifacts \
+        /usr/src/yarn-project/sdk/noir-test-contracts.js/artifacts; do \
       for f in "$dir"/*.json; do \
         jq --arg v "$VERSION" '.aztec_version = $v' "$f" > /tmp/a.json && mv /tmp/a.json "$f"; \
       done; \

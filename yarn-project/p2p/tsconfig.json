@@ -22,7 +22,7 @@
       "path": "../kv-store"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../sdk/noir-contracts.js"
     },
     {
       "path": "../noir-protocol-circuits-types"
@@ -34,7 +34,7 @@
       "path": "../simulator"
     },
     {
-      "path": "../standard-contracts"
+      "path": "../sdk/standard-contracts"
     },
     {
       "path": "../stdlib"

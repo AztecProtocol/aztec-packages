@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
 const { name } = JSON.parse(readFileSync(join(currentDir, '../package.json')));
-const versionManifest = JSON.parse(readFileSync(join(currentDir, '../../../.release-please-manifest.json')));
+const versionManifest = JSON.parse(readFileSync(join(currentDir, '../../../../.release-please-manifest.json')));
 const version = versionManifest['.'];
 
 writeFileSync(

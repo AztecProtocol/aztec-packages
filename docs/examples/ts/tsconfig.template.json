@@ -11,7 +11,7 @@
   },
   "references": [
     {
-      "path": "../../../../yarn-project/accounts"
+      "path": "../../../../yarn-project/sdk/accounts"
     },
     {
       "path": "../../../../yarn-project/archiver"
@@ -23,7 +23,7 @@
       "path": "../../../../yarn-project/aztec-node"
     },
     {
-      "path": "../../../../yarn-project/aztec.js"
+      "path": "../../../../yarn-project/sdk/aztec.js"
     },
     {
       "path": "../../../../yarn-project/bb-prover"
@@ -44,7 +44,7 @@
       "path": "../../../../yarn-project/constants"
     },
     {
-      "path": "../../../../yarn-project/entrypoints"
+      "path": "../../../../yarn-project/sdk/entrypoints"
     },
     {
       "path": "../../../../yarn-project/epoch-cache"
@@ -65,13 +65,13 @@
       "path": "../../../../yarn-project/node-keystore"
     },
     {
-      "path": "../../../../yarn-project/noir-contracts.js"
+      "path": "../../../../yarn-project/sdk/noir-contracts.js"
     },
     {
       "path": "../../../../yarn-project/noir-protocol-circuits-types"
     },
     {
-      "path": "../../../../yarn-project/noir-test-contracts.js"
+      "path": "../../../../yarn-project/sdk/noir-test-contracts.js"
     },
     {
       "path": "../../../../yarn-project/p2p"
@@ -86,7 +86,7 @@
       "path": "../../../../yarn-project/prover-node"
     },
     {
-      "path": "../../../../yarn-project/pxe"
+      "path": "../../../../yarn-project/sdk/pxe"
     },
     {
       "path": "../../../../yarn-project/sequencer-client"
@@ -104,7 +104,7 @@
       "path": "../../../../yarn-project/telemetry-client"
     },
     {
-      "path": "../../../../yarn-project/wallets"
+      "path": "../../../../yarn-project/sdk/wallets"
     },
     {
       "path": "../../../../yarn-project/validator-client"

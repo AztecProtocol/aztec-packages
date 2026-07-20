@@ -1,6 +1,6 @@
 {
   "name": "@aztec/wallets",
-  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/wallets",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/sdk/wallets",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -18,11 +18,11 @@
     "./testing": "./dest/testing.js"
   },
   "scripts": {
-    "build": "yarn clean && ../scripts/tsc.sh",
-    "build:dev": "../scripts/tsc.sh --watch",
-    "build:ts": "../scripts/tsc.sh",
+    "build": "yarn clean && ../../scripts/tsc.sh",
+    "build:dev": "../../scripts/tsc.sh --watch",
+    "build:ts": "../../scripts/tsc.sh",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -93,11 +93,11 @@
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "setupFiles": [
-      "../../foundation/src/jest/setup.mjs"
+      "../../../foundation/src/jest/setup.mjs"
     ],
     "setupFilesAfterEnv": [
-      "../../foundation/src/jest/setupAfterEnv.mjs"
+      "../../../foundation/src/jest/setupAfterEnv.mjs"
     ],
-    "testEnvironment": "../../foundation/src/jest/env.mjs"
+    "testEnvironment": "../../../foundation/src/jest/env.mjs"
   }
 }

@@ -7,19 +7,19 @@
   },
   "references": [
     {
-      "path": "../accounts"
+      "path": "../sdk/accounts"
     },
     {
       "path": "../archiver"
     },
     {
-      "path": "../aztec.js"
+      "path": "../sdk/aztec.js"
     },
     {
       "path": "../constants"
     },
     {
-      "path": "../entrypoints"
+      "path": "../sdk/entrypoints"
     },
     {
       "path": "../ethereum"
@@ -49,7 +49,7 @@
       "path": "../stdlib"
     },
     {
-      "path": "../wallets"
+      "path": "../sdk/wallets"
     },
     {
       "path": "../world-state"

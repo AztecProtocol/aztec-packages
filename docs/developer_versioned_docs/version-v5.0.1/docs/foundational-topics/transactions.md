@@ -3,7 +3,7 @@ title: Transactions
 sidebar_position: 3
 tags: [protocol]
 description: Comprehensive guide to the Aztec transaction lifecycle, covering private execution, PXE interactions, kernel circuits, and the step-by-step process from user request to L1 settlement.
-references: ["noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/*", "yarn-project/aztec.js/src/contract/*", "yarn-project/stdlib/src/tx/*"]
+references: ["noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/*", "yarn-project/sdk/aztec.js/src/contract/*", "yarn-project/stdlib/src/tx/*"]
 ---
 
 import Image from '@theme/IdealImage';
@@ -213,7 +213,7 @@ public async simulate(
   options: SimulateInteractionOptions = {} as SimulateInteractionOptions,
 ): Promise<SimulationResult> {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.1/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L114-L129" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L114-L129</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.1/yarn-project/sdk/aztec.js/src/contract/contract_function_interaction.ts#L114-L129" target="_blank" rel="noopener noreferrer">Source code: yarn-project/sdk/aztec.js/src/contract/contract_function_interaction.ts#L114-L129</a></sub></sup>
 
 
 ##### `send`
@@ -238,7 +238,7 @@ public async send<TReturn = TxReceipt>(
   options: SendInteractionOptions<InteractionWaitOptions>,
 ): Promise<SendReturn<typeof options.wait, TReturn>> {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.1/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L37-L56" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L37-L56</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.1/yarn-project/sdk/aztec.js/src/contract/base_contract_interaction.ts#L37-L56" target="_blank" rel="noopener noreferrer">Source code: yarn-project/sdk/aztec.js/src/contract/base_contract_interaction.ts#L37-L56</a></sub></sup>
 
 
 ### Batch Transactions
@@ -255,7 +255,7 @@ export class BatchCall extends BaseContractInteraction {
     super(wallet);
   }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.1/yarn-project/aztec.js/src/contract/batch_call.ts#L17-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/batch_call.ts#L17-L26</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.0.1/yarn-project/sdk/aztec.js/src/contract/batch_call.ts#L17-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/sdk/aztec.js/src/contract/batch_call.ts#L17-L26</a></sub></sup>
 
 
 ### Enabling Transaction Semantics

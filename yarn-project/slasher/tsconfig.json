@@ -25,7 +25,7 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../aztec.js"
+      "path": "../sdk/aztec.js"
     }
   ],
   "include": ["src"]

@@ -8,8 +8,8 @@ references:
     "yarn-project/stdlib/src/gas/gas_settings.ts",
     "l1-contracts/src/core/messagebridge/FeeJuicePortal.sol",
     "noir-projects/noir-contracts/contracts/protocol/fee_juice_contract/src/main.nr",
-    "yarn-project/aztec.js/src/ethereum/portal_manager.ts",
-    "yarn-project/aztec.js/src/fee/fee_juice_payment_method_with_claim.ts",
+    "yarn-project/sdk/aztec.js/src/ethereum/portal_manager.ts",
+    "yarn-project/sdk/aztec.js/src/fee/fee_juice_payment_method_with_claim.ts",
   ]
 ---
 

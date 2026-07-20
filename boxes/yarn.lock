@@ -15,15 +15,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@aztec/accounts@link:../yarn-project/accounts::locator=%40aztec%2Fexamples%40workspace%3A.":
+"@aztec/accounts@link:../yarn-project/sdk/accounts::locator=%40aztec%2Fexamples%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/accounts@link:../yarn-project/accounts::locator=%40aztec%2Fexamples%40workspace%3A."
+  resolution: "@aztec/accounts@link:../yarn-project/sdk/accounts::locator=%40aztec%2Fexamples%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/aztec.js@link:../yarn-project/aztec.js::locator=%40aztec%2Fexamples%40workspace%3A.":
+"@aztec/aztec.js@link:../yarn-project/sdk/aztec.js::locator=%40aztec%2Fexamples%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/aztec.js@link:../yarn-project/aztec.js::locator=%40aztec%2Fexamples%40workspace%3A."
+  resolution: "@aztec/aztec.js@link:../yarn-project/sdk/aztec.js::locator=%40aztec%2Fexamples%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -33,9 +33,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/entrypoints@link:../yarn-project/entrypoints::locator=%40aztec%2Fexamples%40workspace%3A.":
+"@aztec/entrypoints@link:../yarn-project/sdk/entrypoints::locator=%40aztec%2Fexamples%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/entrypoints@link:../yarn-project/entrypoints::locator=%40aztec%2Fexamples%40workspace%3A."
+  resolution: "@aztec/entrypoints@link:../yarn-project/sdk/entrypoints::locator=%40aztec%2Fexamples%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -70,15 +70,15 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/noir-contracts.js@link:../yarn-project/noir-contracts.js::locator=%40aztec%2Fexamples%40workspace%3A.":
+"@aztec/noir-contracts.js@link:../yarn-project/sdk/noir-contracts.js::locator=%40aztec%2Fexamples%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/noir-contracts.js@link:../yarn-project/noir-contracts.js::locator=%40aztec%2Fexamples%40workspace%3A."
+  resolution: "@aztec/noir-contracts.js@link:../yarn-project/sdk/noir-contracts.js::locator=%40aztec%2Fexamples%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fexamples%40workspace%3A.":
+"@aztec/pxe@link:../yarn-project/sdk/pxe::locator=%40aztec%2Fexamples%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fexamples%40workspace%3A."
+  resolution: "@aztec/pxe@link:../yarn-project/sdk/pxe::locator=%40aztec%2Fexamples%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -88,15 +88,15 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/wallet-sdk@link:../yarn-project/wallet-sdk::locator=%40aztec%2Fexamples%40workspace%3A.":
+"@aztec/wallet-sdk@link:../yarn-project/sdk/wallet-sdk::locator=%40aztec%2Fexamples%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/wallet-sdk@link:../yarn-project/wallet-sdk::locator=%40aztec%2Fexamples%40workspace%3A."
+  resolution: "@aztec/wallet-sdk@link:../yarn-project/sdk/wallet-sdk::locator=%40aztec%2Fexamples%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/wallets@link:../yarn-project/wallets::locator=%40aztec%2Fexamples%40workspace%3A.":
+"@aztec/wallets@link:../yarn-project/sdk/wallets::locator=%40aztec%2Fexamples%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/wallets@link:../yarn-project/wallets::locator=%40aztec%2Fexamples%40workspace%3A."
+  resolution: "@aztec/wallets@link:../yarn-project/sdk/wallets::locator=%40aztec%2Fexamples%40workspace%3A."
   languageName: node
   linkType: soft
 

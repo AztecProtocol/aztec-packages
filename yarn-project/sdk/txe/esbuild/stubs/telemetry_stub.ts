@@ -4,13 +4,13 @@ import { ValueType } from '@opentelemetry/api';
 
 import { noop } from './stub_helpers.js';
 
-export * from '../../../telemetry-client/dest/telemetry.js';
-export * from '../../../telemetry-client/dest/noop.js';
-export * from '../../../telemetry-client/dest/with_tracer.js';
-export * from '../../../telemetry-client/dest/start.js';
-export * from '../../../telemetry-client/dest/otel_propagation.js';
-export * from '../../../telemetry-client/dest/prom_otel_adapter.js';
-export * from '../../../telemetry-client/dest/wrappers/fetch.js';
+export * from '../../../../telemetry-client/dest/telemetry.js';
+export * from '../../../../telemetry-client/dest/noop.js';
+export * from '../../../../telemetry-client/dest/with_tracer.js';
+export * from '../../../../telemetry-client/dest/start.js';
+export * from '../../../../telemetry-client/dest/otel_propagation.js';
+export * from '../../../../telemetry-client/dest/prom_otel_adapter.js';
+export * from '../../../../telemetry-client/dest/wrappers/fetch.js';
 
 type MetricDefinition = { name: string; description: string; valueType: ValueType };
 

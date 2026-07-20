@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -13,13 +13,13 @@
       "path": "../entrypoints"
     },
     {
-      "path": "../ethereum"
+      "path": "../../ethereum"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     }
   ],
   "include": ["src", "artifacts/*.d.json.ts"]

@@ -1,5 +1,5 @@
 {
-  "extends": "..",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
@@ -13,19 +13,19 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../cli"
+      "path": "../../cli"
     },
     {
       "path": "../entrypoints"
     },
     {
-      "path": "../ethereum"
+      "path": "../../ethereum"
     },
     {
-      "path": "../foundation"
+      "path": "../../foundation"
     },
     {
-      "path": "../kv-store"
+      "path": "../../kv-store"
     },
     {
       "path": "../noir-contracts.js"
@@ -37,7 +37,7 @@
       "path": "../standard-contracts"
     },
     {
-      "path": "../stdlib"
+      "path": "../../stdlib"
     },
     {
       "path": "../wallet-sdk"

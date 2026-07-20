@@ -9,8 +9,8 @@
  * - Generate structured JSON output
  *
  * Usage:
- *   node parse_typescript.js --source ../yarn-project/aztec.js/src --output api_docs.json
- *   node parse_typescript.js --source ../yarn-project/aztec.js/src --output api_docs.json --validate
+ *   node parse_typescript.js --source ../yarn-project/sdk/aztec.js/src --output api_docs.json
+ *   node parse_typescript.js --source ../yarn-project/sdk/aztec.js/src --output api_docs.json --validate
  */
 
 const ts = require('typescript');
@@ -1201,7 +1201,7 @@ function main() {
 Usage: node parse_typescript.js --source <path> --output <path> [options]
 
 Options:
-  --source <path>              Source directory to parse (e.g., ../yarn-project/aztec.js/src)
+  --source <path>              Source directory to parse (e.g., ../yarn-project/sdk/aztec.js/src)
   --output <path>              Output file path (JSON format)
   --format <format>            Output format: json (default: json)
   --validate                   Enable JSDoc validation and show warnings
@@ -1209,11 +1209,11 @@ Options:
   --help, -h                   Show this help message
 
 Examples:
-  node parse_typescript.js --source ../yarn-project/aztec.js/src --output api_docs.json
+  node parse_typescript.js --source ../yarn-project/sdk/aztec.js/src --output api_docs.json
 
-  node parse_typescript.js --source ../yarn-project/aztec.js/src --output api_docs.json --validate
+  node parse_typescript.js --source ../yarn-project/sdk/aztec.js/src --output api_docs.json --validate
 
-  node parse_typescript.js --source ../yarn-project/aztec.js/src --output api_docs.json \\
+  node parse_typescript.js --source ../yarn-project/sdk/aztec.js/src --output api_docs.json \\
     --validation-report validation_report.json
       `);
       process.exit(0);

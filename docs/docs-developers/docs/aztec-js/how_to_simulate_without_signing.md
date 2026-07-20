@@ -64,7 +64,7 @@ The override map itself has to be built by code that knows the contract class id
 
 ### Implementing the override in a custom wallet
 
-`EmbeddedWallet` (`yarn-project/wallets/src/embedded/embedded_wallet.ts`, in `@aztec/wallets`) is the canonical implementation of the override pattern and the reference any custom wallet should follow. The three pieces it wires up are:
+`EmbeddedWallet` (`yarn-project/sdk/wallets/src/embedded/embedded_wallet.ts`, in `@aztec/wallets`) is the canonical implementation of the override pattern and the reference any custom wallet should follow. The three pieces it wires up are:
 
 1. **Register the stub contract class with the PXE at wallet startup.** Inside `initStubClasses`, `EmbeddedWallet` calls `pxe.registerContractClass` for each supported account type's stub artifact and caches the resulting class id by account type.
 2. **Build an override map for every account in scope.** Inside `buildAccountOverrides`, it fetches the live contract instance for each scoped address and returns a `ContractOverrides` map that copies the instance with `currentContractClassId` rewritten to the stub class id. The map covers every account in scope, not only `from`.

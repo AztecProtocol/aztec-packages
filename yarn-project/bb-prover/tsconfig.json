@@ -34,10 +34,10 @@
       "path": "../kv-store"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../sdk/noir-contracts.js"
     },
     {
-      "path": "../noir-test-contracts.js"
+      "path": "../sdk/noir-test-contracts.js"
     },
     {
       "path": "../protocol-contracts"

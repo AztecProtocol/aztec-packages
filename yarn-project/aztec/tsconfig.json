@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../accounts"
+      "path": "../sdk/accounts"
     },
     {
       "path": "../archiver"
@@ -16,7 +16,7 @@
       "path": "../aztec-node"
     },
     {
-      "path": "../aztec.js"
+      "path": "../sdk/aztec.js"
     },
     {
       "path": "../bb-prover"
@@ -28,7 +28,7 @@
       "path": "../bot"
     },
     {
-      "path": "../builder"
+      "path": "../sdk/builder"
     },
     {
       "path": "../cli"
@@ -37,7 +37,7 @@
       "path": "../constants"
     },
     {
-      "path": "../entrypoints"
+      "path": "../sdk/entrypoints"
     },
     {
       "path": "../ethereum"
@@ -52,7 +52,7 @@
       "path": "../node-lib"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../sdk/noir-contracts.js"
     },
     {
       "path": "../noir-protocol-circuits-types"
@@ -73,13 +73,13 @@
       "path": "../prover-node"
     },
     {
-      "path": "../pxe"
+      "path": "../sdk/pxe"
     },
     {
       "path": "../sequencer-client"
     },
     {
-      "path": "../standard-contracts"
+      "path": "../sdk/standard-contracts"
     },
     {
       "path": "../stdlib"
@@ -88,13 +88,13 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../txe"
+      "path": "../sdk/txe"
     },
     {
       "path": "../validator-ha-signer"
     },
     {
-      "path": "../wallets"
+      "path": "../sdk/wallets"
     },
     {
       "path": "../world-state"

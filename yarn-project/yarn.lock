@@ -691,9 +691,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@aztec/accounts@workspace:^, @aztec/accounts@workspace:accounts":
+"@aztec/accounts@workspace:^, @aztec/accounts@workspace:sdk/accounts":
   version: 0.0.0-use.local
-  resolution: "@aztec/accounts@workspace:accounts"
+  resolution: "@aztec/accounts@workspace:sdk/accounts"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
@@ -794,16 +794,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec.js@workspace:^, @aztec/aztec.js@workspace:aztec.js":
+"@aztec/aztec.js@workspace:^, @aztec/aztec.js@workspace:sdk/aztec.js":
   version: 0.0.0-use.local
-  resolution: "@aztec/aztec.js@workspace:aztec.js"
+  resolution: "@aztec/aztec.js@workspace:sdk/aztec.js"
   dependencies:
     "@aztec/builder": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
+    "@aztec/l1-artifacts": "portal:../../../l1-contracts/l1-artifacts"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -1100,9 +1100,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/builder@workspace:^, @aztec/builder@workspace:builder":
+"@aztec/builder@workspace:^, @aztec/builder@workspace:sdk/builder":
   version: 0.0.0-use.local
-  resolution: "@aztec/builder@workspace:builder"
+  resolution: "@aztec/builder@workspace:sdk/builder"
   dependencies:
     "@aztec/foundation": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -1117,9 +1117,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/cli-wallet@workspace:cli-wallet":
+"@aztec/cli-wallet@workspace:sdk/cli-wallet":
   version: 0.0.0-use.local
-  resolution: "@aztec/cli-wallet@workspace:cli-wallet"
+  resolution: "@aztec/cli-wallet@workspace:sdk/cli-wallet"
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
@@ -1130,7 +1130,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
-    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
+    "@aztec/noir-noirc_abi": "portal:../../../noir/packages/noirc_abi"
     "@aztec/pxe": "workspace:^"
     "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -1333,9 +1333,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/entrypoints@workspace:^, @aztec/entrypoints@workspace:entrypoints":
+"@aztec/entrypoints@workspace:^, @aztec/entrypoints@workspace:sdk/entrypoints":
   version: 0.0.0-use.local
-  resolution: "@aztec/entrypoints@workspace:entrypoints"
+  resolution: "@aztec/entrypoints@workspace:sdk/entrypoints"
   dependencies:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -1518,9 +1518,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/key-store@workspace:^, @aztec/key-store@workspace:key-store":
+"@aztec/key-store@workspace:^, @aztec/key-store@workspace:sdk/key-store":
   version: 0.0.0-use.local
-  resolution: "@aztec/key-store@workspace:key-store"
+  resolution: "@aztec/key-store@workspace:sdk/key-store"
   dependencies:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -1567,6 +1567,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/l1-artifacts@portal:../../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec.js%40workspace%3Asdk%2Faztec.js":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec.js%40workspace%3Asdk%2Faztec.js"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
 "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Farchiver%40workspace%3Aarchiver":
   version: 0.0.0-use.local
   resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Farchiver%40workspace%3Aarchiver"
@@ -1586,14 +1594,6 @@ __metadata:
 "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec-node%40workspace%3Aaztec-node":
   version: 0.0.0-use.local
   resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec-node%40workspace%3Aaztec-node"
-  dependencies:
-    tslib: "npm:^2.4.0"
-  languageName: node
-  linkType: soft
-
-"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec.js%40workspace%3Aaztec.js":
-  version: 0.0.0-use.local
-  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec.js%40workspace%3Aaztec.js"
   dependencies:
     tslib: "npm:^2.4.0"
   languageName: node
@@ -1751,9 +1751,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/noir-contracts.js@workspace:^, @aztec/noir-contracts.js@workspace:noir-contracts.js":
+"@aztec/noir-contracts.js@workspace:^, @aztec/noir-contracts.js@workspace:sdk/noir-contracts.js":
   version: 0.0.0-use.local
-  resolution: "@aztec/noir-contracts.js@workspace:noir-contracts.js"
+  resolution: "@aztec/noir-contracts.js@workspace:sdk/noir-contracts.js"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/builder": "workspace:^"
@@ -1825,9 +1825,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/noir-test-contracts.js@workspace:^, @aztec/noir-test-contracts.js@workspace:noir-test-contracts.js":
+"@aztec/noir-test-contracts.js@workspace:^, @aztec/noir-test-contracts.js@workspace:sdk/noir-test-contracts.js":
   version: 0.0.0-use.local
-  resolution: "@aztec/noir-test-contracts.js@workspace:noir-test-contracts.js"
+  resolution: "@aztec/noir-test-contracts.js@workspace:sdk/noir-test-contracts.js"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/builder": "workspace:^"
@@ -2031,12 +2031,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/pxe@workspace:^, @aztec/pxe@workspace:pxe":
+"@aztec/pxe@workspace:^, @aztec/pxe@workspace:sdk/pxe":
   version: 0.0.0-use.local
-  resolution: "@aztec/pxe@workspace:pxe"
+  resolution: "@aztec/pxe@workspace:sdk/pxe"
   dependencies:
     "@aztec/bb-prover": "workspace:^"
-    "@aztec/bb.js": "portal:../../barretenberg/ts/bb.js"
+    "@aztec/bb.js": "portal:../../../barretenberg/ts/bb.js"
     "@aztec/builder": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -2215,9 +2215,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/sqlite3mc-wasm@workspace:^, @aztec/sqlite3mc-wasm@workspace:sqlite3mc-wasm":
+"@aztec/sqlite3mc-wasm@workspace:^, @aztec/sqlite3mc-wasm@workspace:sdk/sqlite3mc-wasm":
   version: 0.0.0-use.local
-  resolution: "@aztec/sqlite3mc-wasm@workspace:sqlite3mc-wasm"
+  resolution: "@aztec/sqlite3mc-wasm@workspace:sdk/sqlite3mc-wasm"
   dependencies:
     "@jest/globals": "npm:^30.0.0"
     "@sqlite.org/sqlite-wasm": "npm:3.50.4-build1"
@@ -2228,9 +2228,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/standard-contracts@workspace:^, @aztec/standard-contracts@workspace:standard-contracts":
+"@aztec/standard-contracts@workspace:^, @aztec/standard-contracts@workspace:sdk/standard-contracts":
   version: 0.0.0-use.local
-  resolution: "@aztec/standard-contracts@workspace:standard-contracts"
+  resolution: "@aztec/standard-contracts@workspace:sdk/standard-contracts"
   dependencies:
     "@aztec/foundation": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -2325,9 +2325,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/txe@workspace:^, @aztec/txe@workspace:txe":
+"@aztec/txe@workspace:^, @aztec/txe@workspace:sdk/txe":
   version: 0.0.0-use.local
-  resolution: "@aztec/txe@workspace:txe"
+  resolution: "@aztec/txe@workspace:sdk/txe"
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
@@ -2428,9 +2428,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/wallet-sdk@workspace:^, @aztec/wallet-sdk@workspace:wallet-sdk":
+"@aztec/wallet-sdk@workspace:^, @aztec/wallet-sdk@workspace:sdk/wallet-sdk":
   version: 0.0.0-use.local
-  resolution: "@aztec/wallet-sdk@workspace:wallet-sdk"
+  resolution: "@aztec/wallet-sdk@workspace:sdk/wallet-sdk"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/constants": "workspace:^"
@@ -2453,9 +2453,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/wallets@workspace:^, @aztec/wallets@workspace:wallets":
+"@aztec/wallets@workspace:^, @aztec/wallets@workspace:sdk/wallets":
   version: 0.0.0-use.local
-  resolution: "@aztec/wallets@workspace:wallets"
+  resolution: "@aztec/wallets@workspace:sdk/wallets"
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"

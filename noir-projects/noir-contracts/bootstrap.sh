@@ -208,7 +208,7 @@ function start_txe {
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
 
   check_port "$txe_port" || echo "WARNING: port $txe_port is in use, TXE may fail to start"
-  (cd $root/yarn-project/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT=$txe_port yarn start) >/dev/null &
+  (cd $root/yarn-project/sdk/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT=$txe_port yarn start) >/dev/null &
 
   echo "Waiting for TXE to start..."
   local j=0
