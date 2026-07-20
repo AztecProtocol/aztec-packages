@@ -1,12 +1,13 @@
 import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
+import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { AppTaggingSecret, AppTaggingSecretKind } from '@aztec/stdlib/logs';
@@ -90,6 +91,22 @@ describe('PrivateExecutionOracle', () => {
       await expect(oracle.getAppTaggingSecret(outOfScopeSender, recipient)).rejects.toThrow(
         'is not in the allowed scopes list',
       );
+    });
+
+    it('returns a secret for a sender inside the execution scopes', async () => {
+      const senderCompleteAddress = await CompleteAddress.random();
+      const sender = senderCompleteAddress.address;
+      const recipient = (await CompleteAddress.random()).address;
+
+      const addressStore = mock<AddressStore>();
+      addressStore.getCompleteAddress.mockResolvedValue(senderCompleteAddress);
+      const keyStore = mock<KeyStore>();
+      keyStore.getMasterIncomingViewingSecretKey.mockResolvedValue(GrumpkinScalar.random());
+
+      const oracle = makeOracle({ scopes: [sender], addressStore, keyStore });
+
+      const result = await oracle.getAppTaggingSecret(sender, recipient);
+      expect(result.isSome()).toBe(true);
     });
   });
 

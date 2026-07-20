@@ -127,10 +127,10 @@ export abstract class BaseWallet implements Wallet {
 
   protected scopesFrom(
     from: AztecAddress | NoFrom,
-    additionalScopes: AztecAddress[] = [],
-    sendMessagesAs?: AztecAddress,
+    additionalScopes: AztecAddress[],
+    sendMessagesAs: AztecAddress | undefined,
   ): AztecAddress[] {
-    // The sendMessageAs account must be in scope so that its tagging secrets can be accessed.
+    // The sendMessagesAs account must be in scope so that its tagging secrets can be accessed.
     const tagSenderScopes = sendMessagesAs ? [sendMessagesAs] : [];
     const baseScopes = from === NO_FROM ? [] : [from];
     const allScopes = [...baseScopes, ...additionalScopes, ...tagSenderScopes];
@@ -409,7 +409,7 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic: true,
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes, opts.sendMessagesAs),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
       overrides: opts.overrides,
     });
@@ -505,7 +505,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes, opts.sendMessagesAs),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
   }
@@ -522,7 +522,7 @@ export abstract class BaseWallet implements Wallet {
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, {
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes, opts.sendMessagesAs),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
     const offchainOutput = extractOffchainOutput(
