@@ -604,9 +604,6 @@ export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = STRUCT([
 /**
  * A TS-side alias of `base`: the same Noir type on the wire (it inherits `base`'s `kind`, `label`, and `shape`) but a
  * richer TS value. `wrap` maps a base value to the alias, `unwrap` back; a serialize-only alias passes only `unwrap`.
- *
- * For a type Noir declares as its own (validated) type rather than a relabeling of an existing one, write a standalone
- * mapping with its own `kind` instead.
  */
 export function ALIAS<B, T>(
   base: TypeMapping<B>,
