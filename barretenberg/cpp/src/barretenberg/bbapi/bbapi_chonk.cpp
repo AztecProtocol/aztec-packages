@@ -408,6 +408,11 @@ namespace {
 
 bool write_all(int fd, const uint8_t* ptr, size_t len)
 {
+    // The FIFO fd is O_NONBLOCK, so a reader that holds the pipe open but stops draining yields EAGAIN forever.
+    // write_result runs on the coordinator thread (which stop() joins), so the retry loop must be time-bounded:
+    // after STALL_TIMEOUT without a single byte of progress, fail so the caller can shut down the result path.
+    constexpr auto STALL_TIMEOUT = std::chrono::seconds(10);
+    auto deadline = std::chrono::steady_clock::now() + STALL_TIMEOUT;
     while (len > 0) {
         // ::write takes a size_t count on POSIX but an unsigned int on Windows (MinGW _write), so cap each
         // call to INT_MAX and cast explicitly to keep the count in range and the return value representable.
@@ -416,12 +421,17 @@ bool write_all(int fd, const uint8_t* ptr, size_t len)
         if (written > 0) {
             ptr += written;
             len -= static_cast<size_t>(written);
+            deadline = std::chrono::steady_clock::now() + STALL_TIMEOUT;
             continue;
         }
         if (written < 0 && errno == EINTR) {
             continue;
         }
         if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                errno = ETIMEDOUT;
+                return false;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
