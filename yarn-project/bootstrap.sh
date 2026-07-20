@@ -10,8 +10,9 @@ function hash {
 }
 
 function compile_project {
+  local root=$(git rev-parse --show-toplevel)/yarn-project
   # TODO: 16 jobs is magic. Was seeing weird errors otherwise.
-  parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
+  parallel -j16 --line-buffered --tag "cd {} && $root/node_modules/.bin/swc src -d dest --config-file=$root/.swcrc --strip-leading-paths" "$@"
 }
 
 # Returns a list of project paths to compile/lint/publish.
@@ -23,7 +24,7 @@ function get_projects {
       --exclude @aztec/scripts \
       exec 'echo $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src | xargs realpath
+    dirname */src sdk/*/src | xargs realpath
   fi
 }
 
@@ -54,9 +55,12 @@ function format {
   # Build the paths array to search
   local paths=()
   if [ ${#packages[@]} -eq 0 ]; then
-    paths=(./*/src)
+    paths=(./*/src ./sdk/*/src)
   else
     for pkg in "${packages[@]}"; do
+      if [ ! -d "./$pkg/src" ] && [ -d "./sdk/$pkg/src" ]; then
+        pkg="sdk/$pkg"
+      fi
       if [ ! -d "./$pkg/src" ]; then
         echo "Error: Package '$pkg' not found or has no src directory" >&2
         return 1
@@ -93,19 +97,25 @@ function lint {
     shift
   done
 
+  local root=$(git rev-parse --show-toplevel)/yarn-project
   if [ ${#packages[@]} -gt 0 ]; then
     # Validate packages exist
-    for pkg in "${packages[@]}"; do
+    for i in "${!packages[@]}"; do
+      local pkg="${packages[$i]}"
+      if [ ! -d "./$pkg/src" ] && [ -d "./sdk/$pkg/src" ]; then
+        packages[$i]="sdk/$pkg"
+        pkg="sdk/$pkg"
+      fi
       if [ ! -d "./$pkg/src" ]; then
         echo "Error: Package '$pkg' not found or has no src directory" >&2
         return 1
       fi
     done
     # Lint specified packages in parallel (use at most half of CPU cores)
-    printf '%s\n' "${packages[@]}" | parallel -j 50% "cd {} && ../node_modules/.bin/eslint --cache $arg ./src"
+    printf '%s\n' "${packages[@]}" | parallel -j 50% "cd {} && $root/node_modules/.bin/eslint --cache $arg ./src"
   else
     # Lint all packages in parallel (use at most half of CPU cores)
-    get_projects | parallel -j 50% "cd {} && ../node_modules/.bin/eslint --cache $arg ./src"
+    get_projects | parallel -j 50% "cd {} && $root/node_modules/.bin/eslint --cache $arg ./src"
   fi
 }
 
@@ -121,37 +131,37 @@ function compile_all {
   fi
 
   # Ensure the pinned version sqlite3mc-wasm upstream artifacts are present before any package builds.
-  ./sqlite3mc-wasm/scripts/vendor.sh ensure
+  ./sdk/sqlite3mc-wasm/scripts/vendor.sh ensure
 
-  compile_project ::: constants foundation stdlib blob-lib builder ethereum
+  compile_project ::: constants foundation stdlib blob-lib sdk/builder ethereum
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
-    accounts \
-    aztec.js \
+    sdk/accounts \
+    sdk/aztec.js \
     cli \
     slasher \
     stdlib \
     ivc-integration \
-    noir-contracts.js \
-    noir-test-contracts.js \
+    sdk/noir-contracts.js \
+    sdk/noir-test-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
-    pxe \
+    sdk/pxe \
     simulator \
-    standard-contracts
+    sdk/standard-contracts
   cat joblog.txt
 
   get_projects | compile_project
 
-  cd txe && yarn build
-  cd ..
+  cd sdk/txe && yarn build
+  cd ../..
 
   # Run oracle version checks after compilation
-  cd pxe && yarn check_oracle_version
-  cd ..
-  cd txe && yarn check_txe_oracle_version
-  cd ..
+  cd sdk/pxe && yarn check_oracle_version
+  cd ../..
+  cd sdk/txe && yarn check_txe_oracle_version
+  cd ../..
 
   cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
   if [ "${CI:-0}" -eq 1 ]; then
@@ -180,7 +190,7 @@ function test_cmds {
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: per-file fan-out handled by kv-store/bootstrap.sh test_cmds.
-  for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
+  for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts sdk/*/src/**/*.test.ts; do
     # Skip benchmarks here.
     [[ "$test" =~ \.bench\.test\.ts$ ]] && continue
 

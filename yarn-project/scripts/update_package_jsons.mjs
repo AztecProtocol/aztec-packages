@@ -16,10 +16,20 @@ function getFiles() {
   const files = [];
   const dirs = readdirSync('.');
   for (const dir of dirs) {
-    if (statSync(dir).isDirectory()) {
-      const file = join(dir, 'package.json');
-      if (existsSync(file)) {
-        files.push(file);
+    if (dir === 'node_modules' || !statSync(dir).isDirectory()) {
+      continue;
+    }
+    const file = join(dir, 'package.json');
+    if (existsSync(file)) {
+      files.push(file);
+    } else {
+      // Group directories (e.g. sdk/) hold packages one level deeper.
+      for (const sub of readdirSync(dir)) {
+        const subdir = join(dir, sub);
+        const subfile = join(subdir, 'package.json');
+        if (statSync(subdir).isDirectory() && existsSync(subfile)) {
+          files.push(subfile);
+        }
       }
     }
   }

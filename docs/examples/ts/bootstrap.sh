@@ -6,7 +6,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 export REPO_ROOT=$(git rev-parse --show-toplevel)
 export ARTIFACTS_DIR="$REPO_ROOT/docs/target"
-export BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
+export BUILDER_CLI="$REPO_ROOT/yarn-project/sdk/builder/dest/bin/cli.js"
 
 # Set parallel flags for concurrent validation
 export PARALLEL_FLAGS="-j${PARALLELISM:-4} --halt now,fail=1"
@@ -171,9 +171,9 @@ validate_project() {
             # Fallback to default dependencies if none specified
             echo_stderr "No dependencies in config.yaml, using defaults..."
             yarn add \
-                @aztec/aztec.js@link:$REPO_ROOT/yarn-project/aztec.js \
-                @aztec/accounts@link:$REPO_ROOT/yarn-project/accounts \
-                @aztec/wallets@link:$REPO_ROOT/yarn-project/wallets \
+                @aztec/aztec.js@link:$REPO_ROOT/yarn-project/sdk/aztec.js \
+                @aztec/accounts@link:$REPO_ROOT/yarn-project/sdk/accounts \
+                @aztec/wallets@link:$REPO_ROOT/yarn-project/sdk/wallets \
                 @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store
         fi
 
@@ -184,6 +184,9 @@ validate_project() {
             local pkg_full=$(echo "$dep" | cut -d'@' -f2)  # aztec/foo
             local pkg_name=${pkg_full#aztec/}  # foo
             local link_target="$REPO_ROOT/yarn-project/$pkg_name"
+            if [ ! -d "$link_target" ]; then
+                link_target="$REPO_ROOT/yarn-project/sdk/$pkg_name"
+            fi
 
             if [ ! -d "$link_target" ]; then
                 echo_stderr "ERROR: Link target does not exist: $link_target"
