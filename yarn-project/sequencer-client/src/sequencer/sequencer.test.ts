@@ -35,7 +35,9 @@ import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
+  type MerkleTreeWriteOperations,
   type SequencerConfig,
+  type TreeInfo,
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -166,6 +168,8 @@ describe('sequencer', () => {
       expect.any(Checkpoint),
       attestationsAndSigners,
       getSignatures()[0].signature,
+      // AZIP-22 streaming inbox: the checkpoint job passes the parent bucket hint (genesis => 0n).
+      0n,
       expect.objectContaining({
         txTimeoutAt: expect.any(Date),
       }),
@@ -285,6 +289,13 @@ describe('sequencer', () => {
         },
       } satisfies WorldStateSynchronizerStatus),
     });
+    // AZIP-22 streaming inbox: the checkpoint job forks world state and resolves the parent Inbox bucket
+    // from the fork's L1-to-L2 tree leaf count. Default to an empty tree so it starts at the genesis bucket.
+    const mockFork = mock<MerkleTreeWriteOperations>({
+      [Symbol.asyncDispose]: jest.fn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
+    });
+    mockFork.getTreeInfo.mockResolvedValue({ size: 0n } as TreeInfo);
+    worldState.fork.mockResolvedValue(mockFork);
 
     // Create fake CheckpointsBuilder and CheckpointBuilder
     // Uses blockProvider to return the current `block` variable (set per-test)
@@ -354,6 +365,15 @@ describe('sequencer', () => {
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
         },
       }),
+    });
+    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
+      seq: 0n,
+      inboxRollingHash: Fr.ZERO,
+      totalMsgCount: 0n,
+      timestamp: 0n,
+      msgCount: 0,
+      lastMessageIndex: 0n,
+      isOpen: false,
     });
 
     validatorClient = mock<ValidatorClient>();
@@ -839,6 +859,8 @@ describe('sequencer', () => {
           expect.any(Checkpoint),
           attestationsAndSigners,
           getSignatures()[0].signature,
+          // AZIP-22 streaming inbox: the checkpoint job passes the parent bucket hint (genesis => 0n).
+          0n,
           expect.objectContaining({
             txTimeoutAt: expect.any(Date),
           }),

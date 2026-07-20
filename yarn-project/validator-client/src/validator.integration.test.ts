@@ -26,7 +26,7 @@ import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } fr
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { InboxBucketRef, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
@@ -48,7 +48,9 @@ jest.setTimeout(60_000);
 describe('ValidatorClient Integration', () => {
   // Constants for L1
   const l1Constants: L1RollupConstants = {
-    l1GenesisTime: 0n,
+    // Non-zero genesis time so the slot-1 validation clock is well past INBOX_LAG_SECONDS; otherwise the streaming
+    // Inbox acceptance check rejects even a genesis-timestamp (0) bucket as `bucket_too_new` (AZIP-22 Fast Inbox).
+    l1GenesisTime: 1_700_000_000n,
     slotDuration: 24,
     epochDuration: 16,
     ethereumSlotDuration: 12,
@@ -255,6 +257,14 @@ describe('ValidatorClient Integration', () => {
       minValidTxs: 0,
     });
 
+    // Resolve the Inbox bucket this block consumed through (keyed by its cumulative L1-to-L2 leaf count) and attach
+    // the reference, mirroring the sequencer's block-building loop which carries a bucketRef on every proposal
+    // (AZIP-22 Fast Inbox). Without it the validator's streaming acceptance check rejects the proposal as
+    // `bucket_unknown`. A block that consumed nothing resolves to the genesis (or reused parent) bucket.
+    const blockTotal = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    const bucket = await proposer.archiver.getInboxBucketByTotalMsgCount(blockTotal);
+    const bucketRef = bucket ? InboxBucketRef.fromBucket(bucket) : undefined;
+
     const proposal = await proposer.validator.createBlockProposal(
       block.header,
       cpNumber,
@@ -264,6 +274,7 @@ describe('ValidatorClient Integration', () => {
       usedTxs,
       proposerSigner.address,
       {},
+      bucketRef,
     );
 
     logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
