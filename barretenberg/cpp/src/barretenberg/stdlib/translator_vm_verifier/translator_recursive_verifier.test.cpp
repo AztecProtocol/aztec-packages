@@ -169,8 +169,8 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Set up outer recursive circuit
         OuterBuilder outer_circuit;
-        stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
-        auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
+        // The verifier loads the proof into the transcript itself in receive_pre_sumcheck().
+        auto transcript = std::make_shared<RecursiveFlavor::Transcript>();
 
         // Create recursive verifier inputs
         auto recursive_inputs =
@@ -191,7 +191,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         inputs.set_public();
 
         // Verify with native verifier and compare results
-        auto native_verifier_transcript = std::make_shared<Transcript>(proof);
+        auto native_verifier_transcript = std::make_shared<Transcript>();
         InnerVerifier native_verifier(native_verifier_transcript,
                                       proof,
                                       evaluation_challenge_x,
@@ -335,8 +335,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
                 create_recursive_verifier_inputs(&outer_circuit, prover, evaluation_challenge_x, batching_challenge_v);
 
             // Create recursive verifier and verify tampered proof
-            stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
-            auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
+            auto transcript = std::make_shared<RecursiveFlavor::Transcript>();
             stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
             RecursiveVerifier verifier{ transcript,
                                         stdlib_proof_for_verifier,
@@ -385,8 +384,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Set up outer recursive circuit
         OuterBuilder outer_circuit;
-        stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
-        auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
+        auto transcript = std::make_shared<RecursiveFlavor::Transcript>();
 
         // Create recursive verifier inputs
         auto recursive_inputs =

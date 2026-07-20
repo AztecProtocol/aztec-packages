@@ -537,8 +537,9 @@ TEST_F(TranslatorTests, TranscriptPinned)
     // Generate proof
     auto proof = prover.construct_proof();
 
-    // Setup verifier transcript with manifest tracking
-    auto verifier_transcript = std::make_shared<Transcript>(proof);
+    // Setup verifier transcript with manifest tracking; the verifier loads the proof itself in
+    // receive_pre_sumcheck().
+    auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
 
     // Get accumulated_result from the prover
