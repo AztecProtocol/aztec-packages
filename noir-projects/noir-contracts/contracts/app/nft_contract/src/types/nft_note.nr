@@ -166,6 +166,19 @@ pub struct PartialNFTNote {
 
 impl PartialNFTNote {
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
+    ///
+    /// The validity commitment only proves that this contract created this exact partial note designating `completer`
+    /// (see [`compute_validity_commitment`](Self::compute_validity_commitment)). The `storage_slot` and `token_id`
+    /// arguments are not bound by it, so the caller is trusted to provide correct values for them. Nothing checks
+    /// that the completer is the entity performing the call. Contracts must authenticate the caller themselves,
+    /// typically by passing `msg_sender()` as `completer`.
+    ///
+    /// WARNING: completion is not single-use. The completer can complete the same partial note any number of times,
+    /// inserting a new note hash each time. Contracts must therefore make every completion independently paid for or
+    /// authorized in the completing function itself (e.g. by asserting that the completer publicly owns the NFT and
+    /// clearing its ownership on each call), and must not grant value at partial note creation to be redeemed at
+    /// completion. If completing more than once needs to be prevented, the contract has to enforce that itself, e.g.
+    /// by emitting a nullifier upon completion.
     pub fn complete(self, context: PublicContext, completer: AztecAddress, storage_slot: Field, token_id: Field) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
@@ -174,8 +187,7 @@ impl PartialNFTNote {
         // TODO(#11636): remove this
         assert(token_id != 0, "Cannot complete a PartialNFTNote with a value of 0");
 
-        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
-        // state variable's storage slot, and it is internally consistent).
+        // We verify that `completer` matches the completer designated when this contract created this partial note.
         let validity_commitment = self.compute_validity_commitment(completer);
         // Safety: we're using the existence of the nullifier as proof of the contract having validated the partial
         // note's preimage, which is safe.
@@ -195,11 +207,11 @@ impl PartialNFTNote {
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, token_id));
     }
 
-    /// Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private
-    /// data with the designated completer address. When the note is later completed in public execution, we can load
-    /// this commitment from the nullifier tree and verify that both the partial note (e.g. that the storage slot
-    /// corresponds to the correct owner, and that we're using the correct state variable) and completer are
-    /// legitimate.
+    /// Computes a validity commitment for this partial note.
+    ///
+    /// The commitment cryptographically binds the note's private content with the designated completer address. When
+    /// the note is later completed, the commitment is looked up in the nullifier tree to verify that this contract
+    /// created this exact partial note designating that completer.
     pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
         poseidon2_hash_with_separator(
             [self.commitment, completer.to_field()],
