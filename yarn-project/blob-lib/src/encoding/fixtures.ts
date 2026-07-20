@@ -131,7 +131,9 @@ export function makeBlockEndStateField({
 }
 
 export function makeBlockEndBlobData({
-  isFirstBlock = true,
+  // Accepted for call-site compatibility, but no longer read: post-flip every block carries the
+  // l1-to-l2 message tree root regardless of position, so the blob format no longer branches on it.
+  isFirstBlock: _isFirstBlock = true,
   seed = 1,
   ...overrides
 }: { seed?: number; isFirstBlock?: boolean } & Partial<
