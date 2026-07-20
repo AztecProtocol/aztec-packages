@@ -1,3 +1,5 @@
+import { normalizePoolDirectory, withPoolLock } from './pool_lock.js';
+
 /** Prefix for the per-store OPFS SAH pool directories owned by this package. */
 export const OPFS_POOL_DIR_PREFIX = '.aztec-kv-';
 
@@ -28,9 +30,17 @@ export async function listStores(): Promise<string[]> {
 
 /**
  * Permanently deletes a store by effective name (as returned by {@link listStores}). The store must be closed:
- * an open store's SAH pool holds locks on the directory and the removal will reject.
+ * an open store holds the directory's Web Lock and the removal will reject with `SqlitePoolBusyError`.
  */
 export async function deleteStore(effectiveName: string): Promise<void> {
-  const root = await navigator.storage.getDirectory();
-  await root.removeEntry(storePoolDirectory(effectiveName), { recursive: true });
+  await deletePoolDirectory(storePoolDirectory(effectiveName));
+}
+
+/** Permanently deletes one OPFS SAH-pool directory after exclusively locking it. */
+export async function deletePoolDirectory(poolDirectory: string): Promise<void> {
+  poolDirectory = normalizePoolDirectory(poolDirectory);
+  await withPoolLock(poolDirectory, async () => {
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry(poolDirectory, { recursive: true });
+  });
 }
