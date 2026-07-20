@@ -81,7 +81,13 @@ function redis_cli {
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  else
+    # redis_cli is a no-op here and never reads stdin, so gzip would die on SIGPIPE
+    # and take the caller down with it under `set -o pipefail`. Drain instead.
+    cat >/dev/null
+  fi
 }
 
 function redis_getz {
