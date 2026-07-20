@@ -835,13 +835,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
   public async decryptAes128(
     ciphertext: BoundedVec<number>,
-    iv: Buffer,
-    symKey: Buffer,
+    iv: number[],
+    symKey: number[],
   ): Promise<Option<BoundedVec<number>>> {
     const capacity = ciphertext.maxLength;
     try {
       const aes128 = new Aes128();
-      const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
+      const plaintext = await aes128.decryptBufferCBC(
+        Buffer.from(ciphertext.data),
+        Buffer.from(iv),
+        Buffer.from(symKey),
+      );
       return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
       return Option.none({ maxLength: capacity });
@@ -1104,6 +1108,30 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
+<<<<<<< HEAD
+=======
+  async #getTxEffectOption(txHash: TxHash): Promise<Option<TxEffectData>> {
+    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
+    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
+      return Option.none();
+    }
+    return Option.some(this.#toTxEffectData(receipt.txEffect));
+  }
+
+  #toTxEffectData(txEffect: TxEffect): TxEffectData {
+    return {
+      ...txEffect,
+      revertCode: txEffect.revertCode.getCode(),
+      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
+      contractClassLogs: txEffect.contractClassLogs.map(log => ({
+        contractAddress: log.contractAddress,
+        fields: log.fields.toFields(),
+        emittedLength: log.emittedLength,
+      })),
+    };
+  }
+
+>>>>>>> d2db074640 (refactor(pxe): compute oracle interface hash from wire-structural mapping labels (#24752))
   /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */
   async #queryWithBlockHashNotAfterAnchor<T>(blockHash: BlockHash, query: () => Promise<T>): Promise<T> {
     // Most contracts query state at the "current" block, which is the anchor. Skip the validation when we can.
