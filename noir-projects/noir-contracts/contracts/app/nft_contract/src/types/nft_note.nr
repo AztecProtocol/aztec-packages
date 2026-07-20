@@ -173,12 +173,12 @@ impl PartialNFTNote {
     /// that the completer is the entity performing the call. Contracts must authenticate the caller themselves,
     /// typically by passing `msg_sender()` as `completer`.
     ///
-    /// WARNING: completion is not single-use. The completer can complete the same partial note any number of times,
-    /// inserting a new note hash each time. Contracts must therefore make every completion independently paid for or
-    /// authorized in the completing function itself (e.g. by asserting that the completer publicly owns the NFT and
-    /// clearing its ownership on each call), and must not grant value at partial note creation to be redeemed at
-    /// completion. If completing more than once needs to be prevented, the contract has to enforce that itself, e.g.
-    /// by emitting a nullifier upon completion.
+    /// WARNING: completion is not single-use. Nothing prevents the completer from completing the same partial note
+    /// multiple times, inserting a new note hash each time. Every completion must therefore be independently paid for
+    /// or authorized in the completing function itself (e.g. by asserting that the completer publicly owns the NFT and
+    /// clearing its ownership on each call), never granting value at creation to be redeemed at completion. Completing
+    /// more than once is otherwise harmless to the contract, but wasteful for the completer. The recipient only
+    /// discovers the first completion, so anything carried by further ones is lost.
     pub fn complete(self, context: PublicContext, completer: AztecAddress, storage_slot: Field, token_id: Field) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
