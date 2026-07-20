@@ -31,6 +31,8 @@ Call a function and wait for it to be mined:
 
 The `from` field specifies which account sends the transaction. If that account has Fee Juice, it pays for the transaction automatically. For other fee payment options, see [paying fees](./how_to_pay_fees.md).
 
+By default, `send()` waits until the transaction reaches the `checkpointed` status, meaning its block has been included in an L1 checkpoint. Pass `wait: { waitForStatus: ... }` to wait for a different status, such as `TxStatus.PROPOSED` for the fastest feedback (the block exists on the p2p network but is not yet on L1) or `TxStatus.PROVEN` for a proof-backed guarantee. See [block production and finality](../foundational-topics/block_production.md) for what each status guarantees and how to choose.
+
 ### What happens behind the scenes
 
 When using `EmbeddedWallet`, calling `send()` triggers a **simulation** step before the transaction is actually sent. This simulation:
@@ -74,6 +76,8 @@ After sending a transaction without waiting, you can query its receipt using the
 - `DroppedTxReceipt` - dropped by the node. Exposes `status` (`dropped`) and an optional `error` message.
 - `MinedTxReceipt` - included in a block. Exposes `status` (`proposed`, `checkpointed`, `proven`, or `finalized`), `blockNumber`, `blockHash`, `txIndexInBlock`, `transactionFee`, and the execution result.
 
+The four mined statuses track the block's progress toward finality: `proposed` (block propagated via p2p, not yet on L1), `checkpointed` (block included in an L1 checkpoint), `proven` (epoch proof verified on L1), and `finalized` (proof transaction in a finalized L1 block). See [block production and finality](../foundational-topics/block_production.md) for the revert risk at each stage.
+
 The `status`, `blockNumber`, and `transactionFee` fields are readable on the bare union, but block and fee details are only populated once the transaction is mined. Use the `isMined()`, `isPending()`, and `isDropped()` type guards to narrow to a specific variant before reading its fields:
 
 ```typescript
@@ -100,6 +104,7 @@ if (receipt.isMined() && receipt.txEffect) {
 
 ## Next steps
 
+- Understand [block production and finality](../foundational-topics/block_production.md) to choose which status to wait for
 - Learn to [read contract data](./how_to_read_data.md) including simulating functions before sending
 - Understand [authentication witnesses](./how_to_use_authwit.md) for delegated transactions
 - Configure [gas and fees](./how_to_pay_fees.md) for transaction costs

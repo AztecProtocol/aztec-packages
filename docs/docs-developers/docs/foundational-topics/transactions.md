@@ -33,8 +33,8 @@ The accompanying diagram illustrates the flow of interactions between a user, th
 1. **The user initiates a transaction** – In this example, the user decides to privately send 10 DAI to gudcause.eth. After inputting the amount and the receiving address, the user clicks the confirmation button on their wallet.
 2. **The PXE executes transfer locally** – The PXE, running locally on the user's device, executes the transfer method on the DAI token contract on Aztec and computes the state difference based on the user's intention. At this point, the transaction exists solely within the context of the PXE.
 3. **The PXE proves correct execution** – The PXE proves correct execution (via zero-knowledge proofs) of the authorization and of the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (new note commitments and nullifiers) to the sequencer.
-4. **The sequencer processes the transaction** – The pseudorandomly-selected sequencer validates the transaction proofs along with required inputs for this private transfer. The sequencer also executes public functions and updates state: public state is updated by directly modifying entries in the sparse Merkle tree, while private state is updated by adding the newly created note commitments and nullifiers to the indexed Merkle trees. The sequencer then computes the new state root and posts the block to L1.
-5. **The transaction settles to L1** – The block is posted to L1, and later, provers submit epoch proofs to the verifier contract on Ethereum. Once the epoch proof is verified, the state transitions are considered final and the private transfer has settled.
+4. **The sequencer processes the transaction** – The pseudorandomly-selected sequencer validates the transaction proofs along with required inputs for this private transfer. The sequencer also executes public functions and updates state: public state is updated by directly modifying entries in the sparse Merkle tree, while private state is updated by adding the newly created note commitments and nullifiers to the indexed Merkle trees. The sequencer computes the new state root, includes the transaction in a block, and propagates the block over the p2p network. At this point the transaction has status `proposed`.
+5. **The transaction settles to L1** – At the end of its slot, the sequencer bundles the blocks it built into a checkpoint and posts it to L1 (status `checkpointed`). Later, provers submit epoch proofs to the verifier contract on Ethereum (status `proven`), and once the proof's L1 transaction is in a finalized Ethereum block the transfer is irreversible (status `finalized`). See [block production and finality](./block_production.md) for what each status guarantees.
 
 ### Detailed Diagram
 
@@ -142,6 +142,7 @@ Transactions can optionally include a teardown phase after app execution. During
 
 ## Next Steps
 
+- Understand [block production and finality](./block_production.md): how blocks, checkpoints, and epochs determine when a transaction is final
 - Learn about [accounts](./accounts/index.md) and how they authorize transactions
 - Understand [state management](./state_management.md) and how transaction effects are stored
 - Explore the [PXE](./pxe/index.md) in more detail

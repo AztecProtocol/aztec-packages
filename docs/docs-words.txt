@@ -54,6 +54,7 @@ chainid
 Chainlink
 chainʼs
 Charbonneau
+checkpointing
 Chiplets
 chiplets
 Ciara

@@ -50,14 +50,17 @@ The transaction request - including the private proof and any public function ca
 ### 5. Sequencer Processing
 The sequencer verifies the private proof and executes any public function calls. Public execution happens on the sequencer, not on your device, since it reads from and writes to public state that is shared across the network.
 
-### 6. Block Production
-The sequencer assembles transactions into a block and proposes it. Validators in the committee validate and attest to the block.
+### 6. Block production
+The sequencer assembles transactions into a block and proposes it to the committee, which validates and attests to it. Blocks are produced every few seconds, so this usually happens quickly.
 
-### 7. Epoch Proving
-Provers generate a rollup proof covering all transactions in the epoch, aggregating the work into a single proof.
+### 7. Checkpointing
+At the end of its slot (72 seconds on the current testnet), the sequencer bundles all the blocks it built into a **checkpoint** and posts it to Ethereum in a single transaction. See [Blocks and Epochs](./blocks.md) for how slots and checkpoints work.
 
-### 8. L1 Settlement
-The epoch proof is submitted to Ethereum. Once verified on L1, the state transition is finalized.
+### 8. Epoch proving
+Provers generate a rollup proof covering all checkpoints in the epoch, aggregating the work into a single proof.
+
+### 9. L1 settlement
+The epoch proof is submitted to Ethereum and verified. Once the proof's Ethereum transaction is itself finalized, the state transition is irreversible.
 
 ## Private vs Public Transactions
 
@@ -86,16 +89,16 @@ What stays private:
 - Transaction amounts (for private transfers)
 - Which accounts are involved (for private interactions)
 
-## Transaction Speed
+## Transaction speed and finality
 
-Transaction finality depends on several factors:
+After submission, a transaction moves through four statuses, each a stronger guarantee than the last:
 
-1. **Inclusion** - When a sequencer includes your transaction in a block
-2. **Block finalization** - When the block is attested by the committee
-3. **Epoch proving** - When the epoch proof is generated
-4. **L1 settlement** - When the proof is verified on Ethereum
+1. **Proposed** (seconds) - A sequencer included it in a block and propagated the block through the network
+2. **Checkpointed** (up to about a slot) - The block was included in a checkpoint posted to Ethereum
+3. **Proven** (tens of minutes) - The epoch containing the block was proven and the proof verified on Ethereum
+4. **Finalized** - The proof's Ethereum transaction is in a finalized Ethereum block and can no longer revert
 
-For most practical purposes, transactions are "confirmed" after block finalization, even before L1 settlement.
+Wallets and applications choose which status to treat as "confirmed" based on their needs: `proposed` for fast feedback, `checkpointed` for most purposes (the Aztec.js default), and `proven` or `finalized` for high-value actions.
 
 ---
 

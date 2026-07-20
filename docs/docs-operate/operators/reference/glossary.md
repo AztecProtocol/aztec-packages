@@ -45,6 +45,10 @@ See [Prover Broker](#prover-broker).
 
 ## C
 
+### Checkpoint
+
+The unit of L1 publication. During each slot, the selected sequencer builds one or more L2 blocks and propagates them over the p2p network; at the end of the slot it bundles them into a checkpoint and posts it to L1 in a single transaction. Checkpoints are grouped into epochs for proving.
+
 ### Coinbase
 
 The Ethereum address that receives L1 rewards and fees for a sequencer. If not specified in the keystore, defaults to the attester address.
@@ -87,7 +91,7 @@ A signed record containing information about a network node, used for peer disco
 
 ### Epoch
 
-A period of multiple L2 blocks that are proven together. Prover nodes generate a single validity proof for an entire epoch and submit it to the rollup contract.
+A fixed number of consecutive slots whose checkpoints are proven together. Prover nodes generate a single validity proof for an entire epoch and submit it to the rollup contract. If the proof misses its submission deadline, the epoch's unproven checkpoints are pruned.
 
 ### Execution Layer
 
