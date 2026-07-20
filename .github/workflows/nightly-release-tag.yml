@@ -10,12 +10,12 @@ permissions:
 
 jobs:
   nightly-release-tag:
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' || github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        branch: ${{ github.repository == 'AztecProtocol/aztec-packages-private' && fromJSON('["next", "v5-next"]') || fromJSON('["v5-next"]') }}
+        branch: ${{ fromJSON('["next", "v5-next"]') }}
     concurrency:
       group: ${{ github.workflow }}-${{ github.repository }}-${{ matrix.branch }}
     steps:
