@@ -63,7 +63,7 @@ describe('single-node/proving/upload_failed_proof', () => {
 
   // Makes the prover's top-tree prove always throw. Because every checkpoint prover still succeeds, the
   // session fails on its own account (state 'failed'), which the session manager treats as a genuine,
-  // race-free failure and uploads a post-mortem eagerly via tryUploadEpochFailure(epoch, checkpoints).
+  // race-free failure and uploads a post-mortem eagerly via tryUploadEpochFailure(sessionId, checkpoints).
   // Intercepts that to capture the upload URL, then tears down the live context, downloads the proving
   // job data, and re-runs it via rerunEpochProvingJob with fake proofs on a fresh config.
   it('uploads failed proving job state and re-runs it on a fresh instance', async () => {
@@ -81,8 +81,8 @@ describe('single-node/proving/upload_failed_proof', () => {
     // healthy provers (a top-tree failure here).
     const { promise: epochUploaded, resolve: onEpochUploaded } = promiseWithResolvers<string>();
     const origTryUploadEpochFailure = proverNode.tryUploadEpochFailure.bind(proverNode);
-    proverNode.tryUploadEpochFailure = async (epoch: any, checkpoints: any) => {
-      const url = await origTryUploadEpochFailure(epoch, checkpoints);
+    proverNode.tryUploadEpochFailure = async (id: any, checkpoints: any) => {
+      const url = await origTryUploadEpochFailure(id, checkpoints);
       if (url !== undefined) {
         onEpochUploaded(url);
       }

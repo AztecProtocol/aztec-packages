@@ -582,7 +582,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         finalizationDelayMs: this.config.proverNodeEpochProvingDelayMs,
       },
       onSessionFailed: async session => {
-        await this.tryUploadEpochFailure(session.getEpochNumber(), session.getCheckpoints());
+        await this.tryUploadEpochFailure(session.getId(), session.getCheckpoints());
       },
       bindings: this.log.getBindings(),
     });
@@ -615,7 +615,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
    * store is configured or the checkpoint set is empty.
    */
   public async tryUploadEpochFailure(
-    epoch: EpochNumber,
+    id: string,
     checkpoints: readonly CheckpointProver[],
   ): Promise<string | undefined> {
     if (!this.config.proverNodeFailedEpochStore || checkpoints.length === 0) {
@@ -624,7 +624,8 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     const data = SessionManager.buildProvingData(checkpoints);
     return await uploadEpochProofFailure(
       this.config.proverNodeFailedEpochStore,
-      `failed-epoch-${epoch}`,
+      // The session's own id; `uploadEpochProofFailure` already prefixes the path with the epoch number.
+      id,
       data,
       this.l2BlockSource as Archiver,
       this.worldState,
@@ -647,7 +648,8 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       const data = SessionManager.buildProvingData([prover]);
       return await uploadEpochProofFailure(
         this.config.proverNodeFailedEpochStore,
-        `failed-checkpoint-${prover.epochNumber}-${prover.checkpoint.number}`,
+        // The prover's content-addressed id; the epoch number is already in the upload path.
+        prover.id,
         data,
         this.l2BlockSource as Archiver,
         this.worldState,
