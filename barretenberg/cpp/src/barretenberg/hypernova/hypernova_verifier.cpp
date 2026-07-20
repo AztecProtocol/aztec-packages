@@ -115,12 +115,20 @@ std::pair<bool, typename HypernovaFoldingVerifier<IsRecursive_>::Accumulator> Hy
     BB_ASSERT(!claims.empty(), "HypernovaFoldingVerifier::finalize: nothing to fold");
 
     if (claims.size() == 1) {
-        // No batching: the single claim is already the accumulator.
+        // No batching: the single claim is already the accumulator. The transcript's final segment is the last
+        // accumulated instance proof.
+        if constexpr (!IsRecursive_) {
+            transcript->enforce_proof_fully_consumed("HypernovaFoldingVerifier");
+        }
         return { true, std::move(claims[0]) };
     }
     transcript->load_proof(batching_proof);
     BatchingVerifier batching_verifier(transcript);
-    return batching_verifier.verify_proof(claims);
+    auto result = batching_verifier.verify_proof(claims);
+    if constexpr (!IsRecursive_) {
+        transcript->enforce_proof_fully_consumed("HypernovaFoldingVerifier");
+    }
+    return result;
 }
 
 template class HypernovaFoldingVerifier<false>;

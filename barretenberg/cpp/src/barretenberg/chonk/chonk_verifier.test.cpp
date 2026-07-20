@@ -59,8 +59,8 @@ TEST_F(ChonkRecursionTests, NativeVerification)
 /**
  * @brief A proof carrying trailing data the transcript never reads must be rejected.
  * @details The joint proof is the last segment loaded into the shared transcript, so an appended element is pure
- * trailing data: no subsequent read shifts and Fiat-Shamir is unaffected. Only the fully-consumed transcript check
- * rejects it.
+ * trailing data: no subsequent read shifts and Fiat-Shamir is unaffected. Only the fully-consumed transcript
+ * enforcement rejects it.
  */
 TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingProofData)
 {
@@ -69,7 +69,40 @@ TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingProofData)
     proof.joint_proof.push_back(fr::random_element());
 
     ChonkNativeVerifier verifier(vk_and_hash);
-    EXPECT_FALSE(verifier.verify(proof));
+    EXPECT_THROW((void)verifier.verify(proof), std::runtime_error);
+}
+
+/**
+ * @brief A proof with a shifted segment boundary must be rejected even though the concatenated stream is unchanged.
+ * @details Moving the first element of the ECCVM segment to the end of the merge segment leaves the concatenated
+ * transcript stream identical, so every transcript read yields the same data and Fiat-Shamir is unaffected. Only
+ * per-segment boundary enforcement (each sub-verifier consumes exactly its own segment) distinguishes the two
+ * structurally different proofs.
+ */
+TEST_F(ChonkRecursionTests, NativeVerificationRejectsShiftedSegmentBoundary)
+{
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
+
+    proof.merge_proof.push_back(proof.eccvm_proof.front());
+    proof.eccvm_proof.erase(proof.eccvm_proof.begin());
+
+    ChonkNativeVerifier verifier(vk_and_hash);
+    EXPECT_THROW((void)verifier.verify(proof), std::runtime_error);
+}
+
+/**
+ * @brief Trailing data appended to the TripleIPA proof must be rejected.
+ * @details The IPA proof rides its own transcript, so the shared-transcript fully-consumed enforcement does not
+ * cover it; the TripleIPA reduction must enforce full consumption of its own segment.
+ */
+TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingIpaProofData)
+{
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
+
+    proof.ipa_proof.push_back(fr::random_element());
+
+    ChonkNativeVerifier verifier(vk_and_hash);
+    EXPECT_THROW((void)verifier.verify(proof), std::runtime_error);
 }
 
 /**

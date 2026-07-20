@@ -132,11 +132,11 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
-    joint_challenge.clear();
-    joint_challenge.reserve(JOINT_LOG_N);
+    std::vector<FF> challenges;
+    challenges.reserve(JOINT_LOG_N);
 
     for (size_t round_idx = 0; round_idx < JOINT_LOG_N; round_idx++) {
-        joint_round.process_round(transcript, joint_challenge, gate_sep, round_idx);
+        joint_round.process_round(transcript, challenges, gate_sep, round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
@@ -145,6 +145,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
                     "Sumcheck:minicircuit_evaluations"));
         }
     }
+    joint_challenge = std::move(challenges);
 
     // Receive MegaZK evaluations after all rounds — full N-variable multilinear evaluations.
     {

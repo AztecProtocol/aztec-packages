@@ -204,11 +204,18 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
 
     /**
      * @brief Verifier-specific method. The verifier needs to load a proof or its segment before the verification.
+     * @details On a shared transcript, segments are loaded lazily by each sub-verifier. Everything loaded so far
+     * must have been consumed before the next segment is appended: otherwise data could move across adjacent
+     * segment boundaries without changing the concatenated stream, and two structurally different proofs would
+     * verify against the same transcript reads.
      *
      * @param proof
      */
     void load_proof(const std::vector<DataType>& proof)
     {
+        if (!is_proof_fully_consumed()) {
+            throw_or_abort("Transcript: load_proof called before the previous proof segment was fully consumed");
+        }
         proof_data.insert(proof_data.end(), proof.begin(), proof.end());
     }
 
@@ -217,10 +224,24 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
 
     /**
      * @brief Verifier-specific method. True iff every field element loaded via load_proof has been consumed by
-     * receive_from_prover. A verifier that owns its transcript end-to-end should fold this into its result once
-     * verification is complete, so that proofs with trailing never-read data are rejected rather than accepted.
+     * receive_from_prover.
      */
     bool is_proof_fully_consumed() const { return num_frs_read == proof_data.size(); }
+
+    /**
+     * @brief Verifier-specific method. Throws unless every field element loaded via load_proof has been consumed.
+     * @details A proof stream that does not parse exactly is thrown out of verification, matching the contract of
+     * receive_from_prover (too short) and load_proof (interior segment boundaries on a shared transcript): trailing
+     * field elements the transcript never read are not authenticated by Fiat-Shamir. A verifier that owns its
+     * transcript end-to-end must call this once verification is complete — it covers the final segment, after which
+     * no further load occurs.
+     */
+    void enforce_proof_fully_consumed(const char* context) const
+    {
+        if (!is_proof_fully_consumed()) {
+            throw_or_abort(std::string(context) + ": proof contains trailing data not consumed by the transcript");
+        }
+    }
 
     // Enables the manifest
     void enable_manifest() { use_manifest = true; }
