@@ -16,6 +16,10 @@ import { type DeployInstantiationOptions, DeployMethod } from './deploy_method.j
 export class Contract extends ContractBase {
   /**
    * Gets a contract instance.
+   *
+   * This only builds a local handle for issuing calls; it does not register the contract with the wallet/PXE. To sync
+   * the contract's private state or simulate its functions, register it explicitly (once) via
+   * {@link Wallet.registerContract} — see that method for why registration is a deliberate step rather than automatic.
    * @param address - The address of the contract instance.
    * @param artifact - Build artifact of the contract.
    * @param wallet - The wallet to use when interacting with the contract.

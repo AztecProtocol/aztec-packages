@@ -282,18 +282,41 @@ export type Wallet = {
   getChainInfo(): Promise<ChainInfo>;
   getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
   getContractClassMetadata(id: Fr): Promise<ContractClassMetadata>;
+  /**
+   * Registers a sender's address so this PXE will trial-decrypt and sync the notes they send us. This is an explicit,
+   * opt-in step: PXE only trial-decrypts tagged logs against known senders, so notes from an unregistered sender are
+   * never discovered. Purely local — sends no transaction and costs no gas.
+   */
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
   getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
+  /**
+   * Makes a deployed contract known to the wallet so this PXE can sync its private state and simulate/call its
+   * functions. Pass `artifact` to also register the contract class (equivalent to a {@link registerContractClass}
+   * call); pass `secretKeyOrKeys` only when registering an account contract owned by this wallet.
+   *
+   * Registration is a deliberately explicit, developer-driven step rather than something aztec.js does automatically
+   * on first interaction. It is a heavy operation: it loads a potentially large contract artifact into the local PXE
+   * store, and going through a wallet may prompt the user to grant a capability for the contract. Registration used to
+   * happen automatically on every interaction, which redundantly re-registered the same contracts and was a serious
+   * performance and UX regression — so instead callers choose when and what to register, typically once per contract
+   * and after checking whether it is already known (e.g. via {@link getContractMetadata}).
+   *
+   * This is a local operation only: it sends no transaction and costs no gas. Publishing a contract class or instance
+   * on-chain (which does cost gas) is a separate concern handled as part of deployment.
+   */
   registerContract(
     instance: ContractInstancePreimage,
     artifact?: ContractArtifact,
     secretKeyOrKeys?: Fr | MasterSecretKeys,
   ): Promise<void>;
   /**
-   * Registers a contract class artifact in the local PXE without binding it to any instance.
-   * Useful for simulation flows that need the artifact available locally before any on-chain
-   * upgrade has taken effect. No chain check.
+   * Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation
+   * flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
+   *
+   * Like {@link registerContract}, this is an explicit step rather than an automatic one, and for the same reason:
+   * loading the artifact into PXE is heavy, so callers register deliberately instead of on every interaction. It is a
+   * local operation that sends no transaction and costs no gas.
    */
   registerContractClass(artifact: ContractArtifact): Promise<void>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset>;

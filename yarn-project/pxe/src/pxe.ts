@@ -955,6 +955,10 @@ export class PXE {
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
    *
+   * This is a local operation: it sends no transaction and costs no gas. Its cost is local — it stores the full
+   * (potentially large) artifact and processes every function in it — which is why higher-level wallet APIs treat
+   * registration as a deliberate, one-time step rather than doing it automatically on every interaction.
+   *
    * @param artifact - The build artifact for the contract class.
    */
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {

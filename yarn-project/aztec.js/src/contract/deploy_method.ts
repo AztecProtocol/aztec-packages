@@ -424,7 +424,10 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
   }
 
   /**
-   * Adds this contract to the wallet and returns the Contract object.
+   * Registers the (already deployed) contract instance with the wallet and returns the Contract object to interact
+   * with it. Use this when the instance already exists on-chain and you only need the local wallet/PXE to know about
+   * it. This is an explicit, typically one-time step because it loads the contract artifact into PXE; see
+   * {@link Wallet.registerContract} for why registration is deliberate rather than automatic. Local only, costs no gas.
    */
   public async register(): Promise<TContract> {
     const instance = await this.getInstance();
