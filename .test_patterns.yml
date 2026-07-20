@@ -378,6 +378,14 @@ tests:
     owners:
       - *alex
 
+  # multi_proof runs three prover nodes with fake proofs; under CI's 2-CPU limit the sequencer's L1
+  # checkpoint publish falls behind the test's EVM time-warp and the tx is dropped as timed out,
+  # stalling proving. Passes with adequate CPUs; the L1-publish path and the test are unchanged here.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/proving/multi_proof.test.ts"
+    error_regex: "Transaction timed out before sending"
+    owners:
+      - *palla
+
   - regex: "yarn-project/end-to-end/scripts/run_test.sh compose src/composed/docs_examples.test.ts"
     error_regex: "maxFeesPerGas.feePerL2Gas must be greater than or equal to gasFees.feePerL2Gas,"
     owners:
