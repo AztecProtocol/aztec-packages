@@ -35,6 +35,7 @@ import type {
   TaggingSecretStrategy,
 } from '../../hooks/resolve_tagging_secret_strategy.js';
 import { NoteService } from '../../notes/note_service.js';
+import { assertAllowedScope } from '../../storage/allowed_scopes.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
@@ -321,7 +322,17 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns The app tagging secret, or `None` if the recipient is invalid.
    */
   public async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>> {
-    const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
+    assertAllowedScope(sender, this.scopes);
+
+    const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    const extendedSecret = await AppTaggingSecret.computeViaEcdh(
+      senderCompleteAddress,
+      senderIvsk,
+      recipient,
+      this.contractAddress,
+      recipient,
+    );
 
     if (!extendedSecret) {
       this.logger.warn(`Computing a tagging secret for invalid recipient ${recipient} - returning no secret`, {
@@ -352,12 +363,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     const index = await this.#getIndexToUseForSecret(secret);
     this.taggingIndexCache.setLastUsedIndex(secret, index);
     return index;
-  }
-
-  async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
-    const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
-    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return AppTaggingSecret.computeViaEcdh(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
   }
 
   async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
