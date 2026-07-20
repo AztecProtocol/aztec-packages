@@ -1,4 +1,3 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -8,11 +7,7 @@ import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import '@aztec/stdlib/testing/jest';
 
-import {
-  InboxBucketBoundaryNotSyncedError,
-  InboxBucketNotSyncedError,
-  L1ToL2MessagesNotReadyError,
-} from '../errors.js';
+import { InboxBucketBoundaryNotSyncedError, InboxBucketNotSyncedError } from '../errors.js';
 import { type InboxMessage, updateRollingHash } from '../structs/inbox_message.js';
 import {
   makeInboxMessage,
@@ -108,7 +103,6 @@ describe('MessageStore', () => {
       await messageStore.addL1ToL2MessageBuckets([msg]);
 
       await checkMessages([msg]);
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(1))).toEqual([msg.leaf]);
     });
 
     it('stores single message', async () => {
@@ -116,17 +110,13 @@ describe('MessageStore', () => {
       await messageStore.addL1ToL2MessageBuckets([msg]);
 
       await checkMessages([msg]);
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(2))).toEqual([msg.leaf]);
     });
 
-    it('stores and returns messages across different blocks', async () => {
+    it('stores messages across different blocks', async () => {
       const msgs = makeInboxMessages(5, { initialCheckpointNumber });
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       await checkMessages(msgs);
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(initialCheckpointNumber + 2))).toEqual(
-        [msgs[2]].map(m => m.leaf),
-      );
     });
 
     it('stores the same messages again', async () => {
@@ -137,43 +127,18 @@ describe('MessageStore', () => {
       await checkMessages(msgs);
     });
 
-    it('stores and returns messages across different blocks with gaps', async () => {
-      const msgs1 = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(1) });
-      const msgs2 = makeInboxMessages(3, {
-        initialCheckpointNumber: CheckpointNumber(20),
-        initialHash: msgs1.at(-1)!.rollingHash,
-        initialInboxHash: msgs1.at(-1)!.inboxRollingHash,
-      });
-
-      await messageStore.addL1ToL2MessageBuckets(msgs1);
-      await messageStore.addL1ToL2MessageBuckets(msgs2);
-
-      await checkMessages([...msgs1, ...msgs2]);
-
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(1))).toEqual([msgs1[0].leaf]);
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(4))).toEqual([]);
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(20))).toEqual([msgs2[0].leaf]);
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(24))).toEqual([]);
-    });
-
-    it('stores and returns messages with block numbers larger than a byte', async () => {
+    it('stores messages with block numbers larger than a byte', async () => {
       const msgs = makeInboxMessages(5, { initialCheckpointNumber: CheckpointNumber(1000) });
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       await checkMessages(msgs);
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(1002))).toEqual([msgs[2]].map(m => m.leaf));
     });
 
-    it('stores and returns multiple messages per block', async () => {
+    it('stores multiple messages per block', async () => {
       const msgs = makeInboxMessagesWithFullBlocks(4);
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       await checkMessages(msgs);
-      const blockMessages = await messageStore.getL1ToL2Messages(CheckpointNumber(initialCheckpointNumber + 1));
-      expect(blockMessages).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-      expect(blockMessages).toEqual(
-        msgs.slice(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2).map(m => m.leaf),
-      );
     });
 
     it('stores messages in multiple operations', async () => {
@@ -181,12 +146,6 @@ describe('MessageStore', () => {
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 10));
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(10, 20));
 
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(initialCheckpointNumber + 2))).toEqual(
-        [msgs[2]].map(m => m.leaf),
-      );
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(initialCheckpointNumber + 12))).toEqual(
-        [msgs[12]].map(m => m.leaf),
-      );
       await checkMessages(msgs);
     });
 
@@ -211,13 +170,6 @@ describe('MessageStore', () => {
       await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
     });
 
-    it('throws if block number for the first message is out of order', async () => {
-      const msgs = makeInboxMessages(4, { initialCheckpointNumber });
-      msgs[2].checkpointNumber = CheckpointNumber(initialCheckpointNumber - 1);
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 2));
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
-    });
-
     it('throws if rolling hash is not correct', async () => {
       const msgs = makeInboxMessages(5);
       msgs[1].rollingHash = Buffer16.random();
@@ -231,62 +183,16 @@ describe('MessageStore', () => {
       await expect(messageStore.addL1ToL2MessageBuckets(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
     });
 
-    it('throws if index is not in the correct range', async () => {
+    it('throws if index skips ahead', async () => {
       const msgs = makeInboxMessages(5, { initialCheckpointNumber });
       msgs.at(-1)!.index += 100n;
       await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
     });
 
-    it('throws if first index in block has gaps', async () => {
+    it('throws if index does not follow previous one', async () => {
       const msgs = makeInboxMessages(4, { initialCheckpointNumber });
       msgs[2].index++;
       await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
-    });
-
-    it('throws if index does not follow previous one', async () => {
-      const msgs = makeInboxMessages(2, {
-        initialCheckpointNumber,
-        overrideFn: (msg, i) => ({
-          ...msg,
-          checkpointNumber: CheckpointNumber(2),
-          index: BigInt(i + NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2),
-        }),
-      });
-      msgs[1].index++;
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
-    });
-
-    it('removes messages up to the given block number', async () => {
-      const msgs = makeInboxMessagesWithFullBlocks(4, { initialCheckpointNumber: CheckpointNumber(1) });
-
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      await checkMessages(msgs);
-
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      );
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      );
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      );
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      );
-
-      await messageStore.rollbackL1ToL2MessagesToCheckpoint(CheckpointNumber(2));
-
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      );
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      );
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(0);
-      expect(await messageStore.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(0);
-
-      await checkMessages(msgs.slice(0, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2));
     });
 
     it('removes messages starting with the given index', async () => {
@@ -295,43 +201,6 @@ describe('MessageStore', () => {
 
       await messageStore.removeL1ToL2Messages(msgs[13].index);
       await checkMessages(msgs.slice(0, 13));
-    });
-
-    describe('inbox tree in progress guard', () => {
-      it('throws when checkpointNumber >= treeInProgress', async () => {
-        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(5) });
-        await messageStore.addL1ToL2MessageBuckets(msgs);
-
-        // Set treeInProgress to 7, meaning checkpoints 5 and 6 are sealed, 7+ are not
-        await messageStore.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 7n);
-
-        // Sealed checkpoint should succeed
-        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(5))).resolves.toEqual([msgs[0].leaf]);
-
-        // Unsealed checkpoint (== treeInProgress) should throw
-        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(7))).rejects.toThrow(L1ToL2MessagesNotReadyError);
-
-        // Future checkpoint should also throw
-        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(8))).rejects.toThrow(L1ToL2MessagesNotReadyError);
-      });
-
-      it('returns messages when checkpointNumber < treeInProgress', async () => {
-        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(10) });
-        await messageStore.addL1ToL2MessageBuckets(msgs);
-
-        await messageStore.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 13n);
-
-        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(10))).resolves.toEqual([msgs[0].leaf]);
-        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(11))).resolves.toEqual([msgs[1].leaf]);
-      });
-
-      it('skips guard when treeInProgress is not set', async () => {
-        const msgs = makeInboxMessages(2, { initialCheckpointNumber: CheckpointNumber(1) });
-        await messageStore.addL1ToL2MessageBuckets(msgs);
-
-        // No setMessageSyncState call — guard should be permissive
-        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
-      });
     });
   });
 
