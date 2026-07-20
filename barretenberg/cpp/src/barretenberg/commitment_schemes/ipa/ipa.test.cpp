@@ -75,7 +75,8 @@ class IPATest : public CommitmentTest<Curve> {
         PCS::compute_opening_proof(ck, { poly, { x, eval } }, prover_transcript);
 
         // initialize verifier transcript from proof data
-        auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->export_proof());
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->load_proof(prover_transcript->export_proof());
         // the native reduce_verify does a _complete_ IPA proof and returns whether or not the checks pass.
         bool result = PCS::reduce_verify(vk, { { x, eval }, commitment }, verifier_transcript);
         return { result, prover_transcript, verifier_transcript };
@@ -260,7 +261,9 @@ TEST_F(IPATest, RejectsTamperedGZero)
               wrong_g_zero_fields.end(),
               tampered_proof.begin() + static_cast<std::ptrdiff_t>(g_zero_offset));
 
-    EXPECT_FALSE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(tampered_proof)));
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(tampered_proof);
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim, verifier_transcript));
 }
 
 TEST_F(IPATest, RejectsTamperedAZero)
@@ -279,7 +282,9 @@ TEST_F(IPATest, RejectsTamperedAZero)
               wrong_a_zero_fields.end(),
               tampered_proof.begin() + static_cast<std::ptrdiff_t>(a_zero_offset));
 
-    EXPECT_FALSE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(tampered_proof)));
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(tampered_proof);
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim, verifier_transcript));
 }
 
 TEST_F(IPATest, RejectsClaimProofMismatch)
@@ -290,13 +295,19 @@ TEST_F(IPATest, RejectsClaimProofMismatch)
     auto [claim1, proof1] = generate_random_proof();
     auto [claim2, proof2] = generate_random_proof();
 
+    auto transcript_for = [](const auto& proof) {
+        auto transcript = std::make_shared<NativeTranscript>();
+        transcript->load_proof(proof);
+        return transcript;
+    };
+
     // Correct pairing: passes
-    EXPECT_TRUE(PCS::reduce_verify(vk, claim1, std::make_shared<NativeTranscript>(proof1)));
-    EXPECT_TRUE(PCS::reduce_verify(vk, claim2, std::make_shared<NativeTranscript>(proof2)));
+    EXPECT_TRUE(PCS::reduce_verify(vk, claim1, transcript_for(proof1)));
+    EXPECT_TRUE(PCS::reduce_verify(vk, claim2, transcript_for(proof2)));
 
     // Swapped pairing: fails
-    EXPECT_FALSE(PCS::reduce_verify(vk, claim1, std::make_shared<NativeTranscript>(proof2)));
-    EXPECT_FALSE(PCS::reduce_verify(vk, claim2, std::make_shared<NativeTranscript>(proof1)));
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim1, transcript_for(proof2)));
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim2, transcript_for(proof1)));
 }
 
 typename IPATest::CK IPATest::ck;

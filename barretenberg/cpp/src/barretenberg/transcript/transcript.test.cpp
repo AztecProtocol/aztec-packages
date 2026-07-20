@@ -133,7 +133,8 @@ TYPED_TEST(TranscriptTests, BatchChallengeGeneration)
     std::array<std::string, 3> labels = { "alpha", "beta", "gamma" };
     auto [p_alpha, p_beta, p_gamma] = prover.template get_challenges<bb::fr>(labels);
 
-    typename TestFixture::Transcript verifier(this->export_proof(prover));
+    typename TestFixture::Transcript verifier;
+    verifier.load_proof(this->export_proof(prover));
     verifier.template receive_from_prover<FF>("data");
 
     auto [v_alpha, v_beta, v_gamma] = verifier.template get_challenges<FF>(labels);
@@ -158,7 +159,8 @@ TYPED_TEST(TranscriptTests, VectorChallengeGeneration)
     std::vector<std::string> labels = { "c1", "c2", "c3", "c4", "c5" };
     auto prover_challenges = prover.template get_challenges<bb::fr>(labels);
 
-    typename TestFixture::Transcript verifier(this->export_proof(prover));
+    typename TestFixture::Transcript verifier;
+    verifier.load_proof(this->export_proof(prover));
     verifier.template receive_from_prover<FF>("init");
     auto verifier_challenges = verifier.template get_challenges<FF>(labels);
 
@@ -183,7 +185,8 @@ TYPED_TEST(TranscriptTests, ShortChallengeGeneration)
     auto [p_alpha, p_beta, p_gamma] = prover.template get_short_challenges<bb::fr>(labels);
     auto p_single = prover.template get_short_challenge<bb::fr>("delta");
 
-    typename TestFixture::Transcript verifier(this->export_proof(prover));
+    typename TestFixture::Transcript verifier;
+    verifier.load_proof(this->export_proof(prover));
     verifier.template receive_from_prover<FF>("data");
     auto [v_alpha, v_beta, v_gamma] = verifier.template get_short_challenges<FF>(labels);
     auto v_single = verifier.template get_short_challenge<FF>("delta");

@@ -73,7 +73,8 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
         this->native_to_stdlib_opening_claims(&builder, native_verifier_claims, native_verifier_claims.size());
 
     // Shplonk verifier functionality
-    auto verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
+    auto verifier_transcript = std::make_shared<Transcript>();
+    verifier_transcript->load_proof(stdlib_proof);
     [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
     [[maybe_unused]] auto batched_verifier_claim =
         ShplonkVerifier::reduce_verification(Commitment::one(&builder), stdlib_opening_claims, verifier_transcript);

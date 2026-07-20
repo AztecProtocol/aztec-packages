@@ -58,9 +58,6 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
         }
     }
 
-    // Verifier-specific constructor.
-    explicit BaseTranscript(const Proof& proof) { load_proof(proof); }
-
   protected:
     Proof proof_data; // Contains the raw data sent by the prover.
 
@@ -561,7 +558,8 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
      */
     static std::shared_ptr<BaseTranscript> test_verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
     {
-        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
+        auto verifier_transcript = std::make_shared<BaseTranscript>();
+        verifier_transcript->load_proof(transcript->proof_data);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
         return verifier_transcript;
     };

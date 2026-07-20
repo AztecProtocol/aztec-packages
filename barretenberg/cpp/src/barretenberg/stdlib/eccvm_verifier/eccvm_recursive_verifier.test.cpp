@@ -115,7 +115,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
         auto native_result = native_verifier.reduce_to_triple_ipa_claim();
 
         // Verify the TripleIPA proof against the claim emitted by the native verifier
-        auto ipa_verify_transcript = std::make_shared<Transcript>(prover.ipa_proof);
+        auto ipa_verify_transcript = std::make_shared<Transcript>();
+        ipa_verify_transcript->load_proof(prover.ipa_proof);
         auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
         auto accumulator =
             NativeTripleIPA::reduce_to_accumulator(native_result.triple_ipa_claim, ipa_verify_transcript);
@@ -285,7 +286,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
                 std::shared_ptr<Transcript> native_transcript = std::make_shared<Transcript>();
                 InnerVerifier native_verifier(native_transcript, proof);
                 auto native_result = native_verifier.reduce_to_triple_ipa_claim();
-                auto ipa_verify_transcript = std::make_shared<Transcript>(ipa_proof);
+                auto ipa_verify_transcript = std::make_shared<Transcript>();
+                ipa_verify_transcript->load_proof(ipa_proof);
                 auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
                 auto accumulator =
                     NativeTripleIPA::reduce_to_accumulator(native_result.triple_ipa_claim, ipa_verify_transcript);

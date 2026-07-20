@@ -48,7 +48,8 @@ template <typename Flavor> class ECCVMVerifier_ {
         TripleIpaAccumulator reduce_to_accumulator() const
             requires(!IsRecursive)
         {
-            auto transcript = std::make_shared<NativeTranscript>(proof);
+            auto transcript = std::make_shared<NativeTranscript>();
+            transcript->load_proof(proof);
             auto accumulator = TripleIPA::reduce_to_accumulator(claim, transcript);
             // The TripleIPA proof rides its own transcript, so the shared-transcript enforcement does not cover it.
             transcript->enforce_proof_fully_consumed("TripleIPA");
@@ -58,7 +59,8 @@ template <typename Flavor> class ECCVMVerifier_ {
         TripleIpaAccumulator reduce_verify() const
             requires(IsRecursive)
         {
-            auto transcript = std::make_shared<UltraStdlibTranscript>(proof);
+            auto transcript = std::make_shared<UltraStdlibTranscript>();
+            transcript->load_proof(proof);
             return TripleIPA::reduce_verify(claim, transcript);
         }
     };

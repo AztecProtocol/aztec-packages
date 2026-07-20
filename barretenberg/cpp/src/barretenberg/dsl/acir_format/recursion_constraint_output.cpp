@@ -73,7 +73,8 @@ std::pair<OpeningClaim<stdlib::grumpkin<UltraCircuitBuilder>>, HonkProof> HonkRe
     std::vector<IPAAccumulator> accumulators;
     accumulators.reserve(nested_ipa_claims.size() + nested_triple_ipa_openings.size());
     for (size_t idx = 0; idx < nested_ipa_claims.size(); ++idx) {
-        auto ipa_transcript = std::make_shared<StdlibTranscript>(nested_ipa_proofs[idx]);
+        auto ipa_transcript = std::make_shared<StdlibTranscript>();
+        ipa_transcript->load_proof(nested_ipa_proofs[idx]);
         accumulators.emplace_back(RecursiveIPA::reduce_verify(nested_ipa_claims[idx], ipa_transcript));
     }
     for (const auto& opening : nested_triple_ipa_openings) {
@@ -112,8 +113,8 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::perform_full_IPA_verif
     VerifierCommitmentKey<stdlib::grumpkin<UltraCircuitBuilder>> verifier_commitment_key(
         &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
 
-    auto accumulated_ipa_transcript =
-        std::make_shared<StdlibTranscript>(stdlib::Proof<UltraCircuitBuilder>(builder, ipa_proof));
+    auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>();
+    accumulated_ipa_transcript->load_proof(stdlib::Proof<UltraCircuitBuilder>(builder, ipa_proof));
     IPA<stdlib::grumpkin<UltraCircuitBuilder>>::full_verify_recursive(
         verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
 }
