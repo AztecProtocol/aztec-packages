@@ -183,6 +183,10 @@ export class NodeWorldStateQueries {
     return [witness.index, witness.path];
   }
 
+  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
+  }
+
   public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
     if (messageIndex === undefined) {
