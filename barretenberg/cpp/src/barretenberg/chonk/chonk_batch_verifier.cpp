@@ -245,7 +245,7 @@ void ChonkBatchVerifier::coordinator_loop()
         if (ok) {
             emit_ok(reduce_results, passed_indices, reduce_start, ipa_ms, 0);
         } else {
-            bisect(reduce_results, passed_indices, 0, reduce_start);
+            bisect(reduce_results, passed_indices, 0, reduce_start, ipa_ms);
         }
     }
 }
@@ -342,14 +342,17 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
 void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
                                 std::vector<size_t> indices,
                                 uint32_t depth,
-                                std::chrono::steady_clock::time_point reduce_start)
+                                std::chrono::steady_clock::time_point reduce_start,
+                                double condemning_check_ms)
 {
-    // Base case: single proof identified as the failure
+    // Base case: single proof identified as the failure. No check runs on it alone — it was condemned by the
+    // most recent failing subset check — so attribute that check's duration, mirroring how emit_ok attributes
+    // the passing check's duration.
     if (indices.size() == 1) {
         auto& rr = results[indices[0]];
         auto result = VerifyResult::failed(rr.request_id, "batch check failed (bisected to individual)");
         result.time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start);
-        result.time_in_verify_ms = rr.reduce_ms;
+        result.time_in_verify_ms = rr.reduce_ms + condemning_check_ms;
         result.batch_failure_count = depth + 1;
         dispatch(std::move(result));
         return;
@@ -368,11 +371,12 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
 
     if (left_ok) {
         emit_ok(results, left, reduce_start, left_ms, depth + 1);
-        // All failures are in the right half — recurse directly without re-checking
-        bisect(results, std::move(right), depth + 1, reduce_start);
+        // All failures are in the right half — recurse directly without re-checking; the right half is still
+        // condemned by this call's incoming failed check.
+        bisect(results, std::move(right), depth + 1, reduce_start, condemning_check_ms);
     } else {
         // Left failed — need to check right independently
-        bisect(results, std::move(left), depth + 1, reduce_start);
+        bisect(results, std::move(left), depth + 1, reduce_start, left_ms);
 
         auto t1 = std::chrono::steady_clock::now();
         bool right_ok = batch_check(results, right);
@@ -381,7 +385,7 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
         if (right_ok) {
             emit_ok(results, right, reduce_start, right_ms, depth + 1);
         } else {
-            bisect(results, std::move(right), depth + 1, reduce_start);
+            bisect(results, std::move(right), depth + 1, reduce_start, right_ms);
         }
     }
 }

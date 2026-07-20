@@ -82,7 +82,8 @@ class ChonkBatchVerifier {
     void bisect(std::vector<ReduceResult>& results,
                 std::vector<size_t> indices,
                 uint32_t depth,
-                std::chrono::steady_clock::time_point reduce_start);
+                std::chrono::steady_clock::time_point reduce_start,
+                double condemning_check_ms);
     void emit_ok(const std::vector<ReduceResult>& results,
                  const std::vector<size_t>& indices,
                  std::chrono::steady_clock::time_point reduce_start,
