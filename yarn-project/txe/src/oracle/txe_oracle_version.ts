@@ -9,9 +9,9 @@ export const TXE_ORACLE_VERSION_MAJOR = 4;
 export const TXE_ORACLE_VERSION_MINOR = 1;
 
 /**
- * This hash is computed from the TXE oracle interfaces (IAvmExecutionOracle and ITxeExecutionOracle) and is used to
+ * This hash is computed from the TXE-specific entries in `TXE_ORACLE_REGISTRY` and is used to
  * detect when those interfaces change. When it does, bump:
  *   - TXE_ORACLE_VERSION_MAJOR (and reset MINOR to 0) for breaking changes, or
  *   - TXE_ORACLE_VERSION_MINOR for additive changes (new oracle method added).
  */
-export const TXE_ORACLE_INTERFACE_HASH = '52ed86292711cb13cb64d333207e0c1993c008f1aa5d68cab4f6b67a9ce29e8e';
+export const TXE_ORACLE_INTERFACE_HASH = '1a6c578d0a47cd8dd7dae07fd00abe781225a73920c596d873afcc061c0e4284';
