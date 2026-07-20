@@ -254,6 +254,8 @@ function test_cmds {
     local prefix="$circuits_hash"
     if [[ "$test" =~ checkpoint || "$package" =~ "blob" ]]; then
       prefix+=":TIMEOUT=20m"
+    elif [[ "$package" == "private_kernel_lib" ]]; then
+      prefix+=":TIMEOUT=730s"
     fi
     echo "$prefix noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
@@ -280,7 +282,11 @@ function test_cmds {
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do
-    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
+    local execute_prefix="$circuits_hash"
+    if [[ "$circuit" == "private-kernel-reset" ]]; then
+      execute_prefix+=":TIMEOUT=35s"
+    fi
+    echo "$execute_prefix $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
   done
 }
 
