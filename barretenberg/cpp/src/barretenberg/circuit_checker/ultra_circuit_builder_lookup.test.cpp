@@ -124,9 +124,8 @@ TEST_F(UltraCircuitBuilderLookup, DifferentTablesGetUniqueIndices)
 
 // Every basic table reachable through any MultiTable must receive a unique, positive circuit-local
 // table_index. The LogDeriv lookup relation identifies a table solely by table_index (not BasicTableId),
-// so a generator that stores anything other than the builder-assigned index — e.g. a window or bit-slice
-// position — silently collapses distinct tables to one identity. This sweeps the whole table space so
-// any such generator (not just secp256r1 fixed-base) is caught.
+// so a generator that stores anything other than the builder-assigned index silently collapses distinct tables to one
+// identity. This sweeps the whole table space so any such generator is caught.
 TEST_F(UltraCircuitBuilderLookup, AllMultiTableBasicTablesGetUniquePositiveIndices)
 {
     Builder builder;
