@@ -374,6 +374,46 @@ describe('ProverNode', () => {
     expect(uploadSpy).toHaveBeenCalledWith(prover);
   });
 
+  describe('isCheckpointCanonical', () => {
+    it('is true when the archiver holds a block at the checkpoint tip with a matching archive root', async () => {
+      const archiveRoot = Fr.random();
+      const checkpoint = makeCheckpoint(3, 3, 3, archiveRoot);
+      l2BlockSource.getBlock.mockResolvedValue({ archive: { root: archiveRoot } } as unknown as L2Block);
+
+      await expect(proverNode.callIsCheckpointCanonical(checkpoint)).resolves.toBe(true);
+    });
+
+    it('is false when the checkpoint tip block was pruned out (archiver returns nothing)', async () => {
+      const checkpoint = makeCheckpoint(3, 3, 3);
+      l2BlockSource.getBlock.mockResolvedValue(undefined);
+
+      await expect(proverNode.callIsCheckpointCanonical(checkpoint)).resolves.toBe(false);
+    });
+
+    it('is false when the tip block was replaced by a reorg (archive root differs)', async () => {
+      const checkpoint = makeCheckpoint(3, 3, 3, Fr.random());
+      l2BlockSource.getBlock.mockResolvedValue({ archive: { root: Fr.random() } } as unknown as L2Block);
+
+      await expect(proverNode.callIsCheckpointCanonical(checkpoint)).resolves.toBe(false);
+    });
+  });
+
+  it('tryUploadCheckpointFailure skips the upload for a checkpoint pruned out of the canonical chain', async () => {
+    // A prune-induced fork fault reaches onFailed just like a genuine sub-tree failure, but the pruned
+    // checkpoint no longer exists on-chain — the expensive full snapshot must not be produced for it.
+    (proverNode as any).config.proverNodeFailedEpochStore = 'file:///tmp/does-not-matter';
+    const checkpoint = makeCheckpoint(3, 3, 3);
+    l2BlockSource.getBlock.mockResolvedValue(undefined);
+    const failedProver = { id: 'prover-3', checkpoint } as unknown as Parameters<
+      typeof proverNode.tryUploadCheckpointFailure
+    >[0];
+
+    await expect(proverNode.tryUploadCheckpointFailure(failedProver)).resolves.toBeUndefined();
+    expect(l2BlockSource.getBlock).toHaveBeenCalledWith({ number: checkpoint.blocks.at(-1)!.number });
+    // World-state snapshotting is the first thing the real upload path touches; it must never be reached.
+    expect(worldState.getSnapshot).not.toHaveBeenCalled();
+  });
+
   // ---------------- forwarders ----------------
 
   it('startProof forwards to the session manager and returns the job id', async () => {
@@ -770,6 +810,10 @@ class TestProverNode extends ProverNode {
     l1Constants: { epochDuration: number },
   ) {
     return this.isProvenBlockLastOfItsEpoch(provenBlock, provenEpoch, l1Constants as any);
+  }
+
+  public callIsCheckpointCanonical(checkpoint: Checkpoint) {
+    return this.isCheckpointCanonical(checkpoint);
   }
 
   public getLastExpiredEpoch(): EpochNumber | undefined {

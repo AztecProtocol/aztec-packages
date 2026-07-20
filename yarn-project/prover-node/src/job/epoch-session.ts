@@ -229,15 +229,16 @@ export class EpochSession implements Traceable {
         ...this.spec,
       });
       // Distinguish the two ways an attempt can fault:
-      //  - a checkpoint prover in the set has failed (a sub-tree fault or prune-induced fork fault):
-      //    end in the non-declaring terminal 'stopped'. This is not the session's own failure and may
-      //    be a prune, so the reconciler does not upload it; a re-add installs a fresh prover.
-      //  - no prover failed, yet top-tree proving or L1 submission failed: this is the session's own,
-      //    genuine failure — and, because every prover succeeded, it is definitively NOT a prune. End
-      //    in terminal 'failed' so the reconciler retains it (no pointless re-prove) and uploads a
-      //    race-free post-mortem.
+      //  - a checkpoint prover in the set has failed OR was cancelled (a sub-tree fault, a prune-induced
+      //    fork fault, or a control-plane cancel that reached this catch before the reconcile marked the
+      //    session 'cancelled'): end in the non-declaring terminal 'stopped'. This is not the session's own
+      //    failure and may be a prune, so the reconciler does not upload it; a re-add installs a fresh prover.
+      //  - no prover failed or was cancelled, yet top-tree proving or L1 submission failed: this is the
+      //    session's own, genuine failure — and, because every prover is healthy and un-cancelled, it is
+      //    definitively NOT a prune. End in terminal 'failed' so the reconciler retains it (no pointless
+      //    re-prove) and uploads a race-free post-mortem.
       if (!this.isTerminal()) {
-        this.state = this.checkpoints.some(c => c.isFailed()) ? 'stopped' : 'failed';
+        this.state = this.checkpoints.some(c => c.isFailed() || c.isCancelled()) ? 'stopped' : 'failed';
       }
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);

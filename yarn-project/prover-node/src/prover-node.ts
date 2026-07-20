@@ -638,13 +638,25 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
    * Uploads a post-mortem for a single failed checkpoint prover, built from just that checkpoint's
    * proving data. Fired (fire-and-forget) from the store's `onFailed` callback for any non-cancel
    * block-proof failure — a genuine sub-tree fault or a prune-induced fork fault alike. No-ops if no
-   * failed-epoch store is configured. Swallows its own errors so a fire-and-forget caller can't leak.
+   * failed-epoch store is configured, or if the checkpoint is no longer canonical (a prune left nothing
+   * to diagnose). Swallows its own errors so a fire-and-forget caller can't leak.
    */
   public async tryUploadCheckpointFailure(prover: CheckpointProver): Promise<string | undefined> {
     if (!this.config.proverNodeFailedEpochStore) {
       return undefined;
     }
     try {
+      // A prune-induced fork fault and a genuine sub-tree failure are indistinguishable at the moment the
+      // prover rejects (no control-plane cancel has landed yet). But the archiver is the authoritative
+      // committed chain: if this checkpoint was pruned out, its last block is no longer canonical there.
+      // Only upload for a checkpoint that still exists on-chain — a prune leaves nothing to diagnose, and
+      // the snapshot (full world-state + archiver) is expensive to produce and store.
+      if (!(await this.isCheckpointCanonical(prover.checkpoint))) {
+        this.log.debug(`Skipping checkpoint-failure upload for ${prover.id}: no longer canonical (pruned)`, {
+          checkpointNumber: prover.checkpoint.number,
+        });
+        return undefined;
+      }
       const data = SessionManager.buildProvingData([prover]);
       return await uploadEpochProofFailure(
         this.config.proverNodeFailedEpochStore,
@@ -663,6 +675,20 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   }
 
   // ---------------- helpers ----------------
+
+  /**
+   * True if the checkpoint still exists on the canonical chain: the archiver holds a block at its last
+   * block's height whose archive root matches. A prune (fork fault) leaves the block missing or replaced,
+   * so this returns false. Protected for direct unit-test access.
+   */
+  protected async isCheckpointCanonical(checkpoint: Checkpoint): Promise<boolean> {
+    const lastBlock = checkpoint.blocks.at(-1);
+    if (!lastBlock) {
+      return false;
+    }
+    const onChain = await this.l2BlockSource.getBlock({ number: lastBlock.number });
+    return !!onChain && onChain.archive.root.equals(checkpoint.archive.root);
+  }
 
   @memoize
   private getL1Constants(): Promise<L1RollupConstants> {

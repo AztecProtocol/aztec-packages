@@ -321,6 +321,29 @@ describe('EpochSession', () => {
       await expect(startResult).resolves.toBe('stopped');
     });
 
+    it('ends the session in "stopped" (not "failed") when a prover was cancelled by a prune (isCancelled, not isFailed)', async () => {
+      // A control-plane prune cancels the prover: its blockProofs reject with "cancelled" and it reports
+      // isCancelled()===true / isFailed()===false. If that rejection reaches start()'s catch before the
+      // reconcile marks the session 'cancelled', it must NOT be classified 'failed' (which would trigger a
+      // spurious full-snapshot upload) — a cancelled prover is prune-ambiguous, so classify 'stopped'.
+      const cancelledProver = makeStubProver(cp, {
+        blockProofsError: new Error('Checkpoint cancelled'),
+        isFailed: false,
+        isCancelled: true,
+      });
+      const session = new EpochSession(
+        makeSpec(),
+        [cancelledProver],
+        makeDeps({
+          hooks: { topTreeProveOverride: () => cancelledProver.whenBlockProofsReady().then(() => synthProof) },
+        }),
+      );
+      const state = await session.start();
+      expect(state).toBe('stopped');
+      expect(session.hasFailed()).toBe(false);
+      expect(publishingService.submit).not.toHaveBeenCalled();
+    });
+
     it('a top-tree prove that rejects with healthy provers ends the session in "failed" without submitting', async () => {
       // The provers are healthy but the top-tree (root) prove itself rejects — the session's own work
       // failed, and since no prover failed this is definitively not a prune, so it ends in 'failed'.
@@ -447,7 +470,10 @@ class TestEpochSession extends EpochSession {
  * path where CheckpointProver.executeCheckpoint catches an internal failure and rejects
  * its blockProofs promise.
  */
-function makeStubProver(checkpoint: Checkpoint, opts: { blockProofsError?: Error } = {}): CheckpointProver {
+function makeStubProver(
+  checkpoint: Checkpoint,
+  opts: { blockProofsError?: Error; isFailed?: boolean; isCancelled?: boolean } = {},
+): CheckpointProver {
   const id = CheckpointProver.idFor(checkpoint);
   // By default whenBlockProofsReady never resolves in these tests; the prove override
   // bypasses any path that would actually await it.
@@ -468,9 +494,10 @@ function makeStubProver(checkpoint: Checkpoint, opts: { blockProofsError?: Error
     previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
     txs: new Map(),
     whenBlockProofsReady: () => blockProofs,
-    isCancelled: () => false,
-    // A prover configured with a blockProofsError is one whose block proofs rejected — i.e. failed.
-    isFailed: () => opts.blockProofsError !== undefined,
+    isCancelled: () => opts.isCancelled ?? false,
+    // A prover configured with a blockProofsError is one whose block proofs rejected — i.e. failed,
+    // unless the caller decouples the two (e.g. to model a cancelled-but-not-failed prune).
+    isFailed: () => opts.isFailed ?? opts.blockProofsError !== undefined,
     cancel: () => {},
     whenDone: () => Promise.resolve(),
     getAbortSignal: () => new AbortController().signal,
