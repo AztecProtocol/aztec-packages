@@ -97,6 +97,13 @@ type CheckpointProposalBroadcast = {
   checkpoint: Checkpoint;
   proposal: CheckpointProposal;
   blockProposedAt: number;
+  /**
+   * Sequence number of the last Inbox bucket the checkpoint consumed through — the L1 `propose` lookup aid, which
+   * must resolve to the bucket whose rolling hash the checkpoint header committed to. Taken from the streaming
+   * consumption cursor rather than the held last-block proposal, which is absent when the checkpoint's final block
+   * fails to build after earlier blocks already consumed messages.
+   */
+  bucketHint: bigint;
 };
 
 /** Result after attestation collection and signing, ready for L1 submission. */
@@ -310,8 +317,11 @@ export class CheckpointProposalJob implements Traceable {
     votesPromises: Promise<unknown>[],
   ): Promise<void> {
     const { checkpoint } = broadcast;
-    // The checkpoint's consumed Inbox bucket is the last block's bucket reference (undefined ⇒ genesis bucket 0).
-    const bucketHint = broadcast.proposal.lastBlock?.bucketRef?.bucketSeq ?? 0n;
+    // The bucket the checkpoint consumed through, from the streaming cursor. Sourcing it from the held last-block
+    // proposal is wrong: when the checkpoint's final block fails to build after earlier blocks already consumed
+    // messages, no block is held, so the hint would fall back to genesis bucket 0 while the header commits to a
+    // non-genesis rolling hash, which L1 rejects with Rollup__InvalidInboxRollingHash.
+    const bucketHint = broadcast.bucketHint;
 
     try {
       // Wait for all votes actions, enqueued at the beginning, to resolve
@@ -834,7 +844,12 @@ export class CheckpointProposalJob implements Traceable {
         );
         this.metrics.recordCheckpointSuccess();
         // Return a broadcast result with a dummy proposal — fisherman mode skips attestation collection
-        return { checkpoint, proposal: undefined!, blockProposedAt: this.dateProvider.now() };
+        return {
+          checkpoint,
+          proposal: undefined!,
+          blockProposedAt: this.dateProvider.now(),
+          bucketHint: streamingState.lastBucketRef.bucketSeq,
+        };
       }
 
       // Validate the header against L1 state before broadcasting.
@@ -888,8 +903,10 @@ export class CheckpointProposalJob implements Traceable {
         this.checkpointMetrics.noteCheckpointBroadcast(this.dateProvider.now());
       }
 
-      // Return immediately after broadcast — attestation collection happens in the background
-      return { checkpoint, proposal, blockProposedAt };
+      // Return immediately after broadcast — attestation collection happens in the background. The bucket hint is
+      // the streaming cursor's final consumed bucket, which matches the header's rolling hash whether or not a last
+      // block was held for broadcast.
+      return { checkpoint, proposal, blockProposedAt, bucketHint: streamingState.lastBucketRef.bucketSeq };
     } catch (err) {
       if (err && (err instanceof DutyAlreadySignedError || err instanceof SlashingProtectionError)) {
         // swallow this error. It's already been logged by a function deeper in the stack

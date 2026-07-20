@@ -1492,6 +1492,49 @@ describe('CheckpointProposalJob', () => {
       expect(checkpointBuilder.buildBlockCalls[0].opts.l1ToL2Messages).toEqual(bundle);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
     });
+
+    it('carries the consumed bucket hint when the final block fails to build after earlier consumption', async () => {
+      // Two sub-slots. The first block consumes the pending bucket (seq 2) as a message-only block. The final
+      // sub-slot block has no txs and nothing left to consume (the cursor already sits at seq 2), so it fails to
+      // build and is not held for broadcast. The L1 propose bucket hint must still be the bucket the checkpoint
+      // header committed to (seq 2), not fall back to genesis bucket 0 — otherwise L1 rejects the proposal with an
+      // inbox-rolling-hash mismatch (the hint's bucket rolling hash would not match the header's).
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValueOnce(subslot(18, 1, true))
+        .mockReturnValue(noSubslot());
+
+      const bucket: InboxBucket = {
+        seq: 2n,
+        inboxRollingHash: new Fr(99),
+        totalMsgCount: 5n,
+        timestamp: 0n,
+        msgCount: 2,
+        lastMessageIndex: 4n,
+        isOpen: false,
+      };
+      const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
+      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+
+      // Seed a single message-only block; the second sub-slot has no seeded block, no txs, and no new bucket to
+      // consume, so it fails the min-work threshold and no block is held for broadcast.
+      const { lastBlock } = await setupMultipleBlocks(1, [0]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      job.updateConfig({ minTxsPerBlock: 1, buildCheckpointIfEmpty: false });
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      // Only the first (message-only) block built and consumed through bucket 2; the final block did not build.
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+
+      // No held last block, yet the bucket hint (4th positional arg) is the consumed bucket seq 2, matching the
+      // checkpoint header's rolling hash. Before the fix this fell back to genesis bucket 0n.
+      expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(2n);
+    });
   });
 
   describe('build single block', () => {
