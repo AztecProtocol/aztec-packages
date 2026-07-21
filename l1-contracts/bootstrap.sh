@@ -346,6 +346,9 @@ function release_git_push {
       echo "Tag $tag_name already exists. Skipping release."
     else
       git add .
+      # The exported .gitignore lists ConstantsGen.sol and the index starts empty here, so a
+      # plain 'git add .' would leave it out of the release tree.
+      git add -f src/core/libraries/ConstantsGen.sol
       git commit -m "Release $tag_name." >/dev/null
       git tag -a "$tag_name" -m "Release $tag_name."
       do_or_dryrun git push origin "$branch_name" --quiet
