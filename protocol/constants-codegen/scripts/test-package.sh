@@ -33,7 +33,8 @@ mkdir "$work_dir/consumer"
     --typescript "$work_dir/constants.ts" \
     --cpp "$work_dir/constants.hpp" \
     --pil "$work_dir/constants.pil" \
-    --solidity "$work_dir/Constants.sol"
+    --solidity "$work_dir/Constants.sol" \
+    --rust "$work_dir/constants.rs"
 )
 
 function check_output {
@@ -50,3 +51,4 @@ check_output constants.ts 'export const ARCHIVE_HEIGHT = 30;'
 check_output constants.hpp '#define ARCHIVE_HEIGHT 30'
 check_output constants.pil 'pol MAX_ETH_ADDRESS_VALUE = 1461501637330902918203684832716283019655932542975;'
 check_output Constants.sol 'uint256 internal constant MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616;'
+check_output constants.rs 'pub const ARCHIVE_HEIGHT: u128 = 30;'

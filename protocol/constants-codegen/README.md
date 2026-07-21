@@ -5,7 +5,7 @@ This directory will contain the standalone cross-language generator for Aztec pr
 ## Version 1 interface
 
 The command reads a primary Noir source file, optionally adds named constants from other Noir files, and writes any
-requested combination of the four outputs produced by the existing generator.
+requested combination of the supported outputs.
 
 ```text
 constants-codegen \
@@ -14,7 +14,8 @@ constants-codegen \
   [--typescript <output.ts>] \
   [--cpp <output.hpp>] \
   [--pil <output.pil>] \
-  [--solidity <output.sol>]
+  [--solidity <output.sol>] \
+  [--rust <output.rs>]
 ```
 
 - `--input` is required.
@@ -28,6 +29,9 @@ constants-codegen \
 Version 1 preserves the existing renderer behavior, including each language's current embedded symbol allowlist.
 TypeScript emits all parsed constants and domain separators; C++, PIL, and Solidity retain their current selected
 subsets and formatting.
+
+Rust emits all parsed constants and domain separators: values that fit `u128` become `pub const NAME: u128` items,
+and larger field-sized values become `pub const NAME: &str` hex-string items.
 
 ## Compatibility target
 

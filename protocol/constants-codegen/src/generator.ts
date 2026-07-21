@@ -475,6 +475,32 @@ export function processConstantsSolidity(constants: { [key: string]: string }, p
 }
 
 /**
+ * Processes a collection of constants and generates code to export them as Rust constants.
+ *
+ * @param constants - An object containing key-value pairs representing constants.
+ * @param generatorIndices - An object containing key-value pairs representing domain separator indices.
+ * @returns A string containing code that exports the constants as Rust constants.
+ */
+export function processConstantsRust(
+  constants: { [key: string]: string },
+  generatorIndices: { [key: string]: number },
+): string {
+  const code: string[] = [];
+  Object.entries(constants).forEach(([key, value]) => {
+    if (BigInt(value) <= 2n ** 128n - 1n) {
+      code.push(`pub const ${key}: u128 = ${value};`);
+    } else {
+      // Field-sized values exceed u128, so they are emitted as hex strings.
+      code.push(`pub const ${key}: &str = "0x${BigInt(value).toString(16).padStart(64, '0')}";`);
+    }
+  });
+  Object.entries(generatorIndices).forEach(([key, value]) => {
+    code.push(`pub const DOM_SEP__${key}: u128 = ${value};`);
+  });
+  return code.join('\n');
+}
+
+/**
  * Generate the constants file in Typescript.
  */
 export function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
@@ -535,6 +561,17 @@ ${processConstantsSolidity(constants)}
 }\n`;
 
   fs.writeFileSync(targetPath, resultSolidity);
+}
+
+/**
+ * Generate the constants file in Rust.
+ */
+export function generateRustConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
+  const resultRust: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants
+${processConstantsRust(constants, domainSeparatorEnum)}
+`;
+
+  fs.writeFileSync(targetPath, resultRust);
 }
 
 /**

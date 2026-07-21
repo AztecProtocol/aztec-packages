@@ -11,6 +11,7 @@ import {
   evaluateExpressions,
   generateCppConstants,
   generatePilConstants,
+  generateRustConstants,
   generateSolidityConstants,
   generateTypescriptConstants,
   parseNoirFile,
@@ -64,6 +65,21 @@ test('generates the existing PIL subset', () => {
   assert.match(output, /pol MAX_ETH_ADDRESS_VALUE = 1461501637330902918203684832716283019655932542975;/);
   assert.match(output, /pol DOM_SEP__MERKLE_HASH = 2982624097;/);
   assert.doesNotMatch(output, /ARCHIVE_HEIGHT/);
+});
+
+test('generates Rust constants', () => {
+  const output = generateToString(generateRustConstants);
+
+  assert.match(output, /pub const ARCHIVE_HEIGHT: u128 = 30;/);
+  assert.match(
+    output,
+    /pub const MAX_ETH_ADDRESS_VALUE: &str = "0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff";/,
+  );
+  assert.match(
+    output,
+    /pub const MAX_FIELD_VALUE: &str = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000";/,
+  );
+  assert.match(output, /pub const DOM_SEP__MERKLE_HASH: u128 = 2982624097;/);
 });
 
 test('generates the existing Solidity subset', () => {
