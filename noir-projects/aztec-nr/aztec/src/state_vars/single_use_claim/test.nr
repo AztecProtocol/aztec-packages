@@ -110,6 +110,40 @@ unconstrained fn claim_twice_different_owner() {
 }
 
 #[test]
+unconstrained fn both_owners_can_claim_when_sharing_keys() {
+    let env = TestEnvironment::new();
+    let shared_secret = 424242;
+    let owner_a = env.create_light_account_with_secret(shared_secret);
+    let owner_b = env.create_contract_account_with_secret(shared_secret);
+
+    env.private_context(|context| {
+        let state_var_a = in_private(context, owner_a);
+        let state_var_b = in_private(context, owner_b);
+
+        state_var_a.claim();
+        state_var_b.claim();
+
+        state_var_a.assert_claimed();
+        state_var_b.assert_claimed();
+    });
+}
+
+#[test]
+unconstrained fn has_claimed_is_per_owner_when_sharing_keys() {
+    let env = TestEnvironment::new();
+    let shared_secret = 424242;
+    let owner_a = env.create_light_account_with_secret(shared_secret);
+    let owner_b = env.create_contract_account_with_secret(shared_secret);
+
+    env.private_context(|context| { in_private(context, owner_a).claim(); });
+
+    env.utility_context(|context| {
+        assert(in_utility(context, STORAGE_SLOT, owner_a).has_claimed());
+        assert(!in_utility(context, STORAGE_SLOT, owner_b).has_claimed());
+    });
+}
+
+#[test]
 unconstrained fn claim_two_claim_ids_different_state_vars() {
     let mut env = TestEnvironment::new();
 

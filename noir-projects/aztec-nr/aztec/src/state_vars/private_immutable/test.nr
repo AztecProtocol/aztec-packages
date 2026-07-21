@@ -197,6 +197,36 @@ unconstrained fn initialize_twice_same_tx() {
     });
 }
 
+#[test]
+unconstrained fn both_owners_can_initialize_when_sharing_keys() {
+    let env = TestEnvironment::new();
+    let shared_secret = 424242;
+    let owner_a = env.create_light_account_with_secret(shared_secret);
+    let owner_b = env.create_contract_account_with_secret(shared_secret);
+
+    env.private_context(|context| {
+        let _ = in_private(context, owner_a).initialize(MockNote::new(VALUE).build_note());
+        let _ = in_private(context, owner_b).initialize(MockNote::new(VALUE).build_note());
+    });
+}
+
+#[test]
+unconstrained fn is_initialized_is_per_owner_when_sharing_keys() {
+    let env = TestEnvironment::new();
+    let shared_secret = 424242;
+    let owner_a = env.create_light_account_with_secret(shared_secret);
+    let owner_b = env.create_contract_account_with_secret(shared_secret);
+
+    env.private_context(|context| {
+        let _ = in_private(context, owner_a).initialize(MockNote::new(VALUE).build_note());
+    });
+
+    env.utility_context(|context| {
+        assert(in_utility(context, owner_a).is_initialized());
+        assert(!in_utility(context, owner_b).is_initialized());
+    });
+}
+
 #[test(should_fail_with = "already present")]
 unconstrained fn initialize_twice_other_tx() {
     let mut env = TestEnvironment::new();

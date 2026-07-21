@@ -1,5 +1,6 @@
 use crate::protocol::{
     address::AztecAddress, constants::DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, hash::poseidon2_hash_with_separator,
+    traits::ToField,
 };
 
 use crate::{
@@ -80,9 +81,12 @@ impl<Context> SingleUseClaim<Context> {
     ///
     /// This function is primarily used internally by functions [`SingleUseClaim::claim`],
     /// [`SingleUseClaim::assert_claimed`] and [`SingleUseClaim::has_claimed`] to coherently write and read state.
+    ///
+    /// The owner's address is part of the preimage so that accounts that share keys (and hence the `nhk_app`) at
+    /// different addresses do not share the nullifier, keeping their claims independent.
     fn compute_nullifier(self, owner_nhk_app: Field) -> Field {
         poseidon2_hash_with_separator(
-            [owner_nhk_app, self.storage_slot],
+            [owner_nhk_app, self.owner.to_field(), self.storage_slot],
             DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER,
         )
     }
@@ -100,8 +104,8 @@ impl SingleUseClaim<&mut PrivateContext> {
     ///
     /// ## Advanced
     ///
-    /// The implementation of this function emits a nullifier derived from the `owner`'s nullifier hiding key and the
-    /// storage slot of the underlying state variable.
+    /// The implementation of this function emits a nullifier derived from the `owner`'s nullifier hiding key, the
+    /// `owner`'s address and the storage slot of the underlying state variable.
     pub fn claim(self) {
         let owner_nhk_app = self.context.request_nhk_app(get_public_keys(self.owner).npk_m_hash);
         self.context.push_nullifier_unsafe(self.compute_nullifier(owner_nhk_app));

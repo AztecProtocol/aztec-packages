@@ -12,8 +12,10 @@ use crate::{
 };
 
 use crate::protocol::{
-    address::AztecAddress, constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
-    traits::Packable,
+    address::AztecAddress,
+    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
+    traits::{Packable, ToField},
 };
 
 mod test;
@@ -65,9 +67,12 @@ impl<Note, Context> OwnedStateVariable<Context> for PrivateImmutable<Note, Conte
 
 impl<Note, Context> PrivateImmutable<Note, Context> {
     /// Computes the initialization nullifier using the provided secret.
+    ///
+    /// The owner's address is part of the preimage so that accounts that share keys (and hence the secret) at
+    /// different addresses do not share the nullifier, since they do not share the state variable's note either.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
-            [self.storage_slot, secret],
+            [self.storage_slot, self.owner.to_field(), secret],
             DOM_SEP__INITIALIZATION_NULLIFIER,
         )
     }
