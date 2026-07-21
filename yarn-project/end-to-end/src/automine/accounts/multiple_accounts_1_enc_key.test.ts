@@ -11,7 +11,9 @@ import { AutomineTestContext } from '../automine_test_context.js';
 // Verifies that the PXE correctly handles multiple Schnorr accounts sharing the same encryption
 // key (different signing keys). Checks that note discovery and balance tracking remain accurate
 // across three accounts. Uses AUTOMINE_E2E_OPTS with 3 custom accounts sharing one secret.
-describe('automine/accounts/multiple_accounts_1_enc_key', () => {
+// TODO(F-835): unskip once the aztec-nr fix for #24821 is deployed and the PXE restriction on accounts sharing
+// privacy keys is removed. Until then the key store rejects the shared-secret accounts this suite creates.
+describe.skip('automine/accounts/multiple_accounts_1_enc_key', () => {
   let wallet: TestWallet;
   let accounts: AztecAddress[] = [];
   let logger: Logger;

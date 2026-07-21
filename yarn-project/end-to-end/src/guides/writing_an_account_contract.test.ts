@@ -92,7 +92,7 @@ describe('guides/writing_an_account_contract', () => {
     const wrongKey = GrumpkinScalar.random();
     const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
     const wrongAccount = await (wallet as TestWallet).createAccount({
-      secret: secretKey,
+      secret: Fr.random(),
       contract: wrongAccountContract,
       salt: Fr.random(),
     });

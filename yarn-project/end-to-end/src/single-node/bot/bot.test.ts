@@ -188,8 +188,8 @@ describe('single-node/bot/bot', () => {
       }
     });
 
-    // Changes the sender salt between attempts; asserts a new bridge claim is triggered even though
-    // the prior claim is in the store.
+    // Changes the sender private key between attempts; asserts a new bridge claim is triggered even
+    // though the prior claim is in the store.
     it('does not reuse prior bridge claims if recipient address changes', async () => {
       using saveSpy = jest.spyOn(store, 'saveBridgeClaim');
       const config: BotConfig = {
@@ -199,7 +199,7 @@ describe('single-node/bot/bot', () => {
         botMode: 'transfer',
 
         // this bot has a well defined private key and salt
-        senderPrivateKey: new SecretValue(Fr.fromString('0xcafe')),
+        senderPrivateKey: new SecretValue(Fr.fromString('0xbeef')),
         senderSalt: Fr.random(),
 
         l1RpcUrls,
@@ -224,9 +224,9 @@ describe('single-node/bot/bot', () => {
       {
         saveSpy.mockClear();
 
-        // same private key, but different salt derives a different L2 address, so the persisted claim does
-        // not apply and a fresh claim is bridged and saved
-        config.senderSalt = config.senderSalt!.add(Fr.ONE);
+        // a different private key derives a different L2 address, so the persisted claim does not apply
+        // and a fresh claim is bridged and saved
+        config.senderPrivateKey = new SecretValue(Fr.fromString('0xf00d'));
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
         expect(saveSpy).toHaveBeenCalledOnce();
       }

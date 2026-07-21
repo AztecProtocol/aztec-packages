@@ -243,16 +243,22 @@ describe('automine/token/crowdfunding_and_claim', () => {
     // 1) Deploy another instance of the crowdfunding contract
     let otherCrowdfundingContract: CrowdfundingContract;
     {
+      const otherCrowdfundingSecretKey = Fr.random();
+      const otherCrowdfundingPublicKeys = (await deriveKeys(otherCrowdfundingSecretKey)).publicKeys;
       const otherCrowdfundingDeployment = CrowdfundingContract.deploy(
         wallet,
         donationToken.address,
         operatorAddress,
         deadline,
-        { publicKeys: crowdfundingPublicKeys, deployer: operatorAddress },
+        { publicKeys: otherCrowdfundingPublicKeys, deployer: operatorAddress },
       );
 
       const otherCrowdfundingInstance = await otherCrowdfundingDeployment.getInstance();
-      await wallet.registerContract(otherCrowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
+      await wallet.registerContract(
+        otherCrowdfundingInstance,
+        CrowdfundingContract.artifact,
+        otherCrowdfundingSecretKey,
+      );
       ({ contract: otherCrowdfundingContract } = await otherCrowdfundingDeployment.send({
         from: operatorAddress,
         // The contract constructor initializes private storage vars that need the contract's own nullifier key.

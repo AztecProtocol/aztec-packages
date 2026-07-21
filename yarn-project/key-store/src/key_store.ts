@@ -402,7 +402,7 @@ export class KeyStore {
    * to register such accounts. Note that a user registering the two accounts in separate PXEs can still run into the
    * issue, as this check only sees locally registered accounts.
    *
-   * TODO(#24821): remove this restriction once Noir includes the owner address in initialization nullifiers.
+   * TODO(F-835): remove this restriction once the aztec-nr fix for #24821 is deployed.
    */
   async #assertPrivacyKeysNotInUse(account: AztecAddress, pkMHashes: Record<KeyPrefix, Fr>) {
     const collidingKeyByStorageSuffix = new Map(
