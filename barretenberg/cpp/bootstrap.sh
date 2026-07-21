@@ -246,8 +246,6 @@ export -f cmake_build preset_cache_paths build_preset build_format_check build_n
 function build {
   echo_header "bb cpp build"
 
-  # aztec_constants.hpp is generated, not committed. The cmake configure step also generates it,
-  # but produce it up front so it exists even on cache-hit paths that skip configure.
   denoise ./scripts/remake-constants.sh
 
   if [ "$CI_FULL" -eq 1 ]; then
