@@ -2,7 +2,6 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -140,20 +139,20 @@ pub contract PublicFnsWithEmitRepro {
         })
     }
 
-    /// This contract does not use private notes, so this function should never be called as it will unconditionally fail.
+    /// This contract does not use private notes, so this function always returns `Option::none()`.
     /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
     unconstrained fn _compute_note_hash(_packed_note: BoundedVec<Field, 8>, _owner: aztec::protocol::address::AztecAddress, _storage_slot: Field, _note_type_id: Field, _contract_address: aztec::protocol::address::AztecAddress, _randomness: Field) -> Option<Field> {
-        panic(f"This contract does not use private notes")
+        Option::<Field>::none()
     }
 
-    /// This contract does not use private notes, so this function should never be called as it will unconditionally fail.
+    /// This contract does not use private notes, so this function always returns `Option::none()`.
     /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
     unconstrained fn _compute_note_nullifier(_unique_note_hash: Field, _packed_note: BoundedVec<Field, 8>, _owner: aztec::protocol::address::AztecAddress, _storage_slot: Field, _note_type_id: Field, _contract_address: aztec::protocol::address::AztecAddress, _randomness: Field) -> Option<Field> {
-        panic(f"This contract does not use private notes")
+        Option::<Field>::none()
     }
 
     /// Receives offchain messages into this contract's offchain inbox for subsequent processing.
