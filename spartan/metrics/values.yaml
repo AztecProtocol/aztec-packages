@@ -122,7 +122,11 @@ grafana:
     server:
       domain:
   env:
+<<<<<<< HEAD
     STAGING_REGEX: ".*staging.*"
+=======
+    STAGING_REGEX: "staging-public|staging-internal"
+>>>>>>> origin/v5-next
     NEXT_SCENARIO_REGEX: "v[0-9]+-scenario|next-scenario"
     NEXT_NET_REGEX: "next-net"
     TESTNET_NAMESPACES_REGEX: ".*testnet.*"

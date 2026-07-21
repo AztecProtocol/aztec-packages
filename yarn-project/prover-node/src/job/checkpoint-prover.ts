@@ -59,16 +59,27 @@ export type CheckpointProverArgs = {
  * The store creates a CheckpointProver once per content-key. Keying on the checkpoint's
  * own archive root (its post-state) means two checkpoints are "the same" iff they
  * produce the same archive — so a reorg branch, or a replacement built on the same
+<<<<<<< HEAD
  * predecessor but with different content, keys to a distinct prover; an identical
  * re-add keys to the same one and reuses its in-flight sub-tree work.
+=======
+ * predecessor but with different content, keys to a distinct prover.
+>>>>>>> origin/v5-next
  *
  * The prover eagerly starts its own tx gather and sub-tree work in the constructor, so
  * callers only need to call `whenBlockProofsReady()` to obtain the resulting block-rollup
  * proofs.
  *
+<<<<<<< HEAD
  * The prover survives prune/re-add cycles via `markPruned()` / `markCanonical()` —
  * sub-tree proving keeps running underneath, so a checkpoint that is re-added after
  * a brief reorg can be re-consumed with no re-proving.
+=======
+ * A CheckpointProver does not survive a prune: its sub-tree work forks world-state per
+ * block, and an L1 prune of a base block faults those reads. The store therefore cancels and
+ * discards a prover when its checkpoint is pruned, and a re-add (even of identical content)
+ * constructs a fresh prover.
+>>>>>>> origin/v5-next
  *
  * `cancel()` is idempotent. It aborts the gather + sub-tree, rejects the block-proof
  * promise, and exposes a `whenDone()` that resolves once teardown has unwound.
@@ -92,8 +103,11 @@ export class CheckpointProver {
   private cancelled = false;
   private subTree?: CheckpointSubTreeOrchestrator;
   private completed = false;
+<<<<<<< HEAD
   /** Pruned in the canonical chain but not yet reaped — sub-tree continues running. */
   private pruned = false;
+=======
+>>>>>>> origin/v5-next
   private readonly abortController = new AbortController();
 
   /** Tracks the eager gather+execute task so `cancel()` and `whenDone()` can await its unwind. */
@@ -146,6 +160,7 @@ export class CheckpointProver {
     return this.completed;
   }
 
+<<<<<<< HEAD
   public isPruned(): boolean {
     return this.pruned;
   }
@@ -177,6 +192,8 @@ export class CheckpointProver {
     });
   }
 
+=======
+>>>>>>> origin/v5-next
   /** AbortSignal that fires on cancel — for callers that want to wire their own tasks. */
   public getAbortSignal(): AbortSignal {
     return this.abortController.signal;
@@ -432,7 +449,18 @@ export class CheckpointProver {
   }
 
   private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
+<<<<<<< HEAD
     const [processedTxs, failedTxs] = await publicProcessor.process(txs, { deadline: this.deps.deadline });
+=======
+    // Pass the abort signal so a prune-driven cancel stops the current block's public execution
+    // immediately, rather than running it to completion before the next `signal.aborted` check.
+    // On abort `process` returns a partial result, the length check below throws, and
+    // `gatherAndExecute` swallows it via its `cancelled` guard.
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, {
+      deadline: this.deps.deadline,
+      signal: this.abortController.signal,
+    });
+>>>>>>> origin/v5-next
 
     if (failedTxs.length) {
       const failedTxHashes = await Promise.all(failedTxs.map(({ tx }) => tx.getTxHash()));

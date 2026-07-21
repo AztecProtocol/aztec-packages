@@ -35,7 +35,11 @@ tags:
     --network <value>                                                                                                                       ($NETWORK)
           Network to run Aztec on
 
+<<<<<<< HEAD
     --enable-auto-shutdown                                                                                                                  ($ENABLE_AUTO_SHUTDOWN)
+=======
+    --enable-auto-shutdown                                                   (default: false)                                              ($ENABLE_AUTO_SHUTDOWN)
+>>>>>>> origin/v5-next
           Soft-shutdown the node when the canonical rollup is no longer compatible (protocol constants diverge), keeping the health server up so K8s probes keep passing. Only applies to nodes following the canonical rollup.
 
     --sync-mode <value>                                                       (default: snapshot)                                           ($SYNC_MODE)

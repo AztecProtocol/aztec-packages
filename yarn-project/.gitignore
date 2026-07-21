@@ -61,7 +61,11 @@ cli-wallet/test/data
 cli/src/config/generated
 ethereum/src/generated
 slasher/src/generated
+<<<<<<< HEAD
 simulator/src/public/cdb/generated
+=======
+tmp/
+>>>>>>> origin/v5-next
 
 .claude/settings.local.json
 .yarn/*

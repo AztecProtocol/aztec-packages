@@ -33,7 +33,14 @@ pub contract HandshakeRegistry {
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::{external, internal}, storage::storage},
         messages::{
+<<<<<<< HEAD
             delivery::{handshake::{AppSiloedHandshakeSecrets, HandshakePage, MAX_HANDSHAKES_PER_PAGE}, MessageDelivery},
+=======
+            delivery::{
+                handshake::{AppSiloedHandshakeSecrets, HandshakePage, MAX_HANDSHAKES_PER_PAGE, protect_from_forgery},
+                MessageDelivery,
+            },
+>>>>>>> origin/v5-next
             encryption::{aes128::AES128, message_encryption::MessageEncryption},
         },
         oracle::{random::random, resolve_custom_request::resolve_custom_request},
@@ -77,11 +84,20 @@ pub contract HandshakeRegistry {
     /// If `recipient` is not a valid curve point.
     #[external("private")]
     fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) -> AppSiloedHandshakeSecrets {
+<<<<<<< HEAD
         let (eph_pk, s_raw) = self.internal._generate_shared_secret(recipient);
         let secrets = self.internal._store(sender, recipient, s_raw);
 
         // Announce the handshake: an encrypted private log under the recipient-keyed tag carrying `[eph_pk.x]`, so
         // the recipient can discover the handshake by scanning their tag and recover `S` via their own ECDH.
+=======
+        let (eph_pk, s_protected) = self.internal._generate_shared_secret(recipient);
+        let secrets = self.internal._store(sender, recipient, s_protected);
+
+        // Announce the handshake: an encrypted private log under the recipient-keyed tag carrying `[eph_pk.x]`, so
+        // the recipient can discover the handshake by scanning their tag and recover the forgery-protected secret
+        // `S'` by protecting `eph_pk` before its own ECDH (see aztec-nr's `forgery_protected_eph_pk`).
+>>>>>>> origin/v5-next
         let log_tag = compute_log_tag(
             recipient.to_field(),
             DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
@@ -108,9 +124,15 @@ pub contract HandshakeRegistry {
     /// if the signature does not verify.
     #[external("private")]
     fn interactive_handshake(sender: AztecAddress, recipient: AztecAddress) -> AppSiloedHandshakeSecrets {
+<<<<<<< HEAD
         let (eph_pk, s_raw) = self.internal._generate_shared_secret(recipient);
         self.internal._request_and_verify_signature(recipient, eph_pk);
         self.internal._store(sender, recipient, s_raw)
+=======
+        let (eph_pk, s_protected) = self.internal._generate_shared_secret(recipient);
+        self.internal._request_and_verify_signature(recipient, eph_pk);
+        self.internal._store(sender, recipient, s_protected)
+>>>>>>> origin/v5-next
     }
 
     /// Asserts that `secrets` match the stored handshake from `sender` to `recipient`, for the caller (`msg_sender()`).
@@ -186,8 +208,14 @@ pub contract HandshakeRegistry {
 
     /// Generates the ephemeral key and shared secret for `recipient`.
     ///
+<<<<<<< HEAD
     /// Returns `(eph_pk, s_raw)`: the ephemeral public key announced to the recipient, and the ECDH shared secret
     /// `S = eph_sk * recipient_point`.
+=======
+    /// Returns `(eph_pk, s_protected)`: the ephemeral public key announced to the recipient, and the ECDH shared secret
+    /// `S = eph_sk * recipient_point` with the forgery protection applied, so a recipient cannot forge a colliding
+    /// handshake from the symmetric raw secret (see [`protect_from_forgery`]).
+>>>>>>> origin/v5-next
     ///
     /// # Panics
     /// If `recipient` is not a valid curve point.
@@ -196,19 +224,40 @@ pub contract HandshakeRegistry {
         let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve");
 
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
+<<<<<<< HEAD
         let s_raw = derive_ecdh_shared_secret(eph_sk, recipient_point.inner);
         (eph_pk, s_raw)
+=======
+        let s_protected = protect_from_forgery(
+            derive_ecdh_shared_secret(eph_sk, recipient_point.inner),
+            eph_pk,
+            recipient_point.inner,
+        );
+        (eph_pk, s_protected)
+>>>>>>> origin/v5-next
     }
 
     /// Inserts or replaces the current [`HandshakeNote`] owned by `sender` for `recipient` and returns the
     /// app-siloed secrets for the caller (`msg_sender()`).
     #[internal("private")]
+<<<<<<< HEAD
     fn _store(sender: AztecAddress, recipient: AztecAddress, s_raw: EmbeddedCurvePoint) -> AppSiloedHandshakeSecrets {
+=======
+    fn _store(
+        sender: AztecAddress,
+        recipient: AztecAddress,
+        s_protected: EmbeddedCurvePoint,
+    ) -> AppSiloedHandshakeSecrets {
+>>>>>>> origin/v5-next
         // Safety: an uncooperative sender could pick a non-random value, but the sender-only secret only protects
         // the sender's own ability to advance their sequence, so a bad value only harms themselves. It is a fresh
         // random secret known only to the sender, which will be folded into constrained-delivery nullifiers.
         let sender_secret = unsafe { random() };
+<<<<<<< HEAD
         let note = HandshakeNote::new(s_raw, sender_secret);
+=======
+        let note = HandshakeNote::new(s_protected, sender_secret);
+>>>>>>> origin/v5-next
 
         // We deliver onchain unconstrained rather than offchain so the note is discoverable via normal PXE sync. This
         // is a self-send (the note is owned by and delivered to `sender`), so the wallet would resolve to an

@@ -188,9 +188,17 @@ function build {
   # If pinned-build.tar.gz exists, use it instead of compiling.
   if [ -f pinned-build.tar.gz ]; then
     echo_stderr "Using pinned-build.tar.gz instead of compiling."
+    # The archive holds project-root-relative paths (target/ plus the reset-circuit variant
+    # manifest, which generate_variants would normally produce but is skipped here), so it
+    # unpacks straight into place: target/ and private_kernel_reset_dimensions.json land where
+    # downstream codegen (noir-protocol-circuits-types) expects them.
     rm -rf target
+<<<<<<< HEAD
     mkdir -p target
     tar xzf pinned-build.tar.gz -C target
+=======
+    tar xzf pinned-build.tar.gz
+>>>>>>> origin/v5-next
     mkdir -p $key_dir
     # The pin freezes bytecode AND VKs, but VKs depend on the current bb: a proof-system change can
     # alter the VK for unchanged bytecode, and a stale pinned VK makes proofs fail self-verification
@@ -318,7 +326,14 @@ function pin-build {
   rm -f pinned-build.tar.gz
   build
   echo_stderr "Creating pinned-build.tar.gz from target..."
-  tar czf pinned-build.tar.gz -C target .
+  # Archive project-root-relative paths so the build can unpack straight into place. We bundle
+  # the reset-circuit variant manifest alongside target/ because generate_variants (which
+  # produces it) is skipped when a pinned build is consumed, yet downstream codegen
+  # (noir-protocol-circuits-types) requires it. The manifest only exists for the real circuits,
+  # so it is included conditionally (mock-protocol-circuits has none).
+  pin_paths=(target)
+  [ -f private_kernel_reset_dimensions.json ] && pin_paths+=(private_kernel_reset_dimensions.json)
+  tar czf pinned-build.tar.gz "${pin_paths[@]}"
   echo_stderr "Done. pinned-build.tar.gz created. Commit it to pin these artifacts."
 }
 

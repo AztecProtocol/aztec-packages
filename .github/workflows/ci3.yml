@@ -216,7 +216,11 @@ jobs:
       fail-fast: false
       matrix:
         test_set: ["1", "2"]
+<<<<<<< HEAD
     # We run on the current next (v6) public nightly tag, or when the ci-network-scenario label is present in a PR.
+=======
+    # We run on the current v5-next nightly tag (private repo only), or when the ci-network-scenario label is present in a PR.
+>>>>>>> origin/v5-next
     needs: [ci, validate-nightly-tag]
     if: |
       always()
@@ -226,8 +230,13 @@ jobs:
       && (
         (
           needs.validate-nightly-tag.outputs.is_current == 'true'
+<<<<<<< HEAD
           && github.repository == 'AztecProtocol/aztec-packages'
           && startsWith(github.ref_name, 'v6.')
+=======
+          && github.repository == 'AztecProtocol/aztec-packages-private'
+          && startsWith(github.ref_name, 'v5.')
+>>>>>>> origin/v5-next
         )
         || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
       )

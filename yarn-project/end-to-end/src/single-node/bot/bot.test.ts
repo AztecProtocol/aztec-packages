@@ -22,6 +22,10 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { jest } from '@jest/globals';
 
 import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+<<<<<<< HEAD
+=======
+import { testSpan } from '../../fixtures/timing.js';
+>>>>>>> origin/v5-next
 import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
 import { NO_REORG_SUBMISSION_EPOCHS } from '../setup.js';
 
@@ -54,8 +58,15 @@ describe('single-node/bot/bot', () => {
       cheatCodes,
       config: { l1RpcUrls },
     } = setupResult);
+<<<<<<< HEAD
     wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
     await wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
+=======
+    wallet = await testSpan('setup:wallet', () => EmbeddedWallet.create(aztecNode, { ephemeral: true }));
+    await testSpan('wallet:create', () =>
+      wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey),
+    );
+>>>>>>> origin/v5-next
   });
 
   afterAll(() => teardown());
@@ -73,7 +84,9 @@ describe('single-node/bot/bot', () => {
         botMode: 'transfer',
         minFeePadding: PIPELINED_FEE_PADDING,
       };
-      bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
+      bot = await testSpan('setup:bot', async () =>
+        Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot'))),
+      );
     });
 
     // Runs bot.run() once and asserts recipient private and public balances each increase by 1.
@@ -131,7 +144,7 @@ describe('single-node/bot/bot', () => {
     let store: BotStore;
 
     beforeAll(async () => {
-      store = new BotStore(await openTmpStore('bot'));
+      store = await testSpan('setup:bot', async () => new BotStore(await openTmpStore('bot')));
     });
 
     afterAll(async () => {
@@ -238,7 +251,9 @@ describe('single-node/bot/bot', () => {
         followChain: 'CHECKPOINTED',
         botMode: 'amm',
       };
-      bot = await AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
+      bot = await testSpan('setup:bot', async () =>
+        AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot'))),
+      );
     });
 
     // Runs the AMM bot once and asserts one of the two private token balances decreased and
@@ -302,12 +317,8 @@ describe('single-node/bot/bot', () => {
         flushSetupTransactions: true,
         l1ToL2SeedCount: 2,
       };
-      bot = await CrossChainBot.create(
-        config,
-        wallet,
-        aztecNode,
-        aztecNodeAdmin,
-        new BotStore(await openTmpStore('bot')),
+      bot = await testSpan('setup:bot', async () =>
+        CrossChainBot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot'))),
       );
     }, 600_000);
 

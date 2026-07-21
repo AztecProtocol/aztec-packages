@@ -538,11 +538,22 @@ impl PrivateContext {
     /// Only one contract per transaction can declare itself as the fee payer, and it must have sufficient fee-juice
     /// balance (>= the gas limits specified in the TxContext) by the time we reach the public setup phase of the tx.
     ///
+    /// The fee payer must be elected during the setup (non-revertible) phase, i.e. before
+    /// [`end_setup`](PrivateContext::end_setup) is called - this function asserts so. This is because any compensation
+    /// collected by the fee payer during the revertible phase can be discarded if a public call later reverts, while
+    /// the protocol still debits the fee payer's fee-juice balance. Note that `end_setup` does not need to be called
+    /// by the electing function itself: it can be called later in the transaction (e.g. by the fee-juice contract when
+    /// claiming fee juice that pays for the very same transaction).
     pub fn set_as_fee_payer(&mut self) {
+        assert(!self.in_revertible_phase(), "fee payer must be elected during the setup phase");
         aztecnr_trace_log_format!("Setting {0} as fee payer")([self.this_address().to_field()]);
         self.is_fee_payer = true;
     }
 
+    /// Returns whether execution is currently in the revertible (app) phase of the transaction.
+    ///
+    /// A transaction is in the revertible phase if [`end_setup`](PrivateContext::end_setup) has already been called -
+    /// potentially by a different function of the same transaction.
     pub fn in_revertible_phase(&mut self) -> bool {
         let current_counter = self.side_effect_counter;
 
@@ -869,14 +880,20 @@ impl PrivateContext {
     ///
     /// # Arguments
     /// * `content` - The message content that was sent from L1
-    /// * `secret` - Secret value used for message privacy (if needed)
+    /// * `secret` - Secret fields used for message privacy (if needed)
     /// * `sender` - Ethereum address that sent the message
     /// * `leaf_index` - Index of the message in the L1-to-L2 message tree
     ///
     /// # Advanced
     /// Validates message existence in the L1-to-L2 message tree and nullifies the message to prevent
     /// double-consumption.
-    pub fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
+    pub fn consume_l1_to_l2_message<let N: u32>(
+        &mut self,
+        content: Field,
+        secret: [Field; N],
+        sender: EthAddress,
+        leaf_index: Field,
+    ) {
         let nullifier = process_l1_to_l2_message(
             self.anchor_block_header.state.l1_to_l2_message_tree.root,
             self.this_address(),

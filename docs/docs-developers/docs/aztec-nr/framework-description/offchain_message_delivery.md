@@ -29,7 +29,11 @@ Choose offchain delivery by passing `MessageDelivery::offchain()` to `.deliver()
 
 Nothing else changes in the contract: the same notes and events are created, only their delivery mechanism differs.
 
+<<<<<<< HEAD
 Under the hood, `MessageDelivery::offchain()` encrypts the message without constraints and emits it via the [`deliver_offchain_message`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/offchain_messages/fn.deliver_offchain_message) function. See the [`MessageDelivery`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/delivery/struct.MessageDelivery) API reference for details on guarantees, costs, and privacy.
+=======
+Under the hood, `MessageDelivery::offchain()` encrypts the message without constraints and emits it via the [`deliver_offchain_message`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/offchain_messages/fn.deliver_offchain_message) function. See the [`MessageDelivery`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDelivery) API reference for details on guarantees, costs, and privacy.
+>>>>>>> origin/v5-next
 
 ## Extracting messages on the sender side
 
@@ -115,4 +119,8 @@ The TXE test environment buffers offchain messages emitted during calls and expo
 
 - Compare delivery modes and their guarantees in [Note delivery](./note_delivery.md)
 - Learn how onchain-delivered notes are found in [Note discovery](../../foundational-topics/advanced/storage/note_discovery.md)
+<<<<<<< HEAD
 - Browse the [`MessageDelivery`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/delivery/struct.MessageDelivery) API reference
+=======
+- Browse the [`MessageDelivery`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDelivery) API reference
+>>>>>>> origin/v5-next

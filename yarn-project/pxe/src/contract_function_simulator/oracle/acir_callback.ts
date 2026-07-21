@@ -55,7 +55,11 @@ export function buildACIRCallback(
     target[legacyKey] = async (...inputs: ACVMField[][]) => {
       assertHandlerSupportsScope(handler, scope);
       const legacyArgs = paramSource.deserializeParams(inputs).map(p => p.value);
+<<<<<<< HEAD
       const positional = paramOverride ? paramOverride.mapping(legacyArgs) : legacyArgs;
+=======
+      const positional = paramOverride ? await paramOverride.mapping(legacyArgs) : legacyArgs;
+>>>>>>> origin/v5-next
       const result = await (handler as any)[methodName](...positional);
       return returnSource.serializeReturn(returnOverride ? returnOverride.mapping(result) : result);
     };

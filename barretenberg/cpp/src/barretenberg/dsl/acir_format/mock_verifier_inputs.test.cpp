@@ -42,7 +42,11 @@ static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
         UltraFlavor::VIRTUAL_LOG_N) == 410,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
+<<<<<<< HEAD
 static_assert(ChonkProof::PROOF_LENGTH == 1221, "CHONK_PROOF_LENGTH changed - update constants.nr");
+=======
+static_assert(ChonkProof::PROOF_LENGTH == 1270, "CHONK_PROOF_LENGTH changed - update constants.nr");
+>>>>>>> origin/v5-next
 static_assert(ChonkProof::HIDING_OINK_LENGTH == 48,
               "ChonkProof::HIDING_OINK_LENGTH changed - update CHONK_HIDING_OINK_LENGTH in constants.nr "
               "and run `yarn remake-constants`");

@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "schemaVersion": 12,
+=======
+  "schemaVersion": 13,
+>>>>>>> origin/v5-next
   "stores": [
     {
       "name": "capsules",

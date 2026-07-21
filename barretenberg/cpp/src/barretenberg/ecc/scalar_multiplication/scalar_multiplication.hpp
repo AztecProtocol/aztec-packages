@@ -10,8 +10,14 @@
 //     byte-identical to merge-train (only wrapped in the `legacy` sub-namespace).
 //   * the round-parallel rewrite in scalar_multiplication_fast.hpp (`*_fast`, `MSM_fast`).
 // The public facade (`pippenger`, `pippenger_unsafe`, `MSM`) at the bottom dispatches to
+<<<<<<< HEAD
 // the rewrite by default, or to `legacy::` when `use_legacy_msm()` (env BB_MSM_LEGACY).
 // Remove the legacy half + the facade dispatch once the rewrite has soaked.
+=======
+// `legacy::` by default; the round-parallel path is opt-in via `use_legacy_msm()` (env BB_MSM_NEW,
+// the API override, or TS `legacyMsm: false`).
+// TODO: make the round-parallel path the default, then remove the legacy half.
+>>>>>>> origin/v5-next
 #include "./scalar_multiplication_fast.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
@@ -405,14 +411,25 @@ extern template class MSM<curve::BN254>;
 } // namespace bb::scalar_multiplication::legacy
 
 // ===================================================================================
+<<<<<<< HEAD
 // Public MSM facade — the surface every caller uses. Dispatches to the `_fast` rewrite
 // by default, or `legacy::` when use_legacy_msm() (env BB_MSM_LEGACY, read once).
+=======
+// Public MSM facade — the surface every caller uses. Dispatches to `legacy::` by default;
+// the `_fast` path is opt-in via use_legacy_msm() (env BB_MSM_NEW, the API override, or
+// TS `legacyMsm: false`).
+>>>>>>> origin/v5-next
 // Signatures match the rewrite; the legacy branch adapts (legacy has no dedup pre-pass,
 // and its batch entry takes per-MSM point spans).
 // ===================================================================================
 namespace bb::scalar_multiplication {
 
 [[nodiscard]] bool use_legacy_msm() noexcept;
+<<<<<<< HEAD
+=======
+void set_legacy_msm_override(bool enabled) noexcept;
+void clear_legacy_msm_override() noexcept;
+>>>>>>> origin/v5-next
 
 // `dedup_info` (and the per-poly entries of `dedup_infos`) encode the MSM dedup pre-pass hint:
 //   0  = off (no dedup);

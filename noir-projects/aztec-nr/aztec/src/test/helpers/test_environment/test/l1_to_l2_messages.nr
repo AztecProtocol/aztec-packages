@@ -15,7 +15,11 @@ unconstrained fn consume_seeded_message_from_secret() {
     let leaf_index = env.send_l1_to_l2_message(CONTENT, SECRET, sender, recipient);
 
     env.private_context_at(recipient, |context| {
+<<<<<<< HEAD
         context.consume_l1_to_l2_message(CONTENT, SECRET, sender, leaf_index);
+=======
+        context.consume_l1_to_l2_message(CONTENT, [SECRET], sender, leaf_index);
+>>>>>>> origin/v5-next
     });
 }
 
@@ -26,10 +30,17 @@ unconstrained fn consume_seeded_message_from_secret_hash() {
     let recipient = AztecAddress::from_field(17);
 
     let leaf_index =
+<<<<<<< HEAD
         env.send_l1_to_l2_message_from_secret_hash(CONTENT, compute_secret_hash(SECRET), sender, recipient);
 
     env.private_context_at(recipient, |context| {
         context.consume_l1_to_l2_message(CONTENT, SECRET, sender, leaf_index);
+=======
+        env.send_l1_to_l2_message_from_secret_hash(CONTENT, compute_secret_hash([SECRET]), sender, recipient);
+
+    env.private_context_at(recipient, |context| {
+        context.consume_l1_to_l2_message(CONTENT, [SECRET], sender, leaf_index);
+>>>>>>> origin/v5-next
     });
 }
 

@@ -212,11 +212,21 @@ jobs:
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
+<<<<<<< HEAD
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
+=======
+      - name: Cleanup network resources
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: tps-scenario
+          namespace: nightly-bench
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+>>>>>>> origin/v5-next
 
       - name: Cleanup network resources
         uses: ./.github/actions/network-teardown
@@ -390,11 +400,21 @@ jobs:
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
+<<<<<<< HEAD
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
+=======
+      - name: Cleanup network resources
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: prove-n-tps-fake
+          namespace: prove-n-tps-fake
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+>>>>>>> origin/v5-next
 
       - name: Cleanup network resources
         uses: ./.github/actions/network-teardown
@@ -568,11 +588,21 @@ jobs:
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
+<<<<<<< HEAD
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
+=======
+      - name: Cleanup network resources
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: block-capacity
+          namespace: nightly-block-capacity
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+>>>>>>> origin/v5-next
 
       - name: Cleanup network resources
         uses: ./.github/actions/network-teardown

@@ -796,7 +796,11 @@ Defaults to 'latest'.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
+<<<<<<< HEAD
   -d '{"jsonrpc":"2.0","method":"aztec_getContract","params":["0x1234...","latest"],"id":1}'
+=======
+  -d '{"jsonrpc":"2.0","method":"aztec_getContract","params":["0x1234..."],"id":1}'
+>>>>>>> origin/v5-next
 ```
 
 ## Fee queries
@@ -1020,6 +1024,8 @@ Returns stats for a single validator if enabled.
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"aztec_getValidatorStats","params":["0x1234...","100","100"],"id":1}'
+<<<<<<< HEAD
+=======
 ```
 
 ## P2P queries
@@ -1080,10 +1086,81 @@ Only available when P2P is enabled.
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"aztec_getProposalsForSlot","params":["100"],"id":1}'
+>>>>>>> origin/v5-next
+```
+
+## P2P queries
+
+<<<<<<< HEAD
+### aztec_getPeers
+=======
+### aztec_registerContractFunctionSignatures
+>>>>>>> origin/v5-next
+
+Returns info for all connected, dialing, and cached peers. Only available when P2P is enabled.
+
+**Parameters**:
+
+1. `includePending` - `boolean | undefined` - If true, also include peers in the pending state.
+
+**Returns**: `PeerInfo[]`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+<<<<<<< HEAD
+  -d '{"jsonrpc":"2.0","method":"aztec_getPeers","params":[true],"id":1}'
+```
+
+### aztec_getCheckpointAttestationsForSlot
+
+Queries the attestation pool for checkpoint attestations for the given slot.
+
+**Parameters**:
+
+1. `slot` - `SlotNumber` - The slot to query.
+2. `proposalPayloadHash` - `string | undefined` - Hex-encoded keccak256 of the target proposal's signed payload hash.
+When provided, only attestations whose payload hash matches are returned.
+When omitted, all attestations for the slot are returned.
+
+**Returns**: `CheckpointAttestation[]`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getCheckpointAttestationsForSlot","params":["100","0x1234..."],"id":1}'
+```
+
+### aztec_getProposalsForSlot
+
+Returns block and checkpoint proposals retained in the attestation pool for the given slot.
+Only available when P2P is enabled.
+
+**Parameters**:
+
+1. `slot` - `SlotNumber`
+
+**Returns**: `ProposalsForSlot`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getProposalsForSlot","params":["100"],"id":1}'
 ```
 
 ## Debug operations
 
+=======
+  -d '{"jsonrpc":"2.0","method":"aztec_registerContractFunctionSignatures","params":[["0x1234..."]],"id":1}'
+```
+
+>>>>>>> origin/v5-next
 ### aztec_getAllowedPublicSetup
 
 Returns the list of allowed public setup elements configured for this node.

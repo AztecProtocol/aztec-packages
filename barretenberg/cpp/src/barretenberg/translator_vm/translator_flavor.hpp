@@ -29,9 +29,13 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
+<<<<<<< HEAD
 #include "barretenberg/relations/translator_vm/translator_permutation_short_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation.hpp"
+=======
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_relation.hpp"
+>>>>>>> origin/v5-next
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 #include "barretenberg/translator_vm/translator_selectors.hpp"

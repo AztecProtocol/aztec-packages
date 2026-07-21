@@ -2,7 +2,10 @@ import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { Logger } from '@aztec/aztec.js/log';
+<<<<<<< HEAD
 import { waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
+=======
+>>>>>>> origin/v5-next
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -30,7 +33,11 @@ const NODE_COUNT = 4;
  * blocks, and the next proposer rebuilds a fresh checkpoint that lands on L1.
  *
  * Both scenarios share the same 4-validator mock-gossip cluster (one key per node, no prover) on the
+<<<<<<< HEAD
  * multi-validator reorg cadence (ethSlot=6s, aztecSlot=36s, epoch=4, proofSubmissionEpochs=1024, blockDurationMs=8000,
+=======
+ * multi-validator reorg cadence (ethSlot=6s, aztecSlot=24s, epoch=4, proofSubmissionEpochs=1024, blockDurationMs=5000,
+>>>>>>> origin/v5-next
  * inboxLag=2 — v5 always enforces the timetable). Each test warps L1 to align with its target build slot.
  */
 describe('multi-node/recovery/proposal_failure_recovery', () => {
@@ -188,11 +195,24 @@ describe('multi-node/recovery/proposal_failure_recovery', () => {
     logger.warn(`Waiting for proposed chain to reach slot ${slotTwo} on all nodes (build during slotOne)`);
     await test.waitForAllNodesToReachBlockAtSlot(slotTwo, 'proposed', undefined, { timeout: slotAdvanceTimeout });
 
+<<<<<<< HEAD
     // (3) Wait until slotOne has fully ended on L1 — the archiver only prunes once slotAtNextL1Block > slotOne.
     // The end-of-slotOne timestamp equals the start-of-slotTwo timestamp.
     const slotOneEndTimestamp = getTimestampForSlot(slotTwo, test.constants);
     logger.warn(`Waiting until L1 timestamp ${slotOneEndTimestamp} (end of slot ${slotOne})`);
     await waitUntilL1Timestamp(test.l1Client, slotOneEndTimestamp, undefined, test.L2_SLOT_DURATION_IN_S * 3);
+=======
+    // (3) Collapse the dead gap where the chain just waits for the L1 clock to roll past slotOne so the
+    // archiver prunes the uncheckpointed slotOne/slotTwo blocks (it only prunes once slotAtNextL1Block >
+    // slotOne, and the end-of-slotOne timestamp equals the start-of-slotTwo timestamp). The pipelined slotTwo
+    // broadcast has already reached every node (step 2) and slotThree does not build until slotTwo, so nothing
+    // needs to be produced in this window. The sequencers are paused across the warp — warping under a running
+    // sequencer would interrupt in-flight builds — and kept stopped (restart: false) until the prune is
+    // confirmed, so no proposer builds against the still-unpruned tip; they are restarted for recovery below.
+    const slotOneEndTimestamp = getTimestampForSlot(slotTwo, test.constants);
+    logger.warn(`Warping past the end of slot ${slotOne} (L1 timestamp ${slotOneEndTimestamp}) to trigger the prune`);
+    await test.warpWithSequencersPaused(nodes, test.context.cheatCodes, slotOneEndTimestamp, { restart: false });
+>>>>>>> origin/v5-next
 
     // (4) After slotOne ends without a checkpoint, all nodes should prune.
     // Verify rollback via the prune event itself: the pruned slot must equal slotOne, and the
@@ -216,9 +236,19 @@ describe('multi-node/recovery/proposal_failure_recovery', () => {
       expect(prunedSlots).toContain(slotOne);
     }
 
+<<<<<<< HEAD
     // (5) Allow the formerly suppressed node to publish again so the chain can recover.
     logger.warn(`Re-enabling checkpoint publishing on node ${proposerOneNodeIndex}`);
     await nodes[proposerOneNodeIndex].setConfig({ skipPublishingCheckpointsPercent: 0 });
+=======
+    // (5) Allow the formerly suppressed node to publish again, then restart the paused sequencers so the
+    // chain can build the recovery checkpoint. Restarting only now (after the prune is confirmed) keeps any
+    // proposer from building on the still-unpruned tip.
+    logger.warn(`Re-enabling checkpoint publishing on node ${proposerOneNodeIndex}`);
+    await nodes[proposerOneNodeIndex].setConfig({ skipPublishingCheckpointsPercent: 0 });
+    await test.startSequencers(nodes);
+    logger.warn('Restarted all sequencers for recovery');
+>>>>>>> origin/v5-next
 
     // (6) During slotTwo: the pipelined proposer for slotThree builds and broadcasts → proposed advances again.
     // The chain must have rewound past slotOne and slotTwo and now build on whatever was

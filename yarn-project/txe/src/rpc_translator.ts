@@ -221,11 +221,29 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+<<<<<<< HEAD
   aztec_txe_setTaggingSecretStrategy(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_txe_setTaggingSecretStrategy',
       inputs,
       handler: ([strategy]) => this.handlerAsTxe().setTaggingSecretStrategy(strategy),
+=======
+  aztec_txe_setTaggingSecretStrategies(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setTaggingSecretStrategies',
+      inputs,
+      handler: ([unconstrainedStrategy, constrainedStrategy]) =>
+        this.handlerAsTxe().setTaggingSecretStrategies(unconstrainedStrategy, constrainedStrategy),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_setAuthorizeAllUtilityCallTargets(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setAuthorizeAllUtilityCallTargets',
+      inputs,
+      handler: ([authorizeAll]) => this.handlerAsTxe().setAuthorizeAllUtilityCallTargets(authorizeAll),
+>>>>>>> origin/v5-next
     });
   }
 
@@ -488,12 +506,21 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+<<<<<<< HEAD
   aztec_utl_getL1ToL2MembershipWitness(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_getL1ToL2MembershipWitness',
       inputs,
       handler: ([contractAddress, messageHash, secret]) =>
         this.handlerAsUtility().getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
+=======
+  aztec_utl_getL1ToL2MembershipWitnessV2(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getL1ToL2MembershipWitnessV2',
+      inputs,
+      handler: ([messageHash, nullifier]) =>
+        this.handlerAsUtility().getL1ToL2MembershipWitnessV2(messageHash, nullifier),
+>>>>>>> origin/v5-next
     });
   }
 
@@ -572,6 +599,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_areBlockHashesInArchive(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_areBlockHashesInArchive',
+      inputs,
+      handler: ([anchorBlockHash, blockHashes]) =>
+        this.handlerAsUtility().areBlockHashesInArchive(anchorBlockHash, blockHashes),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_getLowNullifierMembershipWitness(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_getLowNullifierMembershipWitness',
@@ -619,6 +656,18 @@ export class RPCTranslator {
       oracle: 'aztec_utl_getResolvedTxs',
       inputs,
       handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getResolvedTxs(requestArrayBaseSlot),
+<<<<<<< HEAD
+=======
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTxEffects(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTxEffects',
+      inputs,
+      handler: ([txHashes]) => this.handlerAsUtility().getTxEffects(txHashes),
+>>>>>>> origin/v5-next
     });
   }
 

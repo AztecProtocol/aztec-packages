@@ -44,7 +44,11 @@ function print_usage {
   echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
   echo_cmd "log"                   "Display the log of the given log ID."
   echo_cmd "test-timings"          "Download per-test timing JSONL for a job: test-timings <ci_log_id> <folder>."
+<<<<<<< HEAD
   echo_cmd "kill"                  "Terminate running build instances matching the filter tokens (default: current branch)."
+=======
+  echo_cmd "kill"                  "Terminate running EC2 instance with instance_name."
+>>>>>>> origin/v5-next
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
   echo_cmd "pr-url"                "Print the URL of the current PR associated with the branch."
@@ -55,10 +59,19 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
+<<<<<<< HEAD
 # Connecting to a running build instance: discover by the Group=build-instance tag
 # and match filter tokens against the Name (which aws_instance_name builds as
 # <repo>_<ref>_<arch>[_<job>]), rather than reconstructing the exact name (which
 # varies by arch/job/count). This is what lets `shell-container pr-123 bench` etc. work.
+=======
+# Keep this in sync with bootstrap_ec2's instance_name scheme (repo-scoped) so the
+# shell/kill/get-ip helpers find instances launched by a CI run for this repo.
+repo=${GITHUB_REPOSITORY:-aztec-packages}
+repo=${repo##*/}
+instance_name=${INSTANCE_NAME:-${repo}_$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
+[ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
+>>>>>>> origin/v5-next
 
 # Echo running build instances as: <Name>\t<InstanceId>\t<PublicIp>\t<LaunchTime>
 function list_build_instances {

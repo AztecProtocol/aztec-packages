@@ -1,63 +1,34 @@
-/* eslint-disable import-x/no-named-as-default-member */
 import { readFileSync } from 'fs';
-import ts from 'typescript';
+
+import type { OracleRegistryEntry } from '../contract_function_simulator/index.js';
 
 /**
- * Extracts method signatures from TypeScript classes or interfaces and returns a deterministic string representation.
+ * Extracts a deterministic signature string from an oracle registry (e.g. PXE's `ORACLE_REGISTRY`).
  *
- * This is used to detect when an oracle interface changes so that the oracle version can be bumped. It works with both
- * class declarations (e.g. PXE's `Oracle` class) and interface declarations (e.g. TXE's `IAvmExecutionOracle`).
+ * Reads the registry where each oracle's wire ABI lives: the ordered parameter names with their `TypeMapping` labels
+ * and the return type. The resulting hash is sensitive to parameter, type, and return changes, not just oracle
+ * additions and removals.
  *
- * @param sourcePath - Absolute path to the TypeScript source file to parse.
- * @param targets - Names of classes or interfaces to extract methods from.
- * @param excludedMembers - Method names to skip (e.g. non-oracle helpers like `constructor`).
+ * @example
+ * // Given a registry like:
+ * //   export const ORACLE_REGISTRY = {
+ * //     aztec_utl_foo: makeEntry({ params: [{ name: 'a', type: U32 }], returnType: BOOL }),
+ * //     aztec_prv_bar: makeEntry(),
+ * //   } satisfies Record<string, OracleRegistryEntry>;
+ * //
+ * // Returns (sorted, newline-joined):
+ * //   "aztec_prv_bar(): void\naztec_utl_foo(a: u32): bool"
  */
-export function getOracleInterfaceSignature(sourcePath: string, targets: string[], excludedMembers: string[]): string {
-  const sourceCode = readFileSync(sourcePath, 'utf-8');
-  const sourceFile = ts.createSourceFile(sourcePath, sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+export function getOracleRegistrySignature(registry: Record<string, OracleRegistryEntry>): string {
+  const oracleSignatures = Object.entries(registry).map(([name, entry]) => {
+    const paramSignatures = entry.params.map(p => `${p.name}: ${p.type.label}`);
+    const returnType = entry.returnType === undefined ? 'void' : entry.returnType.label;
+    return `${name}(${paramSignatures.join(', ')}): ${returnType}`;
+  });
 
-  const methodSignatures: string[] = [];
+  oracleSignatures.sort();
 
-  function visit(node: ts.Node) {
-    const isTarget =
-      (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) && targets.includes(node.name?.text ?? '');
-
-    if (isTarget) {
-      node.members.forEach(member => {
-        if (
-          (ts.isMethodDeclaration(member) || ts.isMethodSignature(member)) &&
-          member.name &&
-          ts.isIdentifier(member.name)
-        ) {
-          const methodName = member.name.text;
-
-          if (excludedMembers.includes(methodName)) {
-            return;
-          }
-
-          const paramSignatures: string[] = [];
-          member.parameters.forEach(param => {
-            const paramName = extractParameterName(param, sourceFile);
-            const paramType = extractTypeString(param.type, sourceFile);
-            paramSignatures.push(`${paramName}: ${paramType}`);
-          });
-
-          const returnType = extractTypeString(member.type, sourceFile);
-
-          const signature = `${methodName}(${paramSignatures.join(', ')}): ${returnType}`;
-          methodSignatures.push(signature);
-        }
-      });
-    }
-
-    ts.forEachChild(node, visit);
-  }
-
-  visit(sourceFile);
-
-  methodSignatures.sort();
-
-  return methodSignatures.join('');
+  return oracleSignatures.join('\n');
 }
 
 /**
@@ -133,6 +104,7 @@ export function readNumericGlobal(sourcePath: string, name: string): number {
   }
   return Number(match[1]);
 }
+<<<<<<< HEAD
 
 function extractParameterName(param: ts.ParameterDeclaration, sourceFile: ts.SourceFile): string {
   const name = param.name;
@@ -309,3 +281,5 @@ function normalizeExpressionText(node: ts.Expression, sourceFile: ts.SourceFile)
   // meaningful whitespace, so we strip it entirely to keep the signature stable across reformatting.
   return node.getText(sourceFile).replace(/\s+/g, '');
 }
+=======
+>>>>>>> origin/v5-next

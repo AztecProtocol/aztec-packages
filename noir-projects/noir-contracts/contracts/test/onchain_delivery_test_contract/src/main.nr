@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //! Thin wrappers around onchain message delivery for tests.
+=======
+//! Thin wrappers around onchain message delivery for TXE tests.
+>>>>>>> origin/v5-next
 use aztec::macros::aztec;
 
 mod test;
@@ -7,7 +11,11 @@ mod test;
 pub contract OnchainDeliveryTest {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
+<<<<<<< HEAD
         messages::delivery::MessageDelivery,
+=======
+        messages::delivery::{MessageDelivery, OnchainDeliveryMode},
+>>>>>>> origin/v5-next
         note::note_viewer_options::NoteViewerOptions,
         oracle::notes::get_next_tagging_index,
         protocol::{
@@ -34,10 +42,17 @@ pub contract OnchainDeliveryTest {
     }
 
     #[external("private")]
+<<<<<<< HEAD
     fn next_index_for_secret(secret: Field) -> u32 {
         // Safety: test-only observation of the index the PXE hands out next for this secret.
         unsafe {
             get_next_tagging_index(secret, MessageDelivery::onchain_constrained())
+=======
+    fn next_index_for_secret(secret: Field, mode: OnchainDeliveryMode) -> u32 {
+        // Safety: test-only observation of the index the PXE hands out next for this secret.
+        unsafe {
+            get_next_tagging_index(secret, mode)
+>>>>>>> origin/v5-next
         }
     }
 

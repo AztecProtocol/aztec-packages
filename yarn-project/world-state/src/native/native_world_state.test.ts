@@ -959,11 +959,17 @@ describe('NativeWorldState', () => {
       await ws.unwindBlocks(BlockNumber.fromBigInt(2n));
       await expect(delayedFork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
 
+<<<<<<< HEAD
       // The fork was disposed with a closeDelayMs, so its close fires asynchronously after the delay. Wait for
       // that delayed close to be scheduled and to settle so the "Fork not found" swallow path has actually run
       // before asserting it did not warn.
       await retryUntil(() => (delayedFork as any).closePromise !== undefined, 'delayed fork close scheduled', 30, 0.1);
       await (delayedFork as any).closePromise.catch(() => {});
+=======
+      // The failed read above can recreate the JS-side per-fork queue after the native fork has already been
+      // destroyed, so wait for the "Fork not found" path to clean it up deterministically.
+      await retryUntil(() => !(ws as any).instance.queues.has(forkId), 'destroyed fork queue cleanup', 30, 0.1);
+>>>>>>> origin/v5-next
 
       expect(warnSpy).not.toHaveBeenCalled();
     });

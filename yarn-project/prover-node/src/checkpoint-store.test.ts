@@ -9,12 +9,21 @@ import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 import { mock } from 'jest-mock-extended';
 
+<<<<<<< HEAD
 import { type CheckpointProverFactory, CheckpointStore } from './checkpoint-store.js';
 import type { CheckpointProver } from './job/checkpoint-prover.js';
 
 describe('CheckpointStore', () => {
   let store: TestCheckpointStore;
   let blockSource: ReturnType<typeof mock<Pick<L2BlockSource, 'getSyncedL2SlotNumber' | 'getL1Constants'>>>;
+=======
+import { CheckpointStore } from './checkpoint-store.js';
+import type { CheckpointProver } from './job/checkpoint-prover.js';
+
+describe('CheckpointStore', () => {
+  let store: CheckpointStore;
+  let blockSource: ReturnType<typeof mock<Pick<L2BlockSource, 'getL1Constants'>>>;
+>>>>>>> origin/v5-next
   /** Track stub provers we hand back from the factory. */
   const stubs: StubProver[] = [];
 
@@ -22,6 +31,7 @@ describe('CheckpointStore', () => {
   const l1Constants = { ...EmptyL1RollupConstants, epochDuration: 1 };
 
   beforeEach(() => {
+<<<<<<< HEAD
     blockSource = mock<Pick<L2BlockSource, 'getSyncedL2SlotNumber' | 'getL1Constants'>>();
     blockSource.getL1Constants.mockResolvedValue(l1Constants);
     stubs.length = 0;
@@ -30,6 +40,15 @@ describe('CheckpointStore', () => {
       // The deps are not exercised — the factory below ignores them.
       {} as any,
       { slotWatcherPollIntervalMs: 100 },
+=======
+    blockSource = mock<Pick<L2BlockSource, 'getL1Constants'>>();
+    blockSource.getL1Constants.mockResolvedValue(l1Constants);
+    stubs.length = 0;
+    store = new CheckpointStore(
+      blockSource,
+      // The deps are not exercised — the factory below ignores them.
+      {} as any,
+>>>>>>> origin/v5-next
       undefined,
       (args, _deps) => {
         const stub = makeStubProver(args.checkpoint, args.epochNumber);
@@ -51,6 +70,7 @@ describe('CheckpointStore', () => {
     expect(stubs.length).toBe(1);
   });
 
+<<<<<<< HEAD
   it('addOrUpdate is idempotent for the same content key (re-add after prune)', async () => {
     const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1 });
 
@@ -66,6 +86,37 @@ describe('CheckpointStore', () => {
     expect(stubs.length).toBe(1);
   });
 
+=======
+  it('addOrUpdate reuses the prover for a still-canonical duplicate registration', async () => {
+    // An at-least-once re-registration of a checkpoint that has NOT been pruned reuses the running
+    // prover rather than rebuilding its in-flight work.
+    const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1 });
+
+    const first = await store.addOrUpdate(cp, makeRegisterData());
+    const second = await store.addOrUpdate(cp, makeRegisterData());
+    expect(second).toBe(first);
+    expect(stubs.length).toBe(1);
+  });
+
+  it('addOrUpdate rebuilds a fresh prover for a re-add after prune', async () => {
+    const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1 });
+
+    const first = await store.addOrUpdate(cp, makeRegisterData());
+    expect(first.isCancelled()).toBe(false);
+    store.cancelAndRemoveAboveBlock(BlockNumber(0));
+    // The pruned prover is cancelled and dropped from the store.
+    expect(first.isCancelled()).toBe(true);
+    expect(store.getByCheckpoint(cp)).toBeUndefined();
+
+    // Re-adding the identical checkpoint (same archive root) constructs a fresh prover — the pruned
+    // one's forked world-state reads did not survive, so there is nothing to reuse.
+    const second = await store.addOrUpdate(cp, makeRegisterData());
+    expect(second).not.toBe(first);
+    expect(second.isCancelled()).toBe(false);
+    expect(stubs.length).toBe(2);
+  });
+
+>>>>>>> origin/v5-next
   it('addOrUpdate refuses a conflicting canonical checkpoint at the same slot', async () => {
     // Two canonical checkpoints sharing a slot would be a parallel chain. The store rejects
     // the second; the caller must prune the first (via the chain-pruned event) before the
@@ -76,6 +127,7 @@ describe('CheckpointStore', () => {
 
     const proverA = await store.addOrUpdate(a, makeRegisterData());
     await expect(store.addOrUpdate(b, makeRegisterData())).rejects.toThrow(
+<<<<<<< HEAD
       /canonical checkpoint already occupies this slot/i,
     );
 
@@ -90,6 +142,22 @@ describe('CheckpointStore', () => {
   });
 
   it('markPrunedAboveBlock marks every prover holding a block above the target and returns them', async () => {
+=======
+      /a different checkpoint already occupies this slot/i,
+    );
+
+    // After the predecessor is pruned (cancelled and removed), the replacement is accepted and keys
+    // to a distinct prover (different archive root → different content id).
+    store.cancelAndRemoveAboveBlock(BlockNumber(0));
+    expect(proverA.isCancelled()).toBe(true);
+    const proverB = await store.addOrUpdate(b, makeRegisterData());
+    expect(proverB).not.toBe(proverA);
+    expect(proverB.isCancelled()).toBe(false);
+    expect(stubs.length).toBe(2);
+  });
+
+  it('cancelAndRemoveAboveBlock cancels and removes every prover holding a block above the target and returns them', async () => {
+>>>>>>> origin/v5-next
     // Four single-block checkpoints occupying blocks 1..4 (one block each). Pruning to block 2 orphans the
     // checkpoints whose last block is above 2 — checkpoints 3 and 4 — and leaves 1 and 2 canonical.
     const cps = await timesAsync(4, i =>
@@ -102,6 +170,7 @@ describe('CheckpointStore', () => {
     for (const cp of cps) {
       await store.addOrUpdate(cp, makeRegisterData());
     }
+<<<<<<< HEAD
     const affected = store.markPrunedAboveBlock(BlockNumber(2));
     expect(affected.map(p => p.checkpoint.number)).toEqual([3, 4]);
     expect(store.listCanonical().map(p => p.checkpoint.number)).toEqual([1, 2]);
@@ -119,6 +188,28 @@ describe('CheckpointStore', () => {
   });
 
   it('reapExpired drops canonical provers whose epoch is ≤ expiredEpoch', async () => {
+=======
+    const affected = store.cancelAndRemoveAboveBlock(BlockNumber(2));
+    expect(affected.map(p => p.checkpoint.number)).toEqual([3, 4]);
+    expect(affected.every(p => p.isCancelled())).toBe(true);
+    // The orphaned provers are gone from the store; only 1 and 2 remain.
+    expect(store.list().map(p => p.checkpoint.number)).toEqual([1, 2]);
+  });
+
+  it('cancelAndRemoveAboveBlock removes a checkpoint whose block range straddles the target (partially orphaned)', async () => {
+    // A single checkpoint spanning blocks 5..8. A prune to block 6 lands mid-checkpoint: the checkpoint is partially
+    // orphaned (blocks 7, 8 are gone) and must be removed, since its last block (8) is above the target.
+    const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 4, startBlockNumber: 5 });
+    await store.addOrUpdate(cp, makeRegisterData());
+
+    const affected = store.cancelAndRemoveAboveBlock(BlockNumber(6));
+    expect(affected.map(p => p.checkpoint.number)).toEqual([1]);
+    expect(affected[0].isCancelled()).toBe(true);
+    expect(store.list()).toEqual([]);
+  });
+
+  it('reapExpired drops provers whose epoch is ≤ expiredEpoch', async () => {
+>>>>>>> origin/v5-next
     // With epochDuration=1 each checkpoint's slot is also its epoch number.
     const cps = await Promise.all([
       Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: SlotNumber(1) }),
@@ -133,6 +224,7 @@ describe('CheckpointStore', () => {
     expect(remainingNumbers).toEqual([3]);
   });
 
+<<<<<<< HEAD
   it('reapExpired leaves pruned provers in place', async () => {
     const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: SlotNumber(1) });
     await store.addOrUpdate(cp, makeRegisterData());
@@ -201,14 +293,22 @@ describe('CheckpointStore', () => {
   });
 
   it('listCanonicalForEpoch returns only canonical provers in the epoch slot range', async () => {
+=======
+  it('listForEpoch returns only provers in the epoch slot range', async () => {
+>>>>>>> origin/v5-next
     // With epochDuration=1, each epoch's slot range is exactly [slot, slot].
     const cp1 = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: SlotNumber(10) });
     const cp2 = await Checkpoint.random(CheckpointNumber(2), { numBlocks: 1, slotNumber: SlotNumber(11) });
     await store.addOrUpdate(cp1, makeRegisterData());
     await store.addOrUpdate(cp2, makeRegisterData());
 
+<<<<<<< HEAD
     const epoch10 = await store.listCanonicalForEpoch(EpochNumber(10));
     const epoch11 = await store.listCanonicalForEpoch(EpochNumber(11));
+=======
+    const epoch10 = await store.listForEpoch(EpochNumber(10));
+    const epoch11 = await store.listForEpoch(EpochNumber(11));
+>>>>>>> origin/v5-next
     expect(epoch10.map(p => p.checkpoint.number)).toEqual([1]);
     expect(epoch11.map(p => p.checkpoint.number)).toEqual([2]);
   });
@@ -220,12 +320,17 @@ type StubProver = {
   checkpoint: Checkpoint;
   slotNumber: SlotNumber;
   epochNumber: EpochNumber;
+<<<<<<< HEAD
   pruned: boolean;
   cancelled: boolean;
   isPruned(): boolean;
   isCancelled(): boolean;
   markPruned(): void;
   markCanonical(): void;
+=======
+  cancelled: boolean;
+  isCancelled(): boolean;
+>>>>>>> origin/v5-next
   cancel(opts?: { routine?: boolean }): void;
   whenDone(): Promise<void>;
 };
@@ -237,6 +342,7 @@ function makeStubProver(checkpoint: Checkpoint, epochNumber: EpochNumber): StubP
     checkpoint,
     slotNumber: checkpoint.header.slotNumber,
     epochNumber,
+<<<<<<< HEAD
     pruned: false,
     cancelled: false,
     isPruned() {
@@ -251,6 +357,12 @@ function makeStubProver(checkpoint: Checkpoint, epochNumber: EpochNumber): StubP
     markCanonical() {
       this.pruned = false;
     },
+=======
+    cancelled: false,
+    isCancelled() {
+      return this.cancelled;
+    },
+>>>>>>> origin/v5-next
     cancel() {
       this.cancelled = true;
     },
@@ -268,6 +380,7 @@ function makeRegisterData() {
     previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
   };
 }
+<<<<<<< HEAD
 
 /**
  * Subclass that exposes the protected `reapPrunedPastSlot` so tests can drive a single
@@ -289,3 +402,5 @@ class TestCheckpointStore extends CheckpointStore {
     return this.reapPrunedPastSlot();
   }
 }
+=======
+>>>>>>> origin/v5-next

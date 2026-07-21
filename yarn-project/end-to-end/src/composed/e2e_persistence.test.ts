@@ -206,7 +206,15 @@ describe('Aztec persistence', () => {
 
     it('allows spending of private notes', async () => {
       const account = additionallyFundedAccounts[1]; // Not the owner account.
+<<<<<<< HEAD
       const otherAccount = await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt);
+=======
+      const otherAccount = await context.wallet.createSchnorrInitializerlessAccount(
+        account.secret,
+        account.salt,
+        account.signingKey,
+      );
+>>>>>>> origin/v5-next
       const otherAddress = otherAccount.address;
 
       const { result: initialOwnerBalance } = await contract.methods
@@ -283,7 +291,11 @@ describe('Aztec persistence', () => {
       await context.wallet.registerContract(contractInstance, TokenBlacklistContract.artifact);
 
       const account = additionallyFundedAccounts[0];
+<<<<<<< HEAD
       await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt);
+=======
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
+>>>>>>> origin/v5-next
       const contract = TokenBlacklistContract.at(contractAddress, context.wallet);
 
       // check that notes total more than 0 so that this test isn't dependent on run order
@@ -313,7 +325,11 @@ describe('Aztec persistence', () => {
       await temporaryContext.wallet.registerContract(contractInstance, TokenBlacklistContract.artifact);
 
       const account = additionallyFundedAccounts[0];
+<<<<<<< HEAD
       await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt);
+=======
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
+>>>>>>> origin/v5-next
 
       const contract = TokenBlacklistContract.at(contractAddress, context.wallet);
 
@@ -338,7 +354,11 @@ describe('Aztec persistence', () => {
     beforeEach(async () => {
       context = await setup(0, { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues }, { dataDirectory });
       const account = additionallyFundedAccounts[0];
+<<<<<<< HEAD
       await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt);
+=======
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
+>>>>>>> origin/v5-next
       contract = TokenBlacklistContract.at(contractAddress, context.wallet);
     }, 120_000);
 

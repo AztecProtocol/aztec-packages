@@ -61,15 +61,21 @@ async function main() {
   const giggleAccountManager = await wallet.createSchnorrInitializerlessAccount(
     giggleWalletData.secret,
     giggleWalletData.salt,
+    giggleWalletData.signingKey,
   );
   const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
     aliceWalletData.secret,
     aliceWalletData.salt,
+    aliceWalletData.signingKey,
   );
   const bobClinicAccountManager =
     await wallet.createSchnorrInitializerlessAccount(
       bobClinicWalletData.secret,
       bobClinicWalletData.salt,
+<<<<<<< HEAD
+=======
+      bobClinicWalletData.signingKey,
+>>>>>>> origin/v5-next
     );
 
   const giggleAddress = giggleAccountManager.address;

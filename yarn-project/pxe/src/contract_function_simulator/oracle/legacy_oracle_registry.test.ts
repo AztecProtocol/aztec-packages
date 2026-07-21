@@ -1,9 +1,18 @@
 /* eslint-disable camelcase */
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toACVMField } from '@aztec/simulator/client';
+<<<<<<< HEAD
 
 import { buildACIRCallback } from './acir_callback.js';
 import type { LegacyOracleEntry } from './legacy_oracle_registry.js';
+=======
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
+
+import { Option } from '../noir-structs/option.js';
+import { buildACIRCallback } from './acir_callback.js';
+import { LEGACY_ORACLE_REGISTRY, type LegacyOracleEntry } from './legacy_oracle_registry.js';
+>>>>>>> origin/v5-next
 import { FIELD, U32 } from './oracle_registry.js';
 
 type Handler = Parameters<typeof buildACIRCallback>[0];
@@ -61,6 +70,52 @@ describe('legacy oracle dispatch', () => {
     expect(handlerArgs).toEqual([5, DEFAULTED_MINOR]);
   });
 
+<<<<<<< HEAD
+=======
+  it('awaits an async param mapping before invoking the modern handler', async () => {
+    let handlerArgs: unknown[] | undefined;
+    const handler = {
+      isMisc: true,
+      assertCompatibleOracleVersion: (...args: unknown[]) => {
+        handlerArgs = args;
+      },
+    } as Handler;
+
+    const legacyRegistry: Record<string, LegacyOracleEntry> = {
+      aztec_misc_legacyAsyncParams: {
+        modernOracle: 'aztec_misc_assertCompatibleOracleVersion',
+        params: {
+          legacyType: [{ name: 'major', type: U32 }],
+          mapping: ([major]: number[]) => Promise.resolve([major + 1, 0]),
+        },
+      },
+    };
+
+    const callback = buildACIRCallback(handler, { legacy: legacyRegistry });
+
+    await callback['aztec_misc_legacyAsyncParams']([toACVMField(new Fr(5))]);
+
+    expect(handlerArgs).toEqual([6, 0]);
+  });
+
+  it('adapts the retired getL1ToL2MembershipWitness wire into the modern (messageHash, nullifier) args', async () => {
+    // The retired oracle passed (contractAddress, messageHash, secret), the modern one takes the unsiloed nullifier
+    // plus the address to silo it with. The adapter must derive exactly the fee juice nullifier so already-deployed
+    // contracts keep working.
+    const contractAddress = await AztecAddress.random();
+    const messageHash = Fr.random();
+    const secret = Fr.random();
+
+    const entry = LEGACY_ORACLE_REGISTRY['aztec_utl_getL1ToL2MembershipWitness'];
+    const [mappedMessageHash, mappedNullifier] = await entry.params!.mapping([contractAddress, messageHash, secret]);
+
+    expect(mappedMessageHash).toEqual(messageHash);
+    expect(mappedNullifier).toEqual(
+      Option.some({ contractAddress, nullifier: await computeFeeJuiceMessageNullifier(messageHash, secret) }),
+    );
+  });
+
+>>>>>>> origin/v5-next
   it('rejects a legacy name that collides with a live oracle', () => {
     const handler = { isMisc: true, getRandomField: () => Promise.resolve(new Fr(0)) } as Handler;
     const legacyRegistry: Record<string, LegacyOracleEntry> = {

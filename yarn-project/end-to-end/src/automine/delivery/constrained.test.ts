@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -5,11 +6,32 @@ import { Point } from '@aztec/foundation/curves/grumpkin';
 import { HandshakeRegistryContract } from '@aztec/noir-contracts.js/HandshakeRegistry';
 import { OnchainDeliveryTestContract } from '@aztec/noir-test-contracts.js/OnchainDeliveryTest';
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
+=======
+import { generateSchnorrAccounts } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import type { Wallet } from '@aztec/aztec.js/wallet';
+import { type Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
+import { HandshakeRegistryContract } from '@aztec/noir-contracts.js/HandshakeRegistry';
+import { OnchainDeliveryTestContract } from '@aztec/noir-test-contracts.js/OnchainDeliveryTest';
+import { UtilityExecutionOracle } from '@aztec/pxe/simulator';
+import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
+import { computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@aztec/stdlib/keys';
+>>>>>>> origin/v5-next
 
 import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from '../../fixtures/fixtures.js';
 import { ensureHandshakeRegistryPublished, setup } from '../../fixtures/setup.js';
+<<<<<<< HEAD
+=======
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+
+// Keep in sync with aztec::messages::delivery::OnchainDeliveryMode.
+const ONCHAIN_CONSTRAINED_DELIVERY_MODE = { inner: 3 };
+>>>>>>> origin/v5-next
 
 // Delivery-method-specific tests that don't fit the generic (strategy, mode) matrix in `onchain.test.ts`
 describe('delivery/constrained', () => {
@@ -56,7 +78,13 @@ describe('delivery/constrained', () => {
     // The second send reuses the handshake rather than bootstrapping a new one: the secret is unchanged.
     expect(secret).toEqual(secretAfterFirstSend);
 
+<<<<<<< HEAD
     const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+=======
+    const { result: index } = await contract.methods
+      .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+      .simulate({ from: sender });
+>>>>>>> origin/v5-next
 
     expect(index).toEqual(2n);
   });
@@ -92,7 +120,13 @@ describe('delivery/constrained', () => {
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
+<<<<<<< HEAD
       const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+=======
+      const { result: index } = await contract.methods
+        .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+        .simulate({ from: sender });
+>>>>>>> origin/v5-next
       expect(index).toEqual(2n);
     });
 
@@ -111,7 +145,13 @@ describe('delivery/constrained', () => {
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
+<<<<<<< HEAD
       const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+=======
+      const { result: index } = await contract.methods
+        .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+        .simulate({ from: sender });
+>>>>>>> origin/v5-next
       expect(index).toEqual(2n);
     });
 
@@ -128,7 +168,13 @@ describe('delivery/constrained', () => {
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
+<<<<<<< HEAD
       const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+=======
+      const { result: index } = await contract.methods
+        .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+        .simulate({ from: sender });
+>>>>>>> origin/v5-next
       expect(index).toEqual(1n);
     });
 
@@ -146,7 +192,13 @@ describe('delivery/constrained', () => {
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
+<<<<<<< HEAD
       const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+=======
+      const { result: index } = await contract.methods
+        .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+        .simulate({ from: sender });
+>>>>>>> origin/v5-next
       expect(index).toEqual(1n);
     });
   });
@@ -181,3 +233,92 @@ describe('delivery/constrained: rejects unsound sources', () => {
     }
   });
 });
+<<<<<<< HEAD
+=======
+
+// Regression test: a recipient must not be able to forge a handshake that reuses an honest handshake's tag stream.
+// The ECDH secret is symmetric, so the recipient can recompute it and mint a colliding handshake; aztec-nr's
+// `protect_from_forgery` docs walk the full argument. The forgery forces bob's ephemeral key via the same
+// `getRandomField` oracle that unit tests mock, intercepted at the PXE, as a real attacker does by running its own PXE.
+describe('constrained delivery handshake forgery', () => {
+  jest.setTimeout(300_000);
+
+  let teardown: () => Promise<void>;
+  let wallet: TestWallet;
+  let alice: AztecAddress;
+  let bob: AztecAddress;
+  let bobAddressSecret: Fq;
+  let contract: OnchainDeliveryTestContract;
+  let registry: HandshakeRegistryContract;
+
+  beforeAll(async () => {
+    const [bobAccount] = await generateSchnorrAccounts(1, 'schnorr');
+    ({
+      teardown,
+      wallet,
+      accounts: [alice],
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS, additionallyFundedAccounts: [bobAccount] }));
+
+    // Deploy bob (the recipient and forger) from its known secret, and recover its address secret: the discrete log
+    // of its address point. Knowing this is what lets bob force a handshake's ephemeral key to its own public key.
+    const bobManager = await wallet.createSchnorrAccount(bobAccount.secret, bobAccount.salt, bobAccount.signingKey);
+    await (await bobManager.getDeployMethod()).send({ from: NO_FROM });
+    bob = bobManager.address;
+    bobAddressSecret = await computeAddressSecret(
+      await (await bobManager.getCompleteAddress()).getPreaddress(),
+      deriveMasterIncomingViewingSecretKey(bobAccount.secret),
+    );
+
+    await ensureHandshakeRegistryPublished(wallet, alice);
+    ({ contract } = await OnchainDeliveryTestContract.deploy(wallet).send({ from: alice }));
+    registry = HandshakeRegistryContract.at(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, wallet);
+  });
+
+  afterAll(() => teardown());
+
+  it('binding the ephemeral key stops a recipient from reproducing an honest handshake secret', async () => {
+    await registry.methods.non_interactive_handshake(alice, bob).send({ from: alice });
+
+    await wallet.sync();
+    const { result: page } = await registry.methods.get_non_interactive_handshakes(bob, 0).simulate({ from: bob });
+    const aliceEphemeralPublicKey = page.items.storage[0].eph_pk;
+
+    const { result: honestSecret } = await contract.methods
+      .get_app_siloed_secrets(alice, bob)
+      .simulate({ from: alice });
+    expect(honestSecret).toBeDefined();
+
+    // bob forges a handshake addressed to alice's ephemeral key, with its OWN ephemeral forced to its address point,
+    // which by the symmetry above reproduces alice's raw shared point.
+    const forgedRecipient = AztecAddress.fromFieldUnsafe(new Fr(aliceEphemeralPublicKey.x));
+    await withForcedEphemeral(new Fr(bobAddressSecret.toBigInt()), () =>
+      registry.methods.non_interactive_handshake(bob, forgedRecipient).send({ from: bob }),
+    );
+    const { result: forgedSecret } = await contract.methods
+      .get_app_siloed_secrets(bob, forgedRecipient)
+      .simulate({ from: bob });
+
+    // The forgery announces a different ephemeral key, so the forgery protection makes the two secrets diverge.
+    expect(forgedSecret).not.toEqual(honestSecret);
+  });
+});
+
+/**
+ * Runs `fn` with the in-circuit `random()` oracle forced to `value`, so the ephemeral key the handshake generates is
+ * `value`'s keypair. A real attacker controls this by running its own PXE; we intercept it at `getRandomField`.
+ *
+ * Asserts the interception actually happened: whether the ephemeral key is forced is the premise of the forgery
+ * test, so if `getRandomField` ever stops carrying it the "forgery" silently degrades to an ordinary random
+ * handshake and the caller's divergence assertion would pass vacuously.
+ */
+async function withForcedEphemeral<T>(value: Fr, fn: () => Promise<T>): Promise<T> {
+  const spy = jest.spyOn(UtilityExecutionOracle.prototype, 'getRandomField').mockReturnValue(value);
+  try {
+    const result = await fn();
+    expect(spy).toHaveBeenCalled();
+    return result;
+  } finally {
+    spy.mockRestore();
+  }
+}
+>>>>>>> origin/v5-next

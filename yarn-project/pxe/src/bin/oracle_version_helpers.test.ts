@@ -1,7 +1,16 @@
+<<<<<<< HEAD
+=======
+/* eslint-disable camelcase */
+>>>>>>> origin/v5-next
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+<<<<<<< HEAD
+=======
+import { ARRAY, AZTEC_ADDRESS, BOOL, FIELD, OPTION, U32, makeEntry } from '../contract_function_simulator/index.js';
+import { TX_HASH } from '../contract_function_simulator/oracle/oracle_type_mappings.js';
+>>>>>>> origin/v5-next
 import { getOracleRegistrySignature, readNumericGlobal } from './oracle_version_helpers.js';
 
 describe('readNumericGlobal', () => {
@@ -51,6 +60,7 @@ describe('readNumericGlobal', () => {
 });
 
 describe('getOracleRegistrySignature', () => {
+<<<<<<< HEAD
   let dir: string;
 
   beforeAll(() => {
@@ -62,6 +72,9 @@ describe('getOracleRegistrySignature', () => {
   });
 
   const SAMPLE_REGISTRY = `export const ORACLE_REGISTRY = {
+=======
+  const SAMPLE_REGISTRY = {
+>>>>>>> origin/v5-next
     aztec_utl_foo: makeEntry({
       params: [
         { name: 'a', type: U32 },
@@ -72,6 +85,7 @@ describe('getOracleRegistrySignature', () => {
     aztec_utl_bar: makeEntry({ returnType: FIELD }),
     aztec_prv_baz: makeEntry({ params: [{ name: 'x', type: FIELD }] }),
     aztec_prv_qux: makeEntry(),
+<<<<<<< HEAD
   } satisfies Record<string, OracleRegistryEntry>;
 `;
 
@@ -82,10 +96,21 @@ describe('getOracleRegistrySignature', () => {
         'aztec_prv_qux(): void\n' +
         'aztec_utl_bar(): FIELD\n' +
         'aztec_utl_foo(a: U32, b: OPTION(AZTEC_ADDRESS)): BOOL',
+=======
+  };
+
+  it('builds a sorted signature of names, ordered typed params, and return types', () => {
+    expect(getOracleRegistrySignature(SAMPLE_REGISTRY)).toBe(
+      'aztec_prv_baz(x: field): void\n' +
+        'aztec_prv_qux(): void\n' +
+        'aztec_utl_bar(): field\n' +
+        'aztec_utl_foo(a: u32, b: option(aztec-address)): bool',
+>>>>>>> origin/v5-next
     );
   });
 
   it('changes when a parameter type changes (the gap the Oracle-class hash missed)', () => {
+<<<<<<< HEAD
     const before = writeFixture(dir, 'before.ts', SAMPLE_REGISTRY);
     const after = writeFixture(dir, 'after.ts', SAMPLE_REGISTRY.replace('type: OPTION(AZTEC_ADDRESS)', 'type: FIELD'));
     expect(getOracleRegistrySignature(after, 'ORACLE_REGISTRY')).not.toBe(
@@ -120,6 +145,32 @@ describe('getOracleRegistrySignature', () => {
   it('throws when the registry is absent', () => {
     const path = writeFixture(dir, 'absent.ts', `export const SOMETHING_ELSE = {};\n`);
     expect(() => getOracleRegistrySignature(path, 'ORACLE_REGISTRY')).toThrow(/Could not find oracle registry/);
+=======
+    const after = {
+      ...SAMPLE_REGISTRY,
+      aztec_utl_foo: makeEntry({
+        params: [
+          { name: 'a', type: U32 },
+          { name: 'b', type: FIELD },
+        ],
+        returnType: BOOL,
+      }),
+    };
+    expect(getOracleRegistrySignature(after)).not.toBe(getOracleRegistrySignature(SAMPLE_REGISTRY));
+  });
+
+  it('does not change when a mapping is swapped for a wire-equivalent one', () => {
+    const withField = { aztec_utl_foo: makeEntry({ params: [{ name: 'a', type: FIELD }] }) };
+    const withTxHash = { aztec_utl_foo: makeEntry({ params: [{ name: 'a', type: TX_HASH }] }) };
+    expect(getOracleRegistrySignature(withTxHash)).toBe(getOracleRegistrySignature(withField));
+  });
+
+  it('captures nested composite kinds in the signature', () => {
+    const registry = {
+      aztec_utl_foo: makeEntry({ params: [{ name: 'a', type: OPTION(ARRAY(FIELD)) }], returnType: AZTEC_ADDRESS }),
+    };
+    expect(getOracleRegistrySignature(registry)).toBe('aztec_utl_foo(a: option(array(field))): aztec-address');
+>>>>>>> origin/v5-next
   });
 });
 

@@ -3,7 +3,11 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 
+<<<<<<< HEAD
 import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
+=======
+import type { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
+>>>>>>> origin/v5-next
 
 /** Resolves transaction hashes into their on-chain context (note hashes, first nullifier, and mined block). */
 export class TxResolverService {
@@ -57,6 +61,7 @@ export class TxResolverService {
         throw new Error(`Tx effect for ${txHash} has no nullifiers`);
       }
 
+<<<<<<< HEAD
       return new ResolvedTx(
         data.txHash,
         data.noteHashes,
@@ -64,6 +69,15 @@ export class TxResolverService {
         txEffect.l2BlockNumber,
         txEffect.l2BlockHash.toFr(),
       );
+=======
+      return {
+        txHash: data.txHash,
+        uniqueNoteHashesInTx: data.noteHashes,
+        firstNullifierInTx: data.nullifiers[0],
+        blockNumber: txEffect.l2BlockNumber,
+        blockHash: txEffect.l2BlockHash.toFr(),
+      };
+>>>>>>> origin/v5-next
     });
   }
 }

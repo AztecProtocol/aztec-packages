@@ -661,9 +661,14 @@ pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HON
 // Chonk sub-proof lengths; pinned to bb via static_asserts in mock_verifier_inputs.test.cpp.
 pub global CHONK_HIDING_OINK_LENGTH: u32 = 48;
 pub global CHONK_MERGE_PROOF_SIZE: u32 = 41;
+<<<<<<< HEAD
 pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 556;
 pub global CHONK_TRIPLE_IPA_PROOF_LENGTH: u32 = 70;
 pub global CHONK_JOINT_PROOF_LENGTH: u32 = 478;
+=======
+pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 612;
+pub global CHONK_JOINT_PROOF_LENGTH: u32 = 477;
+>>>>>>> origin/v5-next
 pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
     + HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE
     + CHONK_MERGE_PROOF_SIZE
@@ -762,6 +767,11 @@ pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
 /// Domain separator for the message a recipient signs to authorize an interactive handshake, hashed via
 /// [`crate::hash::poseidon2_hash_with_separator`] and verified in-circuit by the handshake registry contract.
 pub global DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE: u32 = 3098455647;
+<<<<<<< HEAD
+=======
+/// Domain separator for the scalar that protects a handshake's shared secret from recipient forgery.
+pub global DOM_SEP__HANDSHAKE_FORGERY_PROTECTION: u32 = 2291983127;
+>>>>>>> origin/v5-next
 /// Domain separator for private log tags.
 ///
 /// Used by [`crate::hash::compute_siloed_private_log_first_field`].

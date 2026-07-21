@@ -21,6 +21,18 @@ export enum OriginBlockState {
   Finalized = 3,
 }
 
+<<<<<<< HEAD
+=======
+/** Parses a numeric origin-block-state discriminant, rejecting unknown values. */
+export function originBlockStateFromNumber(value: number): OriginBlockState {
+  if (!(value in OriginBlockState)) {
+    const validNames = Object.keys(OriginBlockState).filter(k => isNaN(Number(k)));
+    throw new Error(`Invalid OriginBlockState value ${value}, expected one of ${validNames.join(', ')}`);
+  }
+  return value as OriginBlockState;
+}
+
+>>>>>>> origin/v5-next
 /** The two chain-tip block numbers needed to classify an origin block (`finalized <= proven` always holds). */
 export type TipBlockNumbers = { provenBlockNumber: number; finalizedBlockNumber: number };
 

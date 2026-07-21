@@ -1,4 +1,9 @@
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
+import {
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
+  NULLIFIER_SUBTREE_HEIGHT,
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
@@ -269,6 +274,22 @@ export class PublicProcessor implements Traceable {
 
         const txBlobFields = processedTx.txEffect.getNumBlobFields();
         const txSize = txBlobFields * Fr.SIZE_IN_BYTES;
+
+        // A single tx's effects must fit within the per-tx blob encoding: the rollup circuit encodes each
+        // tx into a fixed [Field; MAX_TX_BLOB_DATA_SIZE_IN_FIELDS] array, so a larger tx effect cannot be
+        // proven. The per-category side-effect limits already guarantee this upstream, so reaching here means
+        // the tx is malformed; reject it as invalid rather than letting it poison proving.
+        if (txBlobFields > MAX_TX_BLOB_DATA_SIZE_IN_FIELDS) {
+          const error = new Error(
+            `Tx ${txHash} produced ${txBlobFields} blob fields, exceeding the per-tx maximum of ${MAX_TX_BLOB_DATA_SIZE_IN_FIELDS}`,
+          );
+          this.log.error(error.message, { txHash, txBlobFields });
+          await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
+          failed.push({ tx, error });
+          returns.push(new NestedProcessReturnValues([]));
+          continue;
+        }
 
         // If the actual blob fields of this tx would exceed the limit, skip it.
         // Note: maxBlobFields already accounts for block end blob fields and previous blocks in checkpoint.

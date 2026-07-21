@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+<<<<<<< HEAD
 // The FIFO-streaming Chonk batch verifier service relies on POSIX named pipes and signals
 // (open/lstat/SIGPIPE), which are unavailable on wasm and on Windows (MinGW). Those platforms
 // compile throwing stubs instead. This macro guards the service across bbapi_shared.hpp,
@@ -32,6 +33,12 @@
 #if !defined(__wasm__) && !defined(_WIN32)
 #define BB_HAS_BATCH_VERIFIER_SERVICE
 #endif
+=======
+namespace bb::scalar_multiplication {
+[[nodiscard]] bool use_legacy_msm() noexcept;
+void set_legacy_msm_override(bool enabled) noexcept;
+} // namespace bb::scalar_multiplication
+>>>>>>> origin/v5-next
 
 namespace bb::bbapi {
 
@@ -232,6 +239,26 @@ struct Shutdown {
     void msgpack(auto&& pack_fn) { pack_fn(); }
     Response execute(const BBApiRequest&) && { return {}; }
     bool operator==(const Shutdown&) const = default;
+};
+
+struct SetMsmLegacy {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "SetMsmLegacy";
+    bool enabled = false;
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "SetMsmLegacyResponse";
+        bool enabled = false;
+        SERIALIZATION_FIELDS(enabled);
+        bool operator==(const Response&) const = default;
+    };
+
+    SERIALIZATION_FIELDS(enabled);
+    Response execute(const BBApiRequest&) const
+    {
+        scalar_multiplication::set_legacy_msm_override(enabled);
+        return { .enabled = scalar_multiplication::use_legacy_msm() };
+    }
+    bool operator==(const SetMsmLegacy&) const = default;
 };
 
 /**

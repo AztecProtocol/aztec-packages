@@ -81,6 +81,13 @@ impl PrivateKernelCircuitOutputComposer {
         // non-revertible (counter 1, so it sorts to index 0), and globally unique (`tx_request.hash()`
         // includes the salt).
         let scoped_protocol_nullifier = create_protocol_nullifier(inputs.tx_request);
+<<<<<<< HEAD
+=======
+        let protocol_nullifier = compute_siloed_nullifier(
+            scoped_protocol_nullifier.contract_address,
+            scoped_protocol_nullifier.innermost().value,
+        );
+>>>>>>> origin/v5-next
         // Safety: index 0 is empty, so a direct write plus `length = 1` is equivalent to a `push`.
         end.nullifiers.array[0] = scoped_protocol_nullifier;
         end.nullifiers.length = 1;
@@ -194,6 +201,12 @@ impl PrivateKernelCircuitOutputComposer {
             fee_payer,
             expiration_timestamp,
             is_private_only: inputs.is_private_only,
+<<<<<<< HEAD
+=======
+            // The siloed form of the scoped nullifier placed at index 0 above. The reset silos
+            // `end.nullifiers[0]` to this value, and the tail asserts the two match.
+            claimed_first_nullifier: protocol_nullifier,
+>>>>>>> origin/v5-next
             claimed_revertible_counter: inputs.revertible_counter_hint,
         };
 

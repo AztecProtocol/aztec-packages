@@ -5,7 +5,12 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo",
     "allowJs": true,
+<<<<<<< HEAD
     "checkJs": false
+=======
+    "checkJs": false,
+    "lib": ["dom", "dom.asynciterable", "esnext", "es2017.object"]
+>>>>>>> origin/v5-next
   },
   "references": [
     {

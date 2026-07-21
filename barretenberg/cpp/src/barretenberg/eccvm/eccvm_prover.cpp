@@ -75,10 +75,13 @@ void ECCVMProver::execute_wire_commitments_round()
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
         batch.add_to_batch(wire, label, Flavor::CommitmentLabels::wire_has_high_duplicate_density(label));
+<<<<<<< HEAD
     }
     auto wire_commitments = batch.commit_and_send_to_verifier(transcript);
     for (auto [commitment, computed_commitment] : zip_view(commitments.get_wires(), wire_commitments)) {
         commitment = computed_commitment;
+=======
+>>>>>>> origin/v5-next
     }
 }
 
@@ -134,8 +137,13 @@ void ECCVMProver::execute_grand_product_computation_round()
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
     auto& zp = key->polynomials.z_perm;
     // set has_duplicates_hint for Z_PERM (empty row = duplicate Z value)
+<<<<<<< HEAD
     commitments.z_perm = key->commitment_key.commit(zp, /*has_duplicates_hint=*/true);
     transcript->send_to_verifier(commitment_labels.z_perm, commitments.z_perm);
+=======
+    transcript->send_to_verifier(commitment_labels.z_perm,
+                                 key->commitment_key.commit(zp, /*has_duplicates_hint=*/true));
+>>>>>>> origin/v5-next
 }
 
 /**

@@ -11,7 +11,11 @@ import {
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { unfreeze } from '@aztec/foundation/types';
+<<<<<<< HEAD
 import { type AvmSimulator, PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+=======
+import { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+>>>>>>> origin/v5-next
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
@@ -56,7 +60,10 @@ describe('NodePublicCallsSimulator', () => {
   let rollupContract: MockProxy<RollupContract>;
   let epochCache: MockProxy<EpochCacheInterface>;
   let merkleTreeFork: MockProxy<MerkleTreeWriteOperations>;
+<<<<<<< HEAD
   let avmSimulator: MockProxy<AvmSimulator>;
+=======
+>>>>>>> origin/v5-next
 
   let simulator: NodePublicCallsSimulator;
 
@@ -133,7 +140,10 @@ describe('NodePublicCallsSimulator', () => {
     rollupContract = mock<RollupContract>();
     epochCache = mock<EpochCacheInterface>();
     merkleTreeFork = mock<MerkleTreeWriteOperations>();
+<<<<<<< HEAD
     avmSimulator = mock<AvmSimulator>();
+=======
+>>>>>>> origin/v5-next
 
     worldStateSynchronizer.syncImmediate.mockResolvedValue(BlockNumber.ZERO);
     // The fork is an AsyncDisposable; provide the hook so `await using` does not throw.
@@ -173,7 +183,10 @@ describe('NodePublicCallsSimulator', () => {
       globalVariableBuilder,
       rollupContract,
       epochCache,
+<<<<<<< HEAD
       avmSimulator,
+=======
+>>>>>>> origin/v5-next
       signatureContext: { chainId: CHAIN_ID.toNumber(), rollupAddress: ROLLUP_ADDRESS },
       config: { rpcSimulatePublicMaxGasLimit: 1e11, rpcSimulatePublicMaxDebugLogMemoryReads: 100 },
     });
@@ -412,7 +425,10 @@ describe('NodePublicCallsSimulator', () => {
         contractDataSource,
         globalVariableBuilder,
         epochCache,
+<<<<<<< HEAD
         avmSimulator,
+=======
+>>>>>>> origin/v5-next
         signatureContext: { chainId: CHAIN_ID.toNumber(), rollupAddress: ROLLUP_ADDRESS },
         config: { rpcSimulatePublicMaxGasLimit: 1e11, rpcSimulatePublicMaxDebugLogMemoryReads: 100 },
       });

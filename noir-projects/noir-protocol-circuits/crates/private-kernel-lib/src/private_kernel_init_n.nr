@@ -49,10 +49,22 @@ pub struct PrivateKernelInitNCircuitPrivateInputs<let N: u32> {
 pub fn execute<let N: u32>(
     inputs: PrivateKernelInitNCircuitPrivateInputs<N>,
 ) -> PrivateKernelCircuitPublicInputs {
+<<<<<<< HEAD
     PrivateCallDataValidator::new(inputs.private_calls[0]).validate_as_first_call(
         inputs.tx_request,
         inputs.protocol_contracts,
         inputs.revertible_counter_hint,
+=======
+    let mut output = private_kernel_init::execute(
+        PrivateKernelInitCircuitPrivateInputs {
+            tx_request: inputs.tx_request,
+            private_call: inputs.private_calls[0],
+            vk_tree_root: inputs.vk_tree_root,
+            protocol_contracts: inputs.protocol_contracts,
+            is_private_only: inputs.is_private_only,
+            revertible_counter_hint: inputs.revertible_counter_hint,
+        },
+>>>>>>> origin/v5-next
     );
 
     let constants_for_apps = PrivateTxConstantData {

@@ -1605,5 +1605,43 @@ describe('KeystoreManager', () => {
 
       expect(signer).toBeUndefined();
     });
+
+    it('resolves a bare-address fundingAccount via the keystore-level remote signer', async () => {
+      const fundingAddress = EthAddress.random();
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: EthAddress.random(),
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+        remoteSigner: 'http://localhost:9000',
+        fundingAccount: fundingAddress,
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const signer = manager.createFundingSigner();
+
+      expect(signer).toBeInstanceOf(RemoteSigner);
+      expect(signer!.address.equals(fundingAddress)).toBeTruthy();
+    });
+
+    it('throws for a bare-address fundingAccount when no remote signer is configured', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: EthAddress.random(),
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+        fundingAccount: EthAddress.random(),
+      };
+
+      const manager = new KeystoreManager(keystore);
+
+      expect(() => manager.createFundingSigner()).toThrow(/No remote signer configuration found/);
+    });
   });
 });

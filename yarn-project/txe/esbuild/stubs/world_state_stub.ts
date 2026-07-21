@@ -14,6 +14,7 @@ export class WorldStateSynchronizerError extends Error {
     this.name = 'WorldStateSynchronizerError';
   }
 }
+<<<<<<< HEAD
 
 export class IpcWorldState {
   constructor(..._args: unknown[]) {
@@ -30,3 +31,5 @@ export class WorldStateInstrumentation {
 export function getWsdbOptions(..._args: unknown[]): never {
   throwStub('getWsdbOptions');
 }
+=======
+>>>>>>> origin/v5-next

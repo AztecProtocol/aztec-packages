@@ -13,6 +13,7 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::{compute_secret_hash, hash_args},
     messages::{
+        delivery::OnchainDeliveryMode,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
@@ -88,16 +89,30 @@ pub struct TestEnvironment {
 /// methods setting each value, e.g.:
 /// ```noir
 /// let env = TestEnvironment::new_opts(
+<<<<<<< HEAD
 ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
     tagging_secret_strategy: Option<TaggingSecretStrategy>,
+=======
+///     TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+///         MessageDelivery::onchain_unconstrained(),
+///         TaggingSecretStrategy::non_interactive_handshake(),
+///     ),
+/// );
+/// ```
+pub struct TestEnvironmentOptions {
+    default_unconstrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    default_constrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    authorize_all_utility_call_targets: bool,
+>>>>>>> origin/v5-next
 }
 
 impl TestEnvironmentOptions {
     /// Creates a new `TestEnvironmentOptions` with default values.
     pub fn new() -> Self {
+<<<<<<< HEAD
         Self { tagging_secret_strategy: Option::none() }
     }
 
@@ -108,6 +123,52 @@ impl TestEnvironmentOptions {
     /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
     pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
         self.tagging_secret_strategy = Option::some(strategy);
+=======
+        Self {
+            default_unconstrained_tagging_secret_strategy: Option::none(),
+            default_constrained_tagging_secret_strategy: Option::none(),
+            authorize_all_utility_call_targets: false,
+        }
+    }
+
+    /// Sets the default [`TaggingSecretStrategy`] the wallet reports for `mode` through the
+    /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
+    /// private executions that do not fix their own delivery derivation.
+    ///
+    /// If no strategy is set for either mode, the wallet hook is left unconfigured and the private execution
+    /// environment applies its own default. A mode left unset while the other is configured falls back to the default
+    /// [`TaggingSecretStrategy::non_interactive_handshake`], the strategy a PXE `resolveTaggingSecretStrategy` hook
+    /// typically hardcodes for modes it does not customize.
+    pub fn with_default_tag_secret_strategy<M>(&mut self, mode: M, strategy: TaggingSecretStrategy) -> Self
+    where
+        M: Into<OnchainDeliveryMode>,
+    {
+        if mode.into() == OnchainDeliveryMode::onchain_unconstrained() {
+            self.default_unconstrained_tagging_secret_strategy = Option::some(strategy);
+        } else {
+            self.default_constrained_tagging_secret_strategy = Option::some(strategy);
+        }
+        *self
+    }
+
+    /// Sets `strategy` for both delivery modes: the equivalent of a PXE `resolveTaggingSecretStrategy` hook that
+    /// ignores the request's mode. See
+    /// [`with_default_tag_secret_strategy`](Self::with_default_tag_secret_strategy) to configure a single mode.
+    pub fn with_default_tag_secret_strategy_all_modes(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        let _ = self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_unconstrained(), strategy);
+        self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_constrained(), strategy)
+    }
+
+    /// Authorizes all cross-contract utility call targets for the entire test.
+    ///
+    /// Removes the need to list targets on each call via
+    /// [`CallPrivateOptions::with_authorized_utility_call_targets`] and its siblings.
+    ///
+    /// By default, cross-contract utility calls are denied, mirroring a wallet that authorizes no such call. Use
+    /// this in tests that do not care about utility call authorization.
+    pub fn with_all_utility_call_targets_authorized(&mut self) -> Self {
+        self.authorize_all_utility_call_targets = true;
+>>>>>>> origin/v5-next
         *self
     }
 }
@@ -607,18 +668,33 @@ impl TestEnvironment {
     ///
     /// ### Sample usage
     /// ```noir
+<<<<<<< HEAD
     /// let env = TestEnvironment::new_opts(
     ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(
     ///         TaggingSecretStrategy::non_interactive_handshake(),
     ///     ),
+=======
+    /// let strategy = TaggingSecretStrategy::non_interactive_handshake();
+    /// let env = TestEnvironment::new_opts(
+    ///     TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(strategy),
+>>>>>>> origin/v5-next
     /// );
     /// ```
     pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
 
+<<<<<<< HEAD
         // Forward the configured strategy to the wallet.
         txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
+=======
+        txe_oracles::set_tagging_secret_strategies(
+            options.default_unconstrained_tagging_secret_strategy,
+            options.default_constrained_tagging_secret_strategy,
+        );
+
+        txe_oracles::set_authorize_all_utility_call_targets(options.authorize_all_utility_call_targets);
+>>>>>>> origin/v5-next
 
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
@@ -887,7 +963,11 @@ impl TestEnvironment {
         sender: EthAddress,
         recipient: AztecAddress,
     ) -> Field {
+<<<<<<< HEAD
         self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash(secret), sender, recipient)
+=======
+        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash([secret]), sender, recipient)
+>>>>>>> origin/v5-next
     }
 
     /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash

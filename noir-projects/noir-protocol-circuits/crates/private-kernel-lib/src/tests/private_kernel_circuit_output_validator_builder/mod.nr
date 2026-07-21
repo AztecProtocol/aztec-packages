@@ -47,6 +47,16 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let protocol_nullifier = create_protocol_nullifier(self.tx_request);
         self.output.nullifiers.push(protocol_nullifier);
         self.previous_kernel.nullifiers.push(protocol_nullifier);
+<<<<<<< HEAD
+=======
+
+        let siloed_protocol_nullifier = compute_siloed_nullifier(
+            protocol_nullifier.contract_address,
+            protocol_nullifier.innermost().value,
+        );
+        self.previous_kernel.claimed_first_nullifier = siloed_protocol_nullifier;
+        self.output.claimed_first_nullifier = siloed_protocol_nullifier;
+>>>>>>> origin/v5-next
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {

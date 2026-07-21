@@ -1,7 +1,11 @@
 ^l1-contracts/src/.*\.sol$
 ^l1-contracts/test/.*\.sol$
 ^l1-contracts/script/.*\.sol$
+<<<<<<< HEAD
 ^l1-contracts/lib/.*
+=======
+^l1-contracts/scripts/forge_broadcast\.js$
+>>>>>>> origin/v5-next
 ^l1-contracts/bootstrap.sh
 ^l1-contracts/foundry.toml
 ^l1-contracts/foundry.lock

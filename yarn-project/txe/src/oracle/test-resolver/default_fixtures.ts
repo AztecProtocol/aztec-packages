@@ -8,19 +8,43 @@ import {
   BLOCK_HASH,
   BLOCK_NUMBER,
   BOOL,
+<<<<<<< HEAD
   BYTE,
   BoundedVec,
+=======
+  BoundedVec,
+  type CompositeMapping,
+>>>>>>> origin/v5-next
   DELIVERY_MODE,
   ETH_ADDRESS,
   FIELD,
   FUNCTION_SELECTOR,
+<<<<<<< HEAD
+=======
+  LEAF_INDEX,
+>>>>>>> origin/v5-next
   NOTE_SELECTOR,
   Option,
   type OracleRegistryEntry,
   SLOT_NUMBER,
+<<<<<<< HEAD
   type StructField,
   type TypeMapping,
   U32,
+=======
+  type StructMapping,
+  type TypeMapping,
+  U8,
+  U32,
+  U64,
+  U128,
+  isArrayMapping,
+  isBoundedVecMapping,
+  isFixedArrayMapping,
+  isFixedBoundedVecMapping,
+  isOptionMapping,
+  isStructMapping,
+>>>>>>> origin/v5-next
   tryFieldWidth,
 } from '@aztec/pxe/simulator';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
@@ -50,15 +74,29 @@ export function synthesizeDefaultFixtures(
 }
 
 /**
+<<<<<<< HEAD
  * The test-value implementations, one per oracle type, mirroring the Noir synthesizer tables (`scalars` and
  * `synthesizers` in `noir-projects/aztec-nr/.../macros/oracle_testing.nr`) exactly.
  */
 const TEST_VALUE_IMPLS: TestValueImpl[] = [
+=======
+ * The scalar test-value implementations, mirroring the Noir synthesizer's `scalars` table in
+ * `noir-projects/aztec-nr/.../macros/oracle_testing.nr` exactly.
+ */
+const SCALAR_IMPLS: ScalarImpl[] = [
+>>>>>>> origin/v5-next
   scalar(FIELD, seed => new Fr(seed)),
   scalar(U32, seed => seed),
   scalar(BLOCK_NUMBER, seed => BlockNumber(seed)),
   scalar(BIGINT, seed => BigInt(seed)),
+<<<<<<< HEAD
   scalar(BYTE, seed => seed),
+=======
+  scalar(U64, seed => BigInt(seed)),
+  scalar(U128, seed => BigInt(seed)),
+  scalar(LEAF_INDEX, seed => seed),
+  scalar(U8, seed => seed),
+>>>>>>> origin/v5-next
   scalar(BOOL, seed => seed % 2 !== 0),
   scalar(AZTEC_ADDRESS, seed => AztecAddress.fromNumberUnsafe(seed)),
   scalar(ETH_ADDRESS, seed => EthAddress.fromField(new Fr(seed))),
@@ -70,12 +108,27 @@ const TEST_VALUE_IMPLS: TestValueImpl[] = [
   scalar(DELIVERY_MODE, seed =>
     seed % 2 === 0 ? AppTaggingSecretKind.UNCONSTRAINED : AppTaggingSecretKind.CONSTRAINED,
   ),
+<<<<<<< HEAD
   composite(isOption, (type, seed) => [
     named(Option.some(firstValue(type.inner, seed)), 'some'),
     named(Option.none(firstValue(type.inner, seed)), 'none'),
   ]),
   composite(isArray, (type, seed) => [unnamed(collectionData(type.inner, seed, DEFAULT_ARRAY_LENGTH))]),
   composite(isBoundedVec, (type, seed) => [
+=======
+];
+
+/**
+ * The composite test-value implementations, one per combinator, mirroring the Noir synthesizer's `synthesizers` table.
+ */
+const COMPOSITE_IMPLS: CompositeImpl[] = [
+  composite(isOptionMapping, (type, seed) => [
+    named(Option.some(testValueFor(type.inner, seed)), 'some'),
+    named(Option.none(testValueFor(type.inner, seed)), 'none'),
+  ]),
+  composite(isArrayMapping, (type, seed) => [unnamed(collectionData(type.inner, seed, DEFAULT_ARRAY_LENGTH))]),
+  composite(isBoundedVecMapping, (type, seed) => [
+>>>>>>> origin/v5-next
     unnamed(
       BoundedVec.from({
         data: collectionData(type.inner, seed, DEFAULT_ARRAY_LENGTH),
@@ -83,6 +136,7 @@ const TEST_VALUE_IMPLS: TestValueImpl[] = [
       }),
     ),
   ]),
+<<<<<<< HEAD
   composite(isStruct, (type, seed) => [unnamed(structValue(type, seed))]),
   // A fixed-length array uses its real (signature) length, unlike the generic-length ARRAY which is pinned to
   // DEFAULT_ARRAY_LENGTH.
@@ -90,10 +144,25 @@ const TEST_VALUE_IMPLS: TestValueImpl[] = [
   // Same for a fixed-capacity bounded vec: real capacity, DEFAULT_ARRAY_LENGTH elements (its value type is a plain
   // element array, unlike the two-slot BOUNDED_VEC), clamped to the capacity so small vecs stay valid.
   composite(isFixedBoundedVec, (type, seed) => [
+=======
+  composite(isStructMapping, (type, seed) => [unnamed(structValue(type, seed))]),
+  // A fixed-length array uses its real (signature) length, unlike the generic-length ARRAY which is pinned to
+  // DEFAULT_ARRAY_LENGTH.
+  composite(isFixedArrayMapping, (type, seed) => [unnamed(collectionData(type.inner, seed, type.length))]),
+  // Same for a fixed-capacity bounded vec: real capacity, DEFAULT_ARRAY_LENGTH elements (its value type is a plain
+  // element array, unlike the two-slot BOUNDED_VEC), clamped to the capacity so small vecs stay valid.
+  composite(isFixedBoundedVecMapping, (type, seed) => [
+>>>>>>> origin/v5-next
     unnamed(collectionData(type.inner, seed, Math.min(DEFAULT_ARRAY_LENGTH, type.maxLength))),
   ]),
 ];
 
+<<<<<<< HEAD
+=======
+/** The scalar mappings with a registered test-value impl. */
+export const SCALAR_MAPPINGS: TypeMapping<any>[] = SCALAR_IMPLS.map(impl => impl.mapping);
+
+>>>>>>> origin/v5-next
 /**
  * The base every seed is offset by, applied once where a parameter's position becomes its seed, so generated values
  * stay clear of 0. Must match `SEED_BASE` in the Noir `oracle_testing.nr`.
@@ -125,6 +194,7 @@ function named(value: unknown, name: string): Scenario {
   return { value, name };
 }
 
+<<<<<<< HEAD
 /**
  * One type's test-value implementation, mirroring a Noir `TestValueSynthesizer` entry: `match` selects the type and
  * `scenarios` yields its [`Scenario`]s for `seed`, one per serialization shape, like the Noir entry's `scenarios`
@@ -145,12 +215,40 @@ function composite<K extends CompositeMapping>(
   guard: (type: TypeMapping<any>) => type is K,
   scenarios: (type: K, seed: number) => Scenario[],
 ): TestValueImpl {
+=======
+/** An impl for the single scalar `mapping` it synthesizes for. */
+type ScalarImpl = {
+  mapping: TypeMapping<any>;
+  scenarios: (type: TypeMapping<any>, seed: number) => Scenario[];
+};
+
+/** An impl for a whole family of composite mappings, selected by its `kind` type guard. */
+type CompositeImpl = {
+  match: (type: TypeMapping<any>) => boolean;
+  scenarios: (type: TypeMapping<any>, seed: number) => Scenario[];
+};
+
+/** A scalar impl yielding a single unnamed scenario. */
+function scalar(mapping: TypeMapping<any>, value: (seed: number) => unknown): ScalarImpl {
+  return { mapping, scenarios: (_type, seed) => [unnamed(value(seed))] };
+}
+
+/** A composite impl, recursing through the matched mapping's element/inner mapping. */
+function composite<K extends CompositeMapping>(
+  guard: (type: TypeMapping<any>) => type is K,
+  scenarios: (type: K, seed: number) => Scenario[],
+): CompositeImpl {
+>>>>>>> origin/v5-next
   return { match: guard, scenarios: (type, seed) => scenarios(type as K, seed) };
 }
 
 /** Synthesized element values for a collection. */
 function collectionData(element: TypeMapping<any>, seed: number, length: number): unknown[] {
+<<<<<<< HEAD
   return Array.from({ length }, (_, i) => firstValue(element, seed + i));
+=======
+  return Array.from({ length }, (_, i) => testValueFor(element, seed + i));
+>>>>>>> origin/v5-next
 }
 
 /**
@@ -161,7 +259,11 @@ function structValue(type: StructMapping, seed: number): Record<string, unknown>
   const value: Record<string, unknown> = {};
   let offset = 0;
   for (const field of type.fields) {
+<<<<<<< HEAD
     value[field.name] = firstValue(field.type, seed + offset);
+=======
+    value[field.name] = testValueFor(field.type, seed + offset);
+>>>>>>> origin/v5-next
     const width = tryFieldWidth(field.type.shape);
     if (width === undefined) {
       // A variable-width field has no flat offset to seed the next field at, so only this oracle is unsynthesizable.
@@ -177,15 +279,27 @@ function structValue(type: StructMapping, seed: number): Record<string, unknown>
  * dispatcher. Throws if the type has no matching impl.
  */
 function scenariosForType(type: TypeMapping<any>, seed: number): Scenario[] {
+<<<<<<< HEAD
   const impl = TEST_VALUE_IMPLS.find(i => i.match(type));
+=======
+  const impl = SCALAR_IMPLS.find(i => i.mapping === type) ?? COMPOSITE_IMPLS.find(i => i.match(type));
+>>>>>>> origin/v5-next
   if (!impl) {
     throw new UnsynthesizableTypeError(type);
   }
   return impl.scenarios(type, seed);
 }
 
+<<<<<<< HEAD
 /** The first (representative) test value of `type`, used for collection elements and `Option` inners. */
 function firstValue(type: TypeMapping<any>, seed: number): unknown {
+=======
+/**
+ * The test value of `type` at `seed`, matching what the Noir synthesizer produces for the same type and seed. Throws
+ * for types without a test-value impl.
+ */
+export function testValueFor(type: TypeMapping<any>, seed: number): unknown {
+>>>>>>> origin/v5-next
   return scenariosForType(type, seed)[0].value;
 }
 
@@ -242,6 +356,7 @@ function synthesizeScenariosOrThrow(entry: OracleRegistryEntry): OracleTestScena
   }
   return scenarios;
 }
+<<<<<<< HEAD
 
 /**
  * The composite `TypeMapping`s (`ARRAY`/`BOUNDED_VEC`/`OPTION`/`STRUCT`/`FIXED_ARRAY`/`FIXED_BOUNDED_VEC`),
@@ -280,3 +395,5 @@ function isFixedArray(type: TypeMapping<any>): type is FixedArrayMapping {
 function isFixedBoundedVec(type: TypeMapping<any>): type is FixedBoundedVecMapping {
   return 'kind' in type && type.kind === 'fixed-bounded-vec';
 }
+=======
+>>>>>>> origin/v5-next

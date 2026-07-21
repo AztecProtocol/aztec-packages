@@ -33,7 +33,11 @@ describe('automine/accounts/multiple_accounts_1_enc_key', () => {
         // A different signing key for each account.
         const signingKey = GrumpkinScalar.random();
         const salt = Fr.random();
+<<<<<<< HEAD
         const address = await getSchnorrInitializerlessAccountContractAddress(secret, salt, signingKey);
+=======
+        const address = await getSchnorrInitializerlessAccountContractAddress(signingKey, salt, secret);
+>>>>>>> origin/v5-next
         return {
           secret,
           signingKey,

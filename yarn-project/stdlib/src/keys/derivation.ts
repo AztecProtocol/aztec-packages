@@ -48,11 +48,14 @@ export function deriveMasterMessageSigningSecretKey(secretKey: Fr): GrumpkinScal
 
 export function deriveMasterFallbackSecretKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, DomainSeparator.FBSK_M]);
+<<<<<<< HEAD
 }
 
 export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
   // TODO(#5837): come up with a standard signing key derivation scheme instead of using ivsk_m as signing keys here
   return sha512ToGrumpkinScalar([secretKey, DomainSeparator.IVSK_M]);
+=======
+>>>>>>> origin/v5-next
 }
 
 export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {

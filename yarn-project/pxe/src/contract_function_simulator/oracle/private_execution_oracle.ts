@@ -30,11 +30,19 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
+<<<<<<< HEAD
 import type {
   ResolveTaggingSecretStrategy,
   TaggingSecretStrategy,
+=======
+import {
+  DEFAULT_TAGGING_SECRET_STRATEGY,
+  type ResolveTaggingSecretStrategy,
+  type TaggingSecretStrategy,
+>>>>>>> origin/v5-next
 } from '../../hooks/resolve_tagging_secret_strategy.js';
 import { NoteService } from '../../notes/note_service.js';
+import { assertAllowedScope } from '../../storage/allowed_scopes.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
@@ -237,8 +245,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   ): Promise<TaggingSecretStrategy> {
     const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
     if (!hook) {
+<<<<<<< HEAD
       // With no hook, both delivery modes default to a non-interactive handshake
       return { type: 'non-interactive-handshake' };
+=======
+      return DEFAULT_TAGGING_SECRET_STRATEGY;
+>>>>>>> origin/v5-next
     }
 
     const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);
@@ -321,7 +333,17 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns The app tagging secret, or `None` if the recipient is invalid.
    */
   public async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>> {
-    const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
+    assertAllowedScope(sender, this.scopes);
+
+    const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    const extendedSecret = await AppTaggingSecret.computeViaEcdh(
+      senderCompleteAddress,
+      senderIvsk,
+      recipient,
+      this.contractAddress,
+      recipient,
+    );
 
     if (!extendedSecret) {
       this.logger.warn(`Computing a tagging secret for invalid recipient ${recipient} - returning no secret`, {
@@ -354,12 +376,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return index;
   }
 
+<<<<<<< HEAD
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
     return AppTaggingSecret.computeViaEcdh(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
   }
 
+=======
+>>>>>>> origin/v5-next
   async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
     // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
     const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);

@@ -18,6 +18,7 @@ pub(crate) unconstrained fn get_resolved_txs(requests: EphemeralArray<Field>) ->
 
 #[oracle(aztec_utl_getResolvedTxs)]
 unconstrained fn get_resolved_txs_oracle(requests: EphemeralArray<Field>) -> EphemeralArray<Option<ResolvedTx>> {}
+<<<<<<< HEAD
 
 mod test {
     use crate::oracle::tx_resolution::ResolvedTx;
@@ -119,3 +120,5 @@ mod test {
         assert_eq(deserialized, resolved_tx);
     }
 }
+=======
+>>>>>>> origin/v5-next

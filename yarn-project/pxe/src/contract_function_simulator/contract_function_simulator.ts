@@ -315,7 +315,11 @@ export class ContractFunctionSimulator {
       );
       const simulatorTeardownTimer = new Timer();
 
+<<<<<<< HEAD
       const firstNullifierHint = noteCache.getNonceGenerator();
+=======
+      const firstNullifier = noteCache.getNonceGenerator();
+>>>>>>> origin/v5-next
 
       const publicCallRequests = collectNested([executionResult], r =>
         r.publicInputs.publicCallRequests
@@ -338,9 +342,9 @@ export class ContractFunctionSimulator {
       }
 
       // Not to be confused with a PrivateCallExecutionResult. This is a superset
-      // of the PrivateCallExecutionResult, containing also firstNullifierHint
+      // of the PrivateCallExecutionResult, containing also firstNullifier
       // and publicFunctionsCalldata.
-      return new PrivateExecutionResult(executionResult, firstNullifierHint, publicFunctionsCalldata);
+      return new PrivateExecutionResult(executionResult, firstNullifier, publicFunctionsCalldata);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }

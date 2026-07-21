@@ -5,6 +5,10 @@ export type { Fact } from './stored_fact.js';
 export {
   OriginBlockState,
   classifyOriginBlockState,
+<<<<<<< HEAD
+=======
+  originBlockStateFromNumber,
+>>>>>>> origin/v5-next
   anchoredTipBlockNumbers,
   toFactWithOriginState,
   type TipBlockNumbers,

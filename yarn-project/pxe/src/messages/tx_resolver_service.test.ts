@@ -6,7 +6,10 @@ import { DroppedTxReceipt, MinedTxReceipt, TxEffect, TxExecutionResult, TxHash, 
 
 import { mock } from 'jest-mock-extended';
 
+<<<<<<< HEAD
 import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
+=======
+>>>>>>> origin/v5-next
 import { TxResolverService } from './tx_resolver_service.js';
 
 describe('TxResolverService', () => {
@@ -118,7 +121,19 @@ describe('TxResolverService', () => {
 
     const results = await service.resolveTxs([txHash.hash], anchorBlockNumber);
 
+<<<<<<< HEAD
     expect(results).toEqual([new ResolvedTx(txHash, noteHashes, firstNullifier, blockNumber, blockHash.toFr())]);
+=======
+    expect(results).toEqual([
+      {
+        txHash,
+        uniqueNoteHashesInTx: noteHashes,
+        firstNullifierInTx: firstNullifier,
+        blockNumber,
+        blockHash: blockHash.toFr(),
+      },
+    ]);
+>>>>>>> origin/v5-next
   });
 
   it('resolves tx hashes in different situations', async () => {
@@ -166,7 +181,17 @@ describe('TxResolverService', () => {
 
     expect(results).toEqual([
       null,
+<<<<<<< HEAD
       new ResolvedTx(validTxHash, validNoteHashes, validNullifier, anchorBlockNumber, validBlockHash.toFr()),
+=======
+      {
+        txHash: validTxHash,
+        uniqueNoteHashesInTx: validNoteHashes,
+        firstNullifierInTx: validNullifier,
+        blockNumber: anchorBlockNumber,
+        blockHash: validBlockHash.toFr(),
+      },
+>>>>>>> origin/v5-next
       null,
       null,
     ]);
@@ -202,6 +227,7 @@ describe('TxResolverService', () => {
       anchorBlockNumber,
     );
 
+<<<<<<< HEAD
     const expected = new ResolvedTx(
       txEffect.txHash,
       txEffect.noteHashes,
@@ -209,6 +235,15 @@ describe('TxResolverService', () => {
       blockNumber,
       blockHash.toFr(),
     );
+=======
+    const expected = {
+      txHash: txEffect.txHash,
+      uniqueNoteHashesInTx: txEffect.noteHashes,
+      firstNullifierInTx: txEffect.nullifiers[0],
+      blockNumber,
+      blockHash: blockHash.toFr(),
+    };
+>>>>>>> origin/v5-next
     expect(results).toEqual([expected, expected, expected]);
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
   });

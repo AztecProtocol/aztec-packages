@@ -1,10 +1,9 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import { createLogger } from '@aztec/foundation/log';
 
-import { initStoreForRollupAndSchemaVersion } from '../utils.js';
 import { AztecSQLiteOPFSStore } from './store.js';
 
 export { AztecSQLiteOPFSStore } from './store.js';
+<<<<<<< HEAD
 export { SqliteEncryptionError } from './errors.js';
 export type { SqliteEncryptionErrorCode } from './errors.js';
 
@@ -23,6 +22,16 @@ export async function createStore(
   const store = await AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite-opfs'), name, false);
   return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.rollupAddress, log);
 }
+=======
+export {
+  SqliteCorruptionError,
+  SqliteEncryptionError,
+  SqlitePoolBusyError,
+  SqliteWebLocksUnavailableError,
+} from './errors.js';
+export type { SqliteEncryptionErrorCode } from './errors.js';
+export { OPFS_POOL_DIR_PREFIX, deletePoolDirectory, deleteStore, listStores, storePoolDirectory } from './manage.js';
+>>>>>>> origin/v5-next
 
 export function openTmpStore(ephemeral: boolean = false): Promise<AztecSQLiteOPFSStore> {
   return AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite-opfs'), undefined, ephemeral);

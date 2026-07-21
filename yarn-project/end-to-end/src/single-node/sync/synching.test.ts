@@ -155,7 +155,7 @@ class TestVariant {
   async deployAccounts(accounts: InitialAccountData[]) {
     // Create accounts such that we can send from many to not have colliding nullifiers
     const managers = await Promise.all(
-      accounts.map(account => this.wallet.createSchnorrAccount(account.secret, account.salt)),
+      accounts.map(account => this.wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)),
     );
     await Promise.all(
       managers.map(async m => {

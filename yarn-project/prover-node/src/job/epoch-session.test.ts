@@ -199,6 +199,29 @@ describe('EpochSession', () => {
       expect(topTree.stop).toHaveBeenCalled();
     });
 
+<<<<<<< HEAD
+=======
+    it('aborts the in-flight broker jobs on a normal cancel (abortJobs defaults to true)', async () => {
+      const proveGate = promiseWithResolvers<TopTreeProof>();
+      const session = makeSession({ hooks: { topTreeProveOverride: () => proveGate.promise } });
+      const startResult = session.start();
+      await topTreeConstructed.promise;
+      await session.cancel('canonical content changed');
+      await expect(startResult).resolves.toBe('cancelled');
+      expect(topTree.cancel).toHaveBeenCalledWith({ abortJobs: true });
+    });
+
+    it('preserves the in-flight broker jobs when cancelled with abortJobs=false (clean shutdown)', async () => {
+      const proveGate = promiseWithResolvers<TopTreeProof>();
+      const session = makeSession({ hooks: { topTreeProveOverride: () => proveGate.promise } });
+      const startResult = session.start();
+      await topTreeConstructed.promise;
+      await session.cancel('prover-node stopping', { abortJobs: false });
+      await expect(startResult).resolves.toBe('cancelled');
+      expect(topTree.cancel).toHaveBeenCalledWith({ abortJobs: false });
+    });
+
+>>>>>>> origin/v5-next
     it('cancel after start has settled leaves the existing terminal state in place', async () => {
       publishingService.submit.mockResolvedValue('published');
       const session = makeSession();
@@ -442,9 +465,12 @@ function makeStubProver(checkpoint: Checkpoint, opts: { blockProofsError?: Error
     whenBlockProofsReady: () => blockProofs,
     isCancelled: () => false,
     isCompleted: () => false,
+<<<<<<< HEAD
     isPruned: () => false,
     markPruned: () => {},
     markCanonical: () => {},
+=======
+>>>>>>> origin/v5-next
     cancel: () => {},
     whenDone: () => Promise.resolve(),
     getAbortSignal: () => new AbortController().signal,

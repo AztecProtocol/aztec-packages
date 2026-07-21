@@ -787,6 +787,8 @@ class ECCVMFlavor {
             }
             // lookup_inverses is a derived witness — mask it so the commitment hides its values
             lookup_inverses.add_masking();
+            // msm_round_minus_31_inv is a derived witness — mask it so the commitment hides its values
+            msm_round_minus_31_inv.add_masking();
 
             // Lagrange polys shifted by the disabled head region
             lagrange_first.at(trace_offset) = 1;

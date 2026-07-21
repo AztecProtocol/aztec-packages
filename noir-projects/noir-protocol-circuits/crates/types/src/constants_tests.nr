@@ -14,7 +14,12 @@ use crate::{
         DOM_SEP__CONTRACT_ADDRESS_V2, DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__ECDH_FIELD_MASK,
         DOM_SEP__ECDH_SUBKEY, DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FBSK_M,
         DOM_SEP__FUNCTION_ARGS, DOM_SEP__INITIALIZATION_NULLIFIER, DOM_SEP__INITIALIZER,
+<<<<<<< HEAD
         DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE, DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH,
+=======
+        DOM_SEP__HANDSHAKE_FORGERY_PROTECTION, DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE,
+        DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH,
+>>>>>>> origin/v5-next
         DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__MSSK_M, DOM_SEP__NHK_M,
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER,
@@ -145,7 +150,11 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
+<<<<<<< HEAD
     let mut tester = HashedValueTester::<77, 70>::new();
+=======
+    let mut tester = HashedValueTester::<78, 71>::new();
+>>>>>>> origin/v5-next
 
     // -----------------
     // Domain separators
@@ -198,6 +207,13 @@ fn hashed_values_match_derived() {
         DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE,
         "interactive_handshake_signature",
     );
+<<<<<<< HEAD
+=======
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__HANDSHAKE_FORGERY_PROTECTION,
+        "handshake_forgery_protection",
+    );
+>>>>>>> origin/v5-next
     tester.assert_dom_sep_matches_derived(DOM_SEP__MESSAGE_NULLIFIER, "message_nullifier");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PRIVATE_FUNCTION_LEAF, "private_function_leaf");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_BYTECODE, "public_bytecode");

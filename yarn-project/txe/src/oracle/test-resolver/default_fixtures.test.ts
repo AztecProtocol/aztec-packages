@@ -1,12 +1,19 @@
 /* eslint-disable camelcase */
 import {
   BOUNDED_VEC,
+<<<<<<< HEAD
   BYTE,
+=======
+>>>>>>> origin/v5-next
   type BoundedVec,
   FIELD,
   OPTION,
   type Option,
   type OracleRegistryEntry,
+<<<<<<< HEAD
+=======
+  U8,
+>>>>>>> origin/v5-next
   makeEntry,
 } from '@aztec/pxe/simulator';
 
@@ -16,7 +23,11 @@ describe('synthesizeDefaultFixtures', () => {
   it('synthesizes a BoundedVec<Byte> param, padding data below capacity', () => {
     const registry: Record<string, OracleRegistryEntry> = {
       push_bytes: makeEntry({
+<<<<<<< HEAD
         params: [{ name: 'ciphertext', type: BOUNDED_VEC(BYTE) }],
+=======
+        params: [{ name: 'ciphertext', type: BOUNDED_VEC(U8) }],
+>>>>>>> origin/v5-next
       }),
     };
 
@@ -31,7 +42,11 @@ describe('synthesizeDefaultFixtures', () => {
   it('synthesizes an Option<BoundedVec<Byte>> return as two cases named some/none', () => {
     const registry: Record<string, OracleRegistryEntry> = {
       decrypt_bytes: makeEntry({
+<<<<<<< HEAD
         returnType: OPTION(BOUNDED_VEC(BYTE)),
+=======
+        returnType: OPTION(BOUNDED_VEC(U8)),
+>>>>>>> origin/v5-next
       }),
     };
 

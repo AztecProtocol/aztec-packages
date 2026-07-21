@@ -1,7 +1,12 @@
+<<<<<<< HEAD
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TxHash } from '@aztec/stdlib/tx';
+=======
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { TxHash } from '@aztec/stdlib/tx';
+>>>>>>> origin/v5-next
 
 /**
  * The resolved on-chain context of a transaction.
@@ -9,6 +14,7 @@ import { TxHash } from '@aztec/stdlib/tx';
  * Carries the note hashes and first nullifier needed to discover notes that originated from the transaction, plus the
  * number and hash of the block in which it was mined.
  *
+<<<<<<< HEAD
  * A TS version of the `ResolvedTx` struct in `oracle/tx_resolution.nr`.
  */
 export class ResolvedTx {
@@ -51,3 +57,15 @@ function serializeBoundedVec(values: Fr[], maxLength: number): Fr[] {
   );
   return [...storage, new Fr(values.length)];
 }
+=======
+ * A TS version of the `ResolvedTx` struct in `oracle/tx_resolution.nr`; its wire layout lives in the `RESOLVED_TX`
+ * type mapping.
+ */
+export type ResolvedTx = {
+  txHash: TxHash;
+  uniqueNoteHashesInTx: Fr[];
+  firstNullifierInTx: Fr;
+  blockNumber: number;
+  blockHash: Fr;
+};
+>>>>>>> origin/v5-next

@@ -163,6 +163,8 @@ library EpochProofLib {
     ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
+    verifyHeaders(_start, _end, _headers);
+
     RollupStore storage rollupStore = STFLib.getStorage();
 
     {

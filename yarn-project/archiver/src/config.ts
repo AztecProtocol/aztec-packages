@@ -89,6 +89,17 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_SKIP_ORPHAN_PROPOSED_BLOCK_PRUNING',
     description: 'Skip pruning orphan proposed blocks that have no matching proposed checkpoint.',
     ...booleanConfigHelper(false),
+<<<<<<< HEAD
+=======
+  },
+  testPreloadStandardContracts: {
+    env: 'TEST_PRELOAD_STANDARD_CONTRACTS',
+    description:
+      'Preload the standard contracts (AuthRegistry, PublicChecks, HandshakeRegistry) into the contract store at ' +
+      'block 0. For test environments only, and only safe when genesis seeds the matching registration/deployment ' +
+      'nullifiers; otherwise a later on-chain publish would collide with the block-0 preload.',
+    ...booleanConfigHelper(false),
+>>>>>>> origin/v5-next
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,

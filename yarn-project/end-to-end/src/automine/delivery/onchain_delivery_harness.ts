@@ -1,11 +1,20 @@
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { FieldLike } from '@aztec/aztec.js/abi';
 import { NO_FROM } from '@aztec/aztec.js/account';
+<<<<<<< HEAD
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type DeliveryEvent, OnchainDeliveryTestContract } from '@aztec/noir-test-contracts.js/OnchainDeliveryTest';
 import type { PXECreationOptions } from '@aztec/pxe/server';
+=======
+import type { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { AccountManager } from '@aztec/aztec.js/wallet';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { type DeliveryEvent, OnchainDeliveryTestContract } from '@aztec/noir-test-contracts.js/OnchainDeliveryTest';
+import type { CustomRequest, ResolveCustomRequest, ResolveTaggingSecretStrategy } from '@aztec/pxe/config';
+>>>>>>> origin/v5-next
 import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
@@ -14,9 +23,19 @@ import { AUTOMINE_E2E_OPTS } from '../../fixtures/fixtures.js';
 import { ensureHandshakeRegistryPublished, setup, setupPXEAndGetWallet } from '../../fixtures/setup.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 
+<<<<<<< HEAD
 // The wallet hook that selects a message's tagging-secret source. Derived from the exported PXE options
 // rather than importing the hook type, which `@aztec/pxe/server` does not re-export.
 export type SenderHook = NonNullable<NonNullable<PXECreationOptions['hooks']>['resolveTaggingSecretStrategy']>;
+=======
+// Builds the hook serving custom requests issued during the sender's simulations. Installed on the sender PXE at
+// creation but built only once the recipient exists, since serving typically needs the recipient's wallet and keys.
+export type CustomRequestResponder = (
+  recipient: TestWallet,
+  recipientAccount: InitialAccountData,
+  recipientCompleteAddress: CompleteAddress,
+) => ResolveCustomRequest;
+>>>>>>> origin/v5-next
 
 export type Mode = 'constrained' | 'unconstrained';
 
@@ -40,19 +59,33 @@ export function buildMessageDeliveryTest(opts: {
   strategy: string;
   mode: DeliveryMode;
   // Required: every cell states its source explicitly rather than leaning on the PXE default (covered by unit tests).
+<<<<<<< HEAD
   senderHook: SenderHook;
+=======
+  senderHook: ResolveTaggingSecretStrategy;
+>>>>>>> origin/v5-next
   // Recipient-side setup the source requires (e.g. registering a raw arbitrary secret); runs once after deployment.
   recipientRegistration?: (
     recipient: TestWallet,
     recipientAddress: AztecAddress,
     sender: AztecAddress,
   ) => Promise<void>;
+<<<<<<< HEAD
+=======
+  // Serves the custom requests issued during the sender's simulations (e.g. the registry's interactive-handshake
+  // signature request).
+  customRequestResponder?: CustomRequestResponder;
+>>>>>>> origin/v5-next
   // Extra `it()`s to register in this cell's suite, e.g. assertions against state a custom `senderHook` recorded.
   // Called inside the same `describe`, after the two baseline assertions below, so it shares their `beforeAll`
   // instead of depending on Jest's cross-`describe` execution order.
   additionalTests?: () => void;
 }) {
+<<<<<<< HEAD
   const { strategy, mode, senderHook, recipientRegistration, additionalTests } = opts;
+=======
+  const { strategy, mode, senderHook, recipientRegistration, customRequestResponder, additionalTests } = opts;
+>>>>>>> origin/v5-next
   const description = `${strategy} x ${formatMode(mode)}`;
 
   describe(description, () => {
@@ -84,11 +117,21 @@ export function buildMessageDeliveryTest(opts: {
         ? contractSender.methods.emit_note(recipient, value)
         : contractSender.methods.emit_note_unconstrained(recipient, value);
 
+<<<<<<< HEAD
+=======
+    let additionallyFundedAccounts: InitialAccountData[];
+    let recipientAccount: AccountManager | undefined;
+    let customRequestCount = 0;
+
+>>>>>>> origin/v5-next
     beforeAll(async () => {
       // The sender PXE holds the sender and carries this cell's tagging-secret-strategy hook. The recipient is funded
       // at genesis here but created and deployed on the isolated recipient PXE below, so it carries no sender state
       // from other cells.
+<<<<<<< HEAD
       let additionallyFundedAccounts: InitialAccountData[];
+=======
+>>>>>>> origin/v5-next
       ({
         aztecNode,
         additionallyFundedAccounts,
@@ -98,7 +141,30 @@ export function buildMessageDeliveryTest(opts: {
       } = await setup(1, {
         ...AUTOMINE_E2E_OPTS,
         additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
+<<<<<<< HEAD
         pxeCreationOptions: { hooks: { resolveTaggingSecretStrategy: senderHook } },
+=======
+        pxeCreationOptions: {
+          hooks: {
+            resolveTaggingSecretStrategy: senderHook,
+            resolveCustomRequest: async (request: CustomRequest) => {
+              if (!customRequestResponder) {
+                throw new Error('A custom request arrived but this test cell has no customRequestResponder configured');
+              }
+              if (!recipientAccount) {
+                throw new Error('A custom request arrived before the recipient wallet was created');
+              }
+              customRequestCount++;
+              const respond = customRequestResponder(
+                walletRecipient,
+                additionallyFundedAccounts[0],
+                await recipientAccount.getCompleteAddress(),
+              );
+              return respond(request);
+            },
+          },
+        },
+>>>>>>> origin/v5-next
       }));
 
       ({ wallet: walletRecipient, teardown: teardownRecipient } = await setupPXEAndGetWallet(
@@ -108,7 +174,11 @@ export function buildMessageDeliveryTest(opts: {
         undefined,
         'pxe-recipient',
       ));
+<<<<<<< HEAD
       const recipientAccount = await walletRecipient.createSchnorrAccount(
+=======
+      recipientAccount = await walletRecipient.createSchnorrAccount(
+>>>>>>> origin/v5-next
         additionallyFundedAccounts[0].secret,
         additionallyFundedAccounts[0].salt,
         additionallyFundedAccounts[0].signingKey,
@@ -172,6 +242,15 @@ export function buildMessageDeliveryTest(opts: {
       expect(readNotes).toEqual(noteValues);
     });
 
+<<<<<<< HEAD
+=======
+    if (customRequestResponder) {
+      it('the custom request hook fires exactly once, on the send that bootstraps the tagging secret', () => {
+        expect(customRequestCount).toBe(1);
+      });
+    }
+
+>>>>>>> origin/v5-next
     additionalTests?.();
   });
 }

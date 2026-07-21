@@ -8,6 +8,7 @@
 #include <memory>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include "barretenberg/common/tuple.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -54,7 +55,11 @@ class TraceContainer {
     // it) so that concurrent chunks touch disjoint shards. Smaller => less memory wasted in
     // sparsely-filled regions, at the cost of a larger shard table (more atomic slots) and more shard
     // allocations per column.
+<<<<<<< HEAD
     static constexpr uint32_t INTERVAL_SIZE = 1U << 11;
+=======
+    static constexpr uint32_t INTERVAL_SIZE = 1u << 11;
+>>>>>>> origin/v5-next
     // Number of shards in a column's (fixed-size) shard table. The trace never exceeds the circuit size,
     // so this bounds the shard index. INTERVAL_SIZE divides MAX_AVM_TRACE_SIZE evenly.
     static constexpr size_t NUM_SHARDS = MAX_AVM_TRACE_SIZE / INTERVAL_SIZE;

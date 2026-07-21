@@ -29,7 +29,10 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { ProverNode } from '@aztec/prover-node';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { AutomineSequencer } from '@aztec/sequencer-client/automine';
+<<<<<<< HEAD
 import type { AvmSimulator } from '@aztec/simulator/server';
+=======
+>>>>>>> origin/v5-next
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -150,10 +153,13 @@ export interface AztecNodeServiceDeps {
   keyStoreManager?: KeystoreManager;
   debugLogStore?: DebugLogStore;
   automineSequencer?: AutomineSequencer;
+<<<<<<< HEAD
   // AVM execution backend for public simulation. Wired in production (factory.ts); absent in unit/TXE nodes
   // that don't drive public execution, hence optional and asserted at the simulation call site. Owned by the
   // node (disposed on stop), so it must be disposable — a spawned process pool + CDB IPC server.
   avmSimulator?: AvmSimulator & AsyncDisposable;
+=======
+>>>>>>> origin/v5-next
 }
 
 /**
@@ -200,7 +206,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private keyStoreManager?: KeystoreManager;
   private debugLogStore: DebugLogStore;
   private readonly automineSequencer?: AutomineSequencer;
+<<<<<<< HEAD
   private readonly avmSimulator?: AvmSimulator & AsyncDisposable;
+=======
+>>>>>>> origin/v5-next
 
   constructor(deps: AztecNodeServiceDeps) {
     this.config = deps.config;
@@ -231,7 +240,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.keyStoreManager = deps.keyStoreManager;
     this.debugLogStore = deps.debugLogStore ?? new NullDebugLogStore();
     this.automineSequencer = deps.automineSequencer;
+<<<<<<< HEAD
     this.avmSimulator = deps.avmSimulator;
+=======
+>>>>>>> origin/v5-next
 
     this.metrics = new NodeMetrics(this.telemetry, 'AztecNodeService');
     this.tracer = this.telemetry.getTracer('AztecNodeService');
@@ -248,7 +260,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       epochCache: this.epochCache,
       signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
       config: this.config,
+<<<<<<< HEAD
       avmSimulator: this.avmSimulator,
+=======
+>>>>>>> origin/v5-next
       telemetry: this.telemetry,
       log: this.log.createChild('public-calls-simulator'),
     });

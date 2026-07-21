@@ -9,7 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ## 5.0.1
+=======
+### [Aztec.nr] Note property selectors are typed and use packed-layout indices
+
+The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
+
+Breaking changes:
+
+- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
+- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
+- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
+- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
+- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+>>>>>>> origin/v5-next
 
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
 
@@ -46,6 +60,7 @@ await deleteStore(names[0]);
 
 This change also removes `createStore` from `@aztec/kv-store/sqlite-opfs` and `@aztec/kv-store/deprecated/indexeddb`: stores are now opened by name with `AztecSQLiteOPFSStore.open` / `AztecIndexedDBStore.open`.
 
+<<<<<<< HEAD
 ## 5.0.0
 
 ### [PXE] Local PXE database is reset on upgrade
@@ -54,6 +69,8 @@ The persisted tagging stores now key every entry by the self-describing `<kind>:
 
 **Impact**: On upgrade your local PXE state is reset. You must re-register accounts and re-sync from genesis. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path.
 
+=======
+>>>>>>> origin/v5-next
 ### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
 
 `TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
@@ -170,8 +187,11 @@ Registering classes and instances are now separate, unvalidated operations. `reg
   The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
 
 - `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> origin/v5-next
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
 `AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:
@@ -1480,6 +1500,22 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
 
+
+### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
+
+`AztecNode.getTxByHash`, `AztecNode.getTxsByHash` and `AztecNode.getPendingTxs` (also exposed on the P2P API) now take an optional `GetTxByHashOptions` argument with an `includeProof` flag. The proof is stripped from returned txs unless `includeProof: true` is passed, cutting roughly 35-52KB per tx over the wire.
+
+**Migration:**
+
+```diff
+- const tx = await node.getTxByHash(txHash);
++ const tx = await node.getTxByHash(txHash, { includeProof: true });
+
+- const txs = await node.getPendingTxs(limit, after);
++ const txs = await node.getPendingTxs(limit, after, { includeProof: true });
+```
+
+**Impact**: Callers that read the proof off returned txs (eg to re-broadcast or validate them) must now pass `{ includeProof: true }` explicitly; by default the returned txs carry an empty proof.
 
 ### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
 

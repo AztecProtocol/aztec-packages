@@ -19,6 +19,8 @@
 
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include <atomic>
+#include <cstdlib>
 
 namespace bb::scalar_multiplication::legacy {
 
@@ -646,6 +648,7 @@ template class bb::scalar_multiplication::legacy::MSM<bb::curve::BN254>;
 
 // ===================================================================================
 // Public MSM facade implementation (see scalar_multiplication.hpp). Routes to the
+<<<<<<< HEAD
 // `_fast` rewrite by default, or `legacy::` when BB_MSM_LEGACY is set.
 // ===================================================================================
 namespace bb::scalar_multiplication {
@@ -654,6 +657,40 @@ bool use_legacy_msm() noexcept
 {
     static const bool legacy_selected = std::getenv("BB_MSM_LEGACY") != nullptr;
     return legacy_selected;
+=======
+// `legacy::` MSM by default; the round-parallel `_fast` path is opt-in (BB_MSM_NEW env,
+// the API override, or TS `legacyMsm: false`).
+// ===================================================================================
+namespace bb::scalar_multiplication {
+
+namespace {
+// -1 means "no API override"; fall back to the env-var default.
+std::atomic<int> legacy_msm_override{ -1 };
+} // namespace
+
+bool use_legacy_msm() noexcept
+{
+    const int selected_override = legacy_msm_override.load(std::memory_order_relaxed);
+    if (selected_override != -1) {
+        return selected_override != 0;
+    }
+    // Legacy MSM is the default; the round-parallel path is opt-in via BB_MSM_NEW (or the API
+    // override / TS `legacyMsm: false`). BB_MSM_LEGACY forces legacy explicitly and wins if both
+    // env vars are set.
+    static const bool legacy_forced = std::getenv("BB_MSM_LEGACY") != nullptr;
+    static const bool new_selected = std::getenv("BB_MSM_NEW") != nullptr;
+    return legacy_forced || !new_selected;
+}
+
+void set_legacy_msm_override(bool enabled) noexcept
+{
+    legacy_msm_override.store(enabled ? 1 : 0, std::memory_order_relaxed);
+}
+
+void clear_legacy_msm_override() noexcept
+{
+    legacy_msm_override.store(-1, std::memory_order_relaxed);
+>>>>>>> origin/v5-next
 }
 
 template <typename Curve>

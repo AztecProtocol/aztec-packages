@@ -12,6 +12,13 @@ fn with_everything_empty() {
     builder.private_call.expiration_timestamp = 0;
 
     let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+<<<<<<< HEAD
+=======
+    let protocol_nullifier = compute_siloed_nullifier(
+        scoped_protocol_nullifier.contract_address,
+        scoped_protocol_nullifier.innermost().value,
+    );
+>>>>>>> origin/v5-next
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
@@ -20,6 +27,10 @@ fn with_everything_empty() {
     assert_eq(pi.fee_payer, AztecAddress::empty());
     assert_eq(pi.expiration_timestamp, 0);
     assert_eq(pi.is_private_only, false);
+<<<<<<< HEAD
+=======
+    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
+>>>>>>> origin/v5-next
     assert_eq(pi.claimed_revertible_counter, 0);
 
     assert_claimed_length_array_eq(pi.end.note_hashes, []);
@@ -44,12 +55,24 @@ fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
     let mut builder = TestBuilder::new();
 
     let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+<<<<<<< HEAD
+=======
+    let protocol_nullifier = compute_siloed_nullifier(
+        scoped_protocol_nullifier.contract_address,
+        scoped_protocol_nullifier.innermost().value,
+    );
+>>>>>>> origin/v5-next
 
     builder.private_call.append_nullifiers(1);
     let private_call_nullifiers = builder.private_call.nullifiers.storage();
 
     let pi = builder.execute();
 
+<<<<<<< HEAD
+=======
+    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
+
+>>>>>>> origin/v5-next
     // The nullifiers array contains the protocol nullifier and the private call's nullifier.
     assert_claimed_length_array_eq(
         pi.end.nullifiers,
@@ -105,11 +128,22 @@ fn with_everything_non_empty() {
     builder.assert_expected_public_inputs(pi);
 
     let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+<<<<<<< HEAD
+=======
+    let protocol_nullifier = compute_siloed_nullifier(
+        scoped_protocol_nullifier.contract_address,
+        scoped_protocol_nullifier.innermost().value,
+    );
+>>>>>>> origin/v5-next
 
     assert_eq(pi.min_revertible_side_effect_counter, 98765);
     assert_eq(pi.fee_payer, builder.private_call.contract_address);
     assert_eq(pi.expiration_timestamp, 7890);
     assert_eq(pi.is_private_only, true);
+<<<<<<< HEAD
+=======
+    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
+>>>>>>> origin/v5-next
     assert_eq(pi.claimed_revertible_counter, 567);
 
     let note_hashes = builder.private_call.note_hashes.storage();

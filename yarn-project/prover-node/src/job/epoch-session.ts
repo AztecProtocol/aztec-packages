@@ -228,7 +228,11 @@ export class EpochSession implements Traceable {
    * Cancels the session. Idempotent. Withdraws any submitted candidate from the
    * publishing service so the in-flight publisher (if any) is interrupted.
    */
+<<<<<<< HEAD
   public async cancel(reason = 'cancelled'): Promise<void> {
+=======
+  public async cancel(reason = 'cancelled', { abortJobs = true }: { abortJobs?: boolean } = {}): Promise<void> {
+>>>>>>> origin/v5-next
     if (this.isTerminal()) {
       return;
     }
@@ -247,7 +251,13 @@ export class EpochSession implements Traceable {
     if (this.topTreeJob && !this.topTreeJob.isCancelled()) {
       const job = this.topTreeJob;
       this.topTreeJob = undefined;
+<<<<<<< HEAD
       job.cancel();
+=======
+      // On a clean shutdown we leave the in-flight broker jobs alone so a restart can reuse them;
+      // other cancellations (reorg, supersede, deadline) abort them since their inputs are stale.
+      job.cancel(abortJobs);
+>>>>>>> origin/v5-next
       this.pendingTopTreeCleanups.push(job);
     }
     await this.teardownTopTreeIfNeeded();

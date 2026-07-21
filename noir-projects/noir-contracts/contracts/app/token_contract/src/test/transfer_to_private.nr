@@ -82,6 +82,26 @@ unconstrained fn transfer_to_private_external_orchestration_multiple_notes() {
     utils::check_private_balance(env, token_contract_address, recipient, amount);
 }
 
+<<<<<<< HEAD
+=======
+/// A partial note can be completed more than once (`complete` only existence-checks its validity commitment, which is
+/// never consumed), so both finalizes emit a completion log under the same tag. Discovery tolerates the two logs
+/// rather than failing: it completes with the first (recovering that note) and ignores the rest.
+#[test]
+unconstrained fn discovery_tolerates_a_partial_note_completed_twice() {
+    let (env, token_contract_address, owner, recipient, _) =
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
+
+    let partial_uint_note =
+        env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+
+    env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(1, partial_uint_note));
+    env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(1, partial_uint_note));
+
+    utils::check_private_balance(env, token_contract_address, recipient, 1);
+}
+
+>>>>>>> origin/v5-next
 #[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough

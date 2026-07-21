@@ -1,6 +1,10 @@
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 #include <algorithm>
+<<<<<<< HEAD
+=======
+#include <ranges>
+>>>>>>> origin/v5-next
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
@@ -98,7 +102,11 @@ void TraceContainer::set(Column col, uint32_t row, const FF& value, bool use_ato
             if (BB_UNLIKELY(use_atomic_limbs)) {
                 store_per_limb(shard->rows[offset], zero);
             } else {
+<<<<<<< HEAD
                 shard->rows[offset] = zero;
+=======
+                shard->rows[offset] = FF::zero();
+>>>>>>> origin/v5-next
             }
         }
     }
@@ -113,13 +121,20 @@ void TraceContainer::set(uint32_t row, std::span<const std::pair<Column, FF>> va
 
 void TraceContainer::reserve_column(Column col, size_t size)
 {
+<<<<<<< HEAD
     BB_ASSERT_LTE(size, MAX_AVM_TRACE_SIZE, "size exceeds the maximum trace size");
 
+=======
+>>>>>>> origin/v5-next
     if (size == 0) {
         return;
     }
     auto& column_data = (*trace)[static_cast<size_t>(col)];
+<<<<<<< HEAD
     const size_t num_shards = (size + INTERVAL_SIZE - 1) / INTERVAL_SIZE;
+=======
+    const size_t num_shards = std::min((size + INTERVAL_SIZE - 1) / INTERVAL_SIZE, NUM_SHARDS);
+>>>>>>> origin/v5-next
     // Each shard's dense row array is full size on creation, so reserving just materializes the shards up
     // front (e.g. for precomputed columns). Lock-free: get_or_create_shard installs each via CAS.
     for (size_t k = 0; k < num_shards; ++k) {

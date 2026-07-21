@@ -89,7 +89,11 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       });
 
       it('AVM large calldata test', async () => {
+<<<<<<< HEAD
         tester.setMetricsPrefix('AvmTest contract tests');
+=======
+        tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
+>>>>>>> origin/v5-next
         const deployer = AztecAddress.fromNumberUnsafe(42);
 
         const avmTestContract = await tester.registerAndDeployContract(
@@ -115,7 +119,11 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       it('PublicFnsWithEmitRepro contract test', async () => {
         // See comments on the contract source for motivation as to including this contract in our benchmarks.
+<<<<<<< HEAD
         tester.setMetricsPrefix('PublicFnsWithEmitRepro contract tests');
+=======
+        tester.setMetricsPrefix(`${metricsPrefixPrefix}PublicFnsWithEmitRepro contract tests`);
+>>>>>>> origin/v5-next
         const deployer = AztecAddress.fromNumberUnsafe(42);
 
         const reproContract = await tester.registerAndDeployContract(
@@ -140,7 +148,11 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       });
 
       it('Storage proof test', async () => {
+<<<<<<< HEAD
         tester.setMetricsPrefix('StorageProof contract tests');
+=======
+        tester.setMetricsPrefix(`${metricsPrefixPrefix}StorageProof contract tests`);
+>>>>>>> origin/v5-next
         const deployer = AztecAddress.fromNumberUnsafe(42);
 
         const storageProofContract = await tester.registerAndDeployContract(

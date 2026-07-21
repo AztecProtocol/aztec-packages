@@ -15,7 +15,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+<<<<<<< HEAD
 files=$(find src/deprecated/indexeddb src/sqlite-opfs -name '*.test.ts' 2>/dev/null | sort)
+=======
+# -type f: vitest failure screenshots land in __screenshots__/<test-file>/, creating
+# directories whose names match the *.test.ts glob.
+files=$(find src/deprecated/indexeddb src/sqlite-opfs -type f -name '*.test.ts' 2>/dev/null | sort)
+>>>>>>> origin/v5-next
 
 if [ -z "$files" ]; then
   echo "No test files found in src/deprecated/indexeddb or src/sqlite-opfs"

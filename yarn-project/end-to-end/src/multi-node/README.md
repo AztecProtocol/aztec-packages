@@ -31,7 +31,12 @@ copy-pasted:
   `getPrivateKeyFromIndex(i + 3)`), passed as `initialValidators`.
 - `MOCK_GOSSIP_MULTI_VALIDATOR_OPTS` — a tight committee on the mock bus with no prover
   (`{ mockGossipSubNetwork, skipInitialSequencer, startProverNode: false, aztecProofSubmissionEpochs:
+<<<<<<< HEAD
   1024, numberOfAccounts: 0 }`). Tests that want a prover leave `startProverNode` explicit.
+=======
+  NO_REORG_SUBMISSION_EPOCHS, numberOfAccounts: 0 }`, the constant re-exported from `../single-node/setup.ts`).
+  Tests that want a prover leave `startProverNode` explicit.
+>>>>>>> origin/v5-next
 - `SLASHER_ENABLED_MULTI_VALIDATOR_OPTS` — the same committee with the slasher turned on, used by the
   offense-detection tests.
 - `defaultSlashingPenalties(unit?)` / `withOnlyOffense(offense, unit?)` — build the per-offense

@@ -27,7 +27,6 @@ import { PXE, type PXECreationOptions, type TaggingSecretSource, createPXE } fro
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -108,13 +107,16 @@ export class TestWallet extends BaseWallet {
     this.nodeRef.updateTargetNode(node);
   }
 
-  createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager> {
-    signingKey = signingKey ?? deriveSigningKey(secret);
+  createSchnorrAccount(secret: Fr, salt: Fr, signingKey: Fq): Promise<AccountManager> {
     return this.createAccount({ secret, salt, type: 'schnorr', contract: new SchnorrAccountContract(signingKey) });
   }
 
+<<<<<<< HEAD
   createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager> {
     signingKey = signingKey ?? deriveSigningKey(secret);
+=======
+  createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey: Fq): Promise<AccountManager> {
+>>>>>>> origin/v5-next
     return this.createAccount({
       secret,
       salt,
@@ -321,7 +323,7 @@ export class TestWallet extends BaseWallet {
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
     const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
-    const scopes = this.scopesFrom(from, additionalScopes);
+    const scopes = this.scopesFrom(from, additionalScopes ?? [], sendMessagesAs);
     const skipKernels = this.simulationMode !== 'full';
     const useOverride = this.simulationMode === 'kernelless-override';
 
@@ -387,7 +389,7 @@ export class TestWallet extends BaseWallet {
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
     const txProvingResult = await this.pxe.proveTx(txRequest, {
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
     return new ProvenTx(

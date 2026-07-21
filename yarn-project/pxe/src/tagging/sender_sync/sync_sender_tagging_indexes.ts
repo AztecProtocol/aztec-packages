@@ -74,7 +74,11 @@ export async function syncSenderTaggingIndexes(
     }
 
     // Receipts for pending tx hashes that the logs query just surfaced still need a sequential follow-up call.
+<<<<<<< HEAD
     // `storePendingIndexes` is idempotent on (secret, txHash), so a re-discovered hash stays classified as known
+=======
+    // `mergePendingIndexes` is idempotent on (secret, txHash), so a re-discovered hash stays classified as known
+>>>>>>> origin/v5-next
     // and is not re-fetched here.
     const knownSet = new Set(knownPendingTxHashes.map(h => h.toString()));
     const newPendingTxHashes = allPendingTxHashes.filter(h => !knownSet.has(h.toString()));

@@ -59,11 +59,19 @@ const timeoutMs =
   (isAnvil ? 120_000 : 1_200_000);
 
 const proc = spawn(
+<<<<<<< HEAD
   "forge",
   ["script", ...args, "--broadcast", "--batch-size", batchSize],
   {
     stdio: ["ignore", "pipe", "inherit"],
   },
+=======
+  process.env.FORGE_BIN || "forge",
+  ["script", ...args, "--broadcast", "--batch-size", batchSize],
+  {
+    stdio: ["ignore", "pipe", "inherit"],
+  }
+>>>>>>> origin/v5-next
 );
 
 const stdout = [];
@@ -85,14 +93,22 @@ const exitCode = await new Promise((resolve) => {
   });
   proc.on("close", (code) => {
     clearTimeout(timeout);
+<<<<<<< HEAD
     resolve(timedOut ? 1 : (code ?? 1));
+=======
+    resolve(timedOut ? 1 : code ?? 1);
+>>>>>>> origin/v5-next
   });
 });
 
 log(
   exitCode === 0
     ? "Broadcast succeeded."
+<<<<<<< HEAD
     : `Broadcast failed (exit ${exitCode}).`,
+=======
+    : `Broadcast failed (exit ${exitCode}).`
+>>>>>>> origin/v5-next
 );
 const data = Buffer.concat(stdout);
 if (data.length > 0) writeSync(1, data);

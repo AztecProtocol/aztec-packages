@@ -518,6 +518,93 @@ groups:
           isPaused: false
         - uid: slashingroundexecuted
           title: Slashing - round executed
+<<<<<<< HEAD
+=======
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name) (increase(aztec_slasher_round_executed_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 0s
+          annotations:
+            summary: Slashing round executed in {{ $labels.k8s_namespace_name }}
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: def0g11bn64n4a
+          title: Chain - reorg
+>>>>>>> origin/v5-next
           condition: C
           data:
             - refId: A
@@ -1281,7 +1368,11 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
+<<<<<<< HEAD
                 expr: (sum by (k8s_namespace_name) (max by (k8s_namespace_name, aztec_block_proposer) (increase(aztec_sequencer_slot_filled_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))) / sum by (k8s_namespace_name) (max by (k8s_namespace_name, aztec_block_proposer) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])))) and on (k8s_namespace_name) (sum by (k8s_namespace_name) (max by (k8s_namespace_name, aztec_block_proposer) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))) >= 5)
+=======
+                expr: (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_filled_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])) / sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))) and on (k8s_namespace_name) (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])) >= 5)
+>>>>>>> origin/v5-next
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -1786,7 +1877,11 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
+<<<<<<< HEAD
                 expr: sum by (k8s_namespace_name, aztec_error_type) (increase({__name__=~"aztec_validator_attestation_failed_(bad_proposal|node_issue)_count",k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__",aztec_is_committee_member="true",aztec_error_type!~"block_number_already_exists|parent_block_not_found"}[10m]))
+=======
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase({__name__=~"aztec_validator_attestation_failed_(bad_proposal|node_issue)_count",k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__",aztec_is_committee_member="true"}[10m]))
+>>>>>>> origin/v5-next
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -1860,6 +1955,7 @@ groups:
           labels:
             <<: *common_labels
           isPaused: false
+<<<<<<< HEAD
     - orgId: 1
       name: L1 Ethereum Nodes
       folder: L1
@@ -2290,6 +2386,8 @@ groups:
           labels:
             <<: *common_labels
           isPaused: false
+=======
+>>>>>>> origin/v5-next
     - orgId: 1
       name: Every minute
       folder: Metrics

@@ -32,7 +32,11 @@ export class LazyAccountContractsProvider implements AccountContractsProvider {
   }
 
   async getStubAccountContractArtifact(type: AccountType): Promise<ContractArtifact> {
+<<<<<<< HEAD
     if (type === 'schnorr') {
+=======
+    if (type === 'schnorr' || type === 'schnorr_initializerless') {
+>>>>>>> origin/v5-next
       const { getStubSchnorrAccountContractArtifact } = await import('@aztec/accounts/schnorr/stub/lazy');
       return getStubSchnorrAccountContractArtifact();
     } else {
@@ -42,7 +46,11 @@ export class LazyAccountContractsProvider implements AccountContractsProvider {
   }
 
   async createStubAccount(address: CompleteAddress, type: AccountType): Promise<Account> {
+<<<<<<< HEAD
     if (type === 'schnorr') {
+=======
+    if (type === 'schnorr' || type === 'schnorr_initializerless') {
+>>>>>>> origin/v5-next
       const { createStubSchnorrAccount } = await import('@aztec/accounts/schnorr/stub/lazy');
       return createStubSchnorrAccount(address);
     } else {

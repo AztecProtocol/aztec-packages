@@ -7,7 +7,11 @@ import { type ProverClientConfig, createProverClient } from '@aztec/prover-clien
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { ChonkCache } from '@aztec/prover-client/orchestrator';
+<<<<<<< HEAD
 import { AvmSimulatorPool, PublicProcessorFactory } from '@aztec/simulator/server';
+=======
+import { PublicProcessorFactory } from '@aztec/simulator/server';
+>>>>>>> origin/v5-next
 import type { L2Block } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';

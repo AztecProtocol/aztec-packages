@@ -24,7 +24,11 @@ export const TX_COUNT = 8;
 /**
  * The single-node + prover-node fixture shared by the L1-reorg suites (`blocks`, `messages`). Stands
  * up a {@link SingleNodeTestContext} on the {@link FAST_REORG_TIMING} cadence (ethSlot=4s,
+<<<<<<< HEAD
  * aztecSlot=36s, block=8s, epoch=4, 32 slots/epoch) with L1 speed-ups disabled so prover/sequencer txs
+=======
+ * aztecSlot=24s, block=5s, epoch=4, 32 slots/epoch) with L1 speed-ups disabled so prover/sequencer txs
+>>>>>>> origin/v5-next
  * can be held back and reorged, registers a {@link TestContract}, and exposes the per-test handles plus
  * a `sendTransactions` helper that pre-proves and fires `count` lightweight txs to drive multi-block
  * checkpoints. Reorgs themselves are driven by `EthCheatCodes.reorg`/`reorgWithReplacement` at the call
@@ -47,14 +51,22 @@ export class L1ReorgsTest {
 
   public async setup(): Promise<void> {
     this.test = await setupWithProver({
+<<<<<<< HEAD
       ...FAST_REORG_TIMING, // ethSlot=4s, aztecSlot=36s, block=8s, epoch=4, 32 slots/epoch (mainnet)
+=======
+      ...FAST_REORG_TIMING, // ethSlot=4s, aztecSlot=24s, block=5s, epoch=4, 32 slots/epoch (mainnet)
+>>>>>>> origin/v5-next
       numberOfAccounts: 1,
       maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
       cancelTxOnTimeout: false,
       minTxsPerBlock: 0,
       maxTxsPerBlock: 1,
       aztecProofSubmissionEpochs: 1,
+<<<<<<< HEAD
       // Pipelining + multi-blocks-per-slot: 8s blocks fit ~4 blocks per 36s slot, and TX_COUNT=8
+=======
+      // Pipelining + multi-blocks-per-slot: 5s blocks fit ~3 blocks per 24s slot, and TX_COUNT=8
+>>>>>>> origin/v5-next
       // ensures multiple checkpoints have multiple blocks
     });
     ({

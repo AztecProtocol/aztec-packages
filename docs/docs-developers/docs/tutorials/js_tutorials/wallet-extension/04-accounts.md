@@ -24,28 +24,31 @@ An Aztec account has:
 
 ## Key Derivation
 
-The wallet uses the standard derivation from `@aztec/stdlib/keys`:
+The wallet generates a random signing key as the account's root and derives the privacy secret from it:
 
 ```typescript
-import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { GrumpkinScalar } from '@aztec/aztec.js/fields';
+import { deriveSecretKeyFromSigningKey } from '@aztec/accounts/utils';
 
-// Generate a random secret
-const secret = Fr.random();
-
-// Derive the signing key
-const signingKey = deriveSigningKey(secret);
+// The signing key is the account's root; the privacy secret is derived from it
+const signingKey = GrumpkinScalar.random();
+const secret = await deriveSecretKeyFromSigningKey(signingKey);
 ```
 
-The derivation uses SHA-512 with domain separators to derive different keys:
+The nullifier, viewing, and tagging keys are then derived from that secret with SHA-512 and domain separators, while the signing key is supplied to the account contract directly:
 
 ```typescript
 // From stdlib/src/keys/derivation.ts
-export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.IVSK_M]);
 }
 
 export function deriveMasterNullifierHidingSecretKey(secretKey: Fr): GrumpkinScalar {
+<<<<<<< HEAD
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NHK_M]);
+=======
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.NHK_M]);
+>>>>>>> origin/v5-next
 }
 ```
 

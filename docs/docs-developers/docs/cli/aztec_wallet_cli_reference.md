@@ -67,9 +67,13 @@ aztec-wallet [options] [command]
 **Options:**
 
 - `-V --version` - output the version number
+<<<<<<< HEAD
 - `-d --data-dir <string>` - Storage directory for wallet data (default: "/home/aztec-dev/.aztec/wallet")
+=======
+- `-d --data-dir <string>` - Storage directory for wallet data (default: "~/.aztec/wallet")
+>>>>>>> origin/v5-next
 - `-p --prover <string>` - The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native", env: PXE_PROVER)
-- `-n --node-url <string>` - URL of the Aztec node to connect to (default: "http://host.docker.internal:8080", env: AZTEC_NODE_URL)
+- `-n --node-url <string>` - URL of the Aztec node to connect to (default: "http://localhost:8080", env: AZTEC_NODE_URL)
 - `-h --help` - display help for command
 
 ### Subcommands

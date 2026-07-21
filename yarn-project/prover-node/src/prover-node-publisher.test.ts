@@ -184,7 +184,20 @@ describe('prover-node-publisher', () => {
       const publishData = setupPublishData(pending, proven, fromCheckpoint, toCheckpoint);
 
       const result = await publisher
+<<<<<<< HEAD
         .submitEpochProof(publishData)
+=======
+        .submitEpochProof({
+          epochNumber: EpochNumber(2),
+          fromCheckpoint: CheckpointNumber(fromCheckpoint),
+          toCheckpoint: CheckpointNumber(toCheckpoint),
+          publicInputs: ourPublicInputs,
+          headers: makeHeadersForRange(fromCheckpoint, toCheckpoint),
+          proof: Proof.empty(),
+          batchedBlobInputs: ourBatchedBlob,
+          attestations: [],
+        })
+>>>>>>> origin/v5-next
         .then(() => 'Success')
         .catch(error => error.message);
 
@@ -198,6 +211,7 @@ describe('prover-node-publisher', () => {
     },
   );
 
+<<<<<<< HEAD
   describe('proof submission target', () => {
     it('defaults the submit tx target to the rollup address', async () => {
       const rollupAddress = EthAddress.random().toString();
@@ -228,6 +242,8 @@ describe('prover-node-publisher', () => {
     });
   });
 
+=======
+>>>>>>> origin/v5-next
   it('analyzeEpochProofSubmission validates, estimates, and does not send tx', async () => {
     const fromCheckpoint = 33;
     const toCheckpoint = 64;

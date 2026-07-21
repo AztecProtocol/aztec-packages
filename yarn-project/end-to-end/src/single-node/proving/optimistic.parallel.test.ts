@@ -24,9 +24,15 @@ jest.setTimeout(1000 * 60 * 20);
  * Setup: a single sequencer/validator node from `setupWithProver` plus the context's fake prover-node (no
  * `mockGossipSubNetwork`, so no gossip bus), making this a `single-node` test on the production `Sequencer`. Each of the
  * six `describe` blocks builds a fresh context in its own `beforeEach` and tears it down in the shared `afterEach`. The
+<<<<<<< HEAD
  * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s local/12s CI, aztecSlot=16s/24s, epoch=6,
  * proofSubEpochs=1); the five reorg describes use a faster cadence (ethSlot=4s, aztecSlot=36s, epoch=4 — or 8 for the
  * with-replacement case so the replacement lands in-epoch — proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS, blockDurationMs=8s, minTxsPerBlock=0,
+=======
+ * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s, aztecSlot=16s, epoch=6,
+ * proofSubEpochs=1); the five reorg describes use a faster cadence (ethSlot=4s, aztecSlot=24s, epoch=4 — or 8 for the
+ * with-replacement case so the replacement lands in-epoch — proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS, blockDurationMs=5s, minTxsPerBlock=0,
+>>>>>>> origin/v5-next
  * anvilSlotsInAnEpoch=32, maxSpeedUpAttempts=0, cancelTxOnTimeout=false). The `prover-node starts mid-epoch` describe
  * sets `startProverNode: false` and spins up the prover via `test.createProverNode()` partway through the epoch.
  *
@@ -338,6 +344,7 @@ describe('single-node/proving/optimistic', () => {
         timeout: 30,
       });
 
+<<<<<<< HEAD
       // Verify the prover-node observes the prune. `markPruned()` fires reactively when
       // the L2BlockStream emits the prune; the SlotWatcher then reaps the (now pruned)
       // prover on its next tick (default 1s), so checking strictly for `isPruned()` would
@@ -345,15 +352,28 @@ describe('single-node/proving/optimistic', () => {
       // checkpoint numbers refill sequentially after a reorg, so the replacement reuses
       // the same number but lives at a different slot. Accept either state for the
       // original: still in the store and pruned, or already reaped.
+=======
+      // Verify the prover-node observes the prune. The prune reactively cancels and removes the
+      // orphaned prover from the store when the L2BlockStream emits it, so the original should drop
+      // out of the store (or, if observed mid-race, be cancelled). Identify the original by
+      // `(checkpointNumber, slot)` — checkpoint numbers refill sequentially after a reorg, so the
+      // replacement reuses the same number but lives at a different slot.
+>>>>>>> origin/v5-next
       await retryUntil(
         () => {
           const prover = proverNode
             .getCheckpointStore()
             .listAll()
             .find(p => p.checkpoint.number === checkpointBeforeReorg && p.slotNumber === originalSlot);
+<<<<<<< HEAD
           return Promise.resolve(!prover || prover.isPruned());
         },
         `prover marks original checkpoint ${checkpointBeforeReorg} (slot ${originalSlot}) as pruned (or reaps it)`,
+=======
+          return Promise.resolve(!prover || prover.isCancelled());
+        },
+        `prover cancels and removes original checkpoint ${checkpointBeforeReorg} (slot ${originalSlot})`,
+>>>>>>> origin/v5-next
         30,
         0.2,
       );
@@ -383,7 +403,11 @@ describe('single-node/proving/optimistic', () => {
             proverNode
               .getCheckpointStore()
               .listAll()
+<<<<<<< HEAD
               .some(p => p.checkpoint.number === replacementCheckpoint && !p.isPruned()),
+=======
+              .some(p => p.checkpoint.number === replacementCheckpoint),
+>>>>>>> origin/v5-next
           ),
         `prover re-creates sub-tree for replacement checkpoint ${replacementCheckpoint}`,
         30,
@@ -875,7 +899,11 @@ describe('single-node/proving/optimistic', () => {
       // The session manager constructs a full session over the canonical content for the
       // anchored epoch when it completes, then proves it; the store retains the provers
       // until expiry.
+<<<<<<< HEAD
       const epochCheckpointsInStore = await proverNode.getCheckpointStore().listCanonicalForEpoch(epoch);
+=======
+      const epochCheckpointsInStore = await proverNode.getCheckpointStore().listForEpoch(epoch);
+>>>>>>> origin/v5-next
       const storedNumbers = new Set(epochCheckpointsInStore.map(p => p.checkpoint.number));
       for (const n of preSpawnCheckpointNumbers) {
         expect(storedNumbers.has(n)).toBe(true);

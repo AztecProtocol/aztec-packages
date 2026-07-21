@@ -37,7 +37,11 @@ import type {
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
+<<<<<<< HEAD
 import { deriveEcdhSharedSecretPoint } from '@aztec/stdlib/logs';
+=======
+import { deriveEcdhSharedSecretPoint, protectFromForgery } from '@aztec/stdlib/logs';
+>>>>>>> origin/v5-next
 import {
   BlockHeader,
   type ContractOverrides,
@@ -890,9 +894,17 @@ export class PXE {
   }
 
   /**
+<<<<<<< HEAD
    * Derives the shared secret of a handshake from its ephemeral public key: `S = addressSecret(recipient) * ephPk`,
    * the same derivation the recipient-side scan uses for handshakes discovered onchain. The ephemeral key is
    * reconstructed from its x-coordinate with a positive y, matching how the protocol generates it.
+=======
+   * Derives the shared secret of a handshake from its ephemeral public key: the raw ECDH secret
+   * `S = addressSecret(recipient) * ephPk` with the forgery protection applied,
+   * matching the protected secret the registry stores and the derivation the recipient-side scan uses for
+   * handshakes discovered onchain. The ephemeral key is reconstructed from its x-coordinate with a positive y,
+   * matching how the protocol generates it.
+>>>>>>> origin/v5-next
    *
    * @throws If `ephPk` is not the x-coordinate of a Grumpkin curve point, or if `recipient` is not an account of
    * this PXE, since the derivation needs its keys.
@@ -914,7 +926,12 @@ export class PXE {
 
     const ivskM = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
     const addressSecret = await computeAddressSecret(await completeAddress.getPreaddress(), ivskM);
+<<<<<<< HEAD
     return deriveEcdhSharedSecretPoint(addressSecret, ephPkPoint);
+=======
+    const rawSecret = await deriveEcdhSharedSecretPoint(addressSecret, ephPkPoint);
+    return protectFromForgery(rawSecret, ephPkPoint, await recipient.toAddressPoint());
+>>>>>>> origin/v5-next
   }
 
   /** Registers a resolved shared secret scoped to a recipient. Returns whether it was newly added. */

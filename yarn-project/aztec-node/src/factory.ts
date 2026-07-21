@@ -25,7 +25,10 @@ import {
   type SequencerPublisher,
 } from '@aztec/sequencer-client';
 import { type AutomineSequencer, createAutomineSequencer } from '@aztec/sequencer-client/automine';
+<<<<<<< HEAD
 import { AvmSimulatorPool } from '@aztec/simulator/server';
+=======
+>>>>>>> origin/v5-next
 import {
   AttestationsBlockWatcher,
   AttestedInvalidProposalWatcher,
@@ -196,6 +199,7 @@ export async function createAztecNodeService(
     const nativeWs = await createWorldState(config, options.genesis);
     const initialHeader = nativeWs.getInitialHeader();
     const initialBlockHash = await initialHeader.hash();
+<<<<<<< HEAD
 
     // AVM execution backend for public simulation: a pool of bb-avm-sim processes reaching the world state
     // over its IPC socket. Owned here and threaded into the public-processor consumers (node, checkpoint
@@ -206,6 +210,8 @@ export async function createAztecNodeService(
       logger: (msg: string) => log.debug(msg),
     });
     started.push({ stop: () => avmSimulator[Symbol.asyncDispose]() });
+=======
+>>>>>>> origin/v5-next
     const archiver = await createArchiver(
       config,
       { blobClient, epochCache, telemetry, dateProvider },
@@ -306,7 +312,10 @@ export async function createAztecNodeService(
       worldStateSynchronizer,
       archiver,
       dateProvider,
+<<<<<<< HEAD
       avmSimulator,
+=======
+>>>>>>> origin/v5-next
       telemetry,
     );
 
@@ -522,7 +531,10 @@ export async function createAztecNodeService(
         worldStateSynchronizer,
         archiver,
         dateProvider,
+<<<<<<< HEAD
         avmSimulator,
+=======
+>>>>>>> origin/v5-next
         telemetry,
         debugLogStore,
       );
@@ -607,7 +619,10 @@ export async function createAztecNodeService(
         epochCache,
         blobClient,
         keyStoreManager,
+<<<<<<< HEAD
         avmSimulator,
+=======
+>>>>>>> origin/v5-next
       });
 
       if (!options.dontStartProverNode) {
@@ -648,7 +663,10 @@ export async function createAztecNodeService(
       keyStoreManager,
       debugLogStore,
       automineSequencer,
+<<<<<<< HEAD
       avmSimulator,
+=======
+>>>>>>> origin/v5-next
     });
 
     return node;

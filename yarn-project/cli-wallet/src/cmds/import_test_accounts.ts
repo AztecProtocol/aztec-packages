@@ -18,7 +18,18 @@ export async function importTestAccounts(wallet: CLIWallet, db: WalletDB, json: 
       const address = account.address;
       await db.storeAccount(
         address,
+<<<<<<< HEAD
         { type: 'schnorr_initializerless', secretKey: secret, salt, alias, publicKey: undefined },
+=======
+        {
+          type: 'schnorr_initializerless',
+          signingKey: account.signingKey,
+          secretKey: secret,
+          salt,
+          alias,
+          publicKey: undefined,
+        },
+>>>>>>> origin/v5-next
         log,
       );
 

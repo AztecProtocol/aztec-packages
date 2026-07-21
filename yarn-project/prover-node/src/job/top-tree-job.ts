@@ -128,7 +128,11 @@ export class TopTreeJob {
    * via `whenDone()` — the parent collects the cancelled job and awaits all
    * pending top-tree teardowns at the end of the epoch.
    */
+<<<<<<< HEAD
   public cancel(): void {
+=======
+  public cancel(abortJobs = true): void {
+>>>>>>> origin/v5-next
     if (this.cancelled) {
       return;
     }
@@ -146,7 +150,11 @@ export class TopTreeJob {
     // Fire and forget: parent awaits the cancel-driven teardown via whenDone(); the
     // chained .catch swallows rejections so the unawaited promise doesn't surface
     // as an unhandled rejection.
+<<<<<<< HEAD
     this.cancelPromise = this.runCancel().catch(() => {});
+=======
+    this.cancelPromise = this.runCancel(abortJobs).catch(() => {});
+>>>>>>> origin/v5-next
   }
 
   /** Resolves once the cancel-driven teardown of the underlying orchestrator has unwound. */
@@ -156,9 +164,15 @@ export class TopTreeJob {
     }
   }
 
+<<<<<<< HEAD
   private async runCancel(): Promise<void> {
     try {
       this.topTree.cancel({ abortJobs: true });
+=======
+  private async runCancel(abortJobs: boolean): Promise<void> {
+    try {
+      this.topTree.cancel({ abortJobs });
+>>>>>>> origin/v5-next
     } catch (err) {
       this.deps.log.error('Error cancelling top tree', err);
     }

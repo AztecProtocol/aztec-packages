@@ -76,6 +76,14 @@ describe('multi-node/block-production/high_tps', () => {
     ({ test, context, logger, validators, nodes, from } = await setupSimpleBlockProduction({
       nodeCount: NODE_COUNT,
       setupOpts: {
+<<<<<<< HEAD
+=======
+        // Pin the old 36s/6s cadence (overriding MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING's 24s/4s): this
+        // suite's per-block budget is 2 txs x 2.5s = 5s, which needs a 6s block sub-slot (the full T=0..36s
+        // budget in this file's header is built around it) and does not fit the profile's 4s block.
+        aztecSlotDurationInL1Slots: 3,
+        blockDurationMs: 6000,
+>>>>>>> origin/v5-next
         fakeProcessingDelayPerTxMs: TX_DURATION_MS,
         attestationPropagationTime: 1,
         minTxsPerBlock: 1,

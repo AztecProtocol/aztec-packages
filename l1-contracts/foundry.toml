@@ -73,6 +73,7 @@ variable_override_spacing = false
 wrap_comments = true
 number_underscore = "thousands"
 override_spacing = false
+ignore = ["script/deploy/HonkVerifier.sol"]
 
 [lint]
 ignore = ["./lib/**"]

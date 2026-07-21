@@ -662,6 +662,7 @@ inline constexpr size_t BOOTH_ENDO_NUM_LIMBS_U64 = 2;
 inline constexpr size_t BOOTH_ENDO_K2_LOW_WINDOW_BITS = 2;
 static_assert(BOOTH_ENDO_K2_LOW_WINDOW_BITS + 1 <= 32);
 inline constexpr size_t BOOTH_ENDO_K2_NUM_WINDOWS = BOOTH_ENDO_NUM_WINDOWS + 1; // 33
+<<<<<<< HEAD
 
 // batch_two_round_fold evaluates the four scalar-multiplication terms below on one shared doubling
 // chain, interleaving their Booth digit windows on offset grids (term j on grid offset j) so each
@@ -686,6 +687,8 @@ struct FoldOp {
     uint32_t digit;
     bool safe;
 };
+=======
+>>>>>>> origin/v5-next
 
 } // namespace detail
 
@@ -1370,6 +1373,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // {2, 6, ..., 126}. The union of K1/K2 bit positions is {0, 2, 4, ..., 126},
     // so the main loop visits each position once with 2 doublings between
     // adjacent positions — every (2·dbl + add) pair fuses with combined_chunked.
+<<<<<<< HEAD
     //
     // A scalar already below 2^127 (e.g. an unreduced 127-bit transcript challenge, as in the
     // IPA SRS fold) takes (k1, k2) = (scalar, 0) directly. An all-zero K2 digit sequence makes the
@@ -1382,6 +1386,9 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     const detail::EndoScalars endo_scalars =
         is_short_scalar ? detail::EndoScalars{ { converted_scalar.data[0], converted_scalar.data[1] }, { 0ULL, 0ULL } }
                         : Fr::split_into_endomorphism_scalars(converted_scalar);
+=======
+    const detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
+>>>>>>> origin/v5-next
     const uint64_t* k1 = endo_scalars.first.data();
     const uint64_t* k2 = endo_scalars.second.data();
     BB_ASSERT((k2[1] >> 63) == 0, "GLV K2 split must fit below 2^127 for the offset Booth window schedule");
@@ -1399,7 +1406,11 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // Precompute, for every chunked-combined/add call below, whether
     // batch_affine_combined_double_add_impl's edge conditions could fire.
     // Both edges (x(2·accum) == x(to_add), and 2·accum + to_add == O) are a function
+<<<<<<< HEAD
     // only of the (k1, k2) Booth digit sequence and the (P, φP) basis, so we simulate the
+=======
+    // only of the (k1, k2) Booth digit stream and the (P, φP) basis, so we simulate the
+>>>>>>> origin/v5-next
     // accumulator's coefficients in that basis as int64s and set one mask bit per call site.
     //
     // Layout:

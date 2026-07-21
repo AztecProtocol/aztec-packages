@@ -30,8 +30,12 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run'
        && github.event.workflow_run.conclusion == 'success'
+<<<<<<< HEAD
        && !contains(github.event.workflow_run.head_branch, '-commit.')
        && github.repository != 'AztecProtocol/aztec-packages-private')
+=======
+       && !contains(github.event.workflow_run.head_branch, '-commit.'))
+>>>>>>> origin/v5-next
     env:
       VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
     steps:

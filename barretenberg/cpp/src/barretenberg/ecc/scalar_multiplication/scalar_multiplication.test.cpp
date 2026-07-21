@@ -521,10 +521,18 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     /**
      * @brief Pin the concurrent small-member dispatch in the batch driver.
      *
+<<<<<<< HEAD
      *        Mixed-size batch: many small MSMs (run one-per-worker with a thread-capped
      *        pipeline out of per-worker arenas, the dedup-hinted members exercising Phase A at
      *        num_threads=1) mixed with boundary-size and large members that stay on the
      *        sequential shared-arena path.
+=======
+     *        ECCVM-shaped batch: many MSMs at or below SMALL_MSM_BATCH_THRESHOLD (run
+     *        one-per-worker with a thread-capped pipeline out of per-worker arenas, the
+     *        dedup-hinted members exercising Phase A at num_threads=1) mixed with
+     *        boundary-size and large members that stay on the sequential shared-arena
+     *        path.
+>>>>>>> origin/v5-next
      */
     void test_batch_multi_scalar_mul_small_member_dispatch()
     {
@@ -532,6 +540,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         for (size_t k = 0; k < 24; ++k) {
             sizes.push_back(600 + (257 * k));
         }
+<<<<<<< HEAD
         // Add members straddling the driver's small/large boundary (MSM_MIN_PTS_PER_THREAD * pool_width)
         // to exercise both dispatch paths. On wasm MSM_MIN_PTS_PER_THREAD is SIZE_MAX and a single-core
         // pool has no concurrent path — neither has a finite boundary, so there the cluster above is the
@@ -543,6 +552,11 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
             sizes.push_back(boundary);
             sizes.push_back(boundary * 2);
         }
+=======
+        sizes.push_back(scalar_multiplication::SMALL_MSM_BATCH_THRESHOLD);
+        sizes.push_back(scalar_multiplication::SMALL_MSM_BATCH_THRESHOLD + 1);
+        sizes.push_back(16384);
+>>>>>>> origin/v5-next
         const size_t num_msms = sizes.size();
 
         const uint256_t high_bit(0, 0, 0, uint64_t{ 1 } << (200 - 192));
@@ -1802,6 +1816,7 @@ TEST(ScalarMultiplicationArenaTest, ArenaLayoutFitsAcrossDispatchSpace)
     bb::set_parallel_for_concurrency(saved_threads);
 }
 
+<<<<<<< HEAD
 // Non-GLV mid-band (GLV_SMALL_N_THRESHOLD < n < 2^17) arena-sizing coverage. The live allocator
 // shrinks the window-bit budget to the observed scalar msb, which can pick a heavier schedule than
 // the full-bit pre-sizer; `compute_arena_bytes_for_msm` must upper-bound the arena across every
@@ -1832,6 +1847,8 @@ TEST(ScalarMultiplicationArenaTest, MidBandArenaSizerCoversAllEffectiveNumBits)
     EXPECT_FALSE(found_undersize) << "arena sizer under-counts in the non-GLV mid-band";
 }
 
+=======
+>>>>>>> origin/v5-next
 // ======================= Test Wrappers =======================
 
 TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)
@@ -2006,9 +2023,12 @@ TYPED_TEST(ScalarMultiplicationTest, ExternalGlvDoubledDirect)
 }
 TYPED_TEST(ScalarMultiplicationTest, GlvExtremeMagnitudeScalars)
 {
+<<<<<<< HEAD
 #ifdef __wasm__
     GTEST_SKIP() << "GLV extreme-magnitude sweep is native-only; the ~50-probe naive comparison times out on wasm.";
 #endif
+=======
+>>>>>>> origin/v5-next
     this->test_glv_extreme_magnitude_scalars();
 }
 TYPED_TEST(ScalarMultiplicationTest, EffectiveNumBitsBandSmallScalars)
@@ -2037,7 +2057,11 @@ TYPED_TEST(ScalarMultiplicationTest, BatchDriverSharedPathRagged)
 // Variable-c (split-c) Pippenger dispatch — synthetic distributions per spec §"Validation".
 // These force SPLIT to fire (cliff / decaying / half-zero / all-large) or to fall through
 // (uniform-random / all-zero) and validate the result against `naive_msm`.
+<<<<<<< HEAD
 template <class Curve> class VariableWindowSplitDispatchTest : public ::testing::Test {
+=======
+template <class Curve> class WindowSplitDispatchTest : public ::testing::Test {
+>>>>>>> origin/v5-next
   public:
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
@@ -2208,6 +2232,7 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
 };
 
 #ifndef __wasm__
+<<<<<<< HEAD
 using VariableWindowCurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
 TYPED_TEST_SUITE(VariableWindowSplitDispatchTest, VariableWindowCurveTypes);
 
@@ -2244,6 +2269,44 @@ TYPED_TEST(VariableWindowSplitDispatchTest, Below192)
     this->test_below_192();
 }
 TYPED_TEST(VariableWindowSplitDispatchTest, ForceSplitBitwiseIdentity)
+=======
+using WindowSplitCurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
+TYPED_TEST_SUITE(WindowSplitDispatchTest, WindowSplitCurveTypes);
+
+TYPED_TEST(WindowSplitDispatchTest, Cliff)
+{
+    this->test_cliff();
+}
+TYPED_TEST(WindowSplitDispatchTest, Decaying)
+{
+    this->test_decaying();
+}
+TYPED_TEST(WindowSplitDispatchTest, UniformRandom)
+{
+    this->test_uniform_random();
+}
+TYPED_TEST(WindowSplitDispatchTest, AllZero)
+{
+    this->test_all_zero();
+}
+TYPED_TEST(WindowSplitDispatchTest, HalfZero)
+{
+    this->test_half_zero();
+}
+TYPED_TEST(WindowSplitDispatchTest, AllLarge)
+{
+    this->test_all_large();
+}
+TYPED_TEST(WindowSplitDispatchTest, MidDistribution)
+{
+    this->test_mid_distribution();
+}
+TYPED_TEST(WindowSplitDispatchTest, Below192)
+{
+    this->test_below_192();
+}
+TYPED_TEST(WindowSplitDispatchTest, ForceSplitBitwiseIdentity)
+>>>>>>> origin/v5-next
 {
     this->test_force_split_bitwise_identity();
 }

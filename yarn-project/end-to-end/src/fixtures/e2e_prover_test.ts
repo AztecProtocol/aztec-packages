@@ -24,6 +24,10 @@ import { TestWallet } from '../test-wallet/test_wallet.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setup, setupPXEAndGetWallet } from './setup.js';
+<<<<<<< HEAD
+=======
+import { getStandardContractGenesisNullifiers } from './standard_contracts_genesis.js';
+>>>>>>> origin/v5-next
 
 type ProvenSetup = {
   wallet: TestWallet;
@@ -196,8 +200,18 @@ export class FullProverTest extends SingleNodeTestContext {
       await provenWallet.createSchnorrInitializerlessAccount(
         this.fundedAccounts[i].secret,
         this.fundedAccounts[i].salt,
+<<<<<<< HEAD
       );
       await this.wallet.createSchnorrInitializerlessAccount(this.fundedAccounts[i].secret, this.fundedAccounts[i].salt);
+=======
+        this.fundedAccounts[i].signingKey,
+      );
+      await this.wallet.createSchnorrInitializerlessAccount(
+        this.fundedAccounts[i].secret,
+        this.fundedAccounts[i].salt,
+        this.fundedAccounts[i].signingKey,
+      );
+>>>>>>> origin/v5-next
     }
 
     const asset = TokenContract.at(this.fakeProofsAsset.address, provenWallet);
@@ -229,6 +243,7 @@ export class FullProverTest extends SingleNodeTestContext {
       undefined,
       undefined,
       this.context.genesis!.genesisTimestamp,
+      await getStandardContractGenesisNullifiers(),
     );
 
     const proverNodeConfig: Parameters<typeof createAztecNodeService>[0] = {

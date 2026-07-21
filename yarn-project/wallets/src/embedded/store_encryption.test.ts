@@ -6,11 +6,19 @@
  */
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecSQLiteOPFSStore } from '@aztec/kv-store/sqlite-opfs';
+<<<<<<< HEAD
 import { SqliteEncryptionError } from '@aztec/kv-store/sqlite-opfs';
+=======
+import { SqliteCorruptionError, SqliteEncryptionError } from '@aztec/kv-store/sqlite-opfs';
+>>>>>>> origin/v5-next
 
 import {
   EmbeddedWalletEncryptionError,
   type OpenSqliteEncryptedStoreFn,
+<<<<<<< HEAD
+=======
+  type WipeSqliteStoreFn,
+>>>>>>> origin/v5-next
   openEncryptedEmbeddedStores,
 } from './store_encryption.js';
 
@@ -189,4 +197,57 @@ describe('openEncryptedEmbeddedStores', () => {
 
     expect(keyProvider.callCount).toBe(2);
   });
+<<<<<<< HEAD
+=======
+
+  it('wipes the corrupt store and reopens it fresh', async () => {
+    const pxe = makeMockStore();
+    const wallet = makeMockStore();
+    const wiped: (string | undefined)[] = [];
+    const wipeStore: WipeSqliteStoreFn = poolDirectory => {
+      wiped.push(poolDirectory);
+      return Promise.resolve();
+    };
+    let pxeOpens = 0;
+    const openStore: OpenSqliteEncryptedStoreFn = (_log, name) => {
+      if (name === 'pxe_data') {
+        pxeOpens++;
+        // First open hits a malformed image; the reopen (after wipe) succeeds.
+        return pxeOpens === 1
+          ? Promise.reject(new SqliteCorruptionError('database disk image is malformed'))
+          : Promise.resolve(pxe.store);
+      }
+      return Promise.resolve(wallet.store);
+    };
+
+    const result = await openEncryptedEmbeddedStores(
+      config,
+      makeKeyProvider().getKey,
+      noopLogger,
+      openStore,
+      wipeStore,
+    );
+
+    expect(result.pxeStore).toBe(pxe.store);
+    expect(result.walletStore).toBe(wallet.store);
+    // Only the corrupt store's own directory is wiped, and the store is reopened once.
+    expect(wiped).toEqual(['/pxe']);
+    expect(pxeOpens).toBe(2);
+  });
+
+  it('rethrows corruption if the store is still corrupt after a wipe (no retry loop)', async () => {
+    const stillCorrupt = new SqliteCorruptionError('database disk image is malformed');
+    const openStore: OpenSqliteEncryptedStoreFn = () => Promise.reject(stillCorrupt);
+    const wipeStore: WipeSqliteStoreFn = () => Promise.resolve();
+
+    let caught: unknown;
+    try {
+      await openEncryptedEmbeddedStores(config, makeKeyProvider().getKey, noopLogger, openStore, wipeStore);
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBe(stillCorrupt);
+  });
+>>>>>>> origin/v5-next
 });

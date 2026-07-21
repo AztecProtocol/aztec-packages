@@ -21,7 +21,10 @@
 
 #pragma once
 
+<<<<<<< HEAD
 #include "barretenberg/ecc/fields/vector_field.hpp"
+=======
+>>>>>>> origin/v5-next
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 #include <algorithm>
@@ -179,12 +182,15 @@ template <typename Curve> struct PerWorkerArenaLayout {
     static constexpr size_t PHASE_A_CHUNK_CAP = DEDUP_MAX_CHUNK_MEMBERS;
     static constexpr size_t WORKER_SLAB_ALIGN = alignof(AffineElement);
 
+<<<<<<< HEAD
     // The packed batch-affine drain holds 8 VectorField runs in the fixed ThreadScratch region:
     // lhs.x, lhs.y, rhs.x, rhs.y (the two input point sets) plus dx, dy, xsum, inv (the add's working
     // buffers; out shares lhs's backing). The sizer walk below and the allocator in
     // scalar_multiplication_fast.cpp must agree on this count, so it is centralised here.
     static constexpr size_t PACKED_DRAIN_VECTORFIELD_RUNS = 8;
 
+=======
+>>>>>>> origin/v5-next
     // Computed byte sizes (filled by constructor's layout walk).
     size_t ts_fixed_layout = 0;           // ThreadScratch wpb-independent fields, with align slop
     size_t pa_layout = 0;                 // PhaseAScratch fields, with align slop
@@ -206,6 +212,7 @@ template <typename Curve> struct PerWorkerArenaLayout {
         auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
         auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
 
+<<<<<<< HEAD
         // ThreadScratch fixed (curr_pts / curr_buckets / 8 packed batch-affine VectorField runs /
         // pair_dest / overflow_slots / overflow_pts).
         layout_add(ts_fixed_layout, sizeof(AffineElement) * chunk_capacity, alignof(AffineElement));
@@ -217,6 +224,14 @@ template <typename Curve> struct PerWorkerArenaLayout {
         for (size_t k = 0; k < PACKED_DRAIN_VECTORFIELD_RUNS; ++k) {
             layout_add(ts_fixed_layout, sizeof(VecField) * pack_cap, alignof(VecField));
         }
+=======
+        // ThreadScratch fixed (curr_pts / curr_buckets / points_to_add /
+        // inversion_scratch / pair_dest / overflow_slots / overflow_pts).
+        layout_add(ts_fixed_layout, sizeof(AffineElement) * chunk_capacity, alignof(AffineElement));
+        layout_add(ts_fixed_layout, sizeof(uint32_t) * chunk_capacity, alignof(uint32_t));
+        layout_add(ts_fixed_layout, sizeof(AffineElement) * 2 * BATCH_CAPACITY, alignof(AffineElement));
+        layout_add(ts_fixed_layout, sizeof(BaseField) * BATCH_CAPACITY, alignof(BaseField));
+>>>>>>> origin/v5-next
         layout_add(ts_fixed_layout, sizeof(uint32_t) * BATCH_CAPACITY, alignof(uint32_t));
         layout_add(ts_fixed_layout, sizeof(uint32_t) * global_max_overflow_per_window, alignof(uint32_t));
         layout_add(ts_fixed_layout, sizeof(AffineElement) * global_max_overflow_per_window, alignof(AffineElement));
@@ -243,11 +258,15 @@ template <typename Curve> struct PerWorkerArenaLayout {
         if (windows_per_batch != 0) {
             const size_t dense_total = windows_per_batch * dense_stride_est;
             const size_t dense_pair_max = dense_total / 2;
+<<<<<<< HEAD
             // dense_buckets is a column (SoA) view: two BaseField coordinate arrays, not one
             // AffineElement array. Same total bytes (AffineElement == 2 * BaseField), but the live
             // allocator bumps them as two separate spans, so the sizer must too.
             layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_total, alignof(BaseField));
             layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_total, alignof(BaseField));
+=======
+            layout_add(per_worker_per_wpb_layout, sizeof(AffineElement) * dense_total, alignof(AffineElement));
+>>>>>>> origin/v5-next
             layout_add(per_worker_per_wpb_layout, sizeof(uint8_t) * dense_total, alignof(uint8_t));
             layout_add(per_worker_per_wpb_layout,
                        sizeof(std::pair<uint32_t, uint32_t>) * dense_pair_max,

@@ -5,7 +5,11 @@ import type { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 interface WalletWithSchnorrAccounts {
+<<<<<<< HEAD
   createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey?: Fq, alias?: string): Promise<AccountManager>;
+=======
+  createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string): Promise<AccountManager>;
+>>>>>>> origin/v5-next
 }
 
 /**

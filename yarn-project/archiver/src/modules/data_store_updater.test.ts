@@ -6,6 +6,10 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
+<<<<<<< HEAD
+=======
+import { getPublishableStandardContracts } from '@aztec/standard-contracts';
+>>>>>>> origin/v5-next
 import { bufferAsFields } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
@@ -19,7 +23,11 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
+<<<<<<< HEAD
 import { registerProtocolContracts } from '../factory.js';
+=======
+import { registerProtocolContracts, registerStandardContracts } from '../factory.js';
+>>>>>>> origin/v5-next
 import { type ArchiverDataStores, createArchiverDataStores } from '../store/data_stores.js';
 import { L2TipsCache } from '../store/l2_tips_cache.js';
 import { makeCheckpoint, makePublishedCheckpoint } from '../test/mock_structs.js';
@@ -149,6 +157,35 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(await store.contractClasses.getContractClass(protocolClassId)).toBeDefined();
     });
 
+<<<<<<< HEAD
+=======
+    it('preloads standard contract classes and instances via registerStandardContracts', async () => {
+      const standardContracts = await getPublishableStandardContracts();
+      expect(standardContracts.length).toBeGreaterThan(0);
+
+      // Not present before the preload.
+      for (const { contractClass } of standardContracts) {
+        expect(await store.contractClasses.getContractClass(contractClass.id)).toBeUndefined();
+      }
+
+      await registerStandardContracts(store);
+
+      // Both the class and the instance are queryable from the block-0 preload.
+      for (const { contractClass, address } of standardContracts) {
+        const retrievedClass = await store.contractClasses.getContractClass(contractClass.id);
+        expect(retrievedClass?.id.equals(contractClass.id)).toBe(true);
+        const retrievedInstance = await store.contractInstances.getContractInstance(address, 1n);
+        expect(retrievedInstance?.address.equals(address)).toBe(true);
+      }
+
+      // Calling again (e.g. on node restart with a persisted store) is idempotent and must not throw.
+      await expect(registerStandardContracts(store)).resolves.not.toThrow();
+      for (const { contractClass } of standardContracts) {
+        expect(await store.contractClasses.getContractClass(contractClass.id)).toBeDefined();
+      }
+    });
+
+>>>>>>> origin/v5-next
     it('removes contract class and instance data when blocks are pruned via setCheckpointData', async () => {
       // First, add a local provisional block with contract data
       const localBlock = await L2Block.random(BlockNumber(1), {

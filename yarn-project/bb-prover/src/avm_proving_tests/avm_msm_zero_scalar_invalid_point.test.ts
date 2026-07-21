@@ -39,7 +39,10 @@ describe('AVM MSM zero-scalar invalid-point regression', () => {
   });
 
   afterEach(async () => {
+<<<<<<< HEAD
     await tester.close();
+=======
+>>>>>>> origin/v5-next
     await worldStateService.close();
   });
 

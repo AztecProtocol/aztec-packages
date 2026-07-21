@@ -65,6 +65,7 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip="$current_commit")"
   exit 1
 fi
 
+<<<<<<< HEAD
 # Our instance_name acts as a uniqueness key for the instance: an existing instance
 # with the same name is terminated first, reaping orphans left when a GA run is
 # cancelled (e.g. by a new push) on the same ref. It's repo-scoped so
@@ -79,6 +80,21 @@ instance_name=$(aws_instance_name "$REF_NAME" "$arch" "${INSTANCE_POSTFIX:-}")
 # substring, so the sha-free base from aws_instance_name still resolves these.
 if [[ "$REF_NAME" == merge-train/* ]]; then
   instance_name="${instance_name}_${current_commit:0:9}"
+=======
+# Our instance_name acts as a uniqueness key for the instance.
+# Instances are terminated if they exist with the same name; this reaps orphans
+# left when a GA run is cancelled (e.g. by a new push) on the same ref.
+# Scope the key to the repo: aztec-packages and aztec-packages-private can build
+# the same tag/ref concurrently under the same role, and must not reap each
+# other's instances. The key stays stable across re-runs within a repo, so the
+# orphan cleanup still works.
+repo=${GITHUB_REPOSITORY:-aztec-packages}
+repo=${repo##*/}
+if [[ "$REF_NAME" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
+  instance_name="${repo}_${BASH_REMATCH[1]}_$arch"
+else
+  instance_name="${repo}_$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch"
+>>>>>>> origin/v5-next
 fi
 
 state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)

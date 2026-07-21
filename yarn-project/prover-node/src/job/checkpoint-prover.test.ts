@@ -96,7 +96,10 @@ describe('CheckpointProver', () => {
       expect(prover.l1ToL2Messages).toEqual([]);
       expect(prover.isCancelled()).toBe(false);
       expect(prover.isCompleted()).toBe(false);
+<<<<<<< HEAD
       expect(prover.isPruned()).toBe(false);
+=======
+>>>>>>> origin/v5-next
       await cleanup(prover);
     });
 
@@ -108,6 +111,7 @@ describe('CheckpointProver', () => {
     });
   });
 
+<<<<<<< HEAD
   // ---------------- prune/canonical flag ----------------
 
   describe('markPruned / markCanonical', () => {
@@ -133,6 +137,8 @@ describe('CheckpointProver', () => {
     });
   });
 
+=======
+>>>>>>> origin/v5-next
   // ---------------- cancellation ----------------
 
   describe('cancel', () => {
@@ -188,6 +194,57 @@ describe('CheckpointProver', () => {
     });
   });
 
+<<<<<<< HEAD
+=======
+  // ---------------- cancellation short-circuits execution ----------------
+
+  describe('cancellation short-circuits execution', () => {
+    it('threads its abort signal into public execution so a cancel stops the current block', async () => {
+      // Drive execution into the block loop: gather resolves, the sub-tree and forks are stubbed,
+      // and public processing parks until its signal aborts. The captured signal must be the
+      // prover's own abort signal, so cancelling the prover interrupts the in-flight block rather
+      // than letting it run to completion before the next `signal.aborted` check.
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const subTree = {
+        getSubTreeResult: () => new Promise<never>(() => {}),
+        startNewBlock: () => Promise.resolve(),
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        setBlockCompleted: () => Promise.resolve(),
+        cancel: () => {},
+        stop: () => Promise.resolve(),
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+      dbProvider.fork.mockResolvedValue({
+        appendLeaves: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+      } as any);
+
+      const processReached = promiseWithResolvers<AbortSignal>();
+      const publicProcessor = {
+        process: (_txs: unknown, limits: { signal?: AbortSignal }) => {
+          processReached.resolve(limits.signal!);
+          // Park until the signal aborts, mirroring PublicProcessor's per-tx abort check.
+          return new Promise(resolve => {
+            limits.signal?.addEventListener('abort', () => resolve([[], [], [], [], []]));
+          });
+        },
+      };
+      publicProcessorFactory.create.mockReturnValue(publicProcessor as any);
+
+      const prover = makeProver();
+      const signal = await processReached.promise;
+      expect(signal.aborted).toBe(false);
+
+      prover.cancel();
+      expect(signal.aborted).toBe(true);
+      await expect(prover.whenDone()).resolves.toBeUndefined();
+    });
+  });
+
+>>>>>>> origin/v5-next
   // ---------------- gather failure ----------------
 
   describe('gather failures', () => {

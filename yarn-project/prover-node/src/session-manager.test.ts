@@ -31,6 +31,11 @@ describe('SessionManager', () => {
 
   /** Mirror of fullSessions/partialSessions whose entries are stubs we control. */
   let stubs: StubSession[];
+<<<<<<< HEAD
+=======
+  /** Sessions the manager passed to the failure-upload callback. */
+  let sessionFailures: EpochSession[];
+>>>>>>> origin/v5-next
   /** Resolves whenever the manager constructs a stub session. */
   let onConstruct: ((stub: StubSession) => void) | undefined;
 
@@ -51,10 +56,18 @@ describe('SessionManager', () => {
     l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
     l2BlockSource.isEpochComplete.mockResolvedValue(false);
     l2BlockSource.getCheckpoints.mockResolvedValue([]);
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue([]);
     store.listCanonicalForEpoch.mockResolvedValue([]);
 
     stubs = [];
+=======
+    store.listInSlotRange.mockReturnValue([]);
+    store.listForEpoch.mockResolvedValue([]);
+
+    stubs = [];
+    sessionFailures = [];
+>>>>>>> origin/v5-next
     onConstruct = undefined;
 
     manager = new TestSessionManager(
@@ -67,6 +80,13 @@ describe('SessionManager', () => {
         metrics,
         dateProvider: new DateProvider(),
         config: { maxPendingJobs: 0, tickIntervalMs: 60_000, finalizationDelayMs: undefined },
+<<<<<<< HEAD
+=======
+        onSessionFailed: session => {
+          sessionFailures.push(session);
+          return Promise.resolve();
+        },
+>>>>>>> origin/v5-next
       },
       (spec, provers) => {
         const stub = makeStubSession(spec, provers);
@@ -114,7 +134,11 @@ describe('SessionManager', () => {
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6), archiverCp(2, 7)]);
     // Store only has checkpoint 1.
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
+=======
+    store.listInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
+>>>>>>> origin/v5-next
     await manager.onCheckpointAdded(epoch);
     expect(stubs.length).toBe(0);
     expect(manager.getFullSession(epoch)).toBeUndefined();
@@ -126,7 +150,11 @@ describe('SessionManager', () => {
     const provers = [proverForCheckpoint(1, 6), proverForCheckpoint(2, 7)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6), archiverCp(2, 7)]);
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue(provers);
+=======
+    store.listInSlotRange.mockReturnValue(provers);
+>>>>>>> origin/v5-next
 
     await manager.onCheckpointAdded(epoch);
 
@@ -176,7 +204,11 @@ describe('SessionManager', () => {
         ),
       ),
     );
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockImplementation((fromSlot: SlotNumber) => {
+=======
+    store.listInSlotRange.mockImplementation((fromSlot: SlotNumber) => {
+>>>>>>> origin/v5-next
       if (Number(fromSlot) === 6) {
         return epoch3Provers;
       }
@@ -203,7 +235,11 @@ describe('SessionManager', () => {
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue(provers);
+=======
+    store.listInSlotRange.mockReturnValue(provers);
+>>>>>>> origin/v5-next
 
     await manager.onTick();
     expect(manager.getFullSession(EpochNumber(3))).toBeDefined();
@@ -229,7 +265,11 @@ describe('SessionManager', () => {
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue(provers);
+=======
+    store.listInSlotRange.mockReturnValue(provers);
+>>>>>>> origin/v5-next
 
     await manager.onTick();
     expect(stubs.length).toBe(1);
@@ -246,7 +286,11 @@ describe('SessionManager', () => {
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue(provers);
+=======
+    store.listInSlotRange.mockReturnValue(provers);
+>>>>>>> origin/v5-next
 
     await manager.onTick();
     expect(stubs.length).toBe(1);
@@ -260,6 +304,40 @@ describe('SessionManager', () => {
     expect(stubs.length).toBe(1);
   });
 
+<<<<<<< HEAD
+=======
+  it('onTick does not re-attempt a failed epoch, but a checkpoint re-add recovers it', async () => {
+    // Pins the invariant: a genuinely-failed epoch is never re-attempted by the periodic tick
+    // (gated by lastTickEpoch), yet the SAME epoch is recovered when a chain event fires, because
+    // checkpoint/prune triggers reach openFullSessionIfReady ungated. This is how a failed proof is
+    // not resubmitted on a loop while a pruned-then-re-added epoch still gets reproven.
+    mockNextUnprovenSlot(2, 6); // proven tip block 2 → first unproven slot 6 → epoch 3
+    const provers = [proverForCheckpoint(1, 6)];
+    l2BlockSource.isEpochComplete.mockResolvedValue(true);
+    l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+    store.listInSlotRange.mockReturnValue(provers);
+
+    // Tick opens the session; it fails. lastTickEpoch is now pinned at epoch 3.
+    await manager.onTick();
+    expect(stubs.length).toBe(1);
+    stubs[0].terminate('failed');
+    await flushSessionCompletion();
+
+    // Further ticks must NOT re-attempt epoch 3 — the gate holds, no new session is constructed.
+    await manager.onTick();
+    await manager.onTick();
+    expect(stubs.length).toBe(1);
+    expect(manager.getFullSession(EpochNumber(3))).toBeUndefined();
+
+    // A checkpoint (re-)added to the epoch reaches openFullSessionIfReady ungated → fresh session.
+    await manager.onCheckpointAdded(EpochNumber(3));
+    const recreated = manager.getFullSession(EpochNumber(3)) as unknown as StubSession | undefined;
+    expect(recreated).toBeDefined();
+    expect(recreated!.isTerminal()).toBe(false);
+    expect(stubs.length).toBe(2);
+  });
+
+>>>>>>> origin/v5-next
   it('onTick keeps retrying the same epoch while a transient blocker prevents opening', async () => {
     // The archiver is still indexing — getCheckpoints returns a checkpoint we don't yet
     // have in the store. openFullSessionIfReady should bail without creating a session,
@@ -267,7 +345,11 @@ describe('SessionManager', () => {
     mockNextUnprovenSlot(2, 6);
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
     l2BlockSource.getCheckpoints.mockResolvedValue([archiverCp(1, 6)]);
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue([]); // store hasn't indexed it yet
+=======
+    store.listInSlotRange.mockReturnValue([]); // store hasn't indexed it yet
+>>>>>>> origin/v5-next
 
     await manager.onTick();
     expect(stubs.length).toBe(0); // no session created
@@ -275,7 +357,11 @@ describe('SessionManager', () => {
     expect(stubs.length).toBe(0); // still no session — the tick keeps trying
 
     // Archiver catches up; the next tick succeeds.
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
+=======
+    store.listInSlotRange.mockReturnValue([proverForCheckpoint(1, 6)]);
+>>>>>>> origin/v5-next
     await manager.onTick();
     expect(stubs.length).toBe(1);
     expect(manager.getFullSession(EpochNumber(3))).toBe(stubs[0] as unknown as EpochSession);
@@ -291,7 +377,11 @@ describe('SessionManager', () => {
     const original = stubs[0];
 
     // Now the store reports only the first prover.
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue([initial[0]]);
+=======
+    store.listInSlotRange.mockReturnValue([initial[0]]);
+>>>>>>> origin/v5-next
     await manager.onPrune([epoch]);
 
     expect(original.cancelled).toBe(true);
@@ -313,7 +403,11 @@ describe('SessionManager', () => {
     await openCanonicalFullSession(epoch, [proverForCheckpoint(1, 6)]);
     const original = stubs[0];
 
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue([]);
+=======
+    store.listInSlotRange.mockReturnValue([]);
+>>>>>>> origin/v5-next
     await manager.onPrune([epoch]);
 
     expect(original.cancelled).toBe(true);
@@ -333,7 +427,11 @@ describe('SessionManager', () => {
     const original = stubs[0];
 
     // Reorg removes every checkpoint of the epoch → session dropped, not recreated.
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue([]);
+=======
+    store.listInSlotRange.mockReturnValue([]);
+>>>>>>> origin/v5-next
     await manager.onPrune([epoch]);
     expect(original.cancelled).toBe(true);
     expect(original.state).toBe('cancelled');
@@ -351,6 +449,59 @@ describe('SessionManager', () => {
     expect(stubs.length).toBe(2);
   });
 
+<<<<<<< HEAD
+=======
+  it('reopens an epoch whose session failed once its checkpoints are re-added', async () => {
+    // A prune can fault a checkpoint mid-proof before it is reconciled, driving the session to
+    // `failed`. That terminal state must not strand the epoch — a re-add of its checkpoints reopens a
+    // fresh, live session (via the checkpoint trigger, ungated by the tick high-water mark).
+    const epoch = EpochNumber(3);
+    const prover = proverForCheckpoint(1, 6);
+    await openCanonicalFullSession(epoch, [prover]);
+    const original = stubs[0];
+
+    original.terminate('failed');
+    await flushSessionCompletion();
+    expect(original.state).toBe('failed');
+
+    await openCanonicalFullSession(epoch, [prover]);
+    const recreated = manager.getFullSession(epoch) as unknown as StubSession | undefined;
+    expect(recreated).toBeDefined();
+    expect(recreated).not.toBe(original);
+    expect(recreated!.uuid).not.toBe(original.uuid);
+    expect(recreated!.isTerminal()).toBe(false);
+    expect(stubs.length).toBe(2);
+  });
+
+  it('uploads a post-mortem for a genuine proving failure (canonical content unchanged)', async () => {
+    const epoch = EpochNumber(3);
+    const prover = proverForCheckpoint(1, 6);
+    await openCanonicalFullSession(epoch, [prover]);
+    const session = manager.getFullSession(epoch);
+    // The session's checkpoints still match canonical → the failure was genuine, not a prune.
+    store.listInSlotRange.mockReturnValue([prover]);
+
+    stubs[0].terminate('failed');
+    await flushSessionCompletion();
+
+    expect(sessionFailures).toEqual([session]);
+  });
+
+  it('skips the failure upload when the failure coincides with a canonical content change', async () => {
+    const epoch = EpochNumber(3);
+    const prover = proverForCheckpoint(1, 6);
+    await openCanonicalFullSession(epoch, [prover]);
+    // A prune removed the checkpoint from the store, so the session's content no longer matches
+    // canonical — the failure was caused by the content changing under it, not a proving fault.
+    store.listInSlotRange.mockReturnValue([]);
+
+    stubs[0].terminate('failed');
+    await flushSessionCompletion();
+
+    expect(sessionFailures).toEqual([]);
+  });
+
+>>>>>>> origin/v5-next
   it('drops terminal sessions on the next reconcile', async () => {
     const epoch = EpochNumber(3);
     await openCanonicalFullSession(epoch, [proverForCheckpoint(1, 6)]);
@@ -372,8 +523,13 @@ describe('SessionManager', () => {
   it('cancels and recreates a partial session whose canonical content changed', async () => {
     const epoch = EpochNumber(7);
     const initial = [proverForCheckpoint(1, 14)];
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue(initial);
     store.listCanonicalInSlotRange.mockReturnValue(initial);
+=======
+    store.listForEpoch.mockResolvedValue(initial);
+    store.listInSlotRange.mockReturnValue(initial);
+>>>>>>> origin/v5-next
 
     const stubPromise = awaitNextStub();
     const startPromise = manager.startProof(epoch);
@@ -383,7 +539,11 @@ describe('SessionManager', () => {
 
     // The store now reports a different prover at the same slot.
     const swapped = [proverForCheckpoint(2, 14)];
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue(swapped);
+=======
+    store.listInSlotRange.mockReturnValue(swapped);
+>>>>>>> origin/v5-next
 
     const recreatePromise = awaitNextStub();
     await manager.onTick();
@@ -406,14 +566,23 @@ describe('SessionManager', () => {
   it('drops a partial session and does not recreate when canonical content goes empty', async () => {
     const epoch = EpochNumber(7);
     const initial = [proverForCheckpoint(1, 14)];
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue(initial);
     store.listCanonicalInSlotRange.mockReturnValue(initial);
+=======
+    store.listForEpoch.mockResolvedValue(initial);
+    store.listInSlotRange.mockReturnValue(initial);
+>>>>>>> origin/v5-next
 
     const stubPromise = awaitNextStub();
     const startPromise = manager.startProof(epoch);
     const original = await stubPromise;
 
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValue([]);
+=======
+    store.listInSlotRange.mockReturnValue([]);
+>>>>>>> origin/v5-next
     await manager.onTick();
 
     expect(original.cancelled).toBe(true);
@@ -427,8 +596,13 @@ describe('SessionManager', () => {
   it('drops terminal partial sessions on the next reconcile', async () => {
     const epoch = EpochNumber(7);
     const canonical = [proverForCheckpoint(1, 14)];
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue(canonical);
     store.listCanonicalInSlotRange.mockReturnValue(canonical);
+=======
+    store.listForEpoch.mockResolvedValue(canonical);
+    store.listInSlotRange.mockReturnValue(canonical);
+>>>>>>> origin/v5-next
 
     const stubPromise = awaitNextStub();
     const startPromise = manager.startProof(epoch);
@@ -457,8 +631,13 @@ describe('SessionManager', () => {
     terminalFull.terminate('failed');
     expect(terminalFull.isTerminal()).toBe(true);
 
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue(canonical);
     store.listCanonicalInSlotRange.mockReturnValue(canonical);
+=======
+    store.listForEpoch.mockResolvedValue(canonical);
+    store.listInSlotRange.mockReturnValue(canonical);
+>>>>>>> origin/v5-next
 
     const stubPromise = awaitNextStub();
     const startPromise = manager.startProof(epoch);
@@ -476,8 +655,13 @@ describe('SessionManager', () => {
   it('startProof ignores a terminal partial session and constructs a fresh one', async () => {
     const epoch = EpochNumber(7);
     const canonical = [proverForCheckpoint(1, 14)];
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue(canonical);
     store.listCanonicalInSlotRange.mockReturnValue(canonical);
+=======
+    store.listForEpoch.mockResolvedValue(canonical);
+    store.listInSlotRange.mockReturnValue(canonical);
+>>>>>>> origin/v5-next
 
     // Open a partial, settle it terminally, then call startProof again.
     const firstPromise = awaitNextStub();
@@ -508,8 +692,13 @@ describe('SessionManager', () => {
     const epoch = EpochNumber(7);
     // Epoch 7 covers slots [14, 15]. Single canonical prover at slot 14.
     const canonical = [proverForCheckpoint(1, 14)];
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue(canonical);
     store.listCanonicalInSlotRange.mockReturnValue(canonical);
+=======
+    store.listForEpoch.mockResolvedValue(canonical);
+    store.listInSlotRange.mockReturnValue(canonical);
+>>>>>>> origin/v5-next
 
     // Arm the construction trigger before calling startProof — no need to sleep waiting
     // for reconcile to land.
@@ -535,7 +724,11 @@ describe('SessionManager', () => {
   });
 
   it('startProof throws when the epoch has no canonical content', async () => {
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue([]);
+=======
+    store.listForEpoch.mockResolvedValue([]);
+>>>>>>> origin/v5-next
     await expect(manager.startProof(EpochNumber(7))).rejects.toThrow(/No blocks found/);
   });
 
@@ -543,7 +736,11 @@ describe('SessionManager', () => {
     const epoch = EpochNumber(7);
     // proverForCheckpoint builds a checkpoint whose single block number equals the checkpoint
     // number (1 here). A proven tip at or beyond that block means the epoch is already proven.
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue([proverForCheckpoint(1, 14)]);
+=======
+    store.listForEpoch.mockResolvedValue([proverForCheckpoint(1, 14)]);
+>>>>>>> origin/v5-next
     l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(1));
 
     await expect(manager.startProof(epoch)).rejects.toThrow(/already proven/i);
@@ -559,7 +756,11 @@ describe('SessionManager', () => {
     expect(stubs.length).toBe(1);
     const fullSession = stubs[0];
 
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue(provers);
+=======
+    store.listForEpoch.mockResolvedValue(provers);
+>>>>>>> origin/v5-next
     const doneId = await manager.startProof(epoch);
     fullSession.terminate('completed');
 
@@ -571,8 +772,13 @@ describe('SessionManager', () => {
   it('startProof dedupes against an existing partial session with the same spec', async () => {
     const epoch = EpochNumber(7);
     const canonical = [proverForCheckpoint(1, 14)];
+<<<<<<< HEAD
     store.listCanonicalForEpoch.mockResolvedValue(canonical);
     store.listCanonicalInSlotRange.mockReturnValue(canonical);
+=======
+    store.listForEpoch.mockResolvedValue(canonical);
+    store.listInSlotRange.mockReturnValue(canonical);
+>>>>>>> origin/v5-next
 
     const firstId = await manager.startProof(epoch);
     expect(stubs).toHaveLength(1);
@@ -605,7 +811,11 @@ describe('SessionManager', () => {
         ),
       ),
     );
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockImplementation((fromSlot: SlotNumber) => {
+=======
+    store.listInSlotRange.mockImplementation((fromSlot: SlotNumber) => {
+>>>>>>> origin/v5-next
       if (Number(fromSlot) === 6) {
         return epoch3Provers;
       }
@@ -627,6 +837,11 @@ describe('SessionManager', () => {
     // stop() passes 'prover-node stopping' as the cancel reason — verify every session
     // saw it, so a future caller can grep logs for that string.
     expect(stubs.map(s => s.cancelReasons)).toEqual([['prover-node stopping'], ['prover-node stopping']]);
+<<<<<<< HEAD
+=======
+    // A clean shutdown must preserve the in-flight broker jobs so a restart reuses them.
+    expect(stubs.map(s => s.cancelAbortJobs)).toEqual([[false], [false]]);
+>>>>>>> origin/v5-next
   });
 
   it('stop awaits sessions whose cancel is in flight', async () => {
@@ -668,7 +883,11 @@ describe('SessionManager', () => {
   async function openCanonicalFullSession(epoch: EpochNumber, provers: CheckpointProver[]): Promise<void> {
     l2BlockSource.isEpochComplete.mockResolvedValueOnce(true);
     l2BlockSource.getCheckpoints.mockResolvedValueOnce(provers.map(p => ({ checkpoint: p.checkpoint }) as any));
+<<<<<<< HEAD
     store.listCanonicalInSlotRange.mockReturnValueOnce(provers);
+=======
+    store.listInSlotRange.mockReturnValueOnce(provers);
+>>>>>>> origin/v5-next
     await manager.onCheckpointAdded(epoch);
   }
 
@@ -678,6 +897,14 @@ describe('SessionManager', () => {
    * after an action that schedules a reconcile — the manager itself signals "session ready"
    * via the factory call.
    */
+<<<<<<< HEAD
+=======
+  /** Lets `runSession`'s post-`start()` continuation (failure upload, logging) run after a stub terminates. */
+  function flushSessionCompletion(): Promise<void> {
+    return new Promise<void>(resolve => setImmediate(resolve));
+  }
+
+>>>>>>> origin/v5-next
   function awaitNextStub(): Promise<StubSession> {
     const { promise, resolve } = promiseWithResolvers<StubSession>();
     onConstruct = stub => {
@@ -729,6 +956,11 @@ type StubSession = {
   cancelled: boolean;
   /** Reasons captured for every cancel(reason) call. Lets assertions verify "why" the cancel fired. */
   cancelReasons: string[];
+<<<<<<< HEAD
+=======
+  /** abortJobs captured for every cancel() call. Lets assertions verify a clean shutdown preserves jobs. */
+  cancelAbortJobs: boolean[];
+>>>>>>> origin/v5-next
   /** Optional gate held by tests that want to drive a cancel mid-flight. */
   cancelBlocker?: Promise<void>;
   /** Resolves the first time cancel() is invoked — tests use it to know when stop's cancel call lands. */
@@ -743,7 +975,11 @@ type StubSession = {
   getEpochNumber(): EpochNumber;
   getCheckpoints(): readonly CheckpointProver[];
   isTerminal(): boolean;
+<<<<<<< HEAD
   cancel(reason?: string): Promise<void>;
+=======
+  cancel(reason?: string, opts?: { abortJobs?: boolean }): Promise<void>;
+>>>>>>> origin/v5-next
   start(): Promise<EpochProvingJobState>;
   whenDone(): Promise<EpochProvingJobState>;
 };
@@ -759,6 +995,10 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
     state: 'awaiting-checkpoints',
     cancelled: false,
     cancelReasons: [],
+<<<<<<< HEAD
+=======
+    cancelAbortJobs: [],
+>>>>>>> origin/v5-next
     cancelStarted: promiseWithResolvers<void>(),
     donePromise: promise,
     resolveDone: resolve,
@@ -792,8 +1032,14 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
       ];
       return terminal.includes(this.state);
     },
+<<<<<<< HEAD
     async cancel(reason?: string) {
       this.cancelReasons.push(reason ?? 'cancelled');
+=======
+    async cancel(reason?: string, opts?: { abortJobs?: boolean }) {
+      this.cancelReasons.push(reason ?? 'cancelled');
+      this.cancelAbortJobs.push(opts?.abortJobs ?? true);
+>>>>>>> origin/v5-next
       this.cancelStarted.resolve();
       if (this.cancelBlocker) {
         await this.cancelBlocker;
@@ -831,7 +1077,10 @@ function proverForCheckpoint(number: number, slot: number): CheckpointProver {
     id: CheckpointProver.idFor(checkpoint),
     checkpoint,
     slotNumber: SlotNumber(slot),
+<<<<<<< HEAD
     isPruned: () => false,
+=======
+>>>>>>> origin/v5-next
     isCancelled: () => false,
   } as unknown as CheckpointProver;
 }

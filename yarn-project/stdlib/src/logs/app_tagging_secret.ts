@@ -89,15 +89,12 @@ export class AppTaggingSecret {
   }
 
   toString(): string {
-    // TODO(F-680): Migrate stored tagging keys and remove the legacy unconstrained format.
-    if (this.kind === AppTaggingSecretKind.UNCONSTRAINED) {
-      return `${this.secret.toString()}:${this.app.toString()}`;
-    }
     return `${this.kind}:${this.secret.toString()}:${this.app.toString()}`;
   }
 
   static fromString(str: string): AppTaggingSecret {
     const parts = str.split(':');
+<<<<<<< HEAD
     if (parts.length === 2) {
       // TODO(F-680): Remove legacy two-part parsing after stored tagging keys are migrated.
       const [secretStr, appStr] = parts;
@@ -112,6 +109,17 @@ export class AppTaggingSecret {
       );
     }
     throw new Error(`Invalid AppTaggingSecret string: ${str}`);
+=======
+    if (parts.length !== 3) {
+      throw new Error(`Invalid AppTaggingSecret string: ${str}`);
+    }
+    const [kindStr, secretStr, appStr] = parts;
+    return new AppTaggingSecret(
+      Fr.fromString(secretStr),
+      AztecAddress.fromStringUnsafe(appStr),
+      appTaggingSecretKindFromString(kindStr),
+    );
+>>>>>>> origin/v5-next
   }
 }
 

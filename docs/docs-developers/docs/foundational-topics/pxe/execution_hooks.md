@@ -82,6 +82,7 @@ For an unconstrained self-send (the recipient is one of the wallet's own account
 
 ### In Noir tests
 
+<<<<<<< HEAD
 When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy when creating the environment to exercise a specific one; it affects message delivery in private executions:
 
 ```rust
@@ -90,6 +91,25 @@ let env = TestEnvironment::new_opts(
 );
 ```
 
+=======
+When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy
+when creating the environment to exercise a specific one; it affects message delivery in private executions that use the
+default wallet strategy hook. Use `with_default_tag_secret_strategy` to configure the strategy for a specific delivery
+mode:
+
+```rust
+let env = TestEnvironment::new_opts(
+    TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+        MessageDelivery::onchain_unconstrained(),
+        TaggingSecretStrategy::non_interactive_handshake(),
+    ),
+);
+```
+
+Use `with_default_tag_secret_strategy_all_modes` only when the same strategy should apply to both constrained and
+unconstrained delivery. Contract-fixed delivery derivations bypass this default strategy.
+
+>>>>>>> origin/v5-next
 ### In production
 
 Pass a `resolveTaggingSecretStrategy` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretStrategyRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.

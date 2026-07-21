@@ -37,7 +37,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { ProverNodeConfig } from '@aztec/prover-node';
+import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
 import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
@@ -77,6 +77,10 @@ import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS }
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+<<<<<<< HEAD
+=======
+import { getStandardContractGenesisNullifiers } from './standard_contracts_genesis.js';
+>>>>>>> origin/v5-next
 import { testSpan } from './timing.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
@@ -220,6 +224,17 @@ export type SetupOptions<TDeployExtraL1ContractsReturnType = unknown> = {
   zkPassportArgs?: ZKPassportArgs;
   /** Whether to fund the sponsored FPC in genesis (defaults to false). */
   fundSponsoredFPC?: boolean;
+<<<<<<< HEAD
+=======
+  /**
+   * Compute extra addresses to fund at genesis from the accounts setup just generated (passed as the
+   * argument). Runs after the default accounts are created and before genesis values are computed, so a
+   * test can genesis-fund a contract whose address derives from a default account (e.g. an FPC whose
+   * admin is the first account) instead of bridging fee juice to it during setup. Each returned address
+   * is funded with the same fee juice as an initial account and included in the L1 portal `fundingNeeded`.
+   */
+  computeExtraGenesisFundedAddresses?: (defaultAccounts: InitialAccountData[]) => Promise<AztecAddress[]>;
+>>>>>>> origin/v5-next
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier */
@@ -460,12 +475,27 @@ async function setupInner<TDeployExtraL1ContractsReturnType = unknown>(
     }
     logger.trace('Generated test accounts to fund at genesis');
 
+    // Fund any extra addresses whose value depends on the just-generated accounts (e.g. an FPC admin'd
+    // by a default account), so a test can genesis-fund them instead of bridging fee juice during setup.
+    if (opts.computeExtraGenesisFundedAddresses) {
+      addressesToFund.push(...(await opts.computeExtraGenesisFundedAddresses(defaultAccounts)));
+    }
+    logger.trace('Generated test accounts to fund at genesis');
+
+    // Preload the standard contracts (AuthRegistry, PublicChecks, HandshakeRegistry) so their `ensure*Published` setup
+    // helpers short-circuit their publish txs. The archiver flag seeds the bytecode/instance into every spawned node's
+    // contract store; the genesis nullifiers make the AVM's deployment-nullifier check pass when they are called. Both
+    // must go together (flag alone would recreate the publish-collision bug), so the flag lives here beside the seeding.
+    config.testPreloadStandardContracts = true;
+    const standardContractNullifiers = await getStandardContractGenesisNullifiers();
+
     const genesisTimestamp = BigInt(Math.floor(Date.now() / 1000));
     const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(
       addressesToFund,
       opts.initialAccountFeeJuice,
       opts.genesisPublicData,
       genesisTimestamp,
+      standardContractNullifiers,
     );
     logger.trace('Computed genesis values');
 
@@ -849,6 +879,7 @@ export function createAndSyncProverNode(
     telemetry?: TelemetryClient;
     dateProvider: DateProvider;
     p2pClientDeps?: P2PClientDeps;
+    proverNodeDeps?: Partial<ProverNodeDeps>;
   },
   options: { genesis?: GenesisData; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {

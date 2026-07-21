@@ -937,6 +937,7 @@ aztec setup-protocol-contracts [options]
 
 ### aztec start
 
+<<<<<<< HEAD
 **MISC**
 
 - `--network <value>`
@@ -1943,6 +1944,48 @@ aztec setup-protocol-contracts [options]
   *Environment: `$TRANSACTIONS_DISABLED`*
 
 - `--p2p.txPoolDeleteTxsAfterReorg <value>`
+=======
+Starts Aztec infrastructure components. Module flags can be combined to run several components in a single process (e.g. `--node --sequencer`).
+
+**Usage:**
+
+```bash
+aztec start [options]
+```
+
+**Examples:**
+
+```bash
+# Start a complete local development network
+aztec start --local-network
+
+# Start a full node
+aztec start --node
+
+# Start a sequencer node
+aztec start --node --sequencer
+```
+
+**Common options:**
+
+- `--network <value>` - Network to run Aztec on (env: NETWORK)
+- `--port <value>` - Port to run the Aztec Services on (default: 8080, env: AZTEC_PORT)
+- `--admin-port <value>` - Port to run admin APIs of Aztec Services on (default: 8880, env: AZTEC_ADMIN_PORT)
+
+**Module flags:**
+
+- `--local-network` - Starts the Aztec Local Network: a local Ethereum dev node (Anvil) with the full Aztec protocol deployed on top
+- `--node` - Starts an Aztec Node
+- `--sequencer` - Starts an Aztec Sequencer
+- `--prover-node` - Starts an Aztec Prover Node
+- `--prover-broker` - Starts an Aztec proving job broker
+- `--prover-agent` - Starts an Aztec Prover Agent
+- `--p2p-bootstrap` - Starts an Aztec P2P bootstrap node
+- `--bot` - Starts an Aztec transaction bot
+- `--txe` - Starts an Aztec TXE (test execution environment)
+
+Each module accepts further namespaced options (e.g. `--sequencer.coinbase`, `--local-network.testAccounts`). For the full per-module option list, see the [node operator CLI reference](/operate/operators/reference/cli-reference).
+>>>>>>> origin/v5-next
 
 ### aztec test
 

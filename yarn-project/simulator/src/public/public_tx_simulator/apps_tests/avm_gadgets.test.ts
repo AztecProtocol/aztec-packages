@@ -8,7 +8,14 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('Public TX simulator apps tests: gadgets', () => {
+<<<<<<< HEAD
   describe('Public TX simulator apps tests: gadgets', () => {
+=======
+  describe.each([
+    { useCppSimulator: false, simulatorName: 'TS Simulator' },
+    { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+  ])('Public TX simulator apps tests: gadgets (via $simulatorName)', ({ useCppSimulator }) => {
+>>>>>>> origin/v5-next
     const deployer = AztecAddress.fromNumberUnsafe(42);
 
     let worldStateService: NativeWorldStateService;

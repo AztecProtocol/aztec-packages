@@ -5,7 +5,11 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
+<<<<<<< HEAD
 describe('AVM Error Propagation during Public Tx Simulation', () => {
+=======
+describe('C++ Exception Handling during Public Tx Simulation', () => {
+>>>>>>> origin/v5-next
   const sender = AztecAddress.fromNumberUnsafe(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: PublicTxSimulationTester;

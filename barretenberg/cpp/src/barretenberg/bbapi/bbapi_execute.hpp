@@ -78,6 +78,7 @@ using Command = NamedUnion<AvmProve,
                            ChonkBatchVerifierQueue,
                            ChonkBatchVerifierStop,
                            SrsInitGrumpkinSrs,
+                           SetMsmLegacy,
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
@@ -145,6 +146,7 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    ChonkBatchVerifierQueue::Response,
                                    ChonkBatchVerifierStop::Response,
                                    SrsInitGrumpkinSrs::Response,
+                                   SetMsmLegacy::Response,
                                    Shutdown::Response>;
 
 /**

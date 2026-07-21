@@ -68,6 +68,16 @@ export type ArchiverSpecificConfig = {
 
   /** Skip pruning orphan proposed blocks that have no matching proposed checkpoint. */
   skipOrphanProposedBlockPruning?: boolean;
+<<<<<<< HEAD
+=======
+
+  /**
+   * Preload the standard contracts (AuthRegistry, PublicChecks, HandshakeRegistry) into the contract store at block 0.
+   * For test environments only: it must only be set when genesis also seeds the matching registration/deployment
+   * nullifiers, otherwise a later on-chain publish of a preloaded class would collide with the block-0 preload.
+   */
+  testPreloadStandardContracts?: boolean;
+>>>>>>> origin/v5-next
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -82,6 +92,10 @@ export const ArchiverSpecificConfigSchema = z.object({
   skipPromoteProposedCheckpointDuringL1Sync: z.boolean().optional(),
   orphanPruneNoProposalTolerance: schemas.Integer.optional(),
   skipOrphanProposedBlockPruning: z.boolean().optional(),
+<<<<<<< HEAD
+=======
+  testPreloadStandardContracts: z.boolean().optional(),
+>>>>>>> origin/v5-next
 });
 
 export type ArchiverApi = Omit<

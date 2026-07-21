@@ -91,7 +91,11 @@ static constexpr size_t BATCH_MERGE_PROOF_SIZE =
     /*evals*/ (4 * (CHONK_MAX_NUM_CIRCUITS + 2) + 1) +
     /*shplonk and kzg*/ 8;
 
+<<<<<<< HEAD
 // Number of ultra ops the hiding kernel appends. The final merge verifier hard-codes its shift size from this,
 // and the merge prover asserts the hiding subtable matches it, so it must equal the hiding kernel's ultra-op count.
 static constexpr size_t HIDING_KERNEL_ULTRA_OPS = 363;
+=======
+static constexpr size_t HIDING_KERNEL_ULTRA_OPS = 331;
+>>>>>>> origin/v5-next
 } // namespace bb

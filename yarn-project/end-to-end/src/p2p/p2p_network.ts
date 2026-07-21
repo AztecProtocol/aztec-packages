@@ -49,6 +49,7 @@ import {
   createValidatorConfig,
   generatePrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
+import { getStandardContractGenesisNullifiers } from '../fixtures/standard_contracts_genesis.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
@@ -415,6 +416,7 @@ export class P2PNetworkTest {
       undefined,
       undefined,
       this.context.genesis!.genesisTimestamp,
+      await getStandardContractGenesisNullifiers(),
     );
     this.genesis = genesis;
 

@@ -34,6 +34,10 @@ import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract }
 import { foundry } from 'viem/chains';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+<<<<<<< HEAD
+=======
+import { getStandardContractGenesisNullifiers } from '../../fixtures/standard_contracts_genesis.js';
+>>>>>>> origin/v5-next
 import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../../fixtures/utils.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import {
@@ -136,7 +140,17 @@ describe('multi-node/governance/add_rollup', () => {
       genesisArchiveRoot,
       fundingNeeded,
       genesis: newGenesis,
+<<<<<<< HEAD
     } = await getGenesisValues(genesisFundedAddresses, undefined, undefined, context.genesis!.genesisTimestamp + 1n);
+=======
+    } = await getGenesisValues(
+      genesisFundedAddresses,
+      undefined,
+      undefined,
+      context.genesis!.genesisTimestamp + 1n,
+      await getStandardContractGenesisNullifiers(),
+    );
+>>>>>>> origin/v5-next
 
     const { rollup: newRollup } = await deployRollupForUpgrade(
       deployerPrivateKey,
@@ -174,11 +188,14 @@ describe('multi-node/governance/add_rollup', () => {
         slashAmountLarge: context.aztecNodeConfig.slashAmountLarge,
         localEjectionThreshold: context.aztecNodeConfig.localEjectionThreshold,
         governanceVotingDuration: context.aztecNodeConfig.governanceVotingDuration,
+<<<<<<< HEAD
         entryQueueBootstrapValidatorSetSize: context.aztecNodeConfig.entryQueueBootstrapValidatorSetSize,
         entryQueueBootstrapFlushSize: context.aztecNodeConfig.entryQueueBootstrapFlushSize,
         entryQueueFlushSizeMin: context.aztecNodeConfig.entryQueueFlushSizeMin,
         entryQueueFlushSizeQuotient: context.aztecNodeConfig.entryQueueFlushSizeQuotient,
         entryQueueMaxFlushSize: context.aztecNodeConfig.entryQueueMaxFlushSize,
+=======
+>>>>>>> origin/v5-next
       },
     );
 
@@ -240,6 +257,10 @@ describe('multi-node/governance/add_rollup', () => {
       const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
         aliceAccount.secret,
         aliceAccount.salt,
+<<<<<<< HEAD
+=======
+        aliceAccount.signingKey,
+>>>>>>> origin/v5-next
       );
 
       const aliceAddress = aliceAccountManager.address;

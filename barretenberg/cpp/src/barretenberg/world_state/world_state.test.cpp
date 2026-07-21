@@ -211,6 +211,57 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
     }
 }
 
+TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledNullifiers)
+{
+    // Prefilled nullifier leaves must be unique and strictly increasing, and larger than the padding leaves that fill
+    // the initial 128-leaf prefill region (whose keys are the low integers 0..127), so we use full-size field values.
+    std::vector<bb::fr> prefilled_nullifiers = {
+        bb::fr("0x073b5e41abe9d7f8466bca9c81c9572b558f953bbd70081317f6a80ac65f3dd5"),
+        bb::fr("0x0d99507b7ecac720c73bf197a0e7366a5ed80c1c1b0afe8ff8c6ecc7b5a7aefe"),
+        bb::fr("0x1c0bf82e0c51834780e61ef091b17e3a1d39ae891db7a70bfdb5221f134996ac"),
+    };
+
+    std::string data_dir_prefilled = random_temp_directory();
+    std::filesystem::create_directories(data_dir_prefilled);
+
+    WorldState ws_prefilled(thread_pool_size,
+                            data_dir_prefilled,
+                            map_size,
+                            tree_heights,
+                            tree_prefill,
+                            std::vector<PublicDataLeafValue>(),
+                            prefilled_nullifiers,
+                            initial_header_generator_point);
+
+    // Baseline world state with no prefilled nullifiers (the canonical empty genesis).
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+    auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+
+    // The prefilled nullifiers occupy the last slots of the 128-leaf initial prefill region (they replace padding
+    // leaves rather than being appended), so the tree size stays 128 for both.
+    EXPECT_EQ(prefilled.meta.size, 128);
+    EXPECT_EQ(info.meta.size, 128);
+
+    // Seeding the nullifiers changes the nullifier-tree root away from the empty-genesis baseline.
+    EXPECT_NE(prefilled.meta.root, info.meta.root);
+    // The empty-genesis baseline root is unchanged from the canonical value, confirming that a default (empty)
+    // prefilled-nullifiers list leaves the genesis nullifier-tree root bit-identical to today.
+    EXPECT_EQ(info.meta.root, bb::fr("0x18935581a8ed73d08ffd00386fba55ba6c89f3ab848a76b8fedfa9034cee0454"));
+
+    // The seeded nullifiers are present in the tree.
+    for (const auto& nullifier : prefilled_nullifiers) {
+        assert_leaf_exists<NullifierLeafValue>(ws_prefilled,
+                                               WorldStateRevision::committed(),
+                                               MerkleTreeId::NULLIFIER_TREE,
+                                               NullifierLeafValue(nullifier),
+                                               true);
+    }
+
+    std::filesystem::remove_all(data_dir_prefilled);
+}
+
 TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledPublicData)
 {
     std::string data_dir_prefilled = random_temp_directory();
@@ -225,6 +276,7 @@ TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledPublicData)
                             tree_heights,
                             tree_prefill,
                             prefilled_values,
+                            std::vector<bb::fr>(),
                             initial_header_generator_point);
 
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);

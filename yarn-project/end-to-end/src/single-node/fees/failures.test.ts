@@ -57,7 +57,11 @@ describe('single-node/fees/failures', () => {
     aztecNode = t.aztecNode;
 
     // Prove up until the current state by advancing the epoch and waiting for the prover node.
+<<<<<<< HEAD
     await t.cheatCodes.rollup.advanceToNextEpoch();
+=======
+    await t.advanceToNextEpoch();
+>>>>>>> origin/v5-next
     await t.catchUpProvenChain();
   });
 
@@ -123,7 +127,11 @@ describe('single-node/fees/failures', () => {
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
+<<<<<<< HEAD
     await t.cheatCodes.rollup.advanceToNextEpoch();
+=======
+    await t.advanceToNextEpoch();
+>>>>>>> origin/v5-next
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *
       t.context.config.aztecEpochDuration *
@@ -362,7 +370,11 @@ describe('single-node/fees/failures', () => {
     );
 
     // Prove the block containing the teardown-reverted tx (revert_code = 2).
+<<<<<<< HEAD
     await t.cheatCodes.rollup.advanceToNextEpoch();
+=======
+    await t.advanceToNextEpoch();
+>>>>>>> origin/v5-next
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *
       t.context.config.aztecEpochDuration *
@@ -389,7 +401,11 @@ describe('single-node/fees/failures', () => {
     expect(receipt.executionResult).toBe(TxExecutionResult.REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
+<<<<<<< HEAD
     await t.cheatCodes.rollup.advanceToNextEpoch();
+=======
+    await t.advanceToNextEpoch();
+>>>>>>> origin/v5-next
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *
       t.context.config.aztecEpochDuration *

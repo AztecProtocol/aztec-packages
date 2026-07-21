@@ -549,6 +549,7 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+<<<<<<< HEAD
     // === coverage for batch_two_round_fold (fused IPA SRS fold) ===
 
     // Build a random 127-bit scalar, as produced by the IPA transcript for round challenges.
@@ -639,6 +640,8 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+=======
+>>>>>>> origin/v5-next
     static void test_frc_codec_round_trip()
     {
         using FrField = FrCodec::DataType;
@@ -892,6 +895,7 @@ TYPED_TEST(TestAffineElement, BatchMulNumPointsNotMultipleOfThreads)
     }
 }
 
+<<<<<<< HEAD
 // Fused two-round IPA SRS fold: out[i] = (u1·u2)·P[i] + u1·P[i+t] + u2·P[i+2t] + P[i+3t].
 TYPED_TEST(TestAffineElement, TwoRoundFoldRandomChallenges)
 {
@@ -920,6 +924,8 @@ TYPED_TEST(TestAffineElement, TwoRoundFoldMatchesSequentialFolds)
     }
 }
 
+=======
+>>>>>>> origin/v5-next
 TYPED_TEST(TestAffineElement, BatchMulScalarUnder127Bits)
 {
     if constexpr (!TypeParam::USE_ENDOMORPHISM) {

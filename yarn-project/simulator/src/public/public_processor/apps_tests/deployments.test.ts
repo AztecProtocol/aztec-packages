@@ -8,7 +8,14 @@ import { createContractClassAndInstance } from '../../avm/testing/utils.js';
 import { PublicProcessorTestEnv } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
 
+<<<<<<< HEAD
 describe('Public processor contract registration/deployment tests', () => {
+=======
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public processor contract registration/deployment tests ($simulatorName)', ({ useCppSimulator }) => {
+>>>>>>> origin/v5-next
   const admin = AztecAddress.fromNumberUnsafe(42);
   const sender = AztecAddress.fromNumberUnsafe(111);
 

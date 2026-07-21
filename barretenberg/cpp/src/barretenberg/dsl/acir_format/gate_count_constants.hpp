@@ -119,7 +119,11 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
+<<<<<<< HEAD
 inline constexpr size_t CHONK_RECURSION_GATES = 1375725;
+=======
+inline constexpr size_t CHONK_RECURSION_GATES = 1368123;
+>>>>>>> origin/v5-next
 
 // ========================================
 // Hypernova Recursion Constants
@@ -152,19 +156,35 @@ inline constexpr size_t RESET_TAIL_KERNEL_GATE_COUNT = 15281;
 inline constexpr size_t RESET_TAIL_KERNEL_ECC_ROWS = 784;
 inline constexpr size_t RESET_TAIL_KERNEL_ULTRA_OPS = 81;
 
+<<<<<<< HEAD
 // Hiding kernel: verifies the tail kernel (HN_FINAL), then a batch-merge recursive verifier sized for
 // CHONK_MAX_NUM_CIRCUITS plus a decider.
 inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 36584;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330;
 // The hiding kernel's ultra-op count is defined canonically as bb::HIDING_KERNEL_ULTRA_OPS (constants.hpp), since
 // the merge prover/verifier pin to it; reference it directly to avoid an ambiguous re-export in this namespace.
+=======
+// Tail kernel gate counts (verifies HN_TAIL proof)
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 17421;
+inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 689 + MSM_ROWS_OFFSET;
+inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 77;
+
+// Hiding kernel gate counts (verifies HN_FINAL proof)
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 38940;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 4773 + MSM_ROWS_OFFSET;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = bb::HIDING_KERNEL_ULTRA_OPS;
+>>>>>>> origin/v5-next
 
 // ========================================
 // ECCVM Recursive Verifier Constants
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
+<<<<<<< HEAD
 inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 237497;
+=======
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 234059;
+>>>>>>> origin/v5-next
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants

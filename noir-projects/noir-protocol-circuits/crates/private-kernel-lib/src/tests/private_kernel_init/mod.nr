@@ -79,6 +79,13 @@ impl TestBuilder {
         let mut accumulated_data = private_call.to_private_accumulated_data();
 
         let scoped_protocol_nullifier = create_protocol_nullifier(self.tx_request);
+<<<<<<< HEAD
+=======
+        let protocol_nullifier = compute_siloed_nullifier(
+            scoped_protocol_nullifier.contract_address,
+            scoped_protocol_nullifier.innermost().value,
+        );
+>>>>>>> origin/v5-next
         // The protocol nullifier is always injected at index 0; app nullifiers shift to index 1+.
         let app_nullifiers = accumulated_data.nullifiers;
         let mut nullifiers = app_nullifiers;
@@ -107,6 +114,11 @@ impl TestBuilder {
 
         assert_eq(pi.is_private_only, self.is_private_only);
 
+<<<<<<< HEAD
+=======
+        assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
+
+>>>>>>> origin/v5-next
         assert_eq(pi.claimed_revertible_counter, self.revertible_counter_hint);
     }
 }
