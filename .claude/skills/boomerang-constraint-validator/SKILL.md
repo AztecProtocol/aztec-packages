@@ -5,7 +5,8 @@ description: >-
   mirror + component dump, Phase 2 witness/gate discovery on same chain, Phase 3
   validate_* pipeline, Review loop until report.md has no critical findings.
   Routes to child skills. Use for full constraint validation, boomerang tests,
-  *_validation.hpp, or validator audit.
+  *_validation.hpp, or validator audit. Also use whenever working in
+  barretenberg/cpp/src/barretenberg/noir_programs_boomerang_values/.
 ---
 
 # Boomerang Constraint Validator Agent
