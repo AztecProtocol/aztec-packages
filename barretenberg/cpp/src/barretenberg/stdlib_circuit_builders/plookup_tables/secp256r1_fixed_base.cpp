@@ -143,17 +143,18 @@ template <table::AxisIndex axis> generate_fn_ptr generate_fn_for_window(size_t w
 }
 } // namespace
 
-template <table::AxisIndex axis> BasicTable table::generate_basic_table_runtime(BasicTableId id, size_t window_idx)
+template <table::AxisIndex axis>
+BasicTable table::generate_basic_table_runtime(BasicTableId id, size_t window_idx, size_t table_index)
 {
     BB_ASSERT_LT(window_idx, NUM_WINDOWS);
-    return generate_fn_for_window<axis>(window_idx)(id, window_idx);
+    return generate_fn_for_window<axis>(window_idx)(id, table_index);
 }
 
 // Explicit instantiations for the four axes.
-template BasicTable table::generate_basic_table_runtime<table::AXIS_XLO>(BasicTableId, size_t);
-template BasicTable table::generate_basic_table_runtime<table::AXIS_XHI>(BasicTableId, size_t);
-template BasicTable table::generate_basic_table_runtime<table::AXIS_YLO>(BasicTableId, size_t);
-template BasicTable table::generate_basic_table_runtime<table::AXIS_YHI>(BasicTableId, size_t);
+template BasicTable table::generate_basic_table_runtime<table::AXIS_XLO>(BasicTableId, size_t, size_t);
+template BasicTable table::generate_basic_table_runtime<table::AXIS_XHI>(BasicTableId, size_t, size_t);
+template BasicTable table::generate_basic_table_runtime<table::AXIS_YLO>(BasicTableId, size_t, size_t);
+template BasicTable table::generate_basic_table_runtime<table::AXIS_YHI>(BasicTableId, size_t, size_t);
 
 namespace {
 // Returns `&table::get_values<axis, window_idx>` for a runtime (axis, window_idx). The per-axis 32-entry

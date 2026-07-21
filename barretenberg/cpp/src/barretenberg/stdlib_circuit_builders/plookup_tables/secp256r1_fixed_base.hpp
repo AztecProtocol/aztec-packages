@@ -116,10 +116,11 @@ class table : public Secp256r1FixedBaseParams {
     static BasicTable generate_basic_table(BasicTableId id, size_t table_index);
 
     /**
-     * @brief Runtime dispatch helper used by plookup_tables.cpp::create_basic_table. Given an axis and a
-     * runtime window_idx ∈ [0, NUM_WINDOWS), instantiate the corresponding generator.
+     * @brief Runtime dispatch helper used by plookup_tables.cpp::create_basic_table. Selects table contents using
+     * window_idx and assigns the independently supplied circuit-local table_index.
      */
-    template <AxisIndex axis> static BasicTable generate_basic_table_runtime(BasicTableId id, size_t table_index);
+    template <AxisIndex axis>
+    static BasicTable generate_basic_table_runtime(BasicTableId id, size_t window_idx, size_t table_index);
 
     /**
      * @brief Construct one of the 10 MultiTables described in the file-header docstring.
