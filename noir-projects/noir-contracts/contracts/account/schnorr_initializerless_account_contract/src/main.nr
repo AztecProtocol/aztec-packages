@@ -1,24 +1,6 @@
-use aztec::{
-    macros::{aztec, AztecConfig},
-    messages::{
-        discovery::{ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler},
-        processing::offchain::OffchainInboxSync,
-    },
-    protocol::address::AztecAddress,
-};
+use aztec::{macros::{aztec, AztecConfig}, messages::discovery::do_sync_state_no_op};
 
-/// Empty override to opt-out of state syncing. This contract does not hold private state,
-/// so runnning the sync process just results in unnecessary RPC calls
-unconstrained fn no_sync(
-    _contract_address: AztecAddress,
-    _compute_note_hash: ComputeNoteHash,
-    _compute_note_nullifier: ComputeNoteNullifier,
-    _process_custom_message: Option<CustomMessageHandler>,
-    _offchain_inbox_sync: Option<OffchainInboxSync>,
-    _scope: AztecAddress,
-) {}
-
-#[aztec(AztecConfig::new().custom_sync_state(crate::no_sync))]
+#[aztec(AztecConfig::new().custom_sync_state(do_sync_state_no_op))]
 pub contract SchnorrInitializerlessAccount {
     use aztec::{
         authwit::{
