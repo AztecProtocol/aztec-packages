@@ -9,7 +9,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
 ## 5.0.1
 
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
@@ -64,8 +63,6 @@ configure the TXE default wallet strategy hook; contract-fixed delivery derivati
 For mode-specific defaults and hook semantics, see the
 [`resolveTaggingSecretStrategy` test helper docs](../foundational-topics/pxe/execution_hooks.md#resolvetaggingsecretstrategy).
 
-=======
->>>>>>> 9f1167e6d4 (feat!: make inbox secrets be multiple fields (#24599))
 ### [Aztec.nr] L1-to-L2 message consumption takes the secret as an array
 
 `PrivateContext::consume_l1_to_l2_message` and `PublicContext::consume_l1_to_l2_message` now take the message secret as an arbitrary-length array `[Field; N]` instead of a single `Field`, so a consumer can derive its secret hash from more than one field. The helpers `compute_secret_hash` and `compute_l1_to_l2_message_nullifier` are likewise now generic over the secret length. A single-field secret behaves exactly as before (the hashes are unchanged for `N = 1`) — just wrap it in an array.
