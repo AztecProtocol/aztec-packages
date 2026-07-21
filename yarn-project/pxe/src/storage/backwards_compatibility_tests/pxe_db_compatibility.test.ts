@@ -1,11 +1,8 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
-<<<<<<< HEAD
-import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
-=======
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
->>>>>>> 0bb0628549 (feat: preserve stores on schema version or rollup address change (#24631))
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 
@@ -29,6 +26,9 @@ expect.extend({ toMatchFile });
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // The last schema in which the key store still persisted the message-signing and fallback secret keys.
 const PRE_MESSAGE_AND_FALLBACK_SECRET_KEY_REMOVAL_PXE_SCHEMA_VERSION = 10;
+// The last schema in which the tagging stores keyed unconstrained entries by the legacy two-part AppTaggingSecret
+// format (`<secret>:<app>`), before every key moved to the self-describing `<kind>:<secret>:<app>` form.
+const PRE_KIND_PREFIXED_TAGGING_KEY_PXE_SCHEMA_VERSION = 12;
 
 /**
  * Asserts that `value` matches the per-store snapshot file `__snapshots__/<name>.json`. Each store gets its own file
@@ -147,8 +147,6 @@ async function collectOpenedStores() {
 }
 
 /**
-<<<<<<< HEAD
-=======
  * Seeds rows into a `pxe_data` store opened at `oldSchemaVersion`, then opens the store for the current
  * `PXE_DATA_SCHEMA_VERSION`. The schema version is part of the store identity, so the current version selects a
  * fresh store: `assertNotRead` proves the legacy rows are invisible to new code, and `assertLegacyIntact` proves
@@ -195,7 +193,6 @@ async function expectFreshStoreSelectedOnUpgradeFrom(
 }
 
 /**
->>>>>>> 0bb0628549 (feat: preserve stores on schema version or rollup address change (#24631))
  * Backwards-compatibility test suite for PXE storage. The intent is to detect any change to the bytes PXE writes to
  * disk that would render existing on-device data unreadable after a version bump. Each schema test (in
  * `schema_tests.ts`) drives the production write path of one store class, then snapshots every sub-store the class
@@ -214,44 +211,6 @@ async function expectFreshStoreSelectedOnUpgradeFrom(
 describe('PXE storage compatibility test suite', () => {
   it('never reads key-store rows written under an older schema version, and leaves them intact', async () => {
     const account = AztecAddress.fromStringUnsafe('0x0b3683ee9df3ed6ed7027145bd6093f783b0bb4d8354501d906db7bb8cb58ea3');
-<<<<<<< HEAD
-    const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-reset-'));
-    const config = {
-      dataDirectory,
-      dataStoreMapSizeKb: 1024,
-      rollupAddress: EthAddress.ZERO,
-    };
-
-    try {
-      const oldStore = await createStore(
-        'pxe_data',
-        PRE_MESSAGE_AND_FALLBACK_SECRET_KEY_REMOVAL_PXE_SCHEMA_VERSION,
-        config,
-      );
-      try {
-        await oldStore
-          .openMap<string, Buffer>('key_store')
-          .set(
-            `${account.toString()}-ivsk_m`,
-            Buffer.from('1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a', 'hex'),
-          );
-      } finally {
-        await oldStore.close();
-      }
-
-      const currentStore = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, config);
-      try {
-        const keyStore = new KeyStore(currentStore);
-        // Opening a below-current-version DB triggers DatabaseVersionManager to wipe it, so the account written under
-        // the old schema is gone and the new code never reads its now-incompatible rows.
-        await expect(keyStore.hasAccount(account)).resolves.toBe(false);
-      } finally {
-        await currentStore.close();
-      }
-    } finally {
-      await rm(dataDirectory, { recursive: true, force: true, maxRetries: 3 });
-    }
-=======
     const ivskKey = `${account.toString()}-ivsk_m`;
     const ivskValue = Buffer.from('1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a', 'hex');
     await expectFreshStoreSelectedOnUpgradeFrom(
@@ -283,7 +242,6 @@ describe('PXE storage compatibility test suite', () => {
         expect(await oldStore.openMap<string, number>('highest_aged_index').getAsync(legacyKey)).toBe(13);
       },
     );
->>>>>>> 0bb0628549 (feat: preserve stores on schema version or rollup address change (#24631))
   });
 
   it('opens the expected set of stores', async () => {
