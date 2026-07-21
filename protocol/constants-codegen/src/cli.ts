@@ -11,7 +11,7 @@ import {
   generateSolidityConstants,
   generateTypescriptConstants,
   parseNoirFile,
-} from './generator.js';
+} from './generator.ts';
 
 type GenerateOutput = (content: ParsedContent, targetPath: string) => void;
 

@@ -35,14 +35,7 @@ if [ "$check" -eq 1 ]; then
   solidity_output="$temp_dir/ConstantsGen.sol"
 fi
 
-if [ "$check" -eq 0 ]; then
-  (cd "$codegen_dir" && yarn install --immutable && yarn build)
-elif [ ! -f "$codegen_dir/dest/cli.js" ]; then
-  echo "constants-codegen must be built before running --check" >&2
-  exit 1
-fi
-
-node "$codegen_dir/dest/cli.js" \
+node "$codegen_dir/src/cli.ts" \
   --input "$repo_root/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr" \
   --include "$additional_input" \
   --typescript "$typescript_output" \

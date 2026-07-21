@@ -14,7 +14,7 @@ import {
   generateSolidityConstants,
   generateTypescriptConstants,
   parseNoirFile,
-} from './generator.js';
+} from './generator.ts';
 
 const noirFixture = `
 pub global MAX_FIELD_VALUE: Field =
@@ -82,7 +82,7 @@ test('the CLI generates multiple requested outputs', () => {
   const includedInputPath = join(tempDir, 'additional.nr');
   const typescriptPath = join(tempDir, 'typescript', 'constants.ts');
   const cppPath = join(tempDir, 'cpp', 'constants.hpp');
-  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.js');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
   try {
     writeFileSync(inputPath, noirFixture);
