@@ -336,9 +336,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return completeAddress;
   }
 
-  async createAccount(secret: Fr) {
-    // This is a foot gun !
-    const completeAddress = await this.keyStore.addAccount(await deriveKeys(secret), secret);
+  async createAccount(secret: Fr, partialAddress: Fr) {
+    const completeAddress = await this.keyStore.addAccount(await deriveKeys(secret), partialAddress);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
     await this.addressStore.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
