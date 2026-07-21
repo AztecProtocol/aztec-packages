@@ -40,6 +40,8 @@ export class ProverNodePublisher {
 
   protected rollupContract: RollupContract;
 
+  protected proofSubmissionTarget: Hex;
+
   public readonly l1TxUtils: L1TxUtils;
 
   constructor(
@@ -47,6 +49,7 @@ export class ProverNodePublisher {
     deps: {
       rollupContract: RollupContract;
       l1TxUtils: L1TxUtils;
+      proofSubmissionTarget?: EthAddress;
       telemetry?: TelemetryClient;
     },
     bindings?: LoggerBindings,
@@ -57,6 +60,7 @@ export class ProverNodePublisher {
     this.log = createLogger('prover-node:l1-tx-publisher', bindings);
 
     this.rollupContract = deps.rollupContract;
+    this.proofSubmissionTarget = deps.proofSubmissionTarget?.toString() ?? deps.rollupContract.address;
     this.l1TxUtils = deps.l1TxUtils;
   }
 
@@ -217,7 +221,7 @@ export class ProverNodePublisher {
     const senderAddress = this.l1TxUtils.getSenderAddress();
 
     const [gasLimit, gasPrice, latestBlock] = await Promise.all([
-      this.l1TxUtils.estimateGas(senderAddress.toString() as `0x${string}`, { to: this.rollupContract.address, data }),
+      this.l1TxUtils.estimateGas(senderAddress.toString() as `0x${string}`, { to: this.proofSubmissionTarget, data }),
       this.l1TxUtils.getGasPrice(),
       this.l1TxUtils.client.getBlock({ blockTag: 'latest' }),
     ]);
@@ -288,7 +292,7 @@ export class ProverNodePublisher {
     });
     try {
       const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction(
-        { to: this.rollupContract.address, data },
+        { to: this.proofSubmissionTarget, data },
         { txTimeoutAt: args.deadline },
       );
       if (receipt.status !== 'success') {
@@ -298,7 +302,7 @@ export class ProverNodePublisher {
             args: [...txArgs],
             functionName: 'submitEpochRootProof',
             abi: RollupAbi,
-            address: this.rollupContract.address,
+            address: this.proofSubmissionTarget,
           },
           /*blobInputs*/ undefined,
           /*stateOverride*/ [],
