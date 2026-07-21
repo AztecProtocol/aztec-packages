@@ -278,6 +278,13 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
     ),
   }),
   z.object({
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BlockRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
+  }),
+  z.object({
     type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
       BlockRollupPublicInputs.schema,
