@@ -1167,7 +1167,7 @@ export class CheckpointProposalJob implements Traceable {
       indexWithinCheckpoint: IndexWithinCheckpoint;
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
-      /** Streaming Inbox message bundle to insert into this block's L1-to-L2 tree; undefined in the legacy flow. */
+      /** Streaming Inbox message bundle for this block's L1-to-L2 tree; undefined when it consumes nothing. */
       l1ToL2Messages?: Fr[];
     },
   ): Promise<
