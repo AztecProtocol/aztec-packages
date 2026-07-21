@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -28,9 +28,6 @@ import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
-<<<<<<< HEAD
-import { BlockHeader, CallContext, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
-=======
 import {
   BlockHeader,
   CallContext,
@@ -43,7 +40,6 @@ import {
   TxHash,
   TxStatus,
 } from '@aztec/stdlib/tx';
->>>>>>> 7a77232ed7 (feat: getTxEffects oracle (#24636))
 
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
@@ -672,9 +668,7 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-<<<<<<< HEAD
-=======
-    describe('node read cache', () => {
+    describe('getTxEffects', () => {
       const makeTxEffect = (txHash: TxHash) => TxEffect.from({ ...TxEffect.empty(), txHash });
       const makeMinedReceipt = (
         txHash: TxHash,
@@ -693,49 +687,6 @@ describe('Utility Execution test suite', () => {
           EpochNumber(1),
           txEffect,
         );
-
-      it('reuses tx-effect reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const txHash = TxHash.random();
-        aztecNode.getTxReceipt.mockResolvedValue(makeMinedReceipt(txHash));
-
-        const first = await oracle.getTxEffect(txHash);
-        const second = await oracle.getTxEffect(txHash);
-
-        expect(first).toEqual(second);
-        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
-      });
-
-      it('does not share cached reads across utility executions', async () => {
-        const txHash = TxHash.random();
-        aztecNode.getTxReceipt.mockResolvedValue(makeMinedReceipt(txHash));
-
-        const firstOracle = makeOracle({ scopes: [scope] });
-        const secondOracle = makeOracle({ scopes: [scope] });
-
-        // Cache works as usual
-        await firstOracle.getTxEffect(txHash);
-        await firstOracle.getTxEffect(txHash);
-        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
-
-        // Same call in new oracle, goes to actual node since cache is clean
-        await secondOracle.getTxEffect(txHash);
-        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
-      });
-
-      it('does not cache failed tx-effect reads', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const txHash = TxHash.random();
-        aztecNode.getTxReceipt.mockRejectedValueOnce(new Error('temporary failure'));
-        aztecNode.getTxReceipt.mockResolvedValueOnce(makeMinedReceipt(txHash));
-
-        await expect(oracle.getTxEffect(txHash)).rejects.toThrow('temporary failure');
-
-        const result = await oracle.getTxEffect(txHash);
-
-        expect(result.isSome()).toBe(true);
-        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
-      });
 
       it('returns aligned tx-effect options for tx hash batches', async () => {
         const service = new EphemeralArrayService();
@@ -765,7 +716,7 @@ describe('Utility Execution test suite', () => {
         expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(3);
       });
 
-      it('does not share batched tx-effect reads across utility executions', async () => {
+      it('deduplicates repeated tx hashes within a batch', async () => {
         const service = new EphemeralArrayService();
         const txHash = TxHash.random();
         aztecNode.getTxReceipt.mockResolvedValue(makeMinedReceipt(txHash));
@@ -779,57 +730,8 @@ describe('Utility Execution test suite', () => {
         await secondOracle.getTxEffects(EphemeralArray.fromValues(service, [txHash]));
         expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
       });
-
-      it('reuses archive witness reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const referenceBlockHash = await anchorBlockHeader.hash();
-        const blockHash = BlockHash.random();
-        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
-        aztecNode.getBlockHashMembershipWitness.mockResolvedValue(witness);
-
-        const first = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
-        const second = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
-
-        expect(first).toEqual(second);
-        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(1);
-      });
-
-      it('returns aligned archive-membership booleans for block hash batches', async () => {
-        const service = new EphemeralArrayService();
-        const oracle = makeOracle({ scopes: [scope] });
-        const referenceBlockHash = await anchorBlockHeader.hash();
-        const presentBlockHash = BlockHash.random();
-        const missingBlockHash = BlockHash.random();
-        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
-
-        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
-          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
-        );
-
-        const result = await oracle.areBlockHashesInArchive(
-          referenceBlockHash,
-          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
-        );
-
-        expect(result.readAll(service)).toEqual([true, false, true]);
-        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(2);
-      });
-
-      it('reuses public storage reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const blockHash = await anchorBlockHeader.hash();
-        const startStorageSlot = Fr.random();
-        aztecNode.getPublicStorageAt.mockResolvedValue(new Fr(7));
-
-        const first = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
-        const second = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
-
-        expect(first).toEqual(second);
-        expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(2);
-      });
     });
 
->>>>>>> 7a77232ed7 (feat: getTxEffects oracle (#24636))
     describe('fact store', () => {
       const service = new EphemeralArrayService();
       const typeId = new Fr(10);

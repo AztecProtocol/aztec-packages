@@ -667,11 +667,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
 
-<<<<<<< HEAD
-    const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
-    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return Option.none();
-=======
     return await this.#getTxEffectOption(txHash);
   }
 
@@ -681,7 +676,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const invalidHash = hashes.find(txHash => txHash.hash.isZero());
     if (invalidHash) {
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffects oracle handler');
->>>>>>> 7a77232ed7 (feat: getTxEffects oracle (#24636))
     }
 
     const uniqueTxHashes = uniqueBy(hashes, h => h.toString());
@@ -1116,7 +1110,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   async #getTxEffectOption(txHash: TxHash): Promise<Option<TxEffectData>> {
-    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
+    const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
     if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
       return Option.none();
     }
