@@ -40,6 +40,8 @@ Test path (allowed changes only):
 ## Phase map
 
 ```text
+Phase 0 — Post-upstream-merge repair (only after a next merge/rebase breaks the build)
+                                              → boomerang-rebase-repair
 Phase 1 — Production mirror + component dump → acir-constraint-fingerprint
 Phase 2 — Witness gates on same chain        → acir-witness-gate-discovery
 Phase 3 — Fingerprint validation             → constraint-fingerprint-validation
@@ -56,6 +58,12 @@ Phase 2 **must** use the same chain as Phase 1 (`create_circuit` builder or the 
 
 ```text
 User wants constraint validation?
+│
+├─ Phase 0 — JUST MERGED/REBASED ONTO next AND BUILD BREAKS
+│   Trigger: a merge/rebase from upstream next landed and the validator target (or any
+│   boomerang test target) no longer compiles, or you're about to trust a compile-clean
+│   build's results right after such a merge without having checked for silent drift
+│   → Read: boomerang-rebase-repair
 │
 ├─ Phase 1 — PRODUCTION MIRROR + DUMP
 │   Trigger: no component map / no mirrored executor / no *_functions_analysis.txt
@@ -184,6 +192,7 @@ Reviewer must flag as `[critical]`:
 
 | Signal | Phase |
 |--------|-------|
+| Build broke right after a `next` merge/rebase | **0** |
 | No component map, no mirrored executor, no `*_functions_analysis.txt` | **1** |
 | Dump exists, no `*_witness_serialization.txt` / no SerializationParse test | **2** (early) |
 | Serialization done, no primitive part map / primitive_start | **2** |
@@ -232,6 +241,7 @@ Also respect: `.cursor/rules/acir-recursion-constraints.mdc`
 
 | Phase | Skill | Path |
 |-------|-------|------|
+| 0 — Rebase repair | `boomerang-rebase-repair` | `.claude/skills/boomerang-rebase-repair/SKILL.md` |
 | 1 — Mirror + dump | `acir-constraint-fingerprint` | `.claude/skills/acir-constraint-fingerprint/SKILL.md` |
 | 2 — Witness gates | `acir-witness-gate-discovery` | `.claude/skills/acir-witness-gate-discovery/SKILL.md` |
 | 3 — Validation | `constraint-fingerprint-validation` | `.claude/skills/constraint-fingerprint-validation/SKILL.md` |
