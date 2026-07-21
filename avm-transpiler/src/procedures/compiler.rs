@@ -11,7 +11,7 @@ use operand_collector::OperandCollector;
 
 use super::parser::{Label, Mnemonic, ParsedOpcode};
 
-pub(crate) use operand_collector::SCRATCH_SPACE_START;
+pub(crate) use operand_collector::scratch_space_range;
 
 pub(crate) struct CompiledProcedure {
     pub instructions: Vec<AvmInstruction>,
