@@ -363,7 +363,7 @@ export async function retrieveL1ToL2Message(
  * @param inbox - The inbox contract wrapper.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @returns An array of InboxLeaf and next eth block to search from.
+ * @returns The L1 to L2 messages retrieved from the Inbox, as an array of InboxMessage.
  */
 export async function retrieveL1ToL2Messages(
   inbox: InboxContract,
