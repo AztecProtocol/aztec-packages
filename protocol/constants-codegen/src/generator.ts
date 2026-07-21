@@ -567,7 +567,7 @@ ${processConstantsSolidity(constants)}
  * Generate the constants file in Rust.
  */
 export function generateRustConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
-  const resultRust: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants
+  const resultRust: string = `// GENERATED FILE - DO NOT EDIT
 ${processConstantsRust(constants, domainSeparatorEnum)}
 `;
 
