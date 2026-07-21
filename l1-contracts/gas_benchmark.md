@@ -12,24 +12,24 @@
 
 ## No Validators
 
-| Function             | Avg Gas | Max Gas | Calldata Size | Calldata Gas |
-|----------------------|---------|---------|---------------|--------------|
-| propose              | 195,988 | 222,201 |           932 |       14,912 |
-| submitEpochRootProof | 697,655 | 743,529 |         2,820 |       45,120 |
-| setupEpoch           |  31,998 | 113,793 |             - |            - |
+| Function             |   Avg Gas |   Max Gas | Calldata Size | Calldata Gas |
+|----------------------|-----------|-----------|---------------|--------------|
+| propose              |   203,758 |   229,942 |           996 |       15,936 |
+| submitEpochRootProof | 1,137,731 | 1,172,632 |        14,148 |      226,368 |
+| setupEpoch           |    32,042 |   113,837 |             - |            - |
 
-**Avg Gas Cost per Second**: 3,341.5 gas/second
+**Avg Gas Cost per Second**: 3,831.5 gas/second
 *Epoch duration*: 0h 38m 24s
 
 ## Validators
 
-| Function             | Avg Gas | Max Gas | Calldata Size | Calldata Gas |
-|----------------------|---------|---------|---------------|--------------|
-| propose              | 324,449 | 351,604 |         4,452 |       71,232 |
-| submitEpochRootProof | 896,101 | 941,944 |         5,316 |       85,056 |
-| aggregate3           | 373,118 | 386,457 |             - |            - |
-| setupEpoch           |  46,459 | 547,626 |             - |            - |
+| Function             |   Avg Gas |   Max Gas | Calldata Size | Calldata Gas |
+|----------------------|-----------|-----------|---------------|--------------|
+| propose              |   332,170 |   359,988 |         4,516 |       72,256 |
+| submitEpochRootProof | 1,719,902 | 1,814,124 |        16,644 |      266,304 |
+| aggregate3           |   380,770 |   394,144 |             - |            - |
+| setupEpoch           |    46,504 |   547,670 |             - |            - |
 
-**Avg Gas Cost per Second**: 5,304.3 gas/second
+**Avg Gas Cost per Second**: 6,126.6 gas/second
 *Epoch duration*: 0h 38m 24s
 

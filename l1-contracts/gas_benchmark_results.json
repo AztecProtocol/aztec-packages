@@ -2,62 +2,62 @@
   "no_validators": {
     "propose": {
       "calls": 150,
-      "min": 182373,
-      "mean": 195988,
-      "median": 191762,
-      "max": 222201,
-      "calldata_size": 932,
-      "calldata_gas": 14912
+      "min": 190114,
+      "mean": 203758,
+      "median": 199503,
+      "max": 229942,
+      "calldata_size": 996,
+      "calldata_gas": 15936
     },
     "setupEpoch": {
       "calls": 150,
-      "min": 29264,
-      "mean": 31998,
-      "median": 29264,
-      "max": 113793
+      "min": 29309,
+      "mean": 32042,
+      "median": 29309,
+      "max": 113837
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 676491,
-      "mean": 697655,
-      "median": 685300,
-      "max": 743529,
-      "calldata_size": 2820,
-      "calldata_gas": 45120
+      "min": 1120225,
+      "mean": 1137731,
+      "median": 1129034,
+      "max": 1172632,
+      "calldata_size": 14148,
+      "calldata_gas": 226368
     }
   },
   "validators": {
     "propose": {
       "calls": 150,
-      "min": 302105,
-      "mean": 324449,
-      "median": 323910,
-      "max": 351604,
-      "calldata_size": 4452,
-      "calldata_gas": 71232
+      "min": 309831,
+      "mean": 332170,
+      "median": 331624,
+      "max": 359988,
+      "calldata_size": 4516,
+      "calldata_gas": 72256
     },
     "setupEpoch": {
       "calls": 150,
-      "min": 29264,
-      "mean": 46459,
-      "median": 29264,
-      "max": 547626
+      "min": 29309,
+      "mean": 46504,
+      "median": 29309,
+      "max": 547670
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 874924,
-      "mean": 896101,
-      "median": 883769,
-      "max": 941944,
-      "calldata_size": 5316,
-      "calldata_gas": 85056
+      "min": 1609349,
+      "mean": 1719902,
+      "median": 1728067,
+      "max": 1814124,
+      "calldata_size": 16644,
+      "calldata_gas": 266304
     },
     "aggregate3": {
       "calls": 55,
-      "min": 362015,
-      "mean": 373118,
-      "median": 372828,
-      "max": 386457
+      "min": 369652,
+      "mean": 380770,
+      "median": 380454,
+      "max": 394144
     }
   }
 }
