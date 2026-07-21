@@ -101,6 +101,28 @@ describe('KeyStore', () => {
     }
   });
 
+  it('allows re-registering the same account', async () => {
+    const keyStore = new KeyStore(await openTmpStore('test'));
+
+    const privacyKeys = await deriveKeys(new Fr(8923n));
+    const { address } = await keyStore.addAccount(privacyKeys, new Fr(243523n));
+
+    const { address: reRegisteredAddress } = await keyStore.addAccount(privacyKeys, new Fr(243523n));
+    expect(reRegisteredAddress.equals(address)).toBe(true);
+  });
+
+  it.each(PRIVACY_SECRET_KEY_NAMES)('rejects registering a second account sharing only %s', async keyName => {
+    const keyStore = new KeyStore(await openTmpStore('test'));
+
+    const privacyKeys = await deriveKeys(new Fr(8923n));
+    const { address } = await keyStore.addAccount(privacyKeys, new Fr(243523n));
+
+    const otherPrivacyKeys = await deriveKeys(new Fr(1234n));
+    otherPrivacyKeys[keyName] = privacyKeys[keyName];
+
+    await expect(keyStore.addAccount(otherPrivacyKeys, new Fr(243523n))).rejects.toThrow(address.toString());
+  });
+
   it('rejects registering an account with secret key resulting in infinity public keys', async () => {
     const keyStore = new KeyStore(await openTmpStore('test'));
 

@@ -106,6 +106,7 @@ export class KeyStore {
    * @param partialAddress - The partial address of the account.
    * @returns The account's complete address.
    * @throws If any of the account's six master public keys would be the point at infinity.
+   * @throws If a different account sharing any of the four master privacy keys is already registered.
    */
   public async addAccount(keys: AccountPrivacyKeys, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accountKeys = await completeAccountKeys(keys);
@@ -359,6 +360,13 @@ export class KeyStore {
     const masterIncomingViewingPublicKeyHash = await hashPublicKey(publicKeys.ivpkM);
 
     await this.#db.transactionAsync(async () => {
+      await this.#assertPrivacyKeysNotInUse(account, {
+        n: publicKeys.npkMHash,
+        iv: masterIncomingViewingPublicKeyHash,
+        ov: publicKeys.ovpkMHash,
+        t: publicKeys.tpkMHash,
+      });
+
       // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m.
       //
       // The message-signing and fallback keys are not stored: their secret keys are withheld from the key store, and
@@ -382,6 +390,42 @@ export class KeyStore {
     });
 
     return completeAddress;
+  }
+
+  /**
+   * Throws if an account other than `account` is already stored with any of the given master public key hashes, keyed
+   * by key prefix. Must be called within a db transaction so the check and the subsequent writes are atomic.
+   *
+   * Noir does not currently handle different addresses sharing privacy keys correctly: two accounts with the same
+   * nullifier-hiding key compute the same PrivateMutable and PrivateImmutable initialization nullifiers, since those
+   * are derived from the key and the storage slot alone, without the owner address. Until that is fixed, PXE refuses
+   * to register such accounts. Note that a user registering the two accounts in separate PXEs can still run into the
+   * issue, as this check only sees locally registered accounts.
+   *
+   * TODO(#24821): remove this restriction once Noir includes the owner address in initialization nullifiers.
+   */
+  async #assertPrivacyKeysNotInUse(account: AztecAddress, pkMHashes: Record<KeyPrefix, Fr>) {
+    const collidingKeyByStorageSuffix = new Map(
+      KEY_PREFIXES.map(prefix => [
+        `${prefix}pk_m_hash`,
+        { name: MASTER_KEY_NAMES[prefix], pkMHashBuffer: pkMHashes[prefix].toBuffer() },
+      ]),
+    );
+    for await (const [key, value] of this.#keys.entriesAsync()) {
+      const [existingAccount, suffix] = key.split('-');
+      const collidingKey = collidingKeyByStorageSuffix.get(suffix);
+      if (
+        collidingKey &&
+        existingAccount !== account.toString() &&
+        Buffer.from(value).equals(collidingKey.pkMHashBuffer)
+      ) {
+        throw new Error(
+          `Cannot register account ${account.toString()}: account ${existingAccount} is already registered with ` +
+            `the same master ${collidingKey.name} key, and accounts must not share master keys. Derive the new ` +
+            `account from a different secret key.`,
+        );
+      }
+    }
   }
 
   /**
@@ -410,3 +454,11 @@ export class KeyStore {
     return buffers;
   }
 }
+
+/** Human-readable master key names by key prefix, for error messages. */
+const MASTER_KEY_NAMES: Record<KeyPrefix, string> = {
+  n: 'nullifier-hiding',
+  iv: 'incoming-viewing',
+  ov: 'outgoing-viewing',
+  t: 'tagging',
+};
