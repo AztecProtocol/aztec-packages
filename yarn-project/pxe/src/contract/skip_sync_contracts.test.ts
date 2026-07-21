@@ -2,6 +2,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-registry/constants';
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint/constants';
+import { STANDARD_PUBLIC_CHECKS_ADDRESS } from '@aztec/standard-contracts/public-checks/constants';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -15,11 +16,12 @@ import { syncScope } from './helpers.js';
 import { isSkipSyncContract } from './skip_sync_contracts.js';
 
 describe('isSkipSyncContract', () => {
-  it('skips the protocol contracts, the auth registry and the multicall entrypoint', () => {
+  it('skips the protocol contracts, the auth registry, the multicall entrypoint and the public checks', () => {
     const skipped = [
       ...Object.values(ProtocolContractAddress),
       STANDARD_AUTH_REGISTRY_ADDRESS,
       STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
+      STANDARD_PUBLIC_CHECKS_ADDRESS,
     ];
     for (const address of skipped) {
       expect(isSkipSyncContract(address)).toBe(true);
