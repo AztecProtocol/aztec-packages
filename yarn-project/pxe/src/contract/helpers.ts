@@ -1,10 +1,10 @@
-import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { ContractClassService } from './contract_class_service.js';
+import { isSkipSyncContract } from './skip_sync_contracts.js';
 
 export async function syncScope(
   contractAddress: AztecAddress,
@@ -15,8 +15,8 @@ export async function syncScope(
   utilityExecutor: (privateSyncCall: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
   scope: AztecAddress,
 ) {
-  // Protocol contracts don't have private state to sync
-  if (isProtocolContract(contractAddress)) {
+  // Some canonical contracts hold no private state, so there is nothing to sync (see `skipSyncContracts`).
+  if (isSkipSyncContract(contractAddress)) {
     return;
   }
 
