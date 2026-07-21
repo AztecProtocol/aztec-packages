@@ -260,7 +260,7 @@ bb-sol: bb-cpp-native bb-crs l1-contracts-solc
 # Barretenberg Tests
 #==============================================================================
 
-bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs constants-codegen
+bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
 	$(call test,$@,barretenberg/cpp,native)
 
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads

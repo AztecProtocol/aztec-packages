@@ -261,8 +261,7 @@ function test_cmds_native {
     ^noir-projects/noir-protocol-circuits/crates/types/src/constants\.nr$ \
     ^barretenberg/cpp/\.clang-format$ \
     ^barretenberg/cpp/scripts/remake-constants\.sh$ \
-    ^barretenberg/cpp/src/barretenberg/aztec/aztec_constants\.hpp$ \
-    ^barretenberg/cpp/pil/vm2/constants_gen\.pil$)
+    ^barretenberg/cpp/src/barretenberg/aztec/aztec_constants\.hpp$)
   echo "$constants_hash barretenberg/cpp/scripts/remake-constants.sh --check"
 
   # E.g. build, build-debug or build-coverage
