@@ -132,3 +132,16 @@ pub global EXCLUDED_CONSTANT: u32 = 100;
     rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test('the CLI defaults --input to the monorepo constants.nr', () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
+  const typescriptPath = join(tempDir, 'constants.ts');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
+
+  try {
+    execFileSync(process.execPath, [cliPath, '--typescript', typescriptPath], { stdio: 'pipe' });
+    assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = \d+;/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});

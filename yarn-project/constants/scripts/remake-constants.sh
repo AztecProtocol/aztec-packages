@@ -8,6 +8,5 @@ additional_input="$repo_root/noir-projects/noir-protocol-circuits/crates/types/s
 typescript_output="$repo_root/yarn-project/constants/src/constants.gen.ts"
 
 node "$codegen_dir/src/cli.ts" \
-  --input "$repo_root/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr" \
   --include "$additional_input" \
   --typescript "$typescript_output"
