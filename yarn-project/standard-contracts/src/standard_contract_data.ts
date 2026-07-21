@@ -27,6 +27,7 @@ export const StandardContractAddress: Record<StandardContractName, AztecAddress>
   ),
   PublicChecks: AztecAddress.fromStringUnsafe('0x2f96c5a68fc1d04b13b76167a254f0a1a906c2dc0b571fcbca107254f064b045'),
   HandshakeRegistry: AztecAddress.fromStringUnsafe(
+<<<<<<< HEAD
     '0x090d0f9525c99184e3741290b2695c5e3af23f51e96061b74b953111b0d4f59d',
 =======
   AuthRegistry: AztecAddress.fromStringUnsafe('0x2928fe638695f9566ae51434cbc621d3264d19fe2c925c43b0fc6cd413f531bf'),
@@ -37,10 +38,14 @@ export const StandardContractAddress: Record<StandardContractName, AztecAddress>
   HandshakeRegistry: AztecAddress.fromStringUnsafe(
     '0x01a3dddd771199abee0f8f0d2eea60dd1ee6b9cf9e99f524600854628ddb2463',
 >>>>>>> 4490597b1a (fix(aztec-nr): prevent recipient forging a colliding handshake (#24403))
+=======
+    '0x06127814dca78709650de6629637194f7381d2e05b35eb9d53a4746636c9aa9d',
+>>>>>>> c3a2a8512c (chore: re-pin handshake registry with owner-bound nullifiers (#24893))
   ),
 };
 
 export const StandardContractClassId: Record<StandardContractName, Fr> = {
+<<<<<<< HEAD
 <<<<<<< HEAD
   AuthRegistry: Fr.fromString('0x1d203dfe82143b105c236b42c42ede91728d4590e7c541f7d2423edeb68c31ae'),
   MultiCallEntrypoint: Fr.fromString('0x127ebfb260048794535198012df8e2f7599a46651efbf738c406f4baa3b960ca'),
@@ -52,6 +57,12 @@ export const StandardContractClassId: Record<StandardContractName, Fr> = {
   PublicChecks: Fr.fromString('0x2a022a2e70ae7fbba7f33c9b80df8ba8f411bcd4af0797c30fa05792f94ed351'),
   HandshakeRegistry: Fr.fromString('0x1de87ccb3f4782ec688754b1cce93033224186730f12aba1880750ac1463e934'),
 >>>>>>> 4490597b1a (fix(aztec-nr): prevent recipient forging a colliding handshake (#24403))
+=======
+  AuthRegistry: Fr.fromString('0x04182c4b482c8e60c386e473f6dbb6bb3e2ef18e5156f7c9db5ac46af81abdcf'),
+  MultiCallEntrypoint: Fr.fromString('0x2f20566eaff9091697f8f5c43a19041267c7591d54074b57043eae90fca8ea64'),
+  PublicChecks: Fr.fromString('0x04bc93d415c4d48acab6063b6410f74e1cc257ba8e519020f8773b4ce8ccd31e'),
+  HandshakeRegistry: Fr.fromString('0x2e04c07c83ee8107e921c3ae4ade010ee183860a89b7534ea3367efb561d2c3b'),
+>>>>>>> c3a2a8512c (chore: re-pin handshake registry with owner-bound nullifiers (#24893))
 };
 
 export const StandardContractClassIdPreimage: Record<
@@ -89,12 +100,17 @@ export const StandardContractClassIdPreimage: Record<
   },
   HandshakeRegistry: {
 <<<<<<< HEAD
+<<<<<<< HEAD
     artifactHash: Fr.fromString('0x062da141c4114bcc93ac6cbe2fe30f0e8cbf820780b2225e958fe806d0e347a9'),
     privateFunctionsRoot: Fr.fromString('0x16c4666c93705b44b4a164ec6bcbfd7ec0ff593922f4a0e3bc158b9e3a1f95c1'),
 =======
     artifactHash: Fr.fromString('0x1745d0f3d0477837f5647ad926fc6978dd22dd2b4655f975b2d799a5b02d5f8f'),
     privateFunctionsRoot: Fr.fromString('0x02f6a2c3fc7b34bd7b389488370990421f16cfb177dee45c9128a412ab3b0bad'),
 >>>>>>> 4490597b1a (fix(aztec-nr): prevent recipient forging a colliding handshake (#24403))
+=======
+    artifactHash: Fr.fromString('0x005a9c5db229999895a873e4c2bcaf6ca2523522b5c520c52c39b1bdb1b5faee'),
+    privateFunctionsRoot: Fr.fromString('0x1bb83fa540ba6654ffe4a4c75ec9349180a2f0ecd0d3851ca28d665ab2926c73'),
+>>>>>>> c3a2a8512c (chore: re-pin handshake registry with owner-bound nullifiers (#24893))
     publicBytecodeCommitment: Fr.fromString('0x0ce4c618c3ed7f3a20410e618c06bb701e150af7fe28a3e92f68e7733809f33e'),
   },
 };
@@ -133,20 +149,28 @@ export const StandardContractPrivateFunctions: Record<
         Fr.fromString('0x0000000000000000000000000000000000000000000000000000000019f8b409'),
       ),
 <<<<<<< HEAD
+<<<<<<< HEAD
       vkHash: Fr.fromString('0x0f230529c03e4877eeabfc0c659a1133e53f2d954b1d0f6092558cb02952da3e'),
 =======
       vkHash: Fr.fromString('0x16a319171b8fd5ced714d45fa0edb4c90ab3f71dead8051d0bd0503f6a6a919b'),
 >>>>>>> 4490597b1a (fix(aztec-nr): prevent recipient forging a colliding handshake (#24403))
+=======
+      vkHash: Fr.fromString('0x195d78c4fa1f3f8accaa2dcc45115c5b0536e68cdd4c06f5999185554f7b73e4'),
+>>>>>>> c3a2a8512c (chore: re-pin handshake registry with owner-bound nullifiers (#24893))
     },
     {
       selector: FunctionSelector.fromField(
         Fr.fromString('0x00000000000000000000000000000000000000000000000000000000db548fcf'),
       ),
 <<<<<<< HEAD
+<<<<<<< HEAD
       vkHash: Fr.fromString('0x2aa20cf767e6af6f99f4ceedcbdda34c2cd8a8e0763fb273810cf5abd7873b70'),
 =======
       vkHash: Fr.fromString('0x0836a4aaa7592374f468a6f22a8b94fcf47b909df22f2ec927aed3dcb06c055c'),
 >>>>>>> 4490597b1a (fix(aztec-nr): prevent recipient forging a colliding handshake (#24403))
+=======
+      vkHash: Fr.fromString('0x06ea812f1c792a864a36003312327d78995fdd894fbf48d54928a315e84df342'),
+>>>>>>> c3a2a8512c (chore: re-pin handshake registry with owner-bound nullifiers (#24893))
     },
     {
       selector: FunctionSelector.fromField(
