@@ -76,8 +76,6 @@ locals {
   ])
 
   snapshots_only_folders = toset([
-    "testnet",
-    "mainnet",
   ])
 }
 
