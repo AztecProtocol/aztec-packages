@@ -14,7 +14,8 @@ function build {
 }
 
 function test_cmds {
-  echo "$hash cd protocol/constants-codegen && node --test src/*.test.ts && ./scripts/test-package.sh"
+  echo "$hash cd protocol/constants-codegen && node --test src/*.test.ts"
+  echo "$hash cd protocol/constants-codegen && ./scripts/test-package.sh"
 }
 
 function test {
