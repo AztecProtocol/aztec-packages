@@ -49,8 +49,6 @@ export hash=$(cache_content_hash \
 function build_src {
   echo_header "l1-contracts build_src"
 
-  # ConstantsGen.sol is generated, not committed; produce it before anything compiles src
-  # (download_solc's warm-up build uses it as its minimal input file).
   scripts/remake-constants.sh
 
   # Download solc binary
