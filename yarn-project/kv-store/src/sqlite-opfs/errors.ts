@@ -42,24 +42,6 @@ const SQLITE3MC_DECRYPT_ERROR_PATTERNS: readonly RegExp[] = [
 export function isDecryptFailureMessage(message: string): boolean {
   return SQLITE3MC_DECRYPT_ERROR_PATTERNS.some(p => p.test(message));
 }
-<<<<<<< HEAD
-=======
-
-/**
- * Error thrown by sqlite-opfs when the on-disk database image is corrupt
- * (`SQLITE_CORRUPT`, result code 11 — "database disk image is malformed").
- *
- * Distinct from {@link SqliteEncryptionError}: no key recovers a corrupt image,
- * so there is nothing to retry. The only escape is to delete the store and start
- * fresh, so consumers pattern-match on `instanceof SqliteCorruptionError` to wipe
- * and reopen rather than surfacing a dead-end error.
- **/
-export class SqliteCorruptionError extends Error {
-  constructor(message: string, opts?: { cause?: unknown }) {
-    super(message, opts?.cause !== undefined ? { cause: opts.cause } : undefined);
-    this.name = 'SqliteCorruptionError';
-  }
-}
 
 /** Error thrown when another browser context already owns a store's OPFS pool. */
 export class SqlitePoolBusyError extends Error {
@@ -76,22 +58,3 @@ export class SqliteWebLocksUnavailableError extends Error {
     this.name = 'SqliteWebLocksUnavailableError';
   }
 }
-
-/**
- * Strings/codes raised by SQLite when a database image is corrupt. Kept disjoint
- * from {@link SQLITE3MC_DECRYPT_ERROR_PATTERNS}: "file is not a database"
- * (SQLITE_NOTADB) is the decrypt signal, whereas a malformed image is the
- * genuinely-unrecoverable SQLITE_CORRUPT.
- **/
-const SQLITE_CORRUPTION_ERROR_PATTERNS: readonly RegExp[] = [
-  /database disk image is malformed/i,
-  /\bSQLITE_CORRUPT\b/i,
-];
-
-/**
- * Returns `true` if `message` matches one of the known SQLite corruption strings.
- **/
-export function isCorruptionMessage(message: string): boolean {
-  return SQLITE_CORRUPTION_ERROR_PATTERNS.some(p => p.test(message));
-}
->>>>>>> 386f120fb2 (feat: weblock controlled opfs pool (#24740))

@@ -8,16 +8,7 @@
  *     surfaces, so callers don't leak the SAH Pool's OPFS lock.
  */
 import type { Logger } from '@aztec/foundation/log';
-<<<<<<< HEAD
 import { AztecSQLiteOPFSStore, SqliteEncryptionError } from '@aztec/kv-store/sqlite-opfs';
-=======
-import {
-  AztecSQLiteOPFSStore,
-  SqliteCorruptionError,
-  SqliteEncryptionError,
-  deletePoolDirectory,
-} from '@aztec/kv-store/sqlite-opfs';
->>>>>>> 386f120fb2 (feat: weblock controlled opfs pool (#24740))
 
 /** Which of the embedded wallet's two stores failed to open. */
 export type EmbeddedStoreName = 'pxe' | 'wallet';
@@ -59,31 +50,6 @@ const defaultOpenStore: OpenSqliteEncryptedStoreFn = (log, name, poolDirectory, 
   AztecSQLiteOPFSStore.open(log, name, false, poolDirectory, encryptionKey);
 
 /**
-<<<<<<< HEAD
-=======
- * Internal seam for tests to inject a fake store wiper. Defaults to removing the store's OPFS pool directory
- * outright. Not part of the public API.
- *
- * @internal
- */
-export type WipeSqliteStoreFn = (poolDirectory: string | undefined) => Promise<void>;
-
-/**
- * Deletes a store's OPFS pool directory. Safe to call only after a *failed* open() — a live store's SAH pool holds
- * a lock on the directory and the removal would reject. A store with no `poolDirectory` lives in the shared default
- * pool, which we won't blow away (it would take unrelated stores with it), so wiping is a no-op there.
- */
-const defaultWipeStore: WipeSqliteStoreFn = async poolDirectory => {
-  if (!poolDirectory) {
-    return;
-  }
-  await deletePoolDirectory(poolDirectory).catch(() => {
-    // Already gone / never created — nothing to wipe.
-  });
-};
-
-/**
->>>>>>> 386f120fb2 (feat: weblock controlled opfs pool (#24740))
  * Opens the PXE and wallet stores in sequence, both encrypted with keys obtained from `getEncryptionKey`.
  *
  * The callback is invoked once per store (twice total per call) because `AztecSQLiteOPFSStore.open` *transfers*

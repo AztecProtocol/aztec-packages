@@ -91,32 +91,12 @@ async function handleInit(
 }
 
 function handleClose(): void {
-<<<<<<< HEAD
-  db?.close();
-  db = undefined;
-  dbPath = undefined;
-=======
   try {
     db?.close();
   } finally {
     db = undefined;
     dbPath = undefined;
-    releasePool();
   }
-}
-
-/**
- * Releases the SAH pool's OPFS sync access handles before the terminal RPC is acked. Worker
- * termination releases them only asynchronously, so without this a caller that deletes or reopens
- * the store directory right after close()/delete() resolves races Chromium's cleanup
- * (NoModificationAllowedError from removeEntry, or a hang installing a new pool on the directory).
- * pauseVfs releases the handles without touching file contents; the worker is terminated right
- * after, so the pool is never resumed.
- */
-function releasePool(): void {
-  pool?.pauseVfs();
-  pool = undefined;
->>>>>>> 386f120fb2 (feat: weblock controlled opfs pool (#24740))
 }
 
 async function handleExport(): Promise<Uint8Array> {
