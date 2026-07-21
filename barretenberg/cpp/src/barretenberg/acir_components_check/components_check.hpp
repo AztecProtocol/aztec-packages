@@ -112,6 +112,14 @@ template <typename Builder> class ComponentsChecker_ {
     void build_circuit_component_map();
 
     /**
+     * @brief Report ACIR witnesses that have no builder-side real-variable entry.
+     *
+     * @details When this happens the builder is already missing a witness referenced by
+     * ACIR, so running the static analyzer over the builder's trace is not reliable.
+     */
+    std::vector<Error> find_missing_witness_errors() const;
+
+    /**
      * @brief Compare the two maps structurally.
      */
     std::vector<Error> compare_components() const;
