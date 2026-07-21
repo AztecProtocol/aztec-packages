@@ -19,11 +19,7 @@ import {
   MEMBERSHIP_WITNESS,
   OPTION,
   POINT,
-<<<<<<< HEAD
   PROVIDED_SECRET,
-=======
-  RESOLVED_TAGGING_STRATEGY,
->>>>>>> d2db074640 (refactor(pxe): compute oracle interface hash from wire-structural mapping labels (#24752))
   type SlotShape,
   type TypeMapping,
   U8,
@@ -100,7 +96,6 @@ describe('oracle type mappings', () => {
     });
   });
 
-<<<<<<< HEAD
   describe('PROVIDED_SECRET', () => {
     it('deserializes a secret and delivery mode from a two-field slot', () => {
       const provided = PROVIDED_SECRET.deserialization!.fn([new FieldReader([new Fr(42), new Fr(3)])]);
@@ -111,25 +106,6 @@ describe('oracle type mappings', () => {
     it('declares the two-field wire shape', () => {
       expect(PROVIDED_SECRET.shape).toEqual([{ len: 2 }]);
     });
-=======
-  describe('RESOLVED_TAGGING_STRATEGY', () => {
-    const secret = new Fr(42);
-
-    it('rejects an unknown strategy kind', () => {
-      expect(() => deserializeStrategy(new Fr(99), Fr.ZERO)).toThrow('Unrecognized resolved tagging strategy kind');
-    });
-
-    it.each([
-      ['non-interactive handshake', new Fr(1)],
-      ['interactive handshake', new Fr(3)],
-    ])('rejects %s with a nonzero secret', (_name, kind) => {
-      expect(() => deserializeStrategy(kind, secret)).toThrow(`Resolved tagging strategy ${kind.toNumber()}`);
-    });
-
-    function deserializeStrategy(kind: Fr, secret: Fr): ResolvedTaggingStrategy {
-      return RESOLVED_TAGGING_STRATEGY.deserialization!.fn([new FieldReader([kind]), new FieldReader([secret])]);
-    }
->>>>>>> d2db074640 (refactor(pxe): compute oracle interface hash from wire-structural mapping labels (#24752))
   });
 
   describe('AZTEC_ADDRESS', () => {

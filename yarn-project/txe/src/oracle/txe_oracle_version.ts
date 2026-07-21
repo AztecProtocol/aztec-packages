@@ -14,8 +14,4 @@ export const TXE_ORACLE_VERSION_MINOR = 3;
  *   - TXE_ORACLE_VERSION_MAJOR (and reset MINOR to 0) for breaking changes, or
  *   - TXE_ORACLE_VERSION_MINOR for additive changes (new oracle method added).
  */
-<<<<<<< HEAD
 export const TXE_ORACLE_INTERFACE_HASH = '4ed3618087fafb4aa63c6580996a69bf6bc257844035a2019692586b5b8daf34';
-=======
-export const TXE_ORACLE_INTERFACE_HASH = '4e443d3255e6a8d12457815e271febb677956d94fb3c921e23c65e514b175a8a';
->>>>>>> d2db074640 (refactor(pxe): compute oracle interface hash from wire-structural mapping labels (#24752))

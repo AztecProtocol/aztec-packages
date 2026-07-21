@@ -1108,30 +1108,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-<<<<<<< HEAD
-=======
-  async #getTxEffectOption(txHash: TxHash): Promise<Option<TxEffectData>> {
-    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
-    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return Option.none();
-    }
-    return Option.some(this.#toTxEffectData(receipt.txEffect));
-  }
-
-  #toTxEffectData(txEffect: TxEffect): TxEffectData {
-    return {
-      ...txEffect,
-      revertCode: txEffect.revertCode.getCode(),
-      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
-      contractClassLogs: txEffect.contractClassLogs.map(log => ({
-        contractAddress: log.contractAddress,
-        fields: log.fields.toFields(),
-        emittedLength: log.emittedLength,
-      })),
-    };
-  }
-
->>>>>>> d2db074640 (refactor(pxe): compute oracle interface hash from wire-structural mapping labels (#24752))
   /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */
   async #queryWithBlockHashNotAfterAnchor<T>(blockHash: BlockHash, query: () => Promise<T>): Promise<T> {
     // Most contracts query state at the "current" block, which is the anchor. Skip the validation when we can.
