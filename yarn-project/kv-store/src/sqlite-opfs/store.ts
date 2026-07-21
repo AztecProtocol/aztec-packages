@@ -14,11 +14,7 @@ import { SqliteEncryptionError } from './errors.js';
 import { SQLiteOPFSAztecMap } from './map.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 import { SQLiteOPFSAztecMultiMap } from './multi_map.js';
-<<<<<<< HEAD
-=======
 import { quarantineDuplicatePool } from './pool_integrity.js';
-import { type PoolLockLease, acquirePoolLock, normalizePoolDirectory } from './pool_lock.js';
->>>>>>> cfbd62af4c (chore: handle legacy duplicate opaque handles (#24743))
 import { SQLiteOPFSAztecSet } from './set.js';
 import { SQLiteOPFSAztecSingleton } from './singleton.js';
 
@@ -114,21 +110,12 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     // encryptionKey.buffer — subsequent reads from the same Uint8Array are empty.
     const transfer = encryptionKey ? [encryptionKey.buffer as ArrayBuffer] : undefined;
     try {
-<<<<<<< HEAD
-=======
-      if (effectivePoolDirectory) {
-        const quarantine = await quarantineDuplicatePool(effectivePoolDirectory);
+      if (poolDirectory) {
+        const quarantine = await quarantineDuplicatePool(poolDirectory);
         if (quarantine) {
           log.warn(`Quarantined SQLite-OPFS pool with duplicate logical file mappings`, quarantine);
         }
       }
-      worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
-      const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral, poolLock);
-      // Transfer (not clone) the key buffer to the worker so we don't leave a
-      // second copy on the main thread. Caveat: this detaches the caller's
-      // encryptionKey.buffer — subsequent reads from the same Uint8Array are empty.
-      const transfer = encryptionKey ? [encryptionKey.buffer as ArrayBuffer] : undefined;
->>>>>>> cfbd62af4c (chore: handle legacy duplicate opaque handles (#24743))
       await store.#sendRequest(
         { type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory, encryptionKey },
         transfer,
