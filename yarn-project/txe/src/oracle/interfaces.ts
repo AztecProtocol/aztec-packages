@@ -73,22 +73,11 @@ export interface ITxeExecutionOracle {
   addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
   sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr>;
-<<<<<<< HEAD
   setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void;
-=======
-  /**
-   * Configures the tagging secret strategy the test's simulated wallet resolves for each delivery mode. A `none`
-   * clears that mode, so it falls back to the default strategy (or, when both modes end up unset, to no hook at all).
-   */
-  setTaggingSecretStrategies(
-    unconstrainedStrategy: Option<TaggingSecretStrategy>,
-    constrainedStrategy: Option<TaggingSecretStrategy>,
-  ): void;
   /**
    * Configures whether the test's simulated wallet authorizes every cross-contract utility call target.
    */
   setAuthorizeAllUtilityCallTargets(authorizeAll: boolean): void;
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
     txHash: TxHash;

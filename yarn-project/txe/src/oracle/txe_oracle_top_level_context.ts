@@ -123,12 +123,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
-<<<<<<< HEAD
     private taggingSecretStrategy: TaggingSecretStrategy | undefined,
-=======
-    private taggingSecretStrategies: TXETaggingSecretStrategies,
     private authorizeAllUtilityCallTargets: boolean,
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -982,25 +978,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-<<<<<<< HEAD
-  close(): [bigint, Map<string, AuthWitness>, TaggingSecretStrategy | undefined] {
+  close(): [bigint, Map<string, AuthWitness>, TaggingSecretStrategy | undefined, boolean] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy];
-=======
-  close(): {
-    nextBlockTimestamp: bigint;
-    authwits: Map<string, AuthWitness>;
-    taggingSecretStrategies: TXETaggingSecretStrategies;
-    authorizeAllUtilityCallTargets: boolean;
-  } {
-    this.logger.debug('Exiting Top Level Context');
-    return {
-      nextBlockTimestamp: this.nextBlockTimestamp,
-      authwits: this.authwits,
-      taggingSecretStrategies: this.taggingSecretStrategies,
-      authorizeAllUtilityCallTargets: this.authorizeAllUtilityCallTargets,
-    };
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
+    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy, this.authorizeAllUtilityCallTargets];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {

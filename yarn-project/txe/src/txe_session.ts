@@ -237,12 +237,8 @@ function emptyLastCallState(): LastCallState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
-<<<<<<< HEAD
   private taggingSecretStrategy: TaggingSecretStrategy | undefined = undefined;
-=======
-  private taggingSecretStrategies: TXETaggingSecretStrategies = new Map();
   private authorizeAllUtilityCallTargets = false;
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -370,12 +366,8 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
-<<<<<<< HEAD
       undefined,
-=======
-      new Map(),
       false, // authorizeAllUtilityCallTargets
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
       artifactResolver,
       rootPath,
       packageName,
@@ -705,12 +697,8 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
-<<<<<<< HEAD
       this.taggingSecretStrategy,
-=======
-      this.taggingSecretStrategies,
       this.authorizeAllUtilityCallTargets,
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
       this.artifactResolver,
       this.rootPath,
       this.packageName,
@@ -791,12 +779,8 @@ export class TXESession implements TXESessionStateHandler {
       txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
       hooks: composeHooks({
-<<<<<<< HEAD
         resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
-=======
-        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
         authorizeUtilityCall: this.authorizeAllUtilityCallTargets ? authorizeAllUtilityCallsHook : undefined,
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
       }),
       transientArrayService,
     });
@@ -928,18 +912,9 @@ export class TXESession implements TXESessionStateHandler {
     // TODO: persisting authwits this way is quite unfortunate: they create a temporary utility context that would
     // otherwise reset them, so we'd not be able to pass more than one per execution. Ideally authwits would be passed
     // alongside a contract call instead of pre-seeded.
-<<<<<<< HEAD
-    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy] = (
+    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy, this.authorizeAllUtilityCallTargets] = (
       this.oracleHandler as TXEOracleTopLevelContext
     ).close();
-=======
-    ({
-      nextBlockTimestamp: this.nextBlockTimestamp,
-      authwits: this.authwits,
-      taggingSecretStrategies: this.taggingSecretStrategies,
-      authorizeAllUtilityCallTargets: this.authorizeAllUtilityCallTargets,
-    } = (this.oracleHandler as TXEOracleTopLevelContext).close());
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
   }
 
   private async exitPrivateState() {

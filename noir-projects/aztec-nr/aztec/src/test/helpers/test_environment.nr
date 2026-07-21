@@ -92,27 +92,14 @@ pub struct TestEnvironment {
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
-<<<<<<< HEAD
     tagging_secret_strategy: Option<TaggingSecretStrategy>,
-=======
-    default_unconstrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
-    default_constrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
     authorize_all_utility_call_targets: bool,
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
 }
 
 impl TestEnvironmentOptions {
     /// Creates a new `TestEnvironmentOptions` with default values.
     pub fn new() -> Self {
-<<<<<<< HEAD
-        Self { tagging_secret_strategy: Option::none() }
-=======
-        Self {
-            default_unconstrained_tagging_secret_strategy: Option::none(),
-            default_constrained_tagging_secret_strategy: Option::none(),
-            authorize_all_utility_call_targets: false,
-        }
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
+        Self { tagging_secret_strategy: Option::none(), authorize_all_utility_call_targets: false }
     }
 
     /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
@@ -123,16 +110,6 @@ impl TestEnvironmentOptions {
     pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
         self.tagging_secret_strategy = Option::some(strategy);
         *self
-    }
-<<<<<<< HEAD
-=======
-
-    /// Sets `strategy` for both delivery modes: the equivalent of a PXE `resolveTaggingSecretStrategy` hook that
-    /// ignores the request's mode. See
-    /// [`with_default_tag_secret_strategy`](Self::with_default_tag_secret_strategy) to configure a single mode.
-    pub fn with_default_tag_secret_strategy_all_modes(&mut self, strategy: TaggingSecretStrategy) -> Self {
-        let _ = self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_unconstrained(), strategy);
-        self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_constrained(), strategy)
     }
 
     /// Authorizes all cross-contract utility call targets for the entire test.
@@ -146,7 +123,6 @@ impl TestEnvironmentOptions {
         self.authorize_all_utility_call_targets = true;
         *self
     }
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
 }
 
 /// Configuration values for [`TestEnvironment::private_context_opts`]. Meant to be used by calling `new` and then

@@ -21,13 +21,8 @@ use crate::protocol::{
 /// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
-<<<<<<< HEAD
 pub global TXE_ORACLE_VERSION_MAJOR: Field = 2;
-pub global TXE_ORACLE_VERSION_MINOR: Field = 3;
-=======
-pub global TXE_ORACLE_VERSION_MAJOR: Field = 3;
-pub global TXE_ORACLE_VERSION_MINOR: Field = 1;
->>>>>>> 97b4c75c95 (feat(txe): add option to authorize all utility call targets (#24662))
+pub global TXE_ORACLE_VERSION_MINOR: Field = 4;
 
 /// Asserts that the TXE oracle interface version is compatible.
 pub unconstrained fn assert_compatible_txe_oracle_version() {
