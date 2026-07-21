@@ -76,8 +76,15 @@ describe('SafeJsonRpcServer', () => {
     it('calls an RPC function with no inputs nor outputs', async () => {
       const response = await send({ method: 'clear', params: [] });
       expect(response.status).toBe(200);
-      expect(response.text).toEqual(JSON.stringify({ jsonrpc }));
+      expect(response.text).toEqual(JSON.stringify({ jsonrpc, result: null }));
       expect(testState.notes).toEqual([]);
+    });
+
+    it('includes a null result when the handler returns undefined', async () => {
+      const response = await send({ jsonrpc: '2.0', method: 'getNote', params: [99], id: 'req-1' });
+      expect(response.status).toBe(200);
+      expect(response.text).toEqual(JSON.stringify({ jsonrpc, id: 'req-1', result: null }));
+      expect(JSON.parse(response.text)).toHaveProperty('result', null);
     });
 
     it('calls an RPC function that returns a primitive object and a bigint', async () => {
@@ -185,7 +192,7 @@ describe('SafeJsonRpcServer', () => {
       expect(resp.text).toEqual(
         JSON.stringify([
           { jsonrpc: '2.0', id: 42, result: { status: 'ok', count: '2' } },
-          { jsonrpc: '2.0', id: 43 },
+          { jsonrpc: '2.0', id: 43, result: null },
         ]),
       );
     });
@@ -210,7 +217,7 @@ describe('SafeJsonRpcServer', () => {
       expect(resp.text).toEqual(
         JSON.stringify([
           { jsonrpc: '2.0', id: 42, error: { code: -32601, message: 'Method not found: toString' } },
-          { jsonrpc: '2.0', id: 43 },
+          { jsonrpc: '2.0', id: 43, result: null },
         ]),
       );
     });
@@ -221,7 +228,7 @@ describe('SafeJsonRpcServer', () => {
       expect(resp.status).toEqual(200);
       expect(resp.text).toEqual(
         JSON.stringify([
-          { jsonrpc: '2.0', id: 43 },
+          { jsonrpc: '2.0', id: 43, result: null },
           { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null },
         ]),
       );

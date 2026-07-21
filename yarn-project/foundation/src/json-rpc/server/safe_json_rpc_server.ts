@@ -224,7 +224,10 @@ export class SafeJsonRpcServer {
           result = await this.proxy.call(method, params);
         }
 
-        return { jsonrpc, id, result };
+        // The JSON-RPC 2.0 spec requires a successful response to always include a `result` member. Handlers
+        // that return `undefined` would otherwise have the key dropped by JSON.stringify, yielding a response
+        // with neither `result` nor `error` (which some providers, e.g. dRPC, reject). Coalesce to null.
+        return { jsonrpc, id, result: result ?? null };
       } catch (err: any) {
         if (err && err instanceof ZodError) {
           const message = err.issues.map(e => `${e.message} (${e.path.join('.')})`).join('. ') || 'Validation error';
