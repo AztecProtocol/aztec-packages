@@ -570,7 +570,7 @@
           "legendFormat": "bodies {{eth_chain}}",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "B"
         }
       ],
       "pluginVersion": "12.3.6"
@@ -642,7 +642,7 @@
           "legendFormat": "basefee",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "B"
         },
         {
           "datasource": {
@@ -654,7 +654,7 @@
           "legendFormat": "queued",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "C"
         },
         {
           "datasource": {
@@ -666,7 +666,7 @@
           "legendFormat": "blob",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "D"
         }
       ],
       "pluginVersion": "12.3.6"
@@ -738,7 +738,7 @@
           "legendFormat": "forkchoice syncing",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "B"
         },
         {
           "datasource": {
@@ -750,7 +750,7 @@
           "legendFormat": "payload valid",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "C"
         },
         {
           "datasource": {
@@ -762,7 +762,7 @@
           "legendFormat": "payload syncing",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "D"
         }
       ],
       "pluginVersion": "12.3.6"
@@ -1255,7 +1255,7 @@
           "legendFormat": "finalized epoch {{eth_chain}}",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "B"
         }
       ],
       "pluginVersion": "12.3.6"
@@ -1387,7 +1387,7 @@
           "legendFormat": "rss {{eth_chain}}",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "B"
         }
       ],
       "pluginVersion": "12.3.6"
@@ -1459,7 +1459,7 @@
           "legendFormat": "sent",
           "range": true,
           "instant": false,
-          "refId": "A"
+          "refId": "B"
         }
       ],
       "pluginVersion": "12.3.6"
