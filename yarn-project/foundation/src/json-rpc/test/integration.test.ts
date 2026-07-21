@@ -1,3 +1,4 @@
+import type { JsonRpcFetch } from '../client/fetch.js';
 import { createSafeJsonRpcClient } from '../client/safe_json_rpc_client.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
 import { startHttpRpcServer } from '../server/safe_json_rpc_server.js';
@@ -122,6 +123,37 @@ describe('JsonRpc integration', () => {
 
     it('fails if calls non-existing method in handler', () => {
       expect(() => (client as TestState).forceClear()).toThrow(/not a function/i);
+    });
+  });
+
+  describe('null results against optional schemas', () => {
+    let client: TestStateApi;
+    let url: string;
+
+    beforeEach(async () => {
+      ({ server, httpServer, client, url } = await createJsonRpcTestSetup(testState, TestStateSchema));
+    });
+
+    it('client accepts the explicit null result the server sends for an undefined return', async () => {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 0, method: 'getNote', params: [10] }),
+      });
+      expect(await response.json()).toEqual({ jsonrpc: '2.0', id: 0, result: null });
+
+      await expect(client.getNote(10)).resolves.toBeUndefined();
+    });
+
+    it('client resolves undefined when any server returns null for an optional result schema', async () => {
+      const nullResultFetch: JsonRpcFetch = (_host, body) =>
+        Promise.resolve({
+          response: body.map((req: { id: number }) => ({ jsonrpc: '2.0', id: req.id, result: null })),
+          headers: { get: () => undefined },
+        });
+      const nullClient = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema, { fetch: nullResultFetch });
+
+      await expect(nullClient.getNote(0)).resolves.toBeUndefined();
     });
   });
 
