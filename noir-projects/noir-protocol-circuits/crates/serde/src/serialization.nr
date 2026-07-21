@@ -90,7 +90,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
     // for the `Serialize` trait.
     let generics_declarations = get_generics_declarations(s);
-    let where_serialize_clause = get_where_trait_clause(s, quote {Serialize});
+    let where_serialize_clause = get_where_trait_clause(s, quote { Serialize });
 
     let params_len_quote = get_params_len_quote(params);
 
@@ -212,7 +212,7 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
     // for the `Deserialize` trait.
     let generics_declarations = get_generics_declarations(s);
-    let where_deserialize_clause = get_where_trait_clause(s, quote {Deserialize});
+    let where_deserialize_clause = get_where_trait_clause(s, quote { Deserialize });
 
     // The following will give us:
     // <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
@@ -226,7 +226,7 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
             })
             .join(quote {+})
     } else {
-        quote {0}
+        quote { 0 }
     };
 
     // For structs containing a single member, we can enhance performance by directly deserializing the input array,
@@ -325,7 +325,7 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
                     quote {let $name: $integer_type}
                 } else {
                     // The generic is not numeric, so we return a quote containing the name of the generic (e.g. "T")
-                    quote {$name}
+                    quote { $name }
                 }
             })
             .join(quote {,});

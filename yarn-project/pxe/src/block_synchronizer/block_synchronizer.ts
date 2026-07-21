@@ -8,8 +8,10 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
-import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { ContractClassService } from '../contract/contract_class_service.js';
+import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
+import type { FactStore } from '../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../storage/note_store/index.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
@@ -26,32 +28,33 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   protected readonly blockStream: L2BlockStream;
 
   constructor(
-    private node: AztecNode,
-    private store: AztecAsyncKVStore,
-    private anchorBlockStore: AnchorBlockStore,
-    private noteStore: NoteStore,
-    private privateEventStore: PrivateEventStore,
-    private l2TipsStore: L2TipsKVStore,
-    private contractSyncService: ContractSyncService,
-    private config: Partial<BlockSynchronizerConfig> = {},
+    private readonly node: AztecNode,
+    private readonly store: AztecAsyncKVStore,
+    private readonly anchorBlockStore: AnchorBlockStore,
+    private readonly noteStore: NoteStore,
+    private readonly privateEventStore: PrivateEventStore,
+    private readonly factStore: FactStore,
+    private readonly l2TipsStore: L2TipsKVStore,
+    private readonly contractSyncService: ContractSyncService,
+    private readonly contractClassService: ContractClassService,
+    private readonly config: Partial<BlockSynchronizerConfig> = {},
     bindings?: LoggerBindings,
   ) {
     this.log = createLogger('pxe:block_synchronizer', bindings);
-    this.blockStream = this.createBlockStream(config);
+    this.blockStream = this.createBlockStream();
     this.eventQueue.start();
   }
 
-  protected createBlockStream(config: Partial<BlockSynchronizerConfig>): L2BlockStream {
+  protected createBlockStream(): L2BlockStream {
     return new L2BlockStream(
       blockStreamSourceFromAztecNode(this.node),
       this.l2TipsStore,
       this,
       createLogger('pxe:block_stream', this.log.getBindings()),
       {
-        batchSize: config.l2BlockBatchSize,
-        // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
-        // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.
-        skipFinalized: true,
+        // PXE only tracks chain tips (it anchors on tip events and never replays payloads), so the stream runs
+        // in tips-only mode: no block downloads, just the tip events that move the anchor and detect reorgs.
+        tipsOnly: true,
       },
     );
   }
@@ -62,21 +65,43 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   }
 
   private async doHandleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    await this.l2TipsStore.handleBlockStreamEvent(event);
-
     switch (event.type) {
-      case 'blocks-added': {
+      case 'chain-proposed': {
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
-          const lastBlock = event.blocks.at(-1)!;
-          await this.updateAnchorBlockHeader(lastBlock.header);
+          // Fetch the proposed tip header by hash. By-hash is safer than by-number against a same-height reorg.
+          const block = await this.node.getBlockData(BlockHash.fromString(event.block.hash));
+          if (!block) {
+            // The node served a proposed tip whose block data it cannot return — a node inconsistency, since the
+            // stream events and the block data come from the same node (same reasoning as the chain-pruned throw
+            // below). Throwing here propagates before the tips-store cursor advances, so the cursor stays put and the
+            // next sync re-emits chain-proposed (at-least-once). Were we to warn-and-skip, the cursor would advance and
+            // a quiet chain would never re-emit, leaving the anchor stale indefinitely.
+            throw new Error(
+              `Block header for proposed block ${event.block.number} and hash ${event.block.hash} not found. This ` +
+                `likely indicates a bug in the node, as we receive block stream events and fetch block headers from ` +
+                `the same node.`,
+            );
+          }
+          await this.updateAnchorBlockHeader(block.header);
         }
         break;
       }
+      // Never emitted in tips-only mode; PXE anchors on chain-proposed instead. Kept for union exhaustiveness.
+      case 'blocks-added':
+        break;
       case 'chain-checkpointed': {
         if (this.config.syncChainTip === 'checkpointed') {
-          // Get the last block header from the checkpoint
-          const lastBlock = event.checkpoint.checkpoint.blocks.at(-1)!;
-          await this.updateAnchorBlockHeader(lastBlock.header);
+          // Fetch the checkpointed tip header by hash. By-hash is safer than by-number against a
+          // same-height reorg; a missing result means the block was reorged out between the event
+          // and this fetch, so we skip the anchor update and let a later event correct it.
+          const block = await this.node.getBlockData(BlockHash.fromString(event.block.hash));
+          if (block) {
+            await this.updateAnchorBlockHeader(block.header);
+          } else {
+            this.log.warn(
+              `Block header not found for checkpointed block ${event.block.number}, skipping anchor update`,
+            );
+          }
         }
         break;
       }
@@ -110,7 +135,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
             `Ignoring prune event to block ${event.block.number} greater than current anchor block ${currentAnchorBlockNumber}`,
             { pruneEvent: event, currentAnchorBlockHeader: currentAnchorBlockHeader.toInspect() },
           );
-          return;
+          break;
         }
 
         this.log.warn(`Pruning data after block ${event.block.number} due to reorg`, { pruneBlock: event.block });
@@ -131,11 +156,21 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         await this.store.transactionAsync(async () => {
           await this.noteStore.rollback(event.block.number);
           await this.privateEventStore.rollback(event.block.number);
+          await this.factStore.rollback(event.block.number);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;
       }
+      default: {
+        const _: never = event;
+        break;
+      }
     }
+
+    // Advance the tips store cursor only after the anchor update / prune rollback above succeeds. If that work
+    // throws, the cursor stays put and the stream re-emits this event on the next sync pass (at-least-once),
+    // matching the prover-node's handle-first/tips-last ordering. The SerialQueue makes this reorder safe.
+    await this.l2TipsStore.handleBlockStreamEvent(event);
   }
 
   /** Updates the anchor block header to the target block */
@@ -144,6 +179,12 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     // Therefore, we clear the contract synchronization cache here such that the sync is re-triggered upon new
     // execution.
     this.contractSyncService.wipe();
+
+    // The contract class service keeps a per-block cache - since updating our anchor means it is very unlikely we'd
+    // ever re-simulate at past anchors, we wipe its cache to prevent runaway memory growth on very long-lived PXE
+    // instances.
+    this.contractClassService.wipe();
+
     this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
     await this.anchorBlockStore.setHeader(blockHeader);
   }

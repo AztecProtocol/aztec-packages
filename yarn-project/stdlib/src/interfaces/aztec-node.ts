@@ -7,9 +7,11 @@ import {
   type CheckpointNumber,
   CheckpointNumberPositiveSchema,
   CheckpointNumberSchema,
+  type CheckpointProposalHash,
   type EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
+  SlotNumberSchema,
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -21,9 +23,15 @@ import { z } from 'zod';
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type BlockData, BlockDataSchema } from '../block/block_data.js';
 import { BlockHash } from '../block/block_hash.js';
-import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
+import { type BlockParameter, BlockParameterSchema, BlockTagWithoutLatestSchema } from '../block/block_parameter.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { type CheckpointsQuery, CheckpointsQuerySchema } from '../block/l2_block_source.js';
+import {
+  type CheckpointsQuery,
+  CheckpointsQuerySchema,
+  type L2BlockTag,
+  type L2Tips,
+  L2TipsSchema,
+} from '../block/l2_block_source.js';
 import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -35,6 +43,7 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
+import { type L1RollupConstants, L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { ManaUsageEstimate } from '../gas/fee_math.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { type LogResult, LogResultSchema } from '../logs/log_result.js';
@@ -45,7 +54,8 @@ import {
   PublicLogsQuerySchema,
 } from '../logs/logs_query.js';
 import { type L2ToL1MembershipWitness, L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
-import { type ApiSchemaFor, type ZodFor, optional, schemas } from '../schemas/schemas.js';
+import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
+import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
@@ -76,7 +86,7 @@ import {
   type BlocksIncludeOptions,
   BlocksIncludeOptionsSchema,
 } from './block_response.js';
-import { type ChainTip, ChainTipSchema, type ChainTips, ChainTipsSchema } from './chain_tips.js';
+import { type CheckpointTag, CheckpointTagSchema } from './chain_tips.js';
 import { type CheckpointParameter, CheckpointParameterSchema } from './checkpoint_parameter.js';
 import {
   type CheckpointIncludeOptions,
@@ -84,18 +94,12 @@ import {
   type CheckpointResponse,
   CheckpointResponseSchema,
 } from './checkpoint_response.js';
+import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
+import { type PeerInfo, PeerInfoSchema, type ProposalsForSlot, ProposalsForSlotSchema } from './p2p.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
-/** Options for retrieving txs via {@link AztecNode.getTxByHash} and {@link AztecNode.getTxsByHash}. */
-export type GetTxByHashOptions = {
-  /** Keep the proof on the returned tx; stripped by default. */
-  includeProof?: boolean;
-};
-
-/** Zod schema for {@link GetTxByHashOptions}. */
-export const GetTxByHashOptionsSchema: ZodFor<GetTxByHashOptions> = z.object({
-  includeProof: z.boolean().optional(),
-});
+export type { GetTxByHashOptions } from './get_tx_by_hash_options.js';
+export { GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
 
 /**
  * The aztec node.
@@ -234,23 +238,36 @@ export interface AztecNode {
   ): Promise<L2ToL1MembershipWitness | undefined>;
 
   /**
-   * Returns the block number at a given chain tip, or the latest proposed block number when
+   * Returns the block number at a given block tag, or the latest proposed block number when
    * `tip` is omitted.
    */
-  getBlockNumber(tip?: ChainTip): Promise<BlockNumber>;
+  getBlockNumber(tip?: L2BlockTag): Promise<BlockNumber>;
 
   /**
-   * Returns the checkpoint number at a given chain tip, or the latest checkpoint number when
-   * `tip` is omitted.
-   *
-   * @remarks **Semantic foot-gun**: block-side `'proposed'` means "latest proposed block" (chain
-   * head), but checkpoint-side `'proposed'` means "latest confirmed checkpoint" — pre-L1-confirm
-   * checkpoints are not exposed over RPC. `'checkpointed'` on the checkpoint side is equivalent.
+   * Returns the checkpoint number at a given checkpoint tag, or the latest checkpointed number when
+   * `tip` is omitted. The proposed-but-unconfirmed checkpoint frontier is archiver-internal and not
+   * exposed over RPC, so `'proposed'` is not a valid checkpoint tag (see {@link CheckpointTag}).
    */
-  getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber>;
+  getCheckpointNumber(tip?: CheckpointTag): Promise<CheckpointNumber>;
 
   /** Returns the tips of the L2 chain. */
-  getChainTips(): Promise<ChainTips>;
+  getChainTips(): Promise<L2Tips>;
+
+  /** Returns the rollup constants for the current chain. */
+  getL1Constants(): Promise<L1RollupConstants>;
+
+  /**
+   * Returns the last L2 slot number for which the node has all L1 data needed to build the next checkpoint.
+   */
+  getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
+
+  /**
+   * Returns the last L2 epoch number that has been fully synchronized from L1.
+   */
+  getSyncedL2EpochNumber(): Promise<EpochNumber | undefined>;
+
+  /** Returns the latest L1 timestamp according to the archiver's synced L1 view. */
+  getSyncedL1Timestamp(): Promise<bigint | undefined>;
 
   /**
    * Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
@@ -329,7 +346,7 @@ export interface AztecNode {
    * Each entry accounts for the L1 gas oracle transition and congestion growth based on the
    * given mana usage estimate. Defaults to target usage (steady state).
    * @param manaUsage - Expected mana usage per checkpoint (none, target, or limit).
-   * @returns An array of GasFees, one per slot in the prediction window.
+   * @returns An array of GasFees with current min fees first, followed by one entry per predicted slot.
    */
   getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]>;
 
@@ -367,12 +384,6 @@ export interface AztecNode {
    * Method to fetch the protocol contract addresses.
    */
   getProtocolContractAddresses(): Promise<ProtocolContractAddresses>;
-
-  /**
-   * Registers contract function signatures for debugging purposes.
-   * @param functionSignatures - An array of function signatures to register by selector.
-   */
-  registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
 
   /**
    * Gets private logs matching the given tags. Returns one inner array per element of `query.tags`, in
@@ -511,10 +522,18 @@ export interface AztecNode {
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
 
   /**
-   * Returns a publicly deployed contract instance given its address.
+   * Returns a publicly deployed contract instance given its address. Its current class id is resolved as of the given
+   * reference block.
+   *
+   * Returns `undefined` if the instance has not been published (i.e. `publish_for_public_execution` was never called
+   * on the `ContractInstanceRegistry`). A contract whose class has been updated will never return `undefined`:
+   * scheduling an update requires the contract's deployment nullifier, which is only emitted by publishing, so any
+   * updatable contract has necessarily been published.
    * @param address - Address of the deployed contract.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   *        Defaults to 'latest'.
    */
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContract(address: AztecAddress, referenceBlock?: BlockParameter): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns the ENR of this node for peer discovery, if available.
@@ -526,10 +545,31 @@ export interface AztecNode {
    * @returns The list of allowed elements.
    */
   getAllowedPublicSetup(): Promise<AllowedElement[]>;
-}
 
-const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
-const MAX_SIGNATURE_LEN = 10000;
+  /**
+   * Returns info for all connected, dialing, and cached peers. Only available when P2P is enabled.
+   * @param includePending - If true, also include peers in the pending state.
+   */
+  getPeers(includePending?: boolean): Promise<PeerInfo[]>;
+
+  /**
+   * Queries the attestation pool for checkpoint attestations for the given slot.
+   * @param slot - The slot to query.
+   * @param proposalPayloadHash - Hex-encoded keccak256 of the target proposal's signed payload hash.
+   *        When provided, only attestations whose payload hash matches are returned.
+   *        When omitted, all attestations for the slot are returned.
+   */
+  getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]>;
+
+  /**
+   * Returns block and checkpoint proposals retained in the attestation pool for the given slot.
+   * Only available when P2P is enabled.
+   */
+  getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot>;
+}
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
@@ -584,11 +624,19 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     output: L2ToL1MembershipWitnessSchema.optional(),
   }),
 
-  getBlockNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: BlockNumberSchema }),
+  getBlockNumber: z.function({ input: z.tuple([optional(BlockTagWithoutLatestSchema)]), output: BlockNumberSchema }),
 
-  getCheckpointNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: CheckpointNumberSchema }),
+  getCheckpointNumber: z.function({ input: z.tuple([optional(CheckpointTagSchema)]), output: CheckpointNumberSchema }),
 
-  getChainTips: z.function({ input: z.tuple([]), output: ChainTipsSchema }),
+  getChainTips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
+
+  getL1Constants: z.function({ input: z.tuple([]), output: L1RollupConstantsSchema }),
+
+  getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: SlotNumberSchema.optional() }),
+
+  getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
+
+  getSyncedL1Timestamp: z.function({ input: z.tuple([]), output: schemas.BigInt.optional() }),
 
   getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
 
@@ -644,11 +692,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL1ContractAddresses: z.function({ input: z.tuple([]), output: L1ContractAddressesSchema }),
 
   getProtocolContractAddresses: z.function({ input: z.tuple([]), output: ProtocolContractAddressesSchema }),
-
-  registerContractFunctionSignatures: z.function({
-    input: z.tuple([z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL)]),
-    output: z.void(),
-  }),
 
   getPrivateLogsByTags: z.function({
     input: z.tuple([PrivateLogsQuerySchema]),
@@ -723,13 +766,28 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
 
   getContract: z.function({
-    input: z.tuple([schemas.AztecAddress]),
+    input: z.tuple([schemas.AztecAddress, optional(BlockParameterSchema)]),
     output: ContractInstanceWithAddressSchema.optional(),
   }),
 
   getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
 
   getAllowedPublicSetup: z.function({ input: z.tuple([]), output: z.array(AllowedElementSchema) }),
+
+  getPeers: z.function({ input: z.tuple([optional(z.boolean())]), output: z.array(PeerInfoSchema) }),
+
+  getCheckpointAttestationsForSlot: z.function({
+    input: z.tuple([
+      schemas.SlotNumber,
+      optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
+    ]),
+    output: z.array(CheckpointAttestation.schema),
+  }),
+
+  getProposalsForSlot: z.function({
+    input: z.tuple([schemas.SlotNumber]),
+    output: ProposalsForSlotSchema,
+  }),
 };
 
 export function createAztecNodeClient(
@@ -739,7 +797,7 @@ export function createAztecNodeClient(
   batchWindowMS = 0,
 ): AztecNode {
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
-    namespaceMethods: 'node',
+    namespaceMethods: 'aztec',
     fetch,
     batchWindowMS,
     onResponse: getVersioningResponseHandler(versions),

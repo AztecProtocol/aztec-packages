@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +13,7 @@ template <typename FF_> class merkle_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 3,
+    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 3,
                                                                             4, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -36,28 +35,29 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr const std::string_view NAME = "merkle_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SEL_ON_START_OR_END = 3;
-    static constexpr size_t SR_TRACE_CONTINUITY = 4;
-    static constexpr size_t SR_START_AFTER_LATCH = 5;
-    static constexpr size_t SR_END_IFF_REM_PATH_EMPTY = 6;
-    static constexpr size_t SR_PROPAGATE_READ_ROOT = 7;
-    static constexpr size_t SR_PROPAGATE_WRITE = 8;
-    static constexpr size_t SR_PROPAGATE_WRITE_ROOT = 9;
-    static constexpr size_t SR_PATH_LEN_DECREMENTS = 10;
-    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 12;
-    static constexpr size_t SR_FINAL_INDEX_EQUAL_TO_FIRST_BIT = 13;
-    static constexpr size_t SR_READ_LEFT_NODE = 14;
-    static constexpr size_t SR_READ_RIGHT_NODE = 15;
-    static constexpr size_t SR_WRITE_LEFT_NODE = 16;
-    static constexpr size_t SR_WRITE_RIGHT_NODE = 17;
-    static constexpr size_t SR_PROPAGATE_MERKLE_HASH_SEPARATOR = 19;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 20;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 21;
-    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 22;
-    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 23;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 4;
+    static constexpr size_t SR_TRACE_CONTINUITY = 5;
+    static constexpr size_t SR_START_AFTER_LATCH = 6;
+    static constexpr size_t SR_END_IFF_REM_PATH_EMPTY = 7;
+    static constexpr size_t SR_PROPAGATE_READ_ROOT = 8;
+    static constexpr size_t SR_PROPAGATE_WRITE = 9;
+    static constexpr size_t SR_PROPAGATE_WRITE_ROOT = 10;
+    static constexpr size_t SR_PATH_LEN_DECREMENTS = 11;
+    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 13;
+    static constexpr size_t SR_FINAL_INDEX_EQUAL_TO_FIRST_BIT = 14;
+    static constexpr size_t SR_READ_LEFT_NODE = 15;
+    static constexpr size_t SR_READ_RIGHT_NODE = 16;
+    static constexpr size_t SR_WRITE_LEFT_NODE = 17;
+    static constexpr size_t SR_WRITE_RIGHT_NODE = 18;
+    static constexpr size_t SR_PROPAGATE_MERKLE_HASH_SEPARATOR = 20;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 21;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 22;
+    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 23;
+    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 24;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_SEL_ON_START_OR_END:
             return "SEL_ON_START_OR_END";
@@ -98,6 +98,7 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
         case SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT:
             return "WRITE_OUTPUT_HASH_IS_WRITE_ROOT";
         }
+#endif
         return std::to_string(index);
     }
 };

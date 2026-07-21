@@ -36,11 +36,15 @@ export async function loadAndStoreNewTaggingIndexes(
   const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode, anchorBlockHash);
   const txIndexesMap = getTxIndexesMap(txsForTags, start, siloedTagsForWindow.length);
 
-  // Now we iterate over the map, construct the tagging index ranges and store them in the db.
+  // Now we iterate over the map, construct the tagging index ranges and store them in the db. A tx already tracked
+  // in the store is merged rather than range-checked: if this PXE sent the tx and it partially reverted, the chain
+  // only shows the surviving sub-range of the prove-time entry (the finalized receipt step of the sync owns
+  // resolving that difference), and a tx from another PXE may straddle a sync window boundary, in which case the
+  // entry is widened so the next index choice covers the full onchain range.
   for (const [txHashStr, indexes] of txIndexesMap.entries()) {
     const txHash = TxHash.fromString(txHashStr);
     const ranges = [{ extendedSecret, lowestIndex: Math.min(...indexes), highestIndex: Math.max(...indexes) }];
-    await taggingStore.storePendingIndexes(ranges, txHash, jobId);
+    await taggingStore.mergePendingIndexes(ranges, txHash, jobId);
   }
 }
 

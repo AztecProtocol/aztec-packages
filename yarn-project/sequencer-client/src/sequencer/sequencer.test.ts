@@ -13,6 +13,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -123,6 +124,7 @@ describe('sequencer', () => {
     seed: 0n,
     attestors: [],
     attestations: [],
+    verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
     reason: 'insufficient-attestations',
   };
 
@@ -232,6 +234,7 @@ describe('sequencer', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
+    publisher.enqueuePruneIfPrunable.mockResolvedValue(false);
     publisher.sendRequestsAt.mockResolvedValue({
       result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
@@ -260,7 +263,6 @@ describe('sequencer', () => {
     rollupContract.getManaTarget.mockResolvedValue(10_000n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
-    globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
     globalVariableBuilder.buildCheckpointGlobalVariables.mockResolvedValue(omit(globalVariables, 'blockNumber'));
 
     p2p = mock<P2P>({
@@ -314,10 +316,6 @@ describe('sequencer', () => {
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: lastBlockNumber, hash },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -343,10 +341,6 @@ describe('sequencer', () => {
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: lastBlockNumber, hash },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -377,9 +371,12 @@ describe('sequencer', () => {
 
     signatureContext = { chainId: chainId.toNumber(), rollupAddress: EthAddress.random() };
     const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'> = {
-      enforceTimeTable: true,
       maxTxsPerBlock: 4,
       l1ChainId: signatureContext.chainId,
+      // With aztecSlotDuration=8 and ethereumSlotDuration=4 (fast profile), a 2s block duration derives
+      // exactly one valid block sub-slot. The production default (3s) would derive zero blocks for this
+      // slot duration and make ProposerTimetable throw on construction.
+      blockDurationMs: 2000,
       rollupAddress: signatureContext.rollupAddress,
     };
     sequencer = new TestSequencer(
@@ -399,6 +396,155 @@ describe('sequencer', () => {
       config,
     );
     sequencer.updateConfig(config);
+  });
+
+  describe('perBlockAllocationMultiplier guard', () => {
+    it('rejects a multiplier below the network minimum', () => {
+      expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.0 })).toThrow(
+        /perBlockAllocationMultiplier/,
+      );
+    });
+
+    it('accepts a multiplier at or above the network minimum', () => {
+      expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.5 })).not.toThrow();
+    });
+  });
+
+  describe('lifecycle', () => {
+    afterEach(async () => {
+      await sequencer.stop();
+    });
+
+    it('start is idempotent: a second start does not replace the poll loop', () => {
+      sequencer.start();
+      const firstLoop = sequencer.getRunningPromise();
+      expect(sequencer.isRunning()).toBe(true);
+
+      sequencer.start();
+
+      // The second start must be a no-op reusing the same loop, not a fresh RunningPromise that
+      // leaves the first loop running with no handle to stop it.
+      expect(sequencer.getRunningPromise()).toBe(firstLoop);
+      expect(sequencer.isRunning()).toBe(true);
+    });
+
+    it('stop halts the poll loop, moves to STOPPED, and is idempotent', async () => {
+      sequencer.start();
+      expect(sequencer.isRunning()).toBe(true);
+
+      await sequencer.stop();
+
+      expect(sequencer.isRunning()).toBe(false);
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+
+      await expect(sequencer.stop()).resolves.not.toThrow();
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
+
+    it('can be restarted after a stop and resumes the poll loop', async () => {
+      sequencer.start();
+      await sequencer.stop();
+      expect(sequencer.isRunning()).toBe(false);
+
+      sequencer.start();
+
+      expect(sequencer.isRunning()).toBe(true);
+      // The loop is live again (start runs work() immediately, so the exact state may already have
+      // advanced past IDLE); the point is it is no longer STOPPED/STOPPING.
+      expect([SequencerState.STOPPED, SequencerState.STOPPING]).not.toContain(sequencer.status().state);
+    });
+
+    it('refuses to start while stopping, so no fresh poll loop is orphaned mid-stop', async () => {
+      sequencer.start();
+      const loopBeforeStop = sequencer.getRunningPromise();
+
+      // Park stop() in the STOPPING state by hanging stopAll until we release it.
+      const { promise: stopAllHang, resolve: releaseStopAll } = promiseWithResolvers<void>();
+      publisherFactory.stopAll.mockReturnValueOnce(stopAllHang);
+
+      const stopPromise = sequencer.stop();
+      expect(sequencer.status().state).toBe(SequencerState.STOPPING);
+
+      // A start() landing mid-stop must throw rather than silently allocate a new loop the stop would
+      // orphan while leaving the caller believing the sequencer is running.
+      expect(() => sequencer.start()).toThrow('Cannot start sequencer while it is stopping');
+      expect(sequencer.getRunningPromise()).toBe(loopBeforeStop);
+
+      releaseStopAll();
+      await stopPromise;
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
+
+    it('pause lets the in-flight iteration finish untouched and leaves the sequencer resumable', async () => {
+      const checkpointErrors: Error[] = [];
+      sequencer.on('checkpoint-error', ({ error }) => checkpointErrors.push(error));
+
+      // Park the in-flight work() at its proposer lookup, so pause finds a live iteration. Once released,
+      // we are not the proposer, so the iteration finishes on the cheap non-proposer path.
+      const { promise: proposerHang, resolve: releaseProposer } = promiseWithResolvers<EthAddress | undefined>();
+      epochCache.getProposerAttesterAddressInSlot.mockReturnValueOnce(proposerHang);
+      validatorClient.getValidatorAddresses.mockReturnValue([]);
+
+      sequencer.start();
+      const pausePromise = sequencer.pause();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // While the iteration is parked, nothing may be interrupted and STOPPING may not be entered: entering
+      // it would make the iteration's own setState calls throw SequencerInterruptedError. pause also leaves
+      // the publishers running (no stopAll), unlike stop().
+      expect(publisherFactory.stopAll).not.toHaveBeenCalled();
+      expect(sequencer.status().state).not.toBe(SequencerState.STOPPING);
+
+      releaseProposer(signer.address);
+      await pausePromise;
+
+      // A clean pause emits no spurious checkpoint-error and, unlike stop(), leaves the sequencer resumable:
+      // the poll loop is halted but the state is neither STOPPED nor STOPPING.
+      expect(checkpointErrors).toEqual([]);
+      expect(sequencer.isRunning()).toBe(false);
+      expect([SequencerState.STOPPED, SequencerState.STOPPING]).not.toContain(sequencer.status().state);
+
+      // And a subsequent start() resumes the poll loop.
+      sequencer.start();
+      expect(sequencer.isRunning()).toBe(true);
+    });
+
+    it('drains an in-flight fallback send on stop, leaving nothing pending across a restart', async () => {
+      // Drive the fire-and-forget fallback vote path: past the build-start deadline with a governance
+      // payload to vote for, and us as the proposer (mirrors 'votes without building' above).
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+      sequencer.updateConfig({ governanceProposerPayload: EthAddress.random() });
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
+
+      // The fallback send resolves only when released, and only after the sequencer interrupts it,
+      // mimicking a wrapper publisher sleeping in waitForTargetSlot.
+      const { promise: sendHang, resolve: releaseSend } = promiseWithResolvers<undefined>();
+      publisher.sendRequestsAt.mockReturnValueOnce(
+        sendHang.then(() => {
+          if (publisher.interrupt.mock.calls.length === 0) {
+            throw new Error('fallback send completed without being interrupted by stop()');
+          }
+          return undefined;
+        }),
+      );
+
+      await sequencer.work();
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      expect(sequencer.getPendingRequestCount()).toBe(1);
+
+      // stop() must interrupt the fallback wrapper (waking its sleep so it short-circuits without
+      // publishing) and await it, so nothing pending survives into a later restart.
+      const stopPromise = sequencer.stop();
+      releaseSend(undefined);
+      await stopPromise;
+
+      expect(publisher.interrupt).toHaveBeenCalled();
+      expect(sequencer.getPendingRequestCount()).toBe(0);
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
   });
 
   describe('block building', () => {
@@ -622,6 +768,7 @@ describe('sequencer', () => {
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
+        pub.enqueuePruneIfPrunable.mockResolvedValue(false);
         pub.sendRequestsAt.mockResolvedValue({
           result: { receipt: { status: 'success' } as any },
           successfulActions: ['propose'],
@@ -676,7 +823,7 @@ describe('sequencer', () => {
           nowSeconds: 1000n,
         });
 
-      sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       // Build and publish 2 blocks, the sequencer should request a new publisher each time
       for (let i = 0; i < 2; i++) {
@@ -819,8 +966,8 @@ describe('sequencer', () => {
     const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
 
     it('should vote on slashing and governance when sync fails and past the start deadline', async () => {
-      // Past start_deadline for the target slot: tryVoteWhenCannotBuild should vote instead of waiting to
-      // build (sync has failed, so building is impossible anyway).
+      // Past start_deadline for the target slot: tryVoteAndPruneWhenCannotBuild should vote instead of waiting
+      // to build (sync has failed, so building is impossible anyway).
       const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline + 1) * 1000);
 
@@ -855,7 +1002,10 @@ describe('sequencer', () => {
       expect(publisher.sendRequestsAt).toHaveBeenCalled();
     });
 
-    it('should vote when sync fails even within the build time limit', async () => {
+    it('does not run fallback actions when sync fails before the build start deadline', async () => {
+      // A transient sync miss with time still left to build must not trigger fallback actions: the
+      // work loop should retry on a later tick once sync recovers. In particular it must not send a
+      // standalone prune, which would give up the slot prematurely.
       const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline - 1) * 1000);
 
@@ -868,12 +1018,11 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      expect(publisher.enqueueSlashingActions).toHaveBeenCalledWith(
-        mockSlashActions,
-        SlotNumber(newSlotNumber),
-        expect.any(EthAddress),
-        expect.any(Function),
-      );
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+      expect(publisher.enqueuePruneIfPrunable).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+      // The slot is left unmarked so a later work-loop tick can retry once sync recovers.
+      expect(sequencer.getLastSlotForCheckpointProposalJob()).toBeUndefined();
     });
 
     it('should not vote when sync fails but not a proposer', async () => {
@@ -926,6 +1075,92 @@ describe('sequencer', () => {
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
       expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
+
+    it('should prune when prunable even if there are no votes to cast', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // No slashing actions and no governance payload, so all votes are falsy.
+      slasherClient.getProposerActions.mockResolvedValue([]);
+      publisher.enqueueSlashingActions.mockResolvedValue(false);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(false);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Rollup is prunable, so the fallback should enqueue a prune and still send.
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      // A send fires even though only prune (and no votes) was enqueued.
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+    });
+
+    it('should not send anything when there are no votes and the rollup is not prunable', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // No slashing actions and no governance payload, so all votes are falsy.
+      slasherClient.getProposerActions.mockResolvedValue([]);
+      publisher.enqueueSlashingActions.mockResolvedValue(false);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(false);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Rollup is not prunable.
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(false);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+    });
+
+    it('does not enqueue a standalone prune before the build deadline even when the rollup is prunable', async () => {
+      // Standalone prune is reserved for when we can no longer build the slot (past the build start
+      // deadline). Before the deadline, a transient sync miss must retry rather than prune the pending
+      // chain, even if the rollup happens to be prunable at the target slot.
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline - 1) * 1000);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // The rollup is prunable, but we are still within the build window.
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+    });
+
+    it('should enqueue prune alongside votes and send a single request', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // Both votes and prune succeed.
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      await sequencer.work();
+
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+    });
   });
 
   describe('consider invalidating checkpoint', () => {
@@ -950,6 +1185,7 @@ describe('sequencer', () => {
         seed: 123n,
         attestors: [],
         attestations: [],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'insufficient-attestations',
       };
 
@@ -1136,8 +1372,8 @@ describe('sequencer', () => {
   });
 
   describe('modes', () => {
-    it('non-enforced mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
+    it('builds with the default real timetable', async () => {
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       await setupSingleTxBlock();
 
@@ -1151,7 +1387,7 @@ describe('sequencer', () => {
     });
 
     it('single block mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4 });
 
       await setupSingleTxBlock();
 
@@ -1166,7 +1402,7 @@ describe('sequencer', () => {
     });
 
     it('multi block mode', async () => {
-      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
+      sequencer.updateConfig({ maxTxsPerBlock: 4, blockDurationMs: 500 });
 
       const txs = await timesParallel(8, i => makeTx(i * 0x10000));
       block = await makeBlock(txs.slice(0, 4));
@@ -1178,6 +1414,27 @@ describe('sequencer', () => {
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(1);
       expect(validatorClient.createCheckpointProposal).toHaveBeenCalled();
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
+    });
+  });
+
+  describe('config updates', () => {
+    it('rejects a config with sub-minimum allocation multipliers without committing it', () => {
+      // Move to a 10-block geometry so the per-block allocation actually binds below the per-tx blob ceiling.
+      sequencer.updateConfig({ blockDurationMs: 500 });
+      const goodMultiplier = sequencer.getPerBlockAllocationMultiplier();
+      const goodTimetable = sequencer.getTimeTable();
+
+      // A sub-minimum multiplier must be rejected and must not mutate the live config or timetable. We drop
+      // the DA multiplier too so the DA dimension is checked against its (higher) network minimum.
+      expect(() =>
+        sequencer.updateConfig({ perBlockAllocationMultiplier: 0.5, perBlockDAAllocationMultiplier: 0.5 }),
+      ).toThrow(/perBlockDAAllocationMultiplier \(0.5\) is below the network minimum/);
+      expect(sequencer.getPerBlockAllocationMultiplier()).toBe(goodMultiplier);
+      expect(sequencer.getTimeTable()).toBe(goodTimetable);
+
+      // A subsequent valid update still applies, proving the rejected value never stuck.
+      sequencer.updateConfig({ maxTxsPerBlock: 7 });
+      expect(sequencer.getPerBlockAllocationMultiplier()).toBe(goodMultiplier);
     });
   });
 
@@ -1249,9 +1506,8 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       // Override to non-genesis state so checkSync doesn't take the genesis path.
-      // proposedCheckpoint is set with checkpoint number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
+      // The proposed checkpoint has number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1264,10 +1520,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1302,7 +1554,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
-      } satisfies ProposedCheckpointData);
+      });
 
       await sequencer.work();
 
@@ -1318,7 +1570,6 @@ describe('sequencer', () => {
       // Confirmed checkpoint is 1, pending is 2, proposed tip is in checkpoint 3.
       // So sequencer would try to build checkpoint 4, which exceeds the 1-deep pipeline limit.
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       const checkpointedHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
@@ -1332,10 +1583,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: BlockNumber(3), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(2), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(2), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber(1), hash: checkpointedHash },
@@ -1361,9 +1608,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
-        checkpointNumber: CheckpointNumber(2),
-      } as any);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(2) } as any);
 
       await sequencer.work();
 
@@ -1388,7 +1633,6 @@ describe('sequencer', () => {
 
       // Set up a pipelined parent (pending override = parentCheckpointNumber = 1).
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1401,10 +1645,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1439,7 +1679,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
-      } satisfies ProposedCheckpointData);
+      });
 
       await sequencer.work();
 
@@ -1474,18 +1714,17 @@ describe('sequencer', () => {
   describe('checkSync orphan-block guard', () => {
     // Mocks all sync sources so checkSync passes its earlier equality checks and reaches the orphan
     // guard, with the world-state tip at `blockNumber` (in `blockCheckpointNumber`) while the
-    // checkpointed and proposed-checkpoint tips sit at the given checkpoint numbers.
+    // checkpointed tip sits at `checkpointedCheckpointNumber`. The leading proposed checkpoint (if any)
+    // is supplied via `getProposedCheckpointData`.
     const setupSyncedToBlock = (opts: {
       blockNumber: BlockNumber;
       blockSlot: SlotNumber;
       blockCheckpointNumber: CheckpointNumber;
       checkpointedCheckpointNumber: CheckpointNumber;
-      proposedCheckpointTipNumber: CheckpointNumber;
-      proposedCheckpointData: ProposedCheckpointData | undefined;
+      proposedCheckpoint: ProposedCheckpointData | undefined;
     }) => {
       const hash = Fr.random().toString();
       const checkpointHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1498,10 +1737,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: opts.blockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: opts.blockNumber, hash },
-          checkpoint: { number: opts.proposedCheckpointTipNumber, hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: opts.blockNumber, hash },
           checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
@@ -1527,20 +1762,19 @@ describe('sequencer', () => {
         checkpointNumber: opts.blockCheckpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpoint);
     };
 
     it('returns undefined and logs debug while waiting for a matching proposed checkpoint', async () => {
-      // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
-      // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip whose
-      // enclosing checkpoint has not materialized into the archiver.
+      // Local tip is a block at checkpoint 3, but the checkpointed tip is still at checkpoint 2 and no
+      // proposed checkpoint 3 exists: an orphan block-only tip whose enclosing checkpoint has not
+      // materialized into the archiver.
       setupSyncedToBlock({
         blockNumber: BlockNumber(3),
         blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(2),
-        proposedCheckpointData: undefined,
+        proposedCheckpoint: undefined,
       });
       const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
       const debugSpy = jest.spyOn(sequencer.getLogger(), 'debug');
@@ -1554,8 +1788,7 @@ describe('sequencer', () => {
         expect.objectContaining({
           blockCheckpointNumber: CheckpointNumber(3),
           checkpointedCheckpointNumber: CheckpointNumber(2),
-          proposedCheckpointTipNumber: CheckpointNumber(2),
-          proposedCheckpointDataNumber: undefined,
+          proposedCheckpointTipNumber: undefined,
         }),
       );
     });
@@ -1566,8 +1799,7 @@ describe('sequencer', () => {
         blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(3),
-        proposedCheckpointData: {
+        proposedCheckpoint: {
           checkpointNumber: CheckpointNumber(3),
           header: CheckpointHeader.empty(),
           archive: AppendOnlyTreeSnapshot.empty(),
@@ -1576,7 +1808,7 @@ describe('sequencer', () => {
           blockCount: 1,
           totalManaUsed: 0n,
           feeAssetPriceModifier: 0n,
-        } satisfies ProposedCheckpointData,
+        },
       });
 
       const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
@@ -1608,6 +1840,10 @@ class TestSequencer extends Sequencer {
     return this.timetable;
   }
 
+  public getPerBlockAllocationMultiplier() {
+    return this.config.perBlockAllocationMultiplier;
+  }
+
   public getLastSlotForCheckpointProposalJob() {
     return this.lastSlotForCheckpointProposalJob;
   }
@@ -1628,7 +1864,19 @@ class TestSequencer extends Sequencer {
   }
 
   public async awaitLastProposalSubmission() {
-    await this.lastCheckpointProposalJob?.awaitPendingSubmission();
+    await this.pendingRequests.awaitRequests();
+  }
+
+  public getRunningPromise() {
+    return this.runningPromise;
+  }
+
+  public isRunning() {
+    return this.runningPromise?.isRunning() ?? false;
+  }
+
+  public getPendingRequestCount() {
+    return this.pendingRequests.size;
   }
 
   public checkCanProposeForTest(slot: SlotNumber) {

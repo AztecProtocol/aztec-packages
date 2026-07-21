@@ -306,12 +306,18 @@ export class BlockStore {
 
   /**
    * Append new checkpoints to the store's list.
+   * Checkpoints at the start of the batch that are already stored (e.g. re-included by an L1 reorg)
+   * are accepted if their archive root matches: their L1 metadata is updated but they are not
+   * re-inserted, and they are excluded from the returned array.
    * @param checkpoints - The L2 checkpoints to be added to the store.
-   * @returns True if the operation is successful.
+   * @returns The checkpoints that were actually inserted (excluding already-stored ones).
    */
-  async addCheckpoints(checkpoints: PublishedCheckpoint[], opts: { force?: boolean } = {}): Promise<boolean> {
+  async addCheckpoints(
+    checkpoints: PublishedCheckpoint[],
+    opts: { force?: boolean } = {},
+  ): Promise<PublishedCheckpoint[]> {
     if (checkpoints.length === 0) {
-      return true;
+      return [];
     }
 
     return await this.db.transactionAsync(async () => {
@@ -324,7 +330,7 @@ export class BlockStore {
       if (!opts.force && firstCheckpointNumber <= previousCheckpointNumber) {
         checkpoints = await this.skipOrUpdateAlreadyStoredCheckpoints(checkpoints, previousCheckpointNumber);
         if (checkpoints.length === 0) {
-          return true;
+          return [];
         }
         // Re-check sequentiality after skipping
         const newFirstNumber = checkpoints[0].checkpoint.number;
@@ -387,7 +393,7 @@ export class BlockStore {
       }
 
       await this.advanceSynchedL1BlockNumber(checkpoints[checkpoints.length - 1].l1.blockNumber);
-      return true;
+      return checkpoints;
     });
   }
 
@@ -619,6 +625,26 @@ export class BlockStore {
       checkpoints.push(this.checkpointDataFromCheckpointStorage(checkpoint));
     }
     return checkpoints;
+  }
+
+  /**
+   * Returns up to `limit` checkpoints anchored at `fromSlot`, ordered nearest-first, walking the slot index.
+   * With `reverse`, takes the checkpoints at or before `fromSlot` (descending by slot); otherwise the
+   * checkpoints at or after it (ascending). `limit: 1, reverse: true` yields the latest checkpoint at or
+   * before the slot in a single range scan.
+   */
+  async getCheckpointsBySlot(fromSlot: SlotNumber, limit: number, reverse: boolean): Promise<CheckpointData[]> {
+    // The KV range bounds are direction-dependent: forward is [start, end), reverse is (start, end], so a
+    // reverse scan uses `end: fromSlot` (inclusive) with no +1 to include the checkpoint at fromSlot itself.
+    const range = reverse ? { end: fromSlot, reverse: true, limit } : { start: fromSlot, limit };
+    const result: CheckpointData[] = [];
+    for await (const [, checkpointNumber] of this.#slotToCheckpoint.entriesAsync(range)) {
+      const checkpointStorage = await this.#checkpoints.getAsync(checkpointNumber);
+      if (checkpointStorage) {
+        result.push(this.checkpointDataFromCheckpointStorage(checkpointStorage));
+      }
+    }
+    return result;
   }
 
   /** Returns checkpoint data for all checkpoints whose slot falls within the given range (inclusive). */
@@ -1167,14 +1193,13 @@ export class BlockStore {
   }
 
   /**
-   * Resolves all five L2 chain tips (proposed, proposedCheckpoint, checkpointed, proven, finalized)
-   * in a single read-only transaction so the snapshot is internally consistent. Each underlying
-   * record is read at most once: latest block, latest confirmed checkpoint, and latest pending
-   * checkpoint are each loaded directly (no separate "find the number, then look up data" hop),
-   * the proven/finalized checkpoint singletons are read once and their storage entries are
-   * reused if they coincide with the latest checkpoint, and per-tip block hashes are deduped
-   * when two tips land on the same block (e.g. finalized == proven, or proposedCheckpoint falls
-   * back to checkpointed when no pending checkpoint exists).
+   * Resolves all four L2 chain tips (proposed, checkpointed, proven, finalized) in a single
+   * read-only transaction so the snapshot is internally consistent. Each underlying record is
+   * read at most once: latest block and latest confirmed checkpoint are loaded directly (no
+   * separate "find the number, then look up data" hop), the proven/finalized checkpoint
+   * singletons are read once and their storage entries are reused if they coincide with the
+   * latest checkpoint, and per-tip block hashes are deduped when two tips land on the same block
+   * (e.g. finalized == proven).
    *
    * The result is guaranteed to satisfy `finalized <= proven <= checkpointed <= proposed` (by
    * block number). Genesis is represented by `(INITIAL_L2_BLOCK_NUM - 1)` and the supplied
@@ -1197,9 +1222,6 @@ export class BlockStore {
 
       // Load latest block and checkpoint entries
       const [latestBlockEntry] = await toArray(this.#blocks.entriesAsync({ reverse: true, limit: 1 }));
-      const [proposedCheckpointEntry] = await toArray(
-        this.#proposedCheckpoints.entriesAsync({ reverse: true, limit: 1 }),
-      );
       const [latestCheckpointEntry] = await toArray(this.#checkpoints.entriesAsync({ reverse: true, limit: 1 }));
       const latestCheckpointNumber = latestCheckpointEntry
         ? CheckpointNumber(latestCheckpointEntry[0])
@@ -1285,14 +1307,6 @@ export class BlockStore {
       const provenTip = await buildTipFromCheckpoint(provenCheckpoint);
       const finalizedTip = await buildTipFromCheckpoint(finalizedCheckpoint);
 
-      // Proposed checkpoint falls back to the checkpoint tip if it's not set. And if local storage is
-      // inconsistent and the proposed checkpoint is behind the checkpointed tip, we patch that and
-      // report the checkpointed tip as the proposed checkpoint to maintain the invariant.
-      const proposedCheckpointTip =
-        proposedCheckpointEntry === undefined || proposedCheckpointEntry[0] <= latestCheckpointNumber
-          ? checkpointedTip
-          : await buildTipFromCheckpoint(proposedCheckpointEntry[1]);
-
       // A checkpointed block past the latest stored block would mean a checkpoint
       // references blocks that aren't in blocks.
       if (proposedBlockId.number < checkpointedTip.block.number) {
@@ -1304,11 +1318,10 @@ export class BlockStore {
       // Assert that checkpoint numbers are increasing
       if (
         finalizedTip.checkpoint.number > provenTip.checkpoint.number ||
-        provenTip.checkpoint.number > checkpointedTip.checkpoint.number ||
-        checkpointedTip.checkpoint.number > proposedCheckpointTip.checkpoint.number
+        provenTip.checkpoint.number > checkpointedTip.checkpoint.number
       ) {
         throw new Error(
-          `Inconsistent checkpoint numbers in chain tips: finalized=${finalizedTip.checkpoint.number} proven=${provenTip.checkpoint.number} checkpointed=${checkpointedTip.checkpoint.number} proposed=${proposedCheckpointTip.checkpoint.number}`,
+          `Inconsistent checkpoint numbers in chain tips: finalized=${finalizedTip.checkpoint.number} proven=${provenTip.checkpoint.number} checkpointed=${checkpointedTip.checkpoint.number}`,
         );
       }
 
@@ -1316,17 +1329,15 @@ export class BlockStore {
       if (
         finalizedTip.block.number > provenTip.block.number ||
         provenTip.block.number > checkpointedTip.block.number ||
-        checkpointedTip.block.number > proposedCheckpointTip.block.number ||
-        proposedCheckpointTip.block.number > proposedBlockId.number
+        checkpointedTip.block.number > proposedBlockId.number
       ) {
         throw new Error(
-          `Inconsistent block numbers in chain tips: finalized=${finalizedTip.block.number} proven=${provenTip.block.number} checkpointed=${checkpointedTip.block.number} proposedCheckpoint=${proposedCheckpointTip.block.number} proposed=${proposedBlockId.number}`,
+          `Inconsistent block numbers in chain tips: finalized=${finalizedTip.block.number} proven=${provenTip.block.number} checkpointed=${checkpointedTip.block.number} proposed=${proposedBlockId.number}`,
         );
       }
 
       return {
         proposed: proposedBlockId,
-        proposedCheckpoint: proposedCheckpointTip,
         checkpointed: checkpointedTip,
         proven: provenTip,
         finalized: finalizedTip,

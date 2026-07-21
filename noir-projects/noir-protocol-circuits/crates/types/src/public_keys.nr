@@ -133,7 +133,7 @@ mod test {
     /// constants (or the hashing primitive) without also updating the *_HASH constants,
     /// this test fails and `PublicKeys::default()` would silently produce a stale value.
     #[test]
-    unconstrained fn default_hashes_match_default_points() {
+    fn default_hashes_match_default_points() {
         let npk = hash_public_key(
             EmbeddedCurvePoint { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y },
         );
@@ -161,7 +161,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn compute_public_keys_hash() {
+    fn compute_public_keys_hash() {
         let keys = PublicKeys {
             npk_m_hash: 11,
             ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },
@@ -180,7 +180,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_validate_on_curve() {
+    fn test_validate_on_curve() {
         let keys = PublicKeys {
             npk_m_hash: 0,
             ivpk_m: IvpkM { inner: EmbeddedCurvePoint::generator().double() },
@@ -194,7 +194,7 @@ mod test {
     }
 
     #[test(should_fail_with = "Point not on curve")]
-    unconstrained fn test_validate_not_on_curve() {
+    fn test_validate_not_on_curve() {
         let keys = PublicKeys {
             npk_m_hash: 0,
             ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },
@@ -208,7 +208,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_validate_non_infinity() {
+    fn test_validate_non_infinity() {
         let keys = PublicKeys {
             npk_m_hash: 0,
             ivpk_m: IvpkM { inner: EmbeddedCurvePoint::generator().double() },
@@ -222,7 +222,7 @@ mod test {
     }
 
     #[test(should_fail_with = "IvpkM is the point at infinity")]
-    unconstrained fn test_validate_infinity() {
+    fn test_validate_infinity() {
         let keys = PublicKeys {
             npk_m_hash: 0,
             ivpk_m: IvpkM { inner: EmbeddedCurvePoint::point_at_infinity() },
@@ -236,7 +236,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn compute_default_hash() {
+    fn compute_default_hash() {
         let keys = PublicKeys::default();
 
         let actual = keys.hash().to_field();
@@ -248,7 +248,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn serde() {
+    fn serde() {
         let keys = PublicKeys {
             npk_m_hash: 11,
             ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },

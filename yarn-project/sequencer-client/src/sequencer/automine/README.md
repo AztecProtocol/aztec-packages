@@ -19,11 +19,11 @@ Compared to the production `Sequencer`:
 - No validator orchestration, attestation collection, or P2P proposal gossip.
 - No slashing, no governance votes, no `SequencerEvents`.
 
-Consumers (archiver, world-state, `EpochTestSettler`) observe L1 and the archiver tip directly rather than listening for sequencer events.
+Consumers (archiver, world-state) observe L1 and the archiver tip directly rather than listening for sequencer events.
 
 ## Serial-queue invariant
 
-Every operation — mempool-driven block builds, explicit empty-block builds, time warps, and reorgs — is serialized through a single `SerialQueue`. They never interleave.
+Every operation — mempool-driven block builds, explicit empty-block builds, time warps, reorgs, and synthetic epoch proving — is serialized through a single `SerialQueue`. They never interleave.
 
 Public entry points:
 
@@ -32,8 +32,17 @@ Public entry points:
 | `buildIfPending()` | Enqueues a mempool-driven build. Coalesces bursts into one job. |
 | `buildEmptyBlock()` | Enqueues a forced empty-block build. |
 | `warpTo(ts)` / `warpBy(delta)` | Advances L1 time to a slot boundary. |
+| `prove(upToCheckpoint?)` | Synthetically proves epochs up to a checkpoint (default: the latest checkpointed): writes the epoch out hashes into the L1 Outbox so L2-to-L1 messages become consumable, then advances the proven tip. No real proof. Clamps to the checkpointed tip and no-ops when already proven. |
 | `revertToCheckpoint(n)` | Rolls L1 back to the block that published checkpoint `n`, then resets archiver, world-state, and P2P pool. |
 | `syncPoint()` | Awaits the queue reaching idle. |
+
+## Time control
+
+The AutomineSequencer owns L1 time in the local network (replacing the deleted `AnvilTestWatcher`). It builds and publishes each checkpoint at the next aztec-slot boundary, and `warpTo` / `warpBy` advance the clock by publishing an empty checkpoint at the target slot. Before every build, warp, and prove it reconciles the injected `TestDateProvider` to the latest *mined* L1 timestamp, so node-side consumers of `dateProvider.now()` stay aligned with L1 even when an unrelated L1 tx mines a block between our builds. It never advances the clock to the pending, un-mined timestamp.
+
+## Publish-failure recovery
+
+A failed propose mines no checkpoint on L1 (it reverts inside the multicall or is never sent), so recovery is purely local — there is **no L1 reorg**. The optimistic archiver insert (the proposed block plus its proposed checkpoint) is rolled back via `archiver.removeUncheckpointedBlocksAfter`, which removes the uncheckpointed block and evicts the proposed checkpoint that referenced it. `p2pClient.sync()` then observes the lowered proposed tip and returns the block's txs to the pending pool, `worldState.syncImmediate()` drops any applied effects, and the L1 nonce is reset. The build is not retried inline; the mempool poller re-enqueues one once the txs are back in the pool.
 
 ## Entry points
 
@@ -41,6 +50,11 @@ Public entry points:
 
 **Test fixture** — `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts` is the test-side entry point. Pass it to `setup()` to get a node + `AutomineSequencer` instead of the production sequencer stack.
 
-## Epoch proving caveat
+## Epoch proving
 
-Epoch proving remains manual under `AUTOMINE_E2E_OPTS`. The e2e `setup()` fixture does NOT wire an `EpochTestSettler` — that observer is only attached in `local-network.ts`. Tests that cross epoch boundaries must therefore advance the proven anchor explicitly via `cheatCodes.rollup.markAsProven(...)`. See `e2e_lending_contract.test.ts` (which calls `progressSlots` in `simulators/lending_simulator.ts`) and `e2e_pruned_blocks.test.ts` for real examples.
+There is no real prover in the automine setup, so epochs are settled synthetically: the epoch out hash is written into the L1 Outbox via cheat codes and the rollup's proven tip is advanced — the local-network equivalent of an epoch proof landing on L1. The grouping/out-hash logic lives in the shared `settleEpochOutbox` helper in `@aztec/prover-client/test`, used by both proving drivers below.
+
+Who drives proving depends on the `automineEnableProveEpoch` config flag:
+
+- **Local network / sandbox** (`automineEnableProveEpoch: true`): the AutomineSequencer runs an auto-prove loop that calls `prove()` as checkpoints land, through the same serial queue as its builds. This replaces the standalone `EpochTestSettler`, which used to race the build loop. The loop also reconciles the clock on each tick.
+- **e2e tests** (`AUTOMINE_E2E_OPTS`, flag off): proving is manual so tests stay deterministic. Cross-epoch tests advance the proven anchor explicitly via `node.prove(...)`, `cheatCodes.rollup.markAsProven(...)`, or a hand-driven `EpochTestSettler`. See `e2e_pruned_blocks.test.ts` and `e2e_epochs/epochs_partial_proof_multi_root.test.ts` for real examples.

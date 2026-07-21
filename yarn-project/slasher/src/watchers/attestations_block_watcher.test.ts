@@ -68,6 +68,7 @@ describe('AttestationsBlockWatcher', () => {
       seed: 0n,
       attestors: [],
       attestations: [],
+      verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
     };
 
     const event: InvalidCheckpointDetectedEvent = {
@@ -99,6 +100,7 @@ describe('AttestationsBlockWatcher', () => {
       attestors: [],
       invalidIndex: 0,
       attestations: [],
+      verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
     };
 
     const event: InvalidCheckpointDetectedEvent = {
@@ -146,6 +148,7 @@ describe('AttestationsBlockWatcher', () => {
       seed: 0n,
       attestors: [attestor1, attestor2],
       attestations: [],
+      verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
     };
 
     // First event: slash the proposer for the invalid attestations on its own checkpoint.
@@ -193,6 +196,7 @@ describe('AttestationsBlockWatcher', () => {
       seed: 0n,
       attestors: [],
       attestations: [],
+      verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
     };
     watcher.handleInvalidCheckpoint({
       type: 'invalidCheckpointDetected',
@@ -257,6 +261,7 @@ describe('AttestationsBlockWatcher', () => {
         seed: 0n,
         attestors: [],
         attestations: [],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
       },
     });
 
@@ -320,6 +325,7 @@ describe('AttestationsBlockWatcher', () => {
       seed: 0n,
       attestors: [],
       attestations: [],
+      verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
     };
 
     const event: InvalidCheckpointDetectedEvent = {

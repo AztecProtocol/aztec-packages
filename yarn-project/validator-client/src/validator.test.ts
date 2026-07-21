@@ -95,6 +95,7 @@ describe('ValidatorClient', () => {
       | 'slashAttestInvalidCheckpointProposalPenalty'
     > & {
       disableTransactions: boolean;
+      blockDurationMs: number;
     };
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
@@ -185,6 +186,7 @@ describe('ValidatorClient', () => {
     config = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
+      blockDurationMs: 3000,
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
@@ -198,9 +200,10 @@ describe('ValidatorClient', () => {
       rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
       nodeId: 'test-node-id',
       pollingIntervalMs: 1000,
-      signingTimeoutMs: 1000,
+      peerSigningTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 72000,
       dataStoreMapSizeKb: 1024 * 1024,
+      allowEphemeralSigningProtection: true,
     };
 
     keyStoreManager = new KeystoreManager(makeKeyStore({ attester: validatorPrivateKeys.map(key => key as Hex<32>) }));
@@ -391,7 +394,12 @@ describe('ValidatorClient', () => {
       } as unknown as L2Block;
       const disposeFork = jest.fn();
       blockSource.getBlocksForSlot.mockResolvedValue([checkpointBlock]);
-      checkpointsBuilder.getFork.mockResolvedValue({ [Symbol.asyncDispose]: disposeFork } as any);
+      checkpointsBuilder.getFork.mockResolvedValue({
+        [Symbol.asyncDispose]: disposeFork,
+        // Match the proposal's expected starting archive so the fork archive check passes and validation
+        // reaches the header-mismatch offense under test.
+        getTreeInfo: () => Promise.resolve({ root: proposalHeader.lastArchiveRoot.toBuffer() }),
+      } as any);
       mockCheckpointBuilder.completeCheckpoint.mockResolvedValue({
         header: computedHeader,
         archive: new AppendOnlyTreeSnapshot(proposal.archive, blockNumber),
@@ -926,9 +934,14 @@ describe('ValidatorClient', () => {
     });
 
     it('should not validate proposal if the proposed block number is taken', async () => {
-      // Parent block lookup (by archive) returns valid data; existence check (by number) also returns data → block taken.
+      // Parent block lookup (by archive) returns valid data; existence check (by number) returns a block
+      // with the same archive as the proposal → a genuine duplicate, so the number is taken.
       blockSource.getBlockData.mockImplementation(query =>
-        Promise.resolve('number' in query ? ({ header: {} as BlockHeader } as any) : parentBlockData),
+        Promise.resolve(
+          'number' in query
+            ? ({ header: {} as BlockHeader, archive: { root: proposal.archive } } as any)
+            : parentBlockData,
+        ),
       );
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
@@ -962,6 +975,26 @@ describe('ValidatorClient', () => {
 
       expect(isValid).toBe(false);
       expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(true);
+    });
+
+    it('emits invalid block proposal offense for oversized proposals, deduped per proposer and slot', async () => {
+      await validatorClient.registerHandlers();
+      const oversizedProposalCallback = p2pClient.registerOversizedProposalCallback.mock.calls[0][0];
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+      const info = { slot: proposal.slotNumber, proposer: proposal.getSender()! };
+      oversizedProposalCallback(info);
+      oversizedProposalCallback(info);
+
+      expect(emitSpy).toHaveBeenCalledTimes(1);
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: info.proposer,
+          amount: config.slashBroadcastedInvalidBlockPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: BigInt(proposal.slotNumber),
+        },
+      ]);
     });
 
     it('records proposal equivocation and emits clear event', async () => {

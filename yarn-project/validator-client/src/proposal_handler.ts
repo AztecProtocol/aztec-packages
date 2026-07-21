@@ -13,6 +13,7 @@ import {
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import type { LogData } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -24,7 +25,12 @@ import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/st
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
-import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ITxProvider,
+  MerkleTreeWriteOperations,
+  ValidatorClientFullConfig,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import {
   type L1ToL2MessageSource,
   accumulateCheckpointOutHashes,
@@ -90,10 +96,12 @@ export type CheckpointProposalValidationFailureReason =
   | 'invalid_fee_asset_price_modifier'
   | 'last_block_not_found'
   | 'block_fetch_error'
+  | 'world_state_not_synced'
   | 'checkpoint_already_published'
   | 'no_blocks_for_slot'
   | 'last_block_archive_mismatch'
   | 'too_many_blocks_in_checkpoint'
+  | 'initial_archive_mismatch'
   | 'checkpoint_header_mismatch'
   | 'archive_mismatch'
   | 'out_hash_mismatch'
@@ -114,6 +122,8 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   checkpoint_already_published: undefined,
   last_block_not_found: 'unvalidated',
   block_fetch_error: 'unvalidated',
+  world_state_not_synced: 'unvalidated',
+  initial_archive_mismatch: 'unvalidated',
   no_blocks_for_slot: 'unvalidated',
   last_block_archive_mismatch: 'invalid',
   too_many_blocks_in_checkpoint: 'invalid',
@@ -152,7 +162,52 @@ type BlockProposalSlotValidationResult =
   | { isValid: true }
   | { isValid: false; reason: 'block_proposal_beyond_checkpoint' | 'checkpoint_proposal_equivocation' };
 
-/** Handles block and checkpoint proposals for both validator and non-validator nodes. */
+const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
+
+/** Block-proposal validation failures that constitute a slashable invalid-block offense. */
+export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
+  'state_mismatch',
+  'failed_txs',
+  'global_variables_mismatch',
+  'invalid_proposal',
+  'parent_block_wrong_slot',
+  'in_hash_mismatch',
+];
+
+/** Checkpoint-proposal validation failures that constitute a slashable invalid-checkpoint offense. */
+export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
+  CheckpointProposalValidationFailureReason,
+  boolean
+> = {
+  // enabled
+  ['invalid_fee_asset_price_modifier']: true,
+  ['checkpoint_header_mismatch']: true,
+  // These late mismatches should normally be caught by earlier checks, but if reached after validating the local
+  // checkpoint inputs, the proposer-signed payload disagrees with deterministic recomputation.
+  ['archive_mismatch']: true,
+  ['out_hash_mismatch']: true,
+  ['no_blocks_for_slot']: true,
+  ['too_many_blocks_in_checkpoint']: true,
+  ['checkpoint_validation_failed']: true,
+  ['last_block_archive_mismatch']: true,
+
+  // disabled
+  ['invalid_signature']: false,
+  ['last_block_not_found']: false,
+  ['block_fetch_error']: false,
+  ['world_state_not_synced']: false,
+  // A reorg / divergent local chain, not a proposer offense (mirrors the block path's initial_state_mismatch).
+  ['initial_archive_mismatch']: false,
+  ['checkpoint_already_published']: false,
+};
+
+/**
+ * Handles block and checkpoint proposals for both validator and non-validator nodes. Also tracks which slots
+ * had a slashable invalid proposal or a proposal equivocation, exposing them via the
+ * `InvalidProposalSlotSource` interface consumed by the attested-invalid-proposal slashing watcher. The
+ * tracking is populated as a side effect of validating/re-executing proposals, so any node that re-executes
+ * proposals (the default) can serve it — not only validators.
+ */
 export class ProposalHandler {
   public readonly tracer: Tracer;
 
@@ -165,7 +220,7 @@ export class ProposalHandler {
   };
 
   /** Archiver reference for setting proposed checkpoints (pipelining). Set via register(). */
-  private archiver?: Pick<Archiver, 'addProposedCheckpoint'>;
+  private archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>;
 
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
@@ -174,6 +229,12 @@ export class ProposalHandler {
   private p2pClient?: Pick<P2P, 'getProposalsForSlot'>;
 
   private checkpointProposalValidationFailureCallback?: CheckpointProposalValidationFailureCallback;
+
+  /** Slots at which a slashable invalid block or checkpoint proposal was observed. */
+  private readonly slotsWithInvalidProposals = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+
+  /** Slots at which a proposal equivocation was observed; suppresses attested-to-invalid-proposal slashing. */
+  private readonly slotsWithProposalEquivocation = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
 
   constructor(
     private checkpointsBuilder: FullNodeCheckpointsBuilder,
@@ -221,6 +282,26 @@ export class ProposalHandler {
     this.reexecutionTracker.recordOutcome(slot, archive, 'valid', checkpointNumber);
   }
 
+  /** Whether a slashable invalid block or checkpoint proposal was observed at the given slot (InvalidProposalSlotSource). */
+  public hasInvalidProposals(slotNumber: SlotNumber): boolean {
+    return this.slotsWithInvalidProposals.has(slotNumber);
+  }
+
+  /** Whether a proposal equivocation was observed at the given slot (InvalidProposalSlotSource). */
+  public hasProposalEquivocation(slotNumber: SlotNumber): boolean {
+    return this.slotsWithProposalEquivocation.has(slotNumber);
+  }
+
+  /** Records a slot as having a slashable invalid proposal, for offense observers (sentinel/slasher watchers). */
+  public markInvalidProposalSlot(slotNumber: SlotNumber): void {
+    this.slotsWithInvalidProposals.add(slotNumber);
+  }
+
+  /** Records a slot as having a proposal equivocation, which suppresses attested-to-invalid-proposal slashing. */
+  public markProposalEquivocation(slotNumber: SlotNumber): void {
+    this.slotsWithProposalEquivocation.add(slotNumber);
+  }
+
   /**
    * Registers handlers for block and checkpoint proposals on the p2p client.
    * Records the p2p client so validation can inspect retained proposals.
@@ -232,7 +313,7 @@ export class ProposalHandler {
   register(
     p2pClient: P2P,
     shouldReexecute: boolean,
-    archiver?: Pick<Archiver, 'addProposedCheckpoint'>,
+    archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>,
     getOwnValidatorAddresses?: () => string[],
   ): ProposalHandler {
     this.p2pClient = p2pClient;
@@ -256,6 +337,18 @@ export class ProposalHandler {
           });
           return true;
         } else {
+          // Track invalid proposals / equivocations so offense observers (the attested-invalid-proposal
+          // watcher) work on non-validator nodes too. Validators populate these via their own handlers.
+          // Skip invalid-proposal marking while the escape hatch is open, matching the validator path,
+          // which intentionally disables invalid-block slashing then.
+          if (result.reason === 'checkpoint_proposal_equivocation') {
+            this.markProposalEquivocation(slotNumber);
+          } else if (
+            SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(result.reason) &&
+            !(await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber))
+          ) {
+            this.markInvalidProposalSlot(slotNumber);
+          }
           this.log.warn(
             `Non-validator block proposal ${blockNumber} at slot ${slotNumber} failed processing with ${result.reason}`,
             { blockNumber: result.blockNumber, slotNumber, reason: result.reason },
@@ -269,6 +362,11 @@ export class ProposalHandler {
     };
 
     p2pClient.registerBlockProposalHandler(blockHandler);
+
+    // p2p detects duplicate (equivocated) proposals without routing them through the handlers above, so mark
+    // the slot as equivocated here. This suppresses false-positive attested-to-invalid-proposal slashing on
+    // non-validator offense collectors. Validators overwrite this with their own richer handler.
+    p2pClient.registerDuplicateProposalCallback(info => this.markProposalEquivocation(info.slot));
 
     // All-nodes checkpoint proposal handler: validates, caches, and sets proposed checkpoint for pipelining.
     // Runs for all nodes (validators and non-validators). Validators get the cached result in the
@@ -298,25 +396,35 @@ export class ProposalHandler {
           return undefined;
         }
 
-        // For own proposals, skip validation and return: the proposer already built and validated the
-        // checkpoint, and the sequencer's checkpoint proposal job pushed the proposed checkpoint to the
-        // archiver from local data before broadcasting. Gossipsub doesn't echo our own messages back, so
-        // this branch is normally unreachable — it remains as defense if an own proposal arrives by some
-        // other path.
+        // A proposal is "own" when it was signed by a validator key this node also owns. The true local
+        // proposer already built, validated, and stored this checkpoint before broadcasting, so a matching
+        // proposed checkpoint is already in its archiver — skip the redundant re-validation. An HA peer that
+        // shares the proposer's keys sees the same "own" proposal over gossip but never built it, so it has
+        // nothing stored; it falls through to the normal validate-and-persist path below to hydrate the
+        // proposed-checkpoint metadata it needs to build the next slot on top of this checkpoint.
         const proposer = proposal.getSender();
         const ownAddresses = this.getOwnValidatorAddresses?.();
         const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
 
         if (isOwnProposal) {
-          this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
-          return undefined;
+          const existing = await this.archiver?.getProposedCheckpointData({ slot: proposal.slotNumber });
+          if (existing?.archive.root.equals(proposal.archive)) {
+            this.log.debug(`Skipping sync for existing own checkpoint proposal at slot ${proposal.slotNumber}`);
+            return undefined;
+          }
         }
 
         const result = await this.handleCheckpointProposal(proposal, proposalInfo);
         if (!result.isValid) {
+          // Track invalid checkpoint proposals so offense observers (the attested-invalid-proposal watcher)
+          // work on non-validator nodes too. This handler runs for all nodes; validators also mark via the
+          // failure callback below (idempotent).
+          if (SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]) {
+            this.markInvalidProposalSlot(proposal.slotNumber);
+          }
           await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
         } else if (this.archiver) {
-          const set = await this.setProposedCheckpointFromValidation(proposal);
+          const set = await this.setProposedCheckpoint(proposal);
           if (set) {
             this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
           }
@@ -406,8 +514,12 @@ export class ProposalHandler {
         : BlockNumber(parentBlock.header.getBlockNumber() + 1);
     proposalInfo.blockNumber = blockNumber;
 
-    // Check that this block number does not exist already
-    const existingBlock = await this.blockSource.getBlockData({ number: blockNumber });
+    // Check that this block number does not exist already. During a reorg the archiver can still hold a
+    // stale block at this number (a different archive, about to be pruned) while the proposal carries the
+    // rebuilt replacement; resolveExistingBlockAtNumber waits for the local prune in that case so the
+    // rebuilt block is processed in time to attest, rather than being permanently dropped on a bare
+    // number collision.
+    const existingBlock = await this.resolveExistingBlockAtNumber(blockNumber, proposal.archive, slotNumber);
     if (existingBlock) {
       this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, proposalInfo);
       return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
@@ -491,7 +603,7 @@ export class ProposalHandler {
     }
 
     // If we succeeded, push this block into the archiver (unless disabled)
-    if (reexecutionResult?.block && this.config.skipPushProposedBlocksToArchiver === false) {
+    if (reexecutionResult?.block && !this.config.skipPushProposedBlocksToArchiver) {
       await this.blockSource.addBlock(reexecutionResult.block);
     }
 
@@ -554,6 +666,63 @@ export class ProposalHandler {
         this.log.error('Error getting parent block by archive root', err, { parentArchive });
       }
       return undefined;
+    }
+  }
+
+  /**
+   * Resolves whether a block genuinely already exists at `blockNumber`. Returns the existing block only if
+   * it is a true duplicate of the proposal (matching archive). During a reorg the archiver can still hold a
+   * stale fork at this number (different archive) that is about to be pruned; in that case this forces L1
+   * sync and waits, bounded by the re-execution deadline, for the prune to land, then returns `undefined` so
+   * the rebuilt block proposal can be processed in time to attest. If the prune does not complete before the
+   * deadline it returns the stale block, so the caller falls back to the safe `block_number_already_exists`
+   * rejection.
+   */
+  private async resolveExistingBlockAtNumber(
+    blockNumber: BlockNumber,
+    proposalArchive: Fr,
+    slotNumber: SlotNumber,
+  ): Promise<BlockData | undefined> {
+    const existingBlock = await this.blockSource.getBlockData({ number: blockNumber });
+    if (!existingBlock || existingBlock.archive.root.equals(proposalArchive)) {
+      return existingBlock;
+    }
+
+    // A different block already occupies this number: it may be a stale fork being pruned during a reorg, not a
+    // genuine duplicate. Wait for the local prune rather than permanently rejecting the proposal.
+    const deadline = this.getReexecutionDeadline(slotNumber);
+    if (deadline.getTime() - this.dateProvider.now() <= 0) {
+      return existingBlock;
+    }
+
+    this.log.warn(`Block number ${blockNumber} already exists, awaiting potential prune`, {
+      blockNumber,
+      existingArchive: existingBlock.archive.root.toString(),
+      proposalArchive: proposalArchive.toString(),
+    });
+
+    try {
+      const { block } = await retryUntil(
+        async () => {
+          await this.blockSource.syncImmediate();
+          const block = await this.blockSource.getBlockData({ number: blockNumber });
+          // Resolve once the existing block is gone (pruned) or has been replaced by one matching the
+          // proposal — the same condition as the early return above. A matching block is returned so the
+          // caller still treats it as a genuine duplicate; an `undefined` (pruned) block lets the proposal
+          // be processed. Wrap in an object so the `undefined` case is still a truthy retry result.
+          return block === undefined || block.archive.root.equals(proposalArchive) ? { block } : undefined;
+        },
+        `prune of stale block ${blockNumber}`,
+        { deadline, dateProvider: this.dateProvider },
+        0.5,
+      );
+      return block;
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        this.log.warn(`Timed out waiting for stale block ${blockNumber} to be pruned`, { blockNumber });
+        return existingBlock;
+      }
+      throw err;
     }
   }
 
@@ -964,6 +1133,7 @@ export class ProposalHandler {
       };
     }
 
+    // Note this condition should never trigger, since we dont process block proposals that exceed indexWithinCheckpoint
     const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
     if (maxBlocksPerCheckpoint !== undefined && blocks.length > maxBlocksPerCheckpoint) {
       this.log.warn(`Checkpoint proposal exceeds maxBlocksPerCheckpoint`, {
@@ -1003,9 +1173,41 @@ export class ProposalHandler {
       log: this.log,
     });
 
-    // Fork world state at the block before the first block
+    // Fork world state at the block before the first block. getFork syncs world state to the parent block
+    // first (see its doc): the block source (archiver) can already hold the block while world state still
+    // trails it by one, and forking a not-yet-applied block throws a raw tree error that would otherwise
+    // escape as an uncaught gossipsub error. We pass the parent's expected block hash so the sync detects a
+    // world-state reorg (undefined for the genesis parent, where no block exists to pin). On failure we map
+    // to a clean validation result rather than letting it escape.
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
-    await using fork = await this.checkpointsBuilder.getFork(parentBlockNumber);
+    let forkResult: MerkleTreeWriteOperations;
+    try {
+      const parentBlockHash = (await this.blockSource.getBlockData({ number: parentBlockNumber }))?.blockHash;
+      forkResult = await this.checkpointsBuilder.getFork(parentBlockNumber, parentBlockHash);
+    } catch (err) {
+      this.log.warn(`Failed to fork world state at block ${parentBlockNumber} for checkpoint proposal`, {
+        ...proposalInfo,
+        parentBlockNumber,
+        err,
+      });
+      return { isValid: false, reason: 'world_state_not_synced', checkpointNumber };
+    }
+    await using fork = forkResult;
+
+    // Verify the fork's archive root matches the checkpoint's expected starting archive (the archive after
+    // the parent block). A mismatch means world state forked from a different chain than the proposal was
+    // built on (e.g. a reorg), so recomputing the checkpoint against it would be meaningless. This mirrors
+    // the block-proposal re-execution check and fails fast with a clean, non-slashable result instead of a
+    // confusing downstream mismatch.
+    const forkArchiveRoot = new Fr((await fork.getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+    if (!forkArchiveRoot.equals(proposal.checkpointHeader.lastArchiveRoot)) {
+      this.log.warn(`Fork archive root does not match checkpoint proposal's last archive`, {
+        ...proposalInfo,
+        forkArchiveRoot: forkArchiveRoot.toString(),
+        expectedLastArchiveRoot: proposal.checkpointHeader.lastArchiveRoot.toString(),
+      });
+      return { isValid: false, reason: 'initial_archive_mismatch', checkpointNumber };
+    }
 
     // Create checkpoint builder with all existing blocks
     const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
@@ -1127,11 +1329,11 @@ export class ProposalHandler {
   }
 
   /**
-   * Derives proposed checkpoint data from validated blocks and sets it on the archiver.
-   * Used after successful validation of a foreign proposal.
-   * Does not retry since we already waited for the block during validation.
+   * Derives proposed checkpoint data from validated blocks and sets it on the archiver, so this node can
+   * pipeline building on top of the checkpoint. Does not retry, since validation already waited for the
+   * last block to sync.
    */
-  private async setProposedCheckpointFromValidation(proposal: CheckpointProposalCore): Promise<boolean> {
+  private async setProposedCheckpoint(proposal: CheckpointProposalCore): Promise<boolean> {
     if (!this.archiver) {
       return false;
     }

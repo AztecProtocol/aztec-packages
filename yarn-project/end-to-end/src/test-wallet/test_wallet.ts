@@ -1,7 +1,7 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
-import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import {
@@ -13,6 +13,7 @@ import {
   isContractFunctionInteractionCallIntent,
   lookupValidity,
 } from '@aztec/aztec.js/authorization';
+import { ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
@@ -22,11 +23,10 @@ import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
-import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
+import { PXE, type PXECreationOptions, type TaggingSecretSource, createPXE } from '@aztec/pxe/server';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -58,6 +58,13 @@ export interface AccountData {
  * utilities
  * It is intended to be used in e2e tests.
  */
+/**
+ * Poll interval (in seconds) for in-process TestWallet tx waits. In-process nodes reach CHECKPOINTED synchronously
+ * under automine and cheaply otherwise, so a sub-second cadence removes almost-pure dead time from every send().wait().
+ * Spartan tests run against remote JSON-RPC nodes and restore the 1s default via setDefaultWaitInterval.
+ */
+export const IN_PROCESS_WAIT_INTERVAL_SECONDS = 0.25;
+
 export class TestWallet extends BaseWallet {
   constructor(
     pxe: PXE,
@@ -65,6 +72,15 @@ export class TestWallet extends BaseWallet {
   ) {
     super(pxe, nodeRef);
     this.minFeePadding = DEFAULT_MIN_FEE_PADDING;
+    this.defaultWaitInterval = IN_PROCESS_WAIT_INTERVAL_SECONDS;
+  }
+
+  /**
+   * Overrides the poll interval (in seconds) used when a send().wait() caller does not specify one. Pass `undefined`
+   * to fall back to the DefaultWaitOpts cadence. Spartan tests set this to 1 so they do not hammer remote nodes.
+   */
+  setDefaultWaitInterval(interval?: number): void {
+    this.defaultWaitInterval = interval;
   }
 
   static async create(
@@ -91,9 +107,17 @@ export class TestWallet extends BaseWallet {
     this.nodeRef.updateTargetNode(node);
   }
 
-  createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager> {
-    signingKey = signingKey ?? deriveSigningKey(secret);
+  createSchnorrAccount(secret: Fr, salt: Fr, signingKey: Fq): Promise<AccountManager> {
     return this.createAccount({ secret, salt, type: 'schnorr', contract: new SchnorrAccountContract(signingKey) });
+  }
+
+  createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey: Fq): Promise<AccountManager> {
+    return this.createAccount({
+      secret,
+      salt,
+      type: 'schnorr_initializerless',
+      contract: new SchnorrInitializerlessAccountContract(signingKey),
+    });
   }
 
   createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager> {
@@ -131,6 +155,8 @@ export class TestWallet extends BaseWallet {
     await this.pxe.registerContractClass(StubEcdsaAccountContractArtifact);
 
     this.stubClassIds.set('schnorr', schnorrClassId);
+    // Initializerless accounts share the schnorr stub class for kernelless simulation.
+    this.stubClassIds.set('schnorr_initializerless', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
   }
@@ -178,7 +204,8 @@ export class TestWallet extends BaseWallet {
   }
 
   private getStubAccountFor(address: AztecAddress, completeAddress: CompleteAddress) {
-    return this.getTypeFor(address) === 'schnorr'
+    const type = this.getTypeFor(address);
+    return type === 'schnorr' || type === 'schnorr_initializerless'
       ? createStubSchnorrAccount(completeAddress)
       : createStubEcdsaAccount(completeAddress);
   }
@@ -221,6 +248,10 @@ export class TestWallet extends BaseWallet {
     const type = accountData?.type ?? 'schnorr';
     const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
 
+    // Initializerless accounts have no deployment tx: the address commits to the signing public key
+    // (via the contract's immutablesHash, resolved by AccountManager.create) and the constructor's
+    // storage writes are materialized locally via a simulated "store" call below.
+    // Mirrors EmbeddedWallet.createAccountInternal.
     const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
@@ -230,6 +261,16 @@ export class TestWallet extends BaseWallet {
 
     const address = accountManager.address.toString();
     this.accounts.set(address, { account: await accountManager.getAccount(), type });
+
+    if (contract instanceof SchnorrInitializerlessAccountContract) {
+      const constructorAbi = artifact.functions.find(f => f.name === 'constructor');
+      if (!constructorAbi) {
+        throw new Error('Could not create SchnorrInitializerlessAccount: constructor ABI not found');
+      }
+      const { x, y } = await contract.getSigningPublicKey();
+      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, [x, y]);
+      await storeCall.simulate({ from: instance.address });
+    }
 
     return accountManager;
   }
@@ -277,7 +318,7 @@ export class TestWallet extends BaseWallet {
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
     const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
-    const scopes = this.scopesFrom(from, additionalScopes);
+    const scopes = this.scopesFrom(from, additionalScopes ?? [], sendMessagesAs);
     const skipKernels = this.simulationMode !== 'full';
     const useOverride = this.simulationMode === 'kernelless-override';
 
@@ -343,7 +384,7 @@ export class TestWallet extends BaseWallet {
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
     const txProvingResult = await this.pxe.proveTx(txRequest, {
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
     return new ProvenTx(
@@ -368,6 +409,15 @@ export class TestWallet extends BaseWallet {
 
   sync(): Promise<void> {
     return this.pxe.sync();
+  }
+
+  /**
+   * Registers a non-sender tagging-secret source (e.g. a raw out-of-band shared secret) so this PXE discovers messages
+   * tagged with it. Test-only surface over {@link PXE.registerTaggingSecretSource}, which the base `Wallet` does not
+   * expose. The `address-derived` (sender) variant is excluded: use {@link Wallet.registerSender} for that.
+   */
+  registerTaggingSecretSource(source: Exclude<TaggingSecretSource, { kind: 'address-derived' }>): Promise<void> {
+    return this.pxe.registerTaggingSecretSource(source);
   }
 
   stop(): Promise<void> {

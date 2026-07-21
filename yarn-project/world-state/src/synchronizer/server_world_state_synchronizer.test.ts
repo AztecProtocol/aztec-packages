@@ -2,11 +2,12 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { BlockHash, L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
+import { BlockHash, type EventDrivenL2BlockStream, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -14,6 +15,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { MerkleTreeAdminDatabase, WorldStateConfig } from '../index.js';
 import { type WorldStateStatusSummary, buildEmptyWorldStateStatusFull } from '../native/message.js';
+import { WorldStateSynchronizerError } from './errors.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
 describe('ServerWorldStateSynchronizer', () => {
@@ -26,7 +28,7 @@ describe('ServerWorldStateSynchronizer', () => {
   let blockAndMessagesSource: MockProxy<L2BlockSource & L1ToL2MessageSource>;
   let merkleTreeDb: MockProxy<MerkleTreeAdminDatabase>;
   let merkleTreeRead: MockProxy<MerkleTreeReadOperations>;
-  let l2BlockStream: MockProxy<L2BlockStream>;
+  let l2BlockStream: MockProxy<EventDrivenL2BlockStream>;
 
   let server: TestWorldStateSynchronizer;
   let latestHandledBlockNumber: number;
@@ -74,7 +76,7 @@ describe('ServerWorldStateSynchronizer', () => {
       treesAreSynched: true,
     } satisfies WorldStateStatusSummary);
 
-    l2BlockStream = mock<L2BlockStream>();
+    l2BlockStream = mock<EventDrivenL2BlockStream>();
 
     const config: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 100,
@@ -276,6 +278,63 @@ describe('ServerWorldStateSynchronizer', () => {
     expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[4][1]).toEqual([]);
     expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[5][1]).toEqual([]);
   });
+
+  describe('getVerifiedSnapshot', () => {
+    let snapshot: MockProxy<MerkleTreeReadOperations>;
+
+    beforeEach(() => {
+      snapshot = mock<MerkleTreeReadOperations>();
+      merkleTreeDb.getSnapshot.mockReturnValue(snapshot);
+    });
+
+    it('returns the snapshot when the archive leaf matches the requested block hash', async () => {
+      const hash = new BlockHash(new Fr(123n));
+      snapshot.getLeafValue.mockResolvedValue(new Fr(123n));
+
+      await expect(server.getVerifiedSnapshot(BlockNumber(4), hash)).resolves.toBe(snapshot);
+      // The archive leaf is read from the snapshot's own view, at the block-number index.
+      expect(snapshot.getLeafValue).toHaveBeenCalledWith(MerkleTreeId.ARCHIVE, 4n);
+    });
+
+    it('throws when the archive leaf does not match the requested block hash', async () => {
+      snapshot.getLeafValue.mockResolvedValue(new Fr(42n));
+
+      await expect(server.getVerifiedSnapshot(BlockNumber(4), new BlockHash(new Fr(123n)))).rejects.toThrow(
+        /block hash mismatch/i,
+      );
+    });
+
+    it('throws a retryable error when the archive leaf cannot be read', async () => {
+      snapshot.getLeafValue.mockResolvedValue(undefined);
+
+      const error = await server.getVerifiedSnapshot(BlockNumber(4), new BlockHash(new Fr(123n))).catch(err => err);
+      expect(error).toBeInstanceOf(WorldStateSynchronizerError);
+      expect(error.message).toMatch(/unable to read block hash/i);
+    });
+
+    it('throws a terminal error when the block predates the oldest historical block', async () => {
+      snapshot.getLeafValue.mockResolvedValue(undefined);
+      merkleTreeDb.getStatusSummary.mockResolvedValue({
+        unfinalizedBlockNumber: BlockNumber(6),
+        finalizedBlockNumber: BlockNumber(4),
+        oldestHistoricalBlock: BlockNumber(4),
+        treesAreSynched: true,
+      } satisfies WorldStateStatusSummary);
+
+      const error = await server.getVerifiedSnapshot(BlockNumber(2), new BlockHash(new Fr(123n))).catch(err => err);
+      expect(error).not.toBeInstanceOf(WorldStateSynchronizerError);
+      expect(error.message).toMatch(/unable to find leaf/i);
+      expect(error.message).toMatch(/pruned/i);
+    });
+
+    it('verifies block 0 against the initial header hash rather than the empty archive', async () => {
+      const genesisHash = new BlockHash(new Fr(777n));
+      merkleTreeRead.getInitialHeader.mockReturnValue({ hash: () => Promise.resolve(genesisHash) } as BlockHeader);
+
+      await expect(server.getVerifiedSnapshot(BlockNumber.ZERO, genesisHash)).resolves.toBe(snapshot);
+      expect(snapshot.getLeafValue).not.toHaveBeenCalled();
+    });
+  });
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
@@ -287,26 +346,20 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
     merkleTrees: MerkleTreeAdminDatabase,
     blockAndMessagesSource: L2BlockSource & L1ToL2MessageSource,
     worldStateConfig: WorldStateConfig,
-    private mockBlockStream: L2BlockStream,
+    private mockBlockStream: EventDrivenL2BlockStream,
   ) {
     super(merkleTrees, blockAndMessagesSource, worldStateConfig);
   }
 
-  protected override createBlockStream(): L2BlockStream {
+  protected override createBlockStream(): EventDrivenL2BlockStream {
     return this.mockBlockStream;
   }
 
   public override getL2Tips() {
-    const makeTipId = (blockId: typeof this.latest) => ({
-      block: blockId,
-      checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
-    });
     return Promise.resolve({
       proposed: this.latest,
-      checkpointed: makeTipId(this.latest),
-      proven: makeTipId(this.proven),
-      finalized: makeTipId(this.finalized),
-      proposedCheckpoint: makeTipId(this.latest),
+      proven: { block: this.proven },
+      finalized: { block: this.finalized },
     });
   }
 }

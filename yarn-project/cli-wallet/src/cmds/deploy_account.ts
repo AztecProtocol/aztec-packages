@@ -30,7 +30,7 @@ export async function deployAccount(
 ) {
   const out: Record<string, any> = {};
 
-  const account = await wallet.createOrRetrieveAccount(address);
+  const account = await wallet.retrieveAccount(address);
   const { partialAddress, publicKeys } = await account.getCompleteAddress();
   const { initializationHash, salt } = account.getInstance();
 
@@ -68,10 +68,10 @@ export async function deployAccount(
   const deployMethod = await account.getDeployMethod();
   const sim = await deployMethod.simulate({
     ...deployAccountOpts,
-    fee: { ...deployAccountOpts.fee, estimateGas: true },
+    includeMetadata: true,
   });
-  // estimateGas: true guarantees these fields are present
-  const estimatedGas = sim.estimatedGas!;
+  // includeMetadata: true guarantees these fields are present
+  const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
   const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {

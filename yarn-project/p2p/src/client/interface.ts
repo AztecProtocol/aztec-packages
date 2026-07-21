@@ -13,6 +13,7 @@ import type { ReqRespSubProtocol, ReqRespSubProtocolHandler } from '../services/
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
+  OversizedProposalInfo,
   P2PBlockReceivedCallback,
   P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
@@ -98,6 +99,14 @@ export type P2P = P2PClient & {
   registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void;
 
   /**
+   * Registers a callback invoked when an oversized block proposal (index at or beyond the consensus
+   * per-checkpoint block limit) is stored and re-broadcast as slashing evidence.
+   *
+   * @param callback - Function called with info about the oversized proposal
+   */
+  registerOversizedProposalCallback(callback: (info: OversizedProposalInfo) => void): void;
+
+  /**
    * Registers a callback invoked when a duplicate attestation is detected (equivocation).
    * A validator signing attestations for different proposals at the same slot.
    * The callback is triggered on the first duplicate (when count goes from 1 to 2).
@@ -172,6 +181,12 @@ export type P2P = P2PClient & {
 
   /** Returns the number of pending txs in the mempool. */
   getPendingTxCount(): Promise<number>;
+
+  /**
+   * Returns whether at least `minCount` pending txs have been in the pool long enough to be eligible for block
+   * building. Early-exits once the threshold is met instead of counting every eligible tx.
+   */
+  hasEligiblePendingTxs(minCount: number): Promise<boolean>;
 
   /**
    * Protects existing transactions by hash for a given slot.

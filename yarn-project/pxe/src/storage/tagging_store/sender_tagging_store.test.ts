@@ -1,3 +1,4 @@
+import { MAX_PRIVATE_LOGS_PER_TX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
@@ -31,14 +32,17 @@ describe('SenderTaggingStore', () => {
   });
 
   describe('storePendingIndexes', () => {
-    it('stores a single pending index range', async () => {
+    it.each([
+      ['', 'storePendingIndexes'],
+      [' when merging', 'mergePendingIndexes'],
+    ] as const)('stores a single pending index range for an untracked tx%s', async (_name, method) => {
       const txHash = TxHash.random();
 
-      await taggingStore.storePendingIndexes([range(secret1, 5)], txHash, 'test');
+      await taggingStore[method]([range(secret1, 5)], txHash, 'test');
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test');
-      expect(txHashes).toHaveLength(1);
-      expect(txHashes[0]).toEqual(txHash);
+      expect(txHashes).toEqual([txHash]);
+      expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(5);
     });
 
     it('stores multiple pending index ranges for different secrets', async () => {
@@ -105,6 +109,32 @@ describe('SenderTaggingStore', () => {
       await expect(taggingStore.storePendingIndexes([range(secret1, 7)], txHash, 'test')).rejects.toThrow(
         /Conflicting range/,
       );
+    });
+
+    it('keeps the existing range when merging in a sub-range for the same tx', async () => {
+      const txHash = TxHash.random();
+
+      // Prove-time entry spanning setup and app-logic phase logs.
+      await taggingStore.storePendingIndexes([range(secret1, 4, 6)], txHash, 'test');
+
+      // Discovery of the surviving sub-range of a partially reverted tx must not throw nor shrink the entry.
+      await taggingStore.mergePendingIndexes([range(secret1, 4)], txHash, 'test');
+
+      expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(6);
+    });
+
+    it('widens the existing range to the union when merging in a range beyond it', async () => {
+      const txHash = TxHash.random();
+
+      // A prior window discovered only part of the tx's range.
+      await taggingStore.storePendingIndexes([range(secret1, 4, 6)], txHash, 'test');
+
+      // Discovery evidences further onchain indexes for the same tx — the entry must grow to cover them.
+      await taggingStore.mergePendingIndexes([range(secret1, 7, 8)], txHash, 'test');
+
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test');
+      expect(txHashes).toEqual([txHash]);
+      expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(8);
     });
 
     it('throws when storing a pending index range lower than the last finalized index', async () => {
@@ -188,6 +218,43 @@ describe('SenderTaggingStore', () => {
         const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, indexAtBoundary + 5, 'test');
         expect(txHashes).toHaveLength(1);
         expect(txHashes[0]).toEqual(txHash2);
+      });
+
+      it('allows an ordinary pending tx to stack on a fresh secret already at the MAX_PRIVATE_LOGS_PER_TX floor', async () => {
+        const txHash1 = TxHash.random();
+        const txHash2 = TxHash.random();
+
+        // A single tx from a fresh secret (no finalized index yet) can legitimately reach MAX_PRIVATE_LOGS_PER_TX - 1,
+        // since that's the tx-wide cap on private logs. Neither tx is finalized yet.
+        await taggingStore.storePendingIndexes([range(secret1, 0, MAX_PRIVATE_LOGS_PER_TX - 1)], txHash1, 'test');
+
+        // A second, ordinary-sized pending tx to the same secret must still be usable before the first tx is mined -
+        // this is the margin UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN adds on top of MAX_PRIVATE_LOGS_PER_TX for.
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, MAX_PRIVATE_LOGS_PER_TX, MAX_PRIVATE_LOGS_PER_TX + 5)],
+            txHash2,
+            'test',
+          ),
+        ).resolves.not.toThrow();
+      });
+
+      it('throws after pending txs exhaust window', async () => {
+        // One single-index pending tx per index, mirroring how an un-mined backlog accumulates one log per tx on a
+        // shared secret (e.g. the self-send chain in bench_build_block). A fresh secret treats the
+        // finalized floor as 0, so indexes 0..WINDOW fit...
+        for (let i = 0; i <= UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN; i++) {
+          await taggingStore.storePendingIndexes([range(secret1, i)], TxHash.random(), 'test');
+        }
+
+        // ...and the next tx throws, even with a single additional tag.
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)],
+            TxHash.random(),
+            'test',
+          ),
+        ).rejects.toThrow(/configured too low/);
       });
     });
   });

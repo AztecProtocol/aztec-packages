@@ -234,7 +234,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativeSiloingOnRead)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_DISABLE_SILOING_ON_READ),
-        "DISABLE_SILOING_ON_READ");
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_DISABLE_SILOING_ON_READ));
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughSiloing)
@@ -251,8 +251,9 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughSiloing)
 
     trace.set(C::note_hash_tree_check_siloed_note_hash, 0, 28);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_PASSTHROUGH_SILOING),
-                              "PASSTHROUGH_SILOING");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_PASSTHROUGH_SILOING),
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_PASSTHROUGH_SILOING));
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativeUniquenessOnRead)
@@ -266,7 +267,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativeUniquenessOnRead)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_DISABLE_UNIQUENESS_ON_READ),
-        "DISABLE_UNIQUENESS_ON_READ");
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_DISABLE_UNIQUENESS_ON_READ));
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughUniqueness)
@@ -286,7 +287,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughUniqueness)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_PASSTHROUGH_UNIQUENESS),
-        "PASSTHROUGH_UNIQUENESS");
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_PASSTHROUGH_UNIQUENESS));
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativeWrongMerkleHashSeparator)
@@ -303,7 +304,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativeWrongMerkleHashSeparator)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_MERKLE_HASH_SEPARATOR_CONSTANT),
-        "MERKLE_HASH_SEPARATOR_CONSTANT");
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_MERKLE_HASH_SEPARATOR_CONSTANT));
 }
 
 } // namespace

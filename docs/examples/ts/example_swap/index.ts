@@ -13,6 +13,7 @@ import {
   computeL2ToL1MessageHash,
   computeSecretHash,
 } from "@aztec/stdlib/hash";
+import { createAztecNodeDebugClient } from "@aztec/stdlib/interfaces/client";
 import { decodeEventLog, encodeFunctionData, pad } from "@aztec/viem";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { foundry } from "@aztec/viem/chains";
@@ -34,7 +35,7 @@ const node = createAztecNodeClient(nodeUrl);
 await waitForNode(node);
 const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 const [accData] = await getInitialTestAccountsData();
-const account = await wallet.createSchnorrAccount(
+const account = await wallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
   accData.signingKey,
@@ -380,6 +381,14 @@ console.log("✓ WETH transferred to bridge for swap\n");
 // docs:end:public_swap
 
 // docs:start:wait_for_proof
+const isLocalNetwork =
+  nodeUrl.includes("localhost") ||
+  nodeUrl.includes("127.0.0.1") ||
+  nodeUrl.includes("local-network");
+const nodeDebug = isLocalNetwork
+  ? createAztecNodeDebugClient(nodeUrl)
+  : undefined;
+
 console.log("Waiting for block to be proven...\n");
 
 let provenBlockNumber = await node.getBlockNumber("proven");
@@ -387,6 +396,9 @@ while (provenBlockNumber < swapReceipt.blockNumber!) {
   console.log(
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${swapReceipt.blockNumber})`,
   );
+  if (nodeDebug) {
+    await nodeDebug.mineBlock();
+  }
   await new Promise((resolve) => setTimeout(resolve, 10000));
   provenBlockNumber = await node.getBlockNumber("proven");
 }
@@ -445,8 +457,34 @@ const exitMsgLeaf = computeL2ToL1MessageHash({
 
 // docs:start:consume_l1_messages_witnesses
 // The node picks the smallest partial-proof root that covers each tx's checkpoint.
-const exitWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, exitMsgLeaf);
-const exitSiblingPath = exitWitness!.siblingPath
+const waitForL2ToL1MembershipWitness = async (
+  messageName: string,
+  messageLeaf: Fr,
+) => {
+  const maxAttempts = 30;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const witness = await node.getL2ToL1MembershipWitness(
+      swapReceipt.txHash,
+      messageLeaf,
+    );
+    if (witness) {
+      return witness;
+    }
+
+    console.log(
+      `   Waiting for ${messageName} L2->L1 witness (${attempt}/${maxAttempts})...`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+  }
+
+  throw new Error(`Timed out waiting for ${messageName} L2->L1 witness`);
+};
+
+const exitWitness = await waitForL2ToL1MembershipWitness(
+  "token bridge exit",
+  exitMsgLeaf,
+);
+const exitSiblingPath = exitWitness.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 
@@ -495,8 +533,11 @@ const swapMsgLeaf = computeL2ToL1MessageHash({
   chainId: new Fr(foundry.id),
 });
 
-const swapWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, swapMsgLeaf);
-const swapSiblingPath = swapWitness!.siblingPath
+const swapWitness = await waitForL2ToL1MembershipWitness(
+  "swap intent",
+  swapMsgLeaf,
+);
+const swapSiblingPath = swapWitness.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 // docs:end:consume_l1_messages_witnesses
@@ -519,12 +560,12 @@ const l1SwapHash = await l1Client.writeContract({
       dir: "left",
       size: 32,
     }),
-    [BigInt(exitWitness!.epochNumber), BigInt(swapWitness!.epochNumber)],
+    [BigInt(exitWitness.epochNumber), BigInt(swapWitness.epochNumber)],
     [
-      BigInt(exitWitness!.numCheckpointsInEpoch),
-      BigInt(swapWitness!.numCheckpointsInEpoch),
+      BigInt(exitWitness.numCheckpointsInEpoch),
+      BigInt(swapWitness.numCheckpointsInEpoch),
     ],
-    [BigInt(exitWitness!.leafIndex), BigInt(swapWitness!.leafIndex)],
+    [BigInt(exitWitness.leafIndex), BigInt(swapWitness.leafIndex)],
     [exitSiblingPath, swapSiblingPath],
   ],
 });

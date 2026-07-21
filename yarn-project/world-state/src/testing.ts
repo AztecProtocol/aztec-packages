@@ -8,14 +8,19 @@ import type { GenesisData } from '@aztec/stdlib/world-state';
 import { NativeWorldStateService } from './native/index.js';
 
 async function generateGenesisValues(genesis: GenesisData) {
-  if (!genesis.prefilledPublicData.length && genesis.genesisTimestamp === 0n) {
+  // The GENESIS_ARCHIVE_ROOT constant reflects the canonical empty genesis (no public data, no prefilled nullifiers,
+  // timestamp 0), so we can only short-circuit when this genesis adds none of those on top.
+  if (!genesis.prefilledPublicData.length && genesis.genesisTimestamp === 0n && !genesis.prefilledNullifiers?.length) {
     return {
       genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
     };
   }
 
-  // Create a temporary world state to compute the genesis values.
-  const ws = await NativeWorldStateService.tmp(undefined /* rollupAddress */, true /* cleanupTmpDir */, genesis);
+  // Compute the genesis values on a throwaway world state. The archive root derives deterministically from the
+  // prefilled public data, the prefilled nullifiers, and the genesis timestamp, so the fsync-off ephemeral store (no
+  // version manager, no crash-recoverability) produces an identical root while skipping the fsync overhead that `tmp`
+  // pays. close() removes the tmpdir.
+  const ws = await NativeWorldStateService.ephemeral(genesis);
   const genesisArchiveRoot = new Fr((await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
   await ws.close();
 
@@ -31,6 +36,7 @@ export async function getGenesisValues(
   initialAccountFeeJuice = defaultInitialAccountFeeJuice,
   genesisPublicData: PublicDataTreeLeaf[] = [],
   genesisTimestamp: bigint = 0n,
+  prefilledNullifiers: Fr[] = [],
 ) {
   // Top up the accounts with fee juice.
   let prefilledPublicData = await Promise.all(
@@ -44,7 +50,11 @@ export async function getGenesisValues(
 
   prefilledPublicData.sort((a, b) => (b.slot.lt(a.slot) ? 1 : -1));
 
-  const genesis: GenesisData = { prefilledPublicData, genesisTimestamp };
+  // The indexed nullifier tree requires its prefilled leaves to be unique and strictly increasing, so sort ascending
+  // here (a copy, to avoid mutating the caller's array) rather than relying on the caller's ordering.
+  const sortedNullifiers = [...prefilledNullifiers].sort((a, b) => (a.toBigInt() < b.toBigInt() ? -1 : 1));
+
+  const genesis: GenesisData = { prefilledPublicData, prefilledNullifiers: sortedNullifiers, genesisTimestamp };
   const { genesisArchiveRoot } = await generateGenesisValues(genesis);
 
   return {

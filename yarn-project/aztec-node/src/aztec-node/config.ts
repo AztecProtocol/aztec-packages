@@ -60,12 +60,21 @@ export type AztecNodeConfig = ArchiverConfig &
     debugForceTxProofVerification: boolean;
     /** Whether to enable the prover node as a subsystem. */
     enableProverNode: boolean;
+    /** Whether to run the slashing watchers to collect offenses even if not a validator. */
+    enableOffenseCollection: boolean;
     /**
      * Test-only: use the deterministic AutomineSequencer instead of the production Sequencer.
      * Requires `aztecTargetCommitteeSize === 0` on the deployed rollup and anvil-backed L1.
      * See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
      */
     useAutomineSequencer?: boolean;
+    /**
+     * Test-only: have the AutomineSequencer automatically prove epochs (write epoch out hashes into
+     * the L1 Outbox and advance the proven tip) as checkpoints land, replacing the standalone
+     * `EpochTestSettler`. Set by the local network/sandbox; the e2e `AUTOMINE_E2E_OPTS` fixture leaves
+     * it off so tests drive proving manually via `prove` / `cheatCodes.rollup.markAsProven`.
+     */
+    automineEnableProveEpoch?: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -104,9 +113,19 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     description: 'Whether to enable the prover node as a subsystem.',
     ...booleanConfigHelper(false),
   },
+  enableOffenseCollection: {
+    env: 'OFFENSE_COLLECTION_ENABLED',
+    description: 'Whether to run the slashing watchers to collect offenses even if not a validator.',
+    ...booleanConfigHelper(false),
+  },
   useAutomineSequencer: {
     env: 'USE_AUTOMINE_SEQUENCER',
     description: 'Test-only: use AutomineSequencer instead of the production Sequencer.',
+    ...booleanConfigHelper(false),
+  },
+  automineEnableProveEpoch: {
+    env: 'AUTOMINE_ENABLE_PROVE_EPOCH',
+    description: 'Test-only: have the AutomineSequencer automatically prove epochs as checkpoints land.',
     ...booleanConfigHelper(false),
   },
 };

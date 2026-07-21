@@ -3,6 +3,7 @@ import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } from '@aztec/stdlib/deserialization';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
@@ -17,16 +18,17 @@ import { TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { CheckpointProposalValidator } from './checkpoint_proposal_validator.js';
 import { ProposalValidator } from './proposal_validator.js';
 
 /** Clock-disparity tolerance (ms) the validators are configured with in these tests. */
 const TEST_CLOCK_DISPARITY_MS = 500;
 
 /** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
-function makeTimetable(blockDurationMs: number | undefined = 6000) {
+function makeTimetable(blockDurationMs = 6000) {
   return new ConsensusTimetable({
     l1Constants: { l1GenesisTime: 0n, slotDuration: 72, ethereumSlotDuration: 12 },
-    blockDuration: blockDurationMs !== undefined ? blockDurationMs / 1000 : undefined,
+    blockDuration: blockDurationMs / 1000,
   });
 }
 
@@ -213,12 +215,12 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
     });
 
-    it('accepts when proposer is undefined (open committee)', async () => {
+    it('rejects with high tolerance error when proposer is undefined (open committee)', async () => {
       const proposal = await factory(currentSlot, Secp256k1Signer.random());
 
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'accept' });
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
     });
 
     it('rejects with low tolerance error on NoCommitteeError', async () => {
@@ -368,38 +370,6 @@ describe('ProposalValidator', () => {
 
       const result = await validator.validate(proposal);
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
-    });
-
-    it('does not throw and accepts a checkpoint proposal in single-block mode (no blockDuration)', async () => {
-      // Single-block mode: blockDuration undefined → receive deadline drops the D term to
-      // target_slot_start - E = 7188s. Window [7116, 7188]; now = 7150 is inside.
-      validator = new ProposalValidator(
-        epochCache,
-        makeTimetable(undefined),
-        {
-          txsPermitted: true,
-          signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
-          clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
-        },
-        'test',
-      );
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
-
-      const proposal = await makeCheckpointProposal({
-        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
-        signer,
-      });
-
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: currentSlot,
-        ts: 7150n,
-        nowMs: 7150_000n,
-      });
-
-      // validate must not throw in single-block mode (the receive deadline drops the D term instead of
-      // calling the old requireBlockDuration); a thrown error would fail this await directly.
-      await expect(validator.validate(proposal)).resolves.toEqual({ result: 'accept' });
     });
   });
 
@@ -584,10 +554,32 @@ describe('ProposalValidator', () => {
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
     });
 
-    it('rejects a block proposal whose indexWithinCheckpoint equals the cap (5 >= 5)', async () => {
+    it('accepts a block proposal whose indexWithinCheckpoint equals the consensus cap (5 >= 5) as slashing evidence', async () => {
+      // Over the consensus limit but below the hard attestable ceiling: structurally valid proposer
+      // misbehavior, so gossip validation accepts it for retention/re-broadcast rather than rejecting.
       const proposal = await makeBlockProposal({
         blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
         indexWithinCheckpoint: IndexWithinCheckpoint(5),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('accepts a block proposal at an over-consensus index well within the attestable ceiling', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT - 1),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('rejects a block proposal at the hard attestable ceiling even with a lower consensus cap', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT),
         signer,
       });
       const result = await validator.validate(proposal);
@@ -601,6 +593,90 @@ describe('ProposalValidator', () => {
         signer,
       });
       const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+  });
+
+  describe('maxBlocksPerCheckpoint hard ceiling', () => {
+    const signer = Secp256k1Signer.random();
+
+    beforeEach(() => {
+      // No maxBlocksPerCheckpoint configured: the hard MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT ceiling must still apply.
+      validator = new ProposalValidator(
+        epochCache,
+        makeTimetable(),
+        {
+          txsPermitted: true,
+          signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
+        },
+        'test',
+      );
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+    });
+
+    it('rejects the block past the attestable limit even when maxBlocksPerCheckpoint is unset', async () => {
+      // indexWithinCheckpoint is 0-based, so index 72 is the 73rd block.
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+    });
+
+    it('accepts the last block within the attestable limit', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT - 1),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+  });
+
+  describe('checkpoint proposal embedded last-block ceiling', () => {
+    const signer = Secp256k1Signer.random();
+    let checkpointValidator: CheckpointProposalValidator;
+
+    beforeEach(() => {
+      // No maxBlocksPerCheckpoint configured: the hard ceiling must still apply to the terminal block
+      // carried inside the checkpoint proposal (it is not gossiped as a standalone block proposal).
+      checkpointValidator = new CheckpointProposalValidator(epochCache, makeTimetable(), {
+        txsPermitted: true,
+        signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+        clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
+      });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+    });
+
+    it('rejects when the embedded last block is past the attestable limit', async () => {
+      const proposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
+        signer,
+        lastBlock: {
+          blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT),
+          txHashes: [],
+        },
+      });
+      const result = await checkpointValidator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+    });
+
+    it('accepts when the embedded last block is within the attestable limit', async () => {
+      const proposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
+        signer,
+        lastBlock: {
+          blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT - 1),
+          txHashes: [],
+        },
+      });
+      const result = await checkpointValidator.validate(proposal);
       expect(result).toEqual({ result: 'accept' });
     });
   });

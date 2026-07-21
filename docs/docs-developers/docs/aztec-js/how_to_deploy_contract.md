@@ -59,7 +59,7 @@ On testnet, your account likely won't have Fee Juice. Instead, pay fees using th
 
 Here's a complete example from the test suite:
 
-#include_code deploy_basic yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_basic yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 ## Use deployment options
 
@@ -73,7 +73,7 @@ By default, the deployment's salt is random, but you can specify it (for example
 
 Deploy to the same address across networks by setting `universalDeploy: true`:
 
-#include_code deploy_universal yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_universal yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 :::info
 Universal deployment excludes the sender from address computation, allowing the same address on any network with the same salt.
@@ -89,7 +89,7 @@ Deploy without running the constructor:
 
 Some contracts have multiple initializer functions (e.g., both a private `constructor` and a `public_constructor`). By default, the generated `deploy()` method uses the default initializer (typically named `constructor`). To deploy using a different initializer, use `deployWithOpts`:
 
-#include_code deploy_with_opts yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_with_opts yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 The `deployWithOpts` method accepts an options object as its first argument:
 
@@ -131,7 +131,7 @@ For most use cases, simply await the deployment to get the contract directly:
 
 Here's an example deploying a `TokenContract` with constructor arguments for admin, name, symbol, and decimals:
 
-#include_code deploy_token yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_token yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 ### Deploy contracts with dependencies
 
@@ -155,7 +155,7 @@ Parallel deployment is faster, but transactions from the same account share a no
 
 Use `BatchCall` to bundle a deployment with other calls into a single transaction. This is useful when you need to deploy a contract and immediately call methods on it:
 
-#include_code deploy_batch yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_batch yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 ## Verify deployment
 
@@ -177,7 +177,7 @@ For a complete overview of what these states mean and when functions become call
 
 Here's a complete example:
 
-#include_code verify_deployment yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code verify_deployment yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 ### What the PXE checks automatically
 

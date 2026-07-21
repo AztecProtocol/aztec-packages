@@ -4,15 +4,17 @@
  * @packageDocumentation
  */
 import { Fr } from '@aztec/aztec.js/fields';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 
-import { getSchnorrAccountContractAddress } from '../schnorr/index.js';
+import { getSchnorrInitializerlessAccountContractAddress } from '../schnorr/initializerless/index.js';
+import { getSchnorrAccountContractAddress } from '../schnorr/private_immutable/index.js';
+import { deriveSecretKeyFromSigningKey } from '../utils/key_derivation.js';
 import {
   INITIAL_TEST_ACCOUNT_SALTS,
-  INITIAL_TEST_ENCRYPTION_KEYS,
   INITIAL_TEST_SECRET_KEYS,
   INITIAL_TEST_SIGNING_KEYS,
   type InitialAccountData,
+  type InitialAccountType,
 } from './configuration.js';
 
 export {
@@ -21,7 +23,15 @@ export {
   INITIAL_TEST_SECRET_KEYS,
   INITIAL_TEST_SIGNING_KEYS,
   type InitialAccountData,
+  type InitialAccountType,
 } from './configuration.js';
+
+/** Derives the account contract address for the given type */
+function getTestAccountAddress(type: InitialAccountType, signingKey: GrumpkinScalar, salt: Fr, secret?: Fr) {
+  return type === 'schnorr'
+    ? getSchnorrAccountContractAddress(signingKey, salt, secret)
+    : getSchnorrInitializerlessAccountContractAddress(signingKey, salt, secret);
+}
 
 /**
  * Gets the basic information for initial test accounts.
@@ -30,30 +40,36 @@ export function getInitialTestAccountsData(): Promise<InitialAccountData[]> {
   return Promise.all(
     INITIAL_TEST_SECRET_KEYS.map(async (secret, i) => ({
       secret,
-      signingKey: INITIAL_TEST_ENCRYPTION_KEYS[i],
+      signingKey: INITIAL_TEST_SIGNING_KEYS[i],
       salt: INITIAL_TEST_ACCOUNT_SALTS[i],
-      address: await getSchnorrAccountContractAddress(
-        secret,
-        INITIAL_TEST_ACCOUNT_SALTS[i],
+      type: 'schnorr_initializerless' as const,
+      address: await getSchnorrInitializerlessAccountContractAddress(
         INITIAL_TEST_SIGNING_KEYS[i],
+        INITIAL_TEST_ACCOUNT_SALTS[i],
+        secret,
       ),
     })),
   );
 }
 
 /**
- * Generate a fixed amount of random schnorr account contract instance.
+ * Generate a fixed amount of random schnorr account contract instances of the given type
  */
-export async function generateSchnorrAccounts(numberOfAccounts: number): Promise<Promise<InitialAccountData[]>> {
-  const secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
+export async function generateSchnorrAccounts(
+  numberOfAccounts: number,
+  type: InitialAccountType = 'schnorr_initializerless',
+): Promise<InitialAccountData[]> {
+  const signingKeys = Array.from({ length: numberOfAccounts }, () => GrumpkinScalar.random());
   return await Promise.all(
-    secrets.map(async secret => {
+    signingKeys.map(async signingKey => {
       const salt = Fr.random();
+      const secret = await deriveSecretKeyFromSigningKey(signingKey);
       return {
         secret,
-        signingKey: deriveSigningKey(secret),
+        signingKey,
         salt,
-        address: await getSchnorrAccountContractAddress(secret, salt),
+        type,
+        address: await getTestAccountAddress(type, signingKey, salt, secret),
       };
     }),
   );

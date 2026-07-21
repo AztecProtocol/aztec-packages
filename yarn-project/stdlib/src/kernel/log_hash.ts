@@ -114,7 +114,7 @@ export class ScopedLogHash {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new ScopedLogHash(reader.readObject(LogHash), AztecAddress.fromField(reader.readField()));
+    return new ScopedLogHash(reader.readObject(LogHash), AztecAddress.fromFieldUnsafe(reader.readField()));
   }
 
   isEmpty() {
@@ -156,7 +156,10 @@ export class ScopedCountedLogHash {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new ScopedCountedLogHash(reader.readObject(CountedLogHash), AztecAddress.fromField(reader.readField()));
+    return new ScopedCountedLogHash(
+      reader.readObject(CountedLogHash),
+      AztecAddress.fromFieldUnsafe(reader.readField()),
+    );
   }
 
   toBuffer(): Buffer;

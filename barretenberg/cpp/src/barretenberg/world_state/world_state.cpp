@@ -39,6 +39,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
+                       const std::vector<bb::fr>& prefilled_nullifiers,
                        uint32_t initial_header_generator_point,
                        uint64_t genesis_timestamp,
                        bool ephemeral)
@@ -51,7 +52,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
 {
     // We set the max readers to be high, at least the number of given threads or the default if higher
     uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
-    create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders, ephemeral);
+    create_canonical_fork(data_dir, map_size, prefilled_public_data, prefilled_nullifiers, maxReaders, ephemeral);
     try {
         attempt_tree_resync();
     } catch (std::exception& e) {
@@ -73,6 +74,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                              tree_heights,
                              tree_prefill,
                              std::vector<PublicDataLeafValue>(),
+                             std::vector<bb::fr>(),
                              initial_header_generator_point,
                              genesis_timestamp,
                              ephemeral)
@@ -84,6 +86,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
+                       const std::vector<bb::fr>& prefilled_nullifiers,
                        uint32_t initial_header_generator_point,
                        uint64_t genesis_timestamp,
                        bool ephemeral)
@@ -99,6 +102,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  tree_heights,
                  tree_prefill,
                  prefilled_public_data,
+                 prefilled_nullifiers,
                  initial_header_generator_point,
                  genesis_timestamp,
                  ephemeral)
@@ -118,6 +122,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  tree_heights,
                  tree_prefill,
                  std::vector<PublicDataLeafValue>(),
+                 std::vector<bb::fr>(),
                  initial_header_generator_point,
                  genesis_timestamp,
                  ephemeral)
@@ -126,6 +131,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
 void WorldState::create_canonical_fork(const std::string& dataDir,
                                        const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
                                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
+                                       const std::vector<bb::fr>& prefilled_nullifiers,
                                        uint64_t maxReaders,
                                        bool ephemeral)
 {
@@ -148,9 +154,15 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::NULLIFIER_TREE);
         index_t initial_size = _initial_tree_size.at(MerkleTreeId::NULLIFIER_TREE);
+        std::vector<NullifierLeafValue> prefilled_nullifier_leaves;
+        prefilled_nullifier_leaves.reserve(prefilled_nullifiers.size());
+        for (const auto& nullifier : prefilled_nullifiers) {
+            prefilled_nullifier_leaves.emplace_back(nullifier);
+        }
         auto store = std::make_unique<NullifierStore>(
             getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE), levels, _persistentStores->nullifierStore);
-        auto tree = std::make_unique<NullifierTree>(std::move(store), _workers, initial_size);
+        auto tree =
+            std::make_unique<NullifierTree>(std::move(store), _workers, initial_size, prefilled_nullifier_leaves);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree)) });
     }
     {
@@ -602,10 +614,32 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
                                             const std::vector<bb::fr>& notes,
                                             const std::vector<bb::fr>& l1_to_l2_messages,
                                             const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                                            const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes)
+                                            const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes,
+                                            const std::optional<bb::fr>& expected_archive_root,
+                                            const std::optional<bb::fr>& expected_previous_archive_root)
 {
     validate_trees_are_equally_synched();
     rollback();
+
+    // The archive tree is an append-only accumulator of block header hashes, so a single bad leaf (e.g. from a
+    // mishandled reorg) is never self-corrected: every later root stays noncanonical while the other state trees
+    // can re-converge from block effects. The checks further down only verify the appended leaf is the tip and
+    // that the four non-archive trees match the block state reference — neither catches a divergent archive root.
+    // So verify the local archive root against canonical both before appending (the parent root must equal the
+    // block's lastArchive) and after (the resulting root must equal the block's archive), failing before commit
+    // so the divergence is never persisted.
+    if (expected_previous_archive_root.has_value()) {
+        const bb::fr actual_previous_archive_root =
+            get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+        if (actual_previous_archive_root != expected_previous_archive_root.value()) {
+            throw std::runtime_error(
+                format("Can't sync block: local archive root ",
+                       actual_previous_archive_root,
+                       " does not match the block's previous archive root ",
+                       expected_previous_archive_root.value(),
+                       "; world state has diverged from the canonical chain and must be resynced"));
+        }
+    }
 
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -679,6 +713,21 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
 
         if (!is_same_state_reference(WorldStateRevision::uncommitted(), block_state_ref)) {
             throw std::runtime_error("Can't synch block: block state does not match world state");
+        }
+
+        // The archive tree is not part of the block state reference (see is_same_state_reference), so verify the
+        // resulting archive root against the canonical block's archive root explicitly.
+        if (expected_archive_root.has_value()) {
+            const bb::fr actual_archive_root =
+                get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE).meta.root;
+            if (actual_archive_root != expected_archive_root.value()) {
+                throw std::runtime_error(
+                    format("Can't sync block: resulting archive root ",
+                           actual_archive_root,
+                           " does not match the block's archive root ",
+                           expected_archive_root.value(),
+                           "; world state has diverged from the canonical chain and must be resynced"));
+            }
         }
 
         std::pair<bool, std::string> result = commit(status);

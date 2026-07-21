@@ -112,6 +112,10 @@ describe('ArchiverApiSchema', () => {
     expect(result[0].checkpointNumber).toBeDefined();
     expect(result[0].checkpointOutHash).toBeDefined();
     expect(result[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
+
+    // Slot-anchored range variant round-trips through the schema.
+    const bySlot = await context.client.getCheckpointsData({ fromSlot: SlotNumber(1), limit: 1, reverse: true });
+    expect(bySlot).toHaveLength(1);
   });
 
   it('getTxEffect', async () => {
@@ -153,7 +157,6 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
-      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -477,7 +480,6 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
-      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });

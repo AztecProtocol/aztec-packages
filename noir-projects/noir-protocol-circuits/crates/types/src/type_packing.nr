@@ -21,9 +21,16 @@ impl Packable for bool {
         [self as Field]
     }
 
+    /// Unpacks a `bool`, constraining the field to be a canonical boolean. A field outside `{0, 1}` is
+    /// rejected (rather than silently reinterpreted), so an arbitrary-origin field cannot be misread.
+    /// `pack` always emits `0` or `1`, so round-tripping is unaffected.
     #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> bool {
-        (fields[0] as u8) % 2 != 0
+        let v = fields[0];
+        // v * v == v holds iff v is 0 or 1: a single degree-2 constraint that both validates the field
+        // is a canonical bool and avoids the byte-range decomposition that a cast to u8 would require.
+        assert(v * v == v, "Packable::unpack: bool field must be 0 or 1");
+        v == 1
     }
 }
 
@@ -232,4 +239,36 @@ fn test_i32_packing() {
 fn test_i64_packing() {
     let a: i64 = -10;
     assert_eq(a, i64::unpack(a.pack()));
+}
+
+#[test]
+fn test_bool_unpack_accepts_canonical_values() {
+    assert_eq(bool::unpack([0]), false);
+    assert_eq(bool::unpack([1]), true);
+}
+
+#[test(should_fail_with = "bool field must be 0 or 1")]
+fn test_bool_unpack_rejects_even_non_bool() {
+    // 2 has LSB 0, so the previous LSB-based unpack silently returned false; now it is rejected.
+    let _ = bool::unpack([2]);
+}
+
+#[test(should_fail_with = "bool field must be 0 or 1")]
+fn test_bool_unpack_rejects_odd_non_bool() {
+    // 3 has LSB 1, so the previous LSB-based unpack silently returned true; now it is rejected.
+    let _ = bool::unpack([3]);
+}
+
+#[test(should_fail_with = "bool field must be 0 or 1")]
+fn test_bool_unpack_rejects_large_field() {
+    let _ = bool::unpack([1000000]);
+}
+
+#[test]
+fn test_bool_pack_unpack_roundtrip() {
+    // `pack` always emits 0 or 1, so it round-trips through the canonical-bool check in `unpack`.
+    assert_eq(true.pack(), [1]);
+    assert_eq(false.pack(), [0]);
+    assert_eq(bool::unpack(true.pack()), true);
+    assert_eq(bool::unpack(false.pack()), false);
 }

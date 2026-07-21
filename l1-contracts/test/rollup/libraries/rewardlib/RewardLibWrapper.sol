@@ -125,7 +125,7 @@ contract RewardLibWrapper {
     currentEpoch = _epoch;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs memory _args, Epoch _endEpoch) external {
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) external {
     RewardLib.handleRewardsAndFees(_args, _endEpoch);
   }
 

@@ -49,6 +49,11 @@ export type TxPoolV2Config = {
   dropTransactionsProbability: number;
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
+  /**
+   * Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes
+   * at the finalized tip (default).
+   */
+  keepFinalizedTxsForSlots: number;
 };
 
 /**
@@ -61,6 +66,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   evictedTxCacheSize: 10_000,
   dropTransactionsProbability: 0,
   priceBumpPercentage: 10n,
+  keepFinalizedTxsForSlots: 0,
 };
 
 /**
@@ -171,6 +177,17 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   prepareForSlot(slotNumber: SlotNumber): Promise<void>;
 
   /**
+   * Releases the protections a failed block proposal created and restores the txs to pending.
+   * Only clears protection entries still recorded at exactly the given slot: a tx that another,
+   * still-live proposal raised to a higher slot via {@link protectTxs} keeps its protection, and
+   * mined txs (which carry no protection entry) are left untouched. Restored txs are re-validated
+   * and resolved against nullifier conflicts before re-entering the pending indices.
+   * @param txHashes - Hashes of the proposal's txs to release.
+   * @param slotNumber - The slot the failed proposal targeted; protection is released only for this slot.
+   */
+  unprotectTxs(txHashes: TxHash[], slotNumber: SlotNumber): Promise<void>;
+
+  /**
    * Handles pruned blocks during a reorg.
    * Un-mines all transactions mined in blocks beyond the given latest block
    * and validates them before returning to pending.
@@ -212,6 +229,13 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
 
   /** Gets the count of pending transactions */
   getPendingTxCount(): Promise<number>;
+
+  /**
+   * Returns whether at least `minCount` pending transactions are old enough per minTxPoolAgeMs to be eligible
+   * for block building. Stops scanning once the threshold is reached, so it is cheaper than counting all
+   * eligible txs when only a few are needed.
+   */
+  hasEligiblePendingTxs(minCount: number): Promise<boolean>;
 
   /** Gets mined transaction hashes with their block IDs */
   getMinedTxHashes(): Promise<[TxHash, L2BlockId][]>;

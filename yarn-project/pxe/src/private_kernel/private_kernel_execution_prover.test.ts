@@ -39,7 +39,7 @@ describe('Private Kernel Sequencer', () => {
   let prover: PrivateKernelExecutionProver;
   let dependencies: { [name: string]: string[] } = {};
 
-  const contractAddress = AztecAddress.fromBigInt(987654n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(987654n);
   const blockTimestamp = 12345n;
   const expirationTimestamp = blockTimestamp + BigInt(MAX_TX_LIFETIME);
 
@@ -159,7 +159,7 @@ describe('Private Kernel Sequencer', () => {
     proofCreator.simulateInner2.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateInner3.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateReset.mockResolvedValue(simulateProofOutput());
-    proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal());
+    proofCreator.simulateResetTail.mockResolvedValue(simulateProofOutputFinal());
 
     prover = new PrivateKernelExecutionProver(oracle, proofCreator, true);
   });
@@ -249,21 +249,21 @@ describe('Private Kernel Sequencer', () => {
     }
   });
 
-  it('executes init, final reset, and tail for a single function', async () => {
+  it('executes init and terminal reset+tail for a single function', async () => {
     dependencies = { a: [] };
     const executionResult = createExecutionResult('a');
     const result = await prove(executionResult);
 
     const stepNames = result.executionSteps.map(s => s.functionName);
-    expect(stepNames).toEqual(['a', 'private_kernel_init', 'private_kernel_reset', 'private_kernel_tail']);
+    expect(stepNames).toEqual(['a', 'private_kernel_init', 'private_kernel_reset_tail']);
 
     expect(proofCreator.simulateInit).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateInner).not.toHaveBeenCalled();
-    expect(proofCreator.simulateReset).toHaveBeenCalledTimes(1);
-    expect(proofCreator.simulateTail).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateReset).not.toHaveBeenCalled();
+    expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
   });
 
-  it('executes init_3, inner, final reset, and tail for nested functions', async () => {
+  it('executes init_3, inner, and terminal reset+tail for nested functions', async () => {
     // a {
     //   b {
     //     c {}
@@ -285,8 +285,7 @@ describe('Private Kernel Sequencer', () => {
       'private_kernel_init_3',
       'd',
       'private_kernel_inner',
-      'private_kernel_reset',
-      'private_kernel_tail',
+      'private_kernel_reset_tail',
     ]);
   });
 
@@ -325,15 +324,14 @@ describe('Private Kernel Sequencer', () => {
       'private_kernel_reset',
       'd',
       'private_kernel_inner',
-      // Final reset for siloing.
-      'private_kernel_reset',
-      'private_kernel_tail',
+      // Terminal reset+tail performs siloing.
+      'private_kernel_reset_tail',
     ]);
 
     expect(proofCreator.simulateInit3).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
-    expect(proofCreator.simulateReset).toHaveBeenCalledTimes(2);
-    expect(proofCreator.simulateTail).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateReset).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
   });
 
   it('rounds the expiration timestamp down before passing it to the tail circuit', async () => {
@@ -350,8 +348,8 @@ describe('Private Kernel Sequencer', () => {
     const executionResult = createExecutionResult('a');
     await prove(executionResult);
 
-    expect(proofCreator.simulateTail).toHaveBeenCalledTimes(1);
-    const tailInputs = proofCreator.simulateTail.mock.calls[0][0];
+    expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
+    const tailInputs = proofCreator.simulateResetTail.mock.calls[0][0];
     expect(tailInputs.expirationTimestampUpperBound).toBe(blockTimestamp + expectedRoundedOffset);
   });
 
@@ -402,19 +400,18 @@ describe('Private Kernel Sequencer', () => {
       'private_kernel_reset',
       'd',
       'private_kernel_inner',
-      // Final reset for siloing.
-      'private_kernel_reset',
-      'private_kernel_tail',
+      // Terminal reset+tail performs siloing.
+      'private_kernel_reset_tail',
     ]);
 
     expect(proofCreator.simulateInit3).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
-    expect(proofCreator.simulateReset).toHaveBeenCalledTimes(3);
-    expect(proofCreator.simulateTail).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateReset).toHaveBeenCalledTimes(2);
+    expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
   });
 
   it('fetches updated class id hints once per unique contract address', async () => {
-    const contractAddressB = AztecAddress.fromBigInt(111111n);
+    const contractAddressB = AztecAddress.fromBigIntUnsafe(111111n);
 
     // a { b {} c {} }
     // a and c use contractAddress, b uses contractAddressB → 2 unique contracts, 3 executions.

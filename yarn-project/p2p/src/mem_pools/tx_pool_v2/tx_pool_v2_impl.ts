@@ -51,10 +51,18 @@ const FINALIZE_BLOCK_CHUNK_SIZE = 100;
 /**
  * Callbacks for the implementation to notify the outer class about events and metrics.
  */
+/** A tx that has just transitioned to mined, with the time it spent in the pool. */
+export interface MinedTxInfo {
+  txHash: string;
+  /** Wall-clock ms from receipt into the pool to being marked mined. Undefined when the
+   * receive time is unknown (e.g. a tx hydrated from the DB on restart, receivedAt === 0). */
+  minedDelayMs?: number;
+}
+
 export interface TxPoolV2Callbacks {
   onTxsAdded: (txs: Tx[], opts: { source?: string }) => void;
   onTxsRemoved: (txHashes: string[] | bigint[]) => void;
-  onTxsMined: (txHashes: string[]) => void;
+  onTxsMined: (minedTxs: MinedTxInfo[]) => void;
 }
 
 /**
@@ -560,7 +568,15 @@ export class TxPoolV2Impl {
     });
 
     if (found.length > 0) {
-      this.#callbacks.onTxsMined(found.map(m => m.txHash));
+      // receivedAt is 0 for txs hydrated from the DB on restart (true receive time lost) — leave
+      // their delay undefined so the metric isn't polluted by epoch-sized values.
+      const now = this.#dateProvider.now();
+      this.#callbacks.onTxsMined(
+        found.map(m => ({
+          txHash: m.txHash,
+          minedDelayMs: m.receivedAt > 0 ? now - m.receivedAt : undefined,
+        })),
+      );
     }
 
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
@@ -585,27 +601,60 @@ export class TxPoolV2Impl {
       }
 
       this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
-
-      // Step 4: Validate for pending pool
-      const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, 'during prepareForSlot');
-
-      // Step 5: Resolve nullifier conflicts and add winners to pending indices
-      const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
-
-      // Step 6: Delete invalid txs and evict conflict losers
-      await this.#deleteTxsBatch(invalid);
-      await this.#evictTxs(toEvict, 'NullifierConflict');
-
-      // Step 7: Run eviction rules (enforce pool size limit)
-      if (added.length > 0) {
-        const feePayers = added.map(meta => meta.feePayer);
-        const uniqueFeePayers = new Set<string>(feePayers);
-        await this.#evictionManager.evictAfterNewTxs(
-          added.map(m => m.txHash),
-          [...uniqueFeePayers],
-        );
-      }
+      await this.#restoreUnprotectedToPending(txsToRestore, 'during prepareForSlot');
     });
+  }
+
+  async unprotectTxs(txHashes: TxHash[], slotNumber: SlotNumber): Promise<void> {
+    const hashStrs = txHashes.map(h => h.toString());
+
+    await this.#store.transactionAsync(async () => {
+      // Only release entries still recorded at this exact slot. A tx that another, still-live proposal
+      // raised to a higher slot via updateProtection must keep that protection. Mined txs have no
+      // protection entry and so are never matched here.
+      const matching = this.#indices.findProtectedTxsAtSlot(hashStrs, slotNumber);
+      if (matching.length === 0) {
+        this.#log.debug(`Unprotecting txs for slot ${slotNumber}: no matching protections to release`);
+        return;
+      }
+
+      this.#indices.clearProtection(matching);
+
+      const txsToRestore = this.#indices.filterRestorable(matching);
+      if (txsToRestore.length === 0) {
+        return;
+      }
+
+      this.#log.info(`Unprotecting ${txsToRestore.length} txs from failed proposal at slot ${slotNumber}`);
+      await this.#restoreUnprotectedToPending(txsToRestore, 'during unprotectTxs');
+    });
+  }
+
+  /**
+   * Returns just-unprotected txs to the pending pool: revalidates them, resolves nullifier
+   * conflicts, deletes losers, then enforces the pool size limit. Must run inside a store
+   * transaction; callers clear the protection entries before invoking.
+   */
+  async #restoreUnprotectedToPending(txsToRestore: TxMetaData[], context: string): Promise<void> {
+    // Step 1: Validate for pending pool
+    const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, context);
+
+    // Step 2: Resolve nullifier conflicts and add winners to pending indices
+    const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
+
+    // Step 3: Delete invalid txs and evict conflict losers
+    await this.#deleteTxsBatch(invalid);
+    await this.#evictTxs(toEvict, 'NullifierConflict');
+
+    // Step 4: Run eviction rules (enforce pool size limit)
+    if (added.length > 0) {
+      const feePayers = added.map(meta => meta.feePayer);
+      const uniqueFeePayers = new Set<string>(feePayers);
+      await this.#evictionManager.evictAfterNewTxs(
+        added.map(m => m.txHash),
+        [...uniqueFeePayers],
+      );
+    }
   }
 
   async handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
@@ -679,8 +728,12 @@ export class TxPoolV2Impl {
   async handleFinalizedBlock(block: BlockHeader): Promise<void> {
     const blockNumber = block.globalVariables.blockNumber;
 
-    // Step 1: Find mined txs at or before finalized block
-    const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
+    // Hold finalized txs for a configurable margin behind the finalized tip so a prover still
+    // proving an epoch with already-finalized blocks isn't starved of its txs. 0 deletes at the finalized tip.
+    const cutoffBlock = await this.#finalizationCutoffBlock(block);
+
+    // Step 1: Find mined txs at or before the cutoff block
+    const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(cutoffBlock);
 
     // Step 2: Archive in chunks if archiving is enabled. Hydrating an entire epoch's worth of
     // mined txs at once would OOM under load. When archiving is disabled there is no need to hydrate the txs at all.
@@ -704,14 +757,50 @@ export class TxPoolV2Impl {
     // transaction. Only tx hashes are touched here, so memory is bounded and atomicity is preserved.
     await this.#store.transactionAsync(async () => {
       await this.#deleteTxsBatch(minedTxsToFinalize);
-      await this.#deletedPool.finalizeBlock(blockNumber);
+      await this.#deletedPool.finalizeBlock(cutoffBlock);
     });
 
     if (minedTxsToFinalize.length > 0) {
-      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
+      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${cutoffBlock}`, {
         txHashes: minedTxsToFinalize,
+        finalizedBlockNumber: blockNumber,
+        cutoffBlock,
       });
     }
+  }
+
+  /**
+   * Resolves the block up to which finalized txs may be deleted, given `keepFinalizedTxsForSlots`.
+   * With a margin of 0 this is just the finalized block. Otherwise we keep txs whose block is within
+   * the margin (in slots) of the finalized tip: take the target slot `finalizedSlot - margin`, find the
+   * latest checkpoint at or before it with a single reverse range query (`limit: 1`), and use that
+   * checkpoint's last block as the cutoff. This rounds to a checkpoint boundary, so it can retain slightly
+   * more than the configured margin but never less, and never deletes past the finalized block.
+   */
+  async #finalizationCutoffBlock(block: BlockHeader): Promise<BlockNumber> {
+    const keepSlots = this.#config.keepFinalizedTxsForSlots;
+    if (keepSlots <= 0) {
+      return block.globalVariables.blockNumber;
+    }
+
+    // The goal here really is to ensure we keep transactions long enough for them to be proven.
+    // So we could be smart and calculate the number of slots until the end of the proof submission window.
+    // Our approach here is a lot simpler however and we just keep transactions for the configured number
+    // of slots past L1 finalisation. This means we may keep transactions in the mined pool for longer
+    // than strictly necessary.
+    const targetSlot = block.getSlot() - keepSlots;
+    if (targetSlot < 0) {
+      // The margin reaches past genesis: keep everything.
+      return BlockNumber(0);
+    }
+
+    const [checkpoint] = await this.#l2BlockSource.getCheckpointsData({
+      fromSlot: SlotNumber(targetSlot),
+      limit: 1,
+      reverse: true,
+    });
+    // No checkpoint at or before the target slot (e.g. early chain): keep everything.
+    return checkpoint ? BlockNumber(checkpoint.startBlock + checkpoint.blockCount - 1) : BlockNumber(0);
   }
 
   // === Query Methods ===
@@ -781,6 +870,11 @@ export class TxPoolV2Impl {
     return this.#indices.getPendingTxCount();
   }
 
+  hasEligiblePendingTxs(minCount: number): boolean {
+    const maxReceivedAt = this.#dateProvider.now() - this.#config.minTxPoolAgeMs;
+    return this.#indices.hasEligiblePendingTxs(maxReceivedAt, minCount);
+  }
+
   getMinedTxHashes(): [TxHash, L2BlockId][] {
     return this.#indices.getMinedTxs().map(([hash, blockId]) => [TxHash.fromString(hash), blockId]);
   }
@@ -823,6 +917,9 @@ export class TxPoolV2Impl {
     }
     if (config.minTxPoolAgeMs !== undefined) {
       this.#config.minTxPoolAgeMs = config.minTxPoolAgeMs;
+    }
+    if (config.keepFinalizedTxsForSlots !== undefined) {
+      this.#config.keepFinalizedTxsForSlots = config.keepFinalizedTxsForSlots;
     }
     // Update eviction rules with new config
     this.#evictionManager.updateConfig(config);
@@ -1106,7 +1203,7 @@ export class TxPoolV2Impl {
         const publicStateSource = new DatabasePublicStateSource(db);
         const balance = await publicStateSource.storageRead(
           ProtocolContractAddress.FeeJuice,
-          await computeFeePayerBalanceStorageSlot(AztecAddress.fromString(feePayer)),
+          await computeFeePayerBalanceStorageSlot(AztecAddress.fromStringUnsafe(feePayer)),
         );
         return balance.toBigInt();
       },

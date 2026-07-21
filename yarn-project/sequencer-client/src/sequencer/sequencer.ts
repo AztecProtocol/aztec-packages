@@ -18,9 +18,18 @@ import type {
   ProposedCheckpointSink,
   ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import {
+  type Checkpoint,
+  type ProposedCheckpointData,
+  buildCheckpointSimulationOverridesPlan,
+} from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import {
+  MIN_PER_BLOCK_ALLOCATION_MULTIPLIER,
+  MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
+  computeNetworkTxGasLimits,
+} from '@aztec/stdlib/gas';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -30,13 +39,7 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
-import {
-  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-  DEFAULT_MIN_BLOCK_DURATION,
-  DEFAULT_P2P_PROPAGATION_TIME,
-  ProposerTimetable,
-} from '@aztec/stdlib/timetable';
+import { ProposerTimetable, buildProposerTimetable } from '@aztec/stdlib/timetable';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -46,13 +49,13 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import { SequencerMetrics } from './metrics.js';
+import { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
@@ -77,7 +80,7 @@ type SequencerSlotContext = {
  * - Votes for proposals and slashes on L1
  */
 export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
-  private runningPromise?: RunningPromise;
+  protected runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
   private stateSlotNumber: SlotNumber | undefined;
   /** Wall-clock time (ms, via the date provider) at which the current state was entered. */
@@ -86,8 +89,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
   private readonly stateLog: Logger;
 
-  /** The last slot for which we attempted to perform our voting duties with degraded block production */
-  private lastSlotForFallbackVote: SlotNumber | undefined;
+  /** The last slot for which we attempted to perform our fallback duties (votes and/or prune) with degraded block production */
+  private lastSlotForFallbackAction: SlotNumber | undefined;
 
   /** The (checkpoint, slot) of the last invalidation request we successfully simulated, to prevent
    * re-simulating and re-submitting the same invalidation across the many ticks within a single slot. */
@@ -107,6 +110,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** The last checkpoint proposal job, tracked so we can await its pending L1 submission during shutdown. */
   protected lastCheckpointProposalJob: CheckpointProposalJob | undefined;
+
+  /**
+   * In-flight fire-and-forget requests that {@link stop} interrupts and drains, and {@link pause} awaits
+   * untouched: the checkpoint proposal jobs' backgrounded L1 submissions (each job is handed this shared
+   * tracker) plus the sequencer's own fallback submissions (votes/prune when we cannot build, or
+   * escape-hatch votes). Each fallback send is gated by its wrapper publisher's interruptible target-slot
+   * sleep; the tracked interrupt wakes that sleep so the send short-circuits without publishing. A wrapper
+   * is created for a single send and is never restarted, so once interrupted its sleeper can never publish
+   * a stale-slot tx, even after the pooled publishers are restarted by a later {@link start}.
+   */
+  protected readonly pendingRequests = new RequestsTracker();
 
   /** Proposer schedule and block sub-slot timetable for the sequencer, rebuilt on every config update. */
   protected timetable!: ProposerTimetable;
@@ -151,55 +165,119 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.updateConfig(config);
   }
 
-  /** Updates sequencer config by the defined values and updates the timetable */
+  /**
+   * Updates sequencer config by the defined values and rebuilds the timetable.
+   *
+   * The merged config is validated against a candidate before being committed: {@link buildTimetable} may
+   * reject the candidate (invalid timing geometry, or per-block allocation multipliers below the network
+   * minimums). On rejection we leave `this.config` and `this.timetable` untouched and rethrow, so a bad update
+   * never leaves the sequencer running with a rejected config and a stale timetable.
+   */
   public updateConfig(config: Partial<SequencerConfig>) {
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
+    const candidate = merge(this.config, filteredConfig);
+    let timetable: ProposerTimetable;
+    try {
+      timetable = this.buildTimetable(candidate);
+    } catch (err) {
+      this.log.warn(`Rejecting sequencer config update: ${(err as Error).message}`, {
+        rejectedConfig: omit(filteredConfig, 'txPublicSetupAllowListExtend'),
+      });
+      throw err;
+    }
+    this.config = candidate;
+    this.timetable = timetable;
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowListExtend'));
-    this.config = merge(this.config, filteredConfig);
-    this.timetable = this.buildTimetable();
   }
 
   /**
-   * Builds the proposer timetable from the current config and L1 constants. The fast local/e2e profile and
-   * budget clamping happen inside {@link ProposerTimetable}; here we only fill the operational budgets the
-   * config leaves unset with the shared `DEFAULT_*` values (the config layer owns the defaults).
+   * Builds the proposer timetable from the given config and L1 constants via the shared
+   * {@link buildProposerTimetable} helper, so the sequencer derives the same blocks-per-checkpoint as the p2p
+   * layer and `getNodeInfo`. The fast local/e2e profile and budget clamping happen inside
+   * {@link ProposerTimetable}.
+   *
+   * Throws if the timing geometry is invalid or the per-block allocation multipliers are below the network
+   * minimums; callers must treat a throw as a rejected config and not commit it.
    */
-  private buildTimetable(): ProposerTimetable {
-    const timetable = new ProposerTimetable({
-      l1Constants: this.l1Constants,
-      blockDuration: this.config.blockDurationMs !== undefined ? this.config.blockDurationMs / 1000 : undefined,
-      minBlockDuration: this.config.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
-      p2pPropagationTime: this.config.attestationPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
-      checkpointProposalPrepareTime:
-        this.config.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-      checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-      checkpointProposalSyncGrace: this.config.checkpointProposalSyncGraceSeconds,
-      enforce: this.config.enforceTimeTable,
-    });
+  private buildTimetable(config: ResolvedSequencerConfig): ProposerTimetable {
+    const timetable = buildProposerTimetable(config, this.l1Constants);
 
     const maxNumberOfBlocks = timetable.getMaxBlocksPerCheckpoint();
-    this.log.info(
-      `Sequencer timetable initialized with ${maxNumberOfBlocks} blocks per slot (${timetable.enforce ? 'enforced' : 'not enforced'})`,
-      {
-        aztecSlotDuration: timetable.aztecSlotDuration,
-        ethereumSlotDuration: timetable.ethereumSlotDuration,
-        blockDuration: timetable.blockDuration,
-        minBlockDuration: timetable.minBlockDuration,
-        p2pPropagationTime: timetable.p2pPropagationTime,
-        checkpointProposalPrepareTime: timetable.checkpointProposalPrepareTime,
-        maxNumberOfBlocks,
-        enforce: timetable.enforce,
-      },
-    );
+    this.log.info(`Sequencer timetable initialized with ${maxNumberOfBlocks} blocks per slot`, {
+      aztecSlotDuration: timetable.aztecSlotDuration,
+      ethereumSlotDuration: timetable.ethereumSlotDuration,
+      blockDuration: timetable.blockDuration,
+      minBlockDuration: timetable.minBlockDuration,
+      p2pPropagationTime: timetable.p2pPropagationTime,
+      checkpointProposalPrepareTime: timetable.checkpointProposalPrepareTime,
+      maxNumberOfBlocks,
+    });
 
-    if (maxNumberOfBlocks < 1) {
+    this.assertConfigMeetsNetworkTxLimits(config, maxNumberOfBlocks);
+
+    return timetable;
+  }
+
+  /**
+   * Checks this node's configured per-block allocation against the network admission limit. A node
+   * advertises and admits txs up to the limit derived from the network-minimum multipliers (see
+   * {@link computeNetworkTxGasLimits}).
+   *
+   * Fails startup (and runtime config updates) only when the configured per-block allocation *multipliers*
+   * (`perBlockAllocationMultiplier` / `perBlockDAAllocationMultiplier`) are below the network minimums: such
+   * a node would accept txs over RPC/gossip that its builder can never pack into a block regardless of block
+   * size. Operators may configure a higher (more generous) multiplier, but not a lower one.
+   *
+   * When the multipliers meet the floor but an absolute per-block gas cap (`maxDABlockGas` / `maxL2BlockGas`)
+   * shrinks the builder's effective grant below the network limit, this is legitimate operator
+   * restrictiveness — the node simply builds smaller blocks and such txs stay in the pool for other
+   * proposers — so we only log a warning rather than failing startup. Restrictive tx-count caps
+   * (`maxTxsPerBlock` / `maxTxsPerCheckpoint`) can likewise make the builder skip admitted txs; they are
+   * intentionally not modeled here for the same reason.
+   */
+  private assertConfigMeetsNetworkTxLimits(config: ResolvedSequencerConfig, maxBlocksPerCheckpoint: number) {
+    // Mirror CheckpointBuilder.capLimitsByCheckpointBudgets: DA falls back to the general multiplier.
+    const l2Multiplier = config.perBlockAllocationMultiplier;
+    const daMultiplier = config.perBlockDAAllocationMultiplier ?? l2Multiplier;
+
+    // The allocation is monotonic in the multiplier, so a multiplier at or above the network minimum
+    // guarantees the builder grants at least the network admission limit. Checking the multipliers directly
+    // is sufficient (and strictly more conservative than modeling the resulting gas grant).
+    if (daMultiplier < MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER) {
       throw new Error(
-        `Invalid timing configuration: derived ${maxNumberOfBlocks} blocks per checkpoint for slot duration ` +
-          `${timetable.aztecSlotDuration}s and block duration ${timetable.blockDuration}s.`,
+        `perBlockDAAllocationMultiplier (${daMultiplier}) is below the network minimum ` +
+          `${MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER}; the node would admit txs its own builder can never include.`,
+      );
+    }
+    if (l2Multiplier < MIN_PER_BLOCK_ALLOCATION_MULTIPLIER) {
+      throw new Error(
+        `perBlockAllocationMultiplier (${l2Multiplier}) is below the network minimum ` +
+          `${MIN_PER_BLOCK_ALLOCATION_MULTIPLIER}; the node would admit txs its own builder can never include.`,
       );
     }
 
-    return timetable;
+    // Absolute per-block gas caps below the network admission limit are legitimate operator restrictiveness:
+    // the node simply builds smaller blocks and such txs stay in the pool for other proposers. Warn only.
+    const networkLimit = computeNetworkTxGasLimits({
+      maxBlocksPerCheckpoint,
+      manaCheckpointBudget: this.l1Constants.rollupManaLimit,
+    });
+    if (config.maxDABlockGas !== undefined && config.maxDABlockGas < networkLimit.daGas) {
+      this.log.warn(
+        `Sequencer maxDABlockGas (${config.maxDABlockGas}) is below the network DA admission limit ` +
+          `(${networkLimit.daGas}): txs declaring more DA gas are admitted over RPC/gossip but will be skipped ` +
+          `by this proposer's own blocks and left in the pool for other proposers.`,
+        { maxDABlockGas: config.maxDABlockGas, networkDaGas: networkLimit.daGas, maxBlocksPerCheckpoint },
+      );
+    }
+    if (config.maxL2BlockGas !== undefined && config.maxL2BlockGas < networkLimit.l2Gas) {
+      this.log.warn(
+        `Sequencer maxL2BlockGas (${config.maxL2BlockGas}) is below the network L2 admission limit ` +
+          `(${networkLimit.l2Gas}): txs declaring more L2 gas are admitted over RPC/gossip but will be skipped ` +
+          `by this proposer's own blocks and left in the pool for other proposers.`,
+        { maxL2BlockGas: config.maxL2BlockGas, networkL2Gas: networkLimit.l2Gas, maxBlocksPerCheckpoint },
+      );
+    }
   }
 
   /** Initializes the sequencer (precomputes tables). Takes about 3s. */
@@ -207,8 +285,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     getKzg();
   }
 
-  /** Starts the sequencer and moves to IDLE state. */
+  /**
+   * Starts (or restarts) the sequencer and moves it to the IDLE state. Idempotent: a start while already
+   * running is a no-op, so it never orphans the previous poll loop. A start while STOPPING throws, since the
+   * in-flight stop would mark the fresh loop's state STOPPED and orphan it — silently doing nothing would
+   * leave the caller believing the sequencer is running when it is on its way to STOPPED. Safe to call after
+   * a previous {@link stop} has resolved; the caller must also restart the publishers (see
+   * {@link SequencerClient.start}) so L1 publishing is re-enabled.
+   */
   public start() {
+    if (this.state === SequencerState.STOPPING) {
+      throw new Error('Cannot start sequencer while it is stopping');
+    }
+    if (this.runningPromise?.isRunning()) {
+      this.log.warn('Attempted to start sequencer that is already running');
+      return;
+    }
     this.runningPromise = new RunningPromise(
       this.safeWork.bind(this),
       this.log,
@@ -224,16 +316,54 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return this.runningPromise?.trigger();
   }
 
-  /** Stops the sequencer from building blocks and moves to STOPPED state. */
+  /**
+   * Stops the sequencer from building blocks and moves it to STOPPED state, interrupting the in-flight
+   * work() iteration and its pending L1 submissions for a fast shutdown, then draining before returning.
+   * Idempotent: a second call while already stopped or stopping is a no-op. Lifecycle calls are expected
+   * to be serialized by the caller. For a restartable pause that lets in-flight work finish untouched
+   * (e.g. around a test clock warp), use {@link pause} instead.
+   */
   public async stop(): Promise<void> {
+    if (this.state === SequencerState.STOPPED || this.state === SequencerState.STOPPING) {
+      this.log.debug(`Sequencer already ${this.state.toLowerCase()}, ignoring stop`);
+      return;
+    }
     this.log.info(`Stopping sequencer`);
     this.setState(SequencerState.STOPPING, undefined, { force: true });
     this.lastCheckpointProposalJob?.interrupt();
     await this.publisherFactory.stopAll();
+    // Stop the poll loop and await the in-flight work() iteration. work() registers its fire-and-forget
+    // requests synchronously before returning, so once the loop has stopped, pendingRequests holds every
+    // request that will ever exist. Interrupting any earlier could miss a request registered by the last
+    // in-flight iteration.
     await this.runningPromise?.stop();
-    await this.lastCheckpointProposalJob?.awaitPendingSubmission();
+    this.pendingRequests.interruptRequests();
+    await this.pendingRequests.awaitRequests();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
     this.log.info('Stopped sequencer');
+  }
+
+  /**
+   * Gracefully pauses block production so the sequencer can later be resumed with {@link start}: halts the
+   * poll loop and waits for the in-flight work() iteration and every pending L1 submission / fallback send
+   * to finish, without interrupting them. No interrupt lands mid-build, so no spurious checkpoint-error is
+   * emitted and no enqueued checkpoint is dropped. Deliberately does not stop inner services (validator/HA
+   * signer, publishers), so the slashing-protection store stays open and the sequencer stays restartable.
+   * Used by tests that pause sequencers around an L1 clock warp. Idempotent.
+   */
+  public async pause(): Promise<void> {
+    if (!this.runningPromise?.isRunning()) {
+      this.log.debug('Sequencer not running, ignoring pause');
+      return;
+    }
+    this.log.info('Pausing sequencer');
+    // Halt the poll loop and let the in-flight iteration finish naturally — no interrupt, and no STOPPING
+    // state, since entering STOPPING would make the iteration's own setState calls throw and fail it.
+    // work() registers its fire-and-forget requests synchronously before returning, so once the loop has
+    // stopped pendingRequests holds every request that will ever exist; awaiting it lets them all finish.
+    await this.runningPromise.stop();
+    await this.pendingRequests.awaitRequests();
+    this.log.info('Paused sequencer');
   }
 
   /** Main sequencer loop with a try/catch */
@@ -323,14 +453,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     ts: bigint,
     nowSeconds: bigint,
   ): Promise<CheckpointProposalJob | undefined> {
-    // Check we have not already processed this target slot (cheapest check)
-    // We only check this if enforce timetable is set, since we want to keep processing the same slot if we are not
-    // running against actual time (eg when we use sandbox-style automining)
-    if (
-      this.lastSlotForCheckpointProposalJob &&
-      this.lastSlotForCheckpointProposalJob >= targetSlot &&
-      this.config.enforceTimeTable
-    ) {
+    // Check we have not already processed this target slot (cheapest check).
+    if (this.lastSlotForCheckpointProposalJob && this.lastSlotForCheckpointProposalJob >= targetSlot) {
       this.log.trace(`Target slot ${targetSlot} has already been processed`);
       return undefined;
     }
@@ -392,13 +516,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // We are the proposer and the escape hatch is closed: now run the full sync check before building.
-    const syncedTo = await this.checkSync({ ts, slot });
-    if (!syncedTo) {
-      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
-      return undefined;
-    }
-
     // Explicit build-loop entry gate: if we are past the latest useful block-building start for the
     // target slot, abandon building for this slot. The proposer prioritizes the ideal L1-publish path
     // and does not plan around the late consensus-handoff path. This is the proposer build path's
@@ -407,7 +524,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // still run when block building is abandoned.
     const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
     const nowForStartGate = this.dateProvider.now() / 1000;
-    if (this.config.enforceTimeTable && nowForStartGate > startDeadline) {
+    if (nowForStartGate > startDeadline) {
       this.log.debug(`Past start deadline for slot ${targetSlot}, abandoning block building`, {
         targetSlot,
         nowForStartGate,
@@ -415,8 +532,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       });
       // Mark the slot as attempted so a deadline abort is not retried within the same slot. Vote-only actions
       // still need to run because sync can succeed even when it is too late to start building a checkpoint.
-      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
+      await this.tryVoteAndPruneWhenCannotBuild({ slot, targetSlot });
       this.lastSlotForCheckpointProposalJob = targetSlot;
+      return undefined;
+    }
+
+    // We are the proposer, the escape hatch is closed, and we have time before the build start deadline.
+    // Now run the full sync check before building.
+    const syncedTo = await this.checkSync({ ts, slot });
+    if (!syncedTo) {
       return undefined;
     }
 
@@ -647,6 +771,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this.checkpointProposalJobMetrics.createRecorder(),
       this,
+      this.pendingRequests,
       this.setState.bind(this),
       this.tracer,
       this.log.getBindings(),
@@ -741,9 +866,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         number: syncSummary.latestBlockNumber,
         hash: syncSummary.latestBlockHash,
       })),
-      this.l2BlockSource
-        .getL2Tips()
-        .then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed, proposedCheckpoint: t.proposedCheckpoint })),
+      this.l2BlockSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
@@ -788,16 +911,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
     // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
     // once their build slot ends; this guard is the correctness barrier during the grace window before.
+    // `getProposedCheckpointData()` returns the latest proposed checkpoint payload, which is always
+    // the leading one (a proposed entry is only stored beyond the confirmed frontier and is deleted
+    // on confirmation). It carries no tip, so there is no tip-vs-payload split read to reconcile.
     if (
       blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
-      (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
-        proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
+      proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber
     ) {
       const logCtx = {
         blockCheckpointNumber: blockData.checkpointNumber,
         checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
-        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        proposedCheckpointTipNumber: proposedCheckpointData?.checkpointNumber,
         blockNumber: blockData.header.getBlockNumber(),
         blockSlot: blockData.header.getSlot(),
         syncedL2Slot,
@@ -808,27 +932,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
-
-    // The l2Tips and proposedCheckpointData reads above come from independent archiver snapshots
-    // (a JS-side tips cache vs. a direct store read on `#proposedCheckpoints`). A concurrent archiver
-    // write that mutates both can be observed split, leaving us with `hasProposedCheckpoint=true` but
-    // no proposedCheckpointData (or one whose number doesn't match the tip). Refuse to proceed in that
-    // window — the next checkSync tick will see a coherent snapshot.
-    if (
-      hasProposedCheckpoint &&
-      (!proposedCheckpointData ||
-        proposedCheckpointData.checkpointNumber !== l2Tips.proposedCheckpoint.checkpoint.number)
-    ) {
-      this.log.warn(`Sequencer sync check failed: inconsistent proposed-checkpoint state`, {
-        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
-        checkpointedTipNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
-        syncedL2Slot,
-        ...args,
-      });
-      return undefined;
-    }
+    const hasProposedCheckpoint = proposedCheckpointData !== undefined;
 
     // Check that the proposed checkpoint is indeed the parent of the checkpoint we'll be building
     // The checkpoint number to build is derived as blockData.checkpointNumber + 1
@@ -905,16 +1009,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Tries to vote on slashing actions and governance when we cannot build and are past the block-building window.
-   * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
+   * Tries to vote on slashing actions and governance and to prune when we cannot build and are past the
+   * block-building window. This allows the sequencer to participate in governance/slashing votes even when it
+   * cannot build blocks, and to prune the pending chain so it can recover from bad data that is blocking sync.
    */
-  @trackSpan('Sequencer.tryVoteWhenCannotBuild', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
-  protected async tryVoteWhenCannotBuild(args: { slot: SlotNumber; targetSlot: SlotNumber }): Promise<void> {
+  @trackSpan('Sequencer.tryVoteAndPruneWhenCannotBuild', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
+  protected async tryVoteAndPruneWhenCannotBuild(args: { slot: SlotNumber; targetSlot: SlotNumber }): Promise<void> {
     const { slot, targetSlot } = args;
 
     // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForFallbackVote === slot) {
-      this.log.trace(`Already attempted to vote in slot ${slot} (skipping)`);
+    if (this.lastSlotForFallbackAction === slot) {
+      this.log.trace(`Already attempted fallback actions in slot ${slot} (skipping)`);
       return;
     }
 
@@ -937,7 +1042,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Mark this slot as attempted
-    this.lastSlotForFallbackVote = slot;
+    this.lastSlotForFallbackAction = slot;
 
     // Get a publisher for voting
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
@@ -962,19 +1067,41 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const votesPromises = voter.enqueueVotes();
     const votes = await Promise.all(votesPromises);
 
-    if (votes.every(p => !p)) {
-      this.log.debug(`No votes to enqueue for slot ${slot}`);
+    // Even if we cannot build, try to prune so a stuck pending chain (e.g. bad data blocking sync) can
+    // recover. prune() is permissionless, so it rides the same fallback multicall as the votes.
+    const pruneEnqueued = await this.tryEnqueuePruneIfPrunable(targetSlot, publisher);
+
+    // Bail if nothing to do
+    if (votes.every(p => !p) && !pruneEnqueued) {
+      this.log.debug(`Nothing to enqueue for slot ${slot} (no votes, not prunable)`);
       return;
     }
 
-    this.log.info(`Voting in slot ${slot} despite sync failure`, { slot });
+    const [governanceVoteEnqueued, slashingVoteEnqueued] = votes;
+    this.log.info(`Submitting fallback requests in slot ${slot} despite sync failure`, {
+      slot,
+      pruneEnqueued,
+      governanceVoteEnqueued: !!governanceVoteEnqueued,
+      slashingVoteEnqueued: !!slashingVoteEnqueued,
+    });
+
     // Votes are EIP-712-signed for `targetSlot` (the pipelined slot in which the multicall is
     // expected to mine). Delay submission to the start of `targetSlot` so the tx mines in the
     // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
-    // work loop while waiting for the target slot to start.
-    void publisher.sendRequestsAt(targetSlot).catch(err => {
-      this.log.error(`Failed to publish votes despite sync failure for slot ${slot}`, err, { slot });
+    // work loop while waiting for the target slot to start, but track it so stop() can drain it.
+    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
+      this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
     });
+    this.pendingRequests.trackRequest(send, () => publisher.interrupt());
+  }
+
+  private async tryEnqueuePruneIfPrunable(targetSlot: SlotNumber, publisher: SequencerPublisher): Promise<boolean> {
+    try {
+      return await publisher.enqueuePruneIfPrunable(targetSlot);
+    } catch (err) {
+      this.log.error(`Failed to enqueue rollup prune for slot ${targetSlot}`, err, { targetSlot });
+      return false;
+    }
   }
 
   /**
@@ -990,13 +1117,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { slot, targetSlot, proposer } = args;
 
     // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForFallbackVote === slot) {
+    if (this.lastSlotForFallbackAction === slot) {
       this.log.trace(`Already attempted to vote in slot ${slot} (escape hatch open, skipping)`);
       return;
     }
 
     // Mark this slot as attempted
-    this.lastSlotForFallbackVote = slot;
+    this.lastSlotForFallbackAction = slot;
 
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
 
@@ -1035,10 +1162,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // the multicall mines in the slot the votes were signed for; otherwise the L1 contract reads
     // `signaler = getCurrentProposer()` against the wrong slot and signature verification fails
     // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
-    // waiting for the target slot to start, mirroring tryVoteWhenCannotBuild.
-    void publisher.sendRequestsAt(targetSlot).catch(err => {
+    // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild, but tracked so
+    // stop() can drain it.
+    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
     });
+    this.pendingRequests.trackRequest(send, () => publisher.interrupt());
   }
 
   /**

@@ -20,19 +20,39 @@ yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/wallets@#include
 
 ## Create a new account
 
-Using the [`wallet` from the connection guide](./how_to_connect_to_local_network.md), call `createSchnorrAccount` to create a new account with a random secret and salt:
+Using the [`wallet` from the connection guide](./how_to_connect_to_local_network.md), call `createSchnorrAccount` to create a new account with a random secret, salt, and signing key:
 
 #include_code create_account /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-The secret is used to derive the account's encryption keys, and the salt ensures address uniqueness. The signing key is automatically derived from the secret.
+The secret derives the account's encryption keys, the signing key authenticates its transactions, and the salt ensures address uniqueness. The signing key is provided independently and is not derived from the secret: it is an ownership key, so keep it separate from the encryption secret that your PXE holds.
 
-:::warning Store your secret and salt
-Save the `secret` and `salt` values securely. You need both to recover access to your account. If you lose them, you will permanently lose access to the account and any assets it holds.
+:::warning Store your secret, salt, and signing key
+Save the `secret`, `salt`, and `signingKey` values securely. You need all three to recover access to your account. If you lose them, you will permanently lose access to the account and any assets it holds.
 :::
+
+## Create an initializerless account
+
+Alternatively, create an [initializerless account](../foundational-topics/accounts/deployment.md), which needs no deployment transaction at all:
+
+```typescript
+const secret = Fr.random();
+const salt = Fr.random();
+const account = await wallet.createSchnorrInitializerlessAccount(secret, salt);
+console.log("Account address:", account.address.toString());
+```
+
+An initializerless account commits its signing public key into the address itself (through the instance's `immutables_hash`), so there is no onchain state to initialize. Creating the account registers it locally in the PXE, and it is ready to use immediately: skip the deployment section below entirely. Fees are only needed for the account's first real transaction, paid with any of the usual [payment methods](./how_to_pay_fees.md).
+
+Two things to keep in mind:
+
+- The signing key cannot be changed later. A new key means a new address.
+- Calling `getDeployMethod()` on an initializerless account throws, since there is nothing to deploy.
+
+See [account deployment](../foundational-topics/accounts/deployment.md) for how this works and how to choose between the two account types.
 
 ## Deploy the account
 
-New accounts must be deployed before they can send transactions. Deployment requires paying fees.
+Accounts created with `createSchnorrAccount` must be deployed before they can send transactions (initializerless accounts skip this step). Deployment requires paying fees.
 
 ### Using the Sponsored FPC
 
@@ -70,5 +90,5 @@ Confirm the account was deployed successfully. Substitute the account variable f
 
 - [Deploy contracts](./how_to_deploy_contract.md) with your new account
 - [Send transactions](./how_to_send_transaction.md) from an account
-- Learn about [account abstraction](../foundational-topics/accounts/index.md)
+- Learn about [account abstraction](../foundational-topics/accounts/index.md) and [account deployment](../foundational-topics/accounts/deployment.md)
 - Implement [authentication witnesses](./how_to_use_authwit.md)

@@ -37,6 +37,17 @@ export function fieldHex(value: Fr | { toString: () => string }): string {
   return value.toString().slice(2);
 }
 
+/**
+ * Tag prefix for a log: the hex of its first field, or the empty string when the log carries no fields.
+ * A protocol-valid public log can have zero fields (e.g. a raw AVM `EMITPUBLICLOG` with `logSize = 0`),
+ * which has no tag to index by. Encoding it under the empty tag keeps it retrievable via the per-block
+ * read (and droppable on reorg) while never matching a real 64-hex-char tag query — instead of reading
+ * `fields[0]` off an empty array and aborting the whole block-ingestion transaction.
+ */
+export function tagHexForLog(fields: Fr[]): string {
+  return fields.length > 0 ? fieldHex(fields[0]) : '';
+}
+
 /** Encodes a number as 8-char zero-padded lowercase hex (matches a u32 big-endian byte buffer's lex order). */
 export function u32Hex(n: number): string {
   return n.toString(16).padStart(NUMERIC_HEX_LEN, '0');

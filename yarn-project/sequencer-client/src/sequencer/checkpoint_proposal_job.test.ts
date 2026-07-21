@@ -1,5 +1,4 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -13,9 +12,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { ManualDateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -73,11 +71,11 @@ import {
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
-import { buildCheckpointSimulationOverridesPlan, computePipelinedParentFeeHeader } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
+import { RequestsTracker } from './requests_tracker.js';
 
 describe('CheckpointProposalJob', () => {
   let publisher: MockProxy<SequencerPublisher>;
@@ -92,7 +90,7 @@ describe('CheckpointProposalJob', () => {
   let l2BlockSource: MockProxy<L2BlockSource>;
   let blockSink: MockProxy<L2BlockSink & ProposedCheckpointSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
-  let dateProvider: TestDateProvider;
+  let dateProvider: ManualDateProvider;
   let metrics: MockProxy<SequencerMetrics>;
   let checkpointMetrics: MockProxy<CheckpointProposalJobMetricsRecorder>;
   let job: TestCheckpointProposalJob;
@@ -168,7 +166,9 @@ describe('CheckpointProposalJob', () => {
       rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
-    dateProvider = new TestDateProvider();
+    // ManualDateProvider freezes time (it does not track real wall-clock progression), so timing-sensitive
+    // assertions on dateProvider.now() are deterministic regardless of how long the test takes to execute.
+    dateProvider = new ManualDateProvider();
     // Set time to be at the start of the slot (slot 1 starts at l1GenesisTime + slotDuration - ethereumSlotDuration)
     const slotStartTime = Number(l1GenesisTime) + newSlotNumber * slotDuration - ethereumSlotDuration;
     dateProvider.setTime(slotStartTime * 1000); // Convert to milliseconds
@@ -221,6 +221,9 @@ describe('CheckpointProposalJob', () => {
       }),
     });
     p2p.broadcastProposal.mockResolvedValue(undefined);
+    // Default the tx-availability gate to "enough txs"; tests that exercise the gate override these.
+    p2p.hasEligiblePendingTxs.mockResolvedValue(true);
+    p2p.getPendingTxCount.mockResolvedValue(0);
 
     worldState = mockDeep<WorldStateSynchronizer>();
     const mockFork = mock<MerkleTreeWriteOperations>({
@@ -257,10 +260,6 @@ describe('CheckpointProposalJob', () => {
       checkpointed: {
         block: { number: BlockNumber.ZERO, hash: 'block-hash' },
         checkpoint: { number: CheckpointNumber.ZERO, hash: 'checkpointed-ckpt-hash' },
-      },
-      proposedCheckpoint: {
-        block: { number: BlockNumber.ZERO, hash: 'block-hash' },
-        checkpoint: { number: CheckpointNumber.ZERO, hash: 'proposed-ckpt-hash' },
       },
       proven: {
         block: { number: BlockNumber.ZERO, hash: 'proven-hash' },
@@ -333,7 +332,6 @@ describe('CheckpointProposalJob', () => {
 
     config = {
       ...DefaultSequencerConfig,
-      enforceTimeTable: true,
       maxTxsPerBlock: 4,
       minTxsPerBlock: 1,
       publishTxsWithProposals: false,
@@ -348,7 +346,6 @@ describe('CheckpointProposalJob', () => {
 
     timetable = makeProposerTimetable({
       l1Constants,
-      enforce: config.enforceTimeTable,
     });
 
     job = createCheckpointProposalJob();
@@ -373,16 +370,17 @@ describe('CheckpointProposalJob', () => {
     deadline: undefined,
     isLastBlock: false,
   });
+  const makeSingleBlockTimetable = () =>
+    makeProposerTimetable({
+      l1Constants,
+      blockDurationMs: 9000,
+    });
 
   describe('single block mode', () => {
     beforeEach(() => {
-      // Single block mode: no blockDurationMs set
-      job.setTimetable(
-        makeProposerTimetable({
-          l1Constants,
-          enforce: config.enforceTimeTable,
-        }),
-      );
+      // Single block mode: a 9s block duration in a 24s slot derives exactly one block sub-slot.
+      timetable = makeSingleBlockTimetable();
+      job.setTimetable(timetable);
     });
 
     it('builds one block with sufficient txs', async () => {
@@ -391,6 +389,8 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
@@ -420,8 +420,9 @@ describe('CheckpointProposalJob', () => {
       // We build checkpoint 2 on top of proposed parent at checkpoint 1.
       checkpointNumber = CheckpointNumber(2);
 
-      const checkpoint = await createCheckpointProposalJob({
-        targetSlot: SlotNumber(newSlotNumber + 1),
+      const targetSlot = SlotNumber(newSlotNumber + 1);
+      const pipelinedJob = createCheckpointProposalJob({
+        targetSlot,
         proposedCheckpointData: {
           checkpointNumber: CheckpointNumber(1),
           header: CheckpointHeader.empty(),
@@ -432,13 +433,21 @@ describe('CheckpointProposalJob', () => {
           totalManaUsed: 5000n,
           feeAssetPriceModifier: 100n,
         },
-      }).executeAndAwait();
+      });
+
+      // Anchor the (frozen) clock at the build-frame opening for the target slot before executing, since the
+      // job reads dateProvider.now() when recording the offset.
+      dateProvider.setTime(pipelinedJob.getTimetable().getBuildFrameStart(targetSlot) * 1000);
+
+      const checkpoint = await pipelinedJob.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointMetrics.startCheckpointTiming).toHaveBeenCalledWith(expect.any(Number));
       expect(checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary).toHaveBeenCalledTimes(1);
+      // The build frame opens at target_slot_start - S - E, and the build slot boundary measured against is
+      // target_slot_start - S, so the offset is exactly -E (one ethereum slot before the boundary).
       const [offsetMs] = checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary.mock.calls[0];
-      expect(Math.abs(offsetMs + ethereumSlotDuration * 1000)).toBeLessThan(100);
+      expect(offsetMs).toBe(-ethereumSlotDuration * 1000);
     });
 
     it('skips building if not enough txs and not forced', async () => {
@@ -464,6 +473,8 @@ describe('CheckpointProposalJob', () => {
 
       job.updateConfig({ buildCheckpointIfEmpty: true, minTxsPerBlock: 1 });
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
@@ -485,6 +496,8 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
+      // Start building at the build-frame opening so the single block sub-slot is still selectable.
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
       await job.executeAndAwait();
 
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
@@ -507,7 +520,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -542,7 +555,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -584,7 +597,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -627,7 +640,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -671,7 +684,7 @@ describe('CheckpointProposalJob', () => {
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
-          enforce: config.enforceTimeTable,
+          blockDurationMs: 9000,
         }),
       );
 
@@ -710,6 +723,7 @@ describe('CheckpointProposalJob', () => {
 
     // Set up p2p mocks
     p2p.getPendingTxCount.mockResolvedValue(txs.length);
+    p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(txs.length >= minCount));
     p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
     // Create blocks with incrementing block numbers
@@ -794,227 +808,13 @@ describe('CheckpointProposalJob', () => {
       metrics,
       checkpointMetrics,
       eventEmitter,
+      new RequestsTracker(),
       setStateFn,
       getTelemetryClient().getTracer('test'),
       { actor: 'test' }, // bindings
       overrides?.proposedCheckpointData,
     );
   }
-
-  describe('computePipelinedParentFeeHeader', () => {
-    // Use checkpoint 3 so the grandparent (checkpoint 1) is valid
-    const pipelinedCheckpointNumber = CheckpointNumber(3);
-
-    const pendingData: ProposedCheckpointData = {
-      checkpointNumber: CheckpointNumber(2),
-      header: CheckpointHeader.empty(),
-      archive: AppendOnlyTreeSnapshot.empty(),
-      checkpointOutHash: Fr.ZERO,
-      startBlock: BlockNumber(2),
-      blockCount: 1,
-      totalManaUsed: 5000n,
-      feeAssetPriceModifier: 100n,
-    };
-
-    const grandparentFeeHeader: FeeHeader = {
-      manaUsed: 3000n,
-      excessMana: 1000n,
-      ethPerFeeAsset: 500n,
-      congestionCost: 50n,
-      proverCost: 10n,
-    };
-
-    it('returns undefined when checkpoint number is below 2 (genesis grandparent)', async () => {
-      const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: CheckpointNumber(1),
-        proposedCheckpointData: pendingData,
-        rollup: publisher.rollupContract,
-        log: createLogger('test'),
-      });
-      expect(result).toBeUndefined();
-    });
-
-    function mockRollup(overrides: { grandparentCheckpoint?: any; manaTarget?: bigint }) {
-      const rollup = publisher.rollupContract;
-      jest.spyOn(rollup, 'getCheckpoint').mockResolvedValue(overrides.grandparentCheckpoint);
-      jest.spyOn(rollup, 'getManaTarget').mockResolvedValue(overrides.manaTarget ?? 10_000n);
-    }
-
-    it('computes fee header from grandparent checkpoint', async () => {
-      const manaTarget = 10_000n;
-
-      mockRollup({ grandparentCheckpoint: { feeHeader: grandparentFeeHeader }, manaTarget });
-
-      const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: pendingData,
-        rollup: publisher.rollupContract,
-        log: createLogger('test'),
-      });
-
-      expect(result).toBeDefined();
-
-      const expected = RollupContract.computeChildFeeHeader(
-        grandparentFeeHeader,
-        pendingData.totalManaUsed,
-        pendingData.feeAssetPriceModifier,
-        manaTarget,
-      );
-      expect(result).toEqual(expected);
-    });
-
-    it('throws when grandparent checkpoint is not found', async () => {
-      mockRollup({ grandparentCheckpoint: undefined });
-
-      await expect(
-        computePipelinedParentFeeHeader({
-          checkpointNumber: pipelinedCheckpointNumber,
-          proposedCheckpointData: pendingData,
-          rollup: publisher.rollupContract,
-          log: createLogger('test'),
-        }),
-      ).rejects.toThrow(/Grandparent checkpoint or feeHeader missing/);
-    });
-
-    it('throws when grandparent checkpoint has no feeHeader', async () => {
-      mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
-
-      await expect(
-        computePipelinedParentFeeHeader({
-          checkpointNumber: pipelinedCheckpointNumber,
-          proposedCheckpointData: pendingData,
-          rollup: publisher.rollupContract,
-          log: createLogger('test'),
-        }),
-      ).rejects.toThrow(/Grandparent checkpoint or feeHeader missing/);
-    });
-
-    it('propagates errors from rollup calls', async () => {
-      jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
-
-      await expect(
-        computePipelinedParentFeeHeader({
-          checkpointNumber: pipelinedCheckpointNumber,
-          proposedCheckpointData: pendingData,
-          rollup: publisher.rollupContract,
-          log: createLogger('test'),
-        }),
-      ).rejects.toThrow(/rpc error/);
-    });
-  });
-
-  describe('buildCheckpointSimulationOverridesPlan', () => {
-    const checkpointNumberUnderTest = CheckpointNumber(2);
-
-    const grandparentFeeHeader: FeeHeader = {
-      manaUsed: 3000n,
-      excessMana: 1000n,
-      ethPerFeeAsset: 500n,
-      congestionCost: 50n,
-      proverCost: 10n,
-    };
-
-    function mockGrandparentFeeHeader() {
-      jest
-        .spyOn(publisher.rollupContract, 'getCheckpoint')
-        .mockResolvedValue({ feeHeader: grandparentFeeHeader } as any);
-      jest.spyOn(publisher.rollupContract, 'getManaTarget').mockResolvedValue(10_000n);
-    }
-
-    function makeProposedParent(checkpointNumber: CheckpointNumber): ProposedCheckpointData {
-      return {
-        checkpointNumber,
-        header: CheckpointHeader.empty(),
-        archive: new AppendOnlyTreeSnapshot(Fr.random(), 1),
-        checkpointOutHash: Fr.random(),
-        startBlock: BlockNumber(1),
-        blockCount: 1,
-        totalManaUsed: 5000n,
-        feeAssetPriceModifier: 100n,
-      };
-    }
-
-    it('pins both pending and proven to the snapshot when no proposed/invalidate input is provided', async () => {
-      const plan = await buildCheckpointSimulationOverridesPlan({
-        checkpointNumber: checkpointNumberUnderTest,
-        checkpointedCheckpointNumber: CheckpointNumber(4),
-        rollup: publisher.rollupContract,
-        signatureContext,
-        log: createLogger('test'),
-      });
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(4));
-      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(4));
-      expect(plan?.pendingCheckpointState).toBeUndefined();
-    });
-
-    it('overrides the full pending checkpoint cell from a pipelined parent', async () => {
-      mockGrandparentFeeHeader();
-      const proposedData = makeProposedParent(CheckpointNumber(1));
-
-      const plan = await buildCheckpointSimulationOverridesPlan({
-        checkpointNumber: checkpointNumberUnderTest,
-        proposedCheckpointData: proposedData,
-        checkpointedCheckpointNumber: CheckpointNumber(0),
-        rollup: publisher.rollupContract,
-        signatureContext,
-        log: createLogger('test'),
-      });
-
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
-      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(1));
-      expect(plan?.pendingCheckpointState?.archive).toEqual(proposedData.archive.root);
-      expect(plan?.pendingCheckpointState?.slotNumber).toEqual(proposedData.header.slotNumber);
-      expect(plan?.pendingCheckpointState?.headerHash).toEqual(proposedData.header.hash());
-      expect(plan?.pendingCheckpointState?.outHash).toEqual(proposedData.checkpointOutHash);
-      expect(plan?.pendingCheckpointState?.payloadDigest).toBeDefined();
-      expect(plan?.pendingCheckpointState?.feeHeader).toBeDefined();
-    });
-
-    it('throws when the pipelined parent does not match the expected parent checkpoint', async () => {
-      const proposedData = makeProposedParent(CheckpointNumber(5));
-
-      await expect(
-        buildCheckpointSimulationOverridesPlan({
-          checkpointNumber: checkpointNumberUnderTest,
-          proposedCheckpointData: proposedData,
-          checkpointedCheckpointNumber: CheckpointNumber(0),
-          rollup: publisher.rollupContract,
-          signatureContext,
-          log: createLogger('test'),
-        }),
-      ).rejects.toThrow(/does not match expected parent/);
-    });
-
-    it('throws when both proposedCheckpointData and invalidateToPendingCheckpointNumber are provided', async () => {
-      const proposedData = makeProposedParent(CheckpointNumber(1));
-
-      await expect(
-        buildCheckpointSimulationOverridesPlan({
-          checkpointNumber: checkpointNumberUnderTest,
-          proposedCheckpointData: proposedData,
-          invalidateToPendingCheckpointNumber: CheckpointNumber(0),
-          checkpointedCheckpointNumber: CheckpointNumber(0),
-          rollup: publisher.rollupContract,
-          signatureContext,
-          log: createLogger('test'),
-        }),
-      ).rejects.toThrow(/mutually exclusive/);
-    });
-
-    it('sets pending and proven from an invalidation rollback without archive/fee overrides', async () => {
-      const plan = await buildCheckpointSimulationOverridesPlan({
-        checkpointNumber: checkpointNumberUnderTest,
-        invalidateToPendingCheckpointNumber: CheckpointNumber(0),
-        checkpointedCheckpointNumber: CheckpointNumber(2),
-        rollup: publisher.rollupContract,
-        signatureContext,
-        log: createLogger('test'),
-      });
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(0));
-      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(0));
-      expect(plan?.pendingCheckpointState).toBeUndefined();
-    });
-  });
 
   describe('pipelining parent checkpoint validation', () => {
     const parentCheckpointHeader = CheckpointHeader.empty();
@@ -1043,6 +843,8 @@ describe('CheckpointProposalJob', () => {
         targetSlot: SlotNumber(newSlotNumber + 1),
         proposedCheckpointData,
       });
+      pipelinedJob.setTimetable(makeSingleBlockTimetable());
+      dateProvider.setTime(pipelinedJob.getTimetable().getBuildFrameStart(SlotNumber(newSlotNumber + 1)) * 1000);
 
       // Listen for mismatch events on this job's emitter
       mismatchEvents = [];
@@ -1088,10 +890,6 @@ describe('CheckpointProposalJob', () => {
             number: opts.checkpointedNumber ?? CheckpointNumber(1),
             hash: opts.checkpointedHash ?? parentCheckpointHash,
           },
-        },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: 'block-hash' },
-          checkpoint: { number: CheckpointNumber(1), hash: parentCheckpointHash },
         },
         proven: {
           block: { number: BlockNumber.ZERO, hash: 'proven-hash' },
@@ -1216,6 +1014,7 @@ describe('CheckpointProposalJob', () => {
         attestors: [EthAddress.random()],
         invalidIndex: 0,
         attestations: [CommitteeAttestation.random()],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
       };
       l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidation);
 
@@ -1253,6 +1052,7 @@ describe('CheckpointProposalJob', () => {
         attestors: [EthAddress.random()],
         invalidIndex: 0,
         attestations: [CommitteeAttestation.random()],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
       });
 
       await pipelinedJob.executeAndAwait();
@@ -1286,6 +1086,7 @@ describe('CheckpointProposalJob', () => {
         attestors: [EthAddress.random()],
         invalidIndex: 0,
         attestations: [CommitteeAttestation.random()],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
       };
       l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidation);
 
@@ -1337,7 +1138,6 @@ describe('CheckpointProposalJob', () => {
         makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
     });
@@ -1439,6 +1239,7 @@ describe('CheckpointProposalJob', () => {
 
       // Not enough txs to build a block
       p2p.getPendingTxCount.mockResolvedValue(2);
+      p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(2 >= minCount));
 
       // Install spy on waitUntilNextSubslot to verify it's called with expected deadlines
       const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
@@ -1457,6 +1258,31 @@ describe('CheckpointProposalJob', () => {
       expect(waitSpy.mock.calls[0][0]).toEqual(buildFrameStartSeconds() + 2);
     });
 
+    it('does not build when pending txs are not yet age-eligible and the wait deadline has passed', async () => {
+      // A single buildable sub-slot is available, so the only thing that can stop the build is the
+      // age-eligibility gate. The mempool holds plenty of pending txs, but none are old enough to build.
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, true))
+        .mockReturnValue(noSubslot());
+
+      // 10 pending txs (>= minTxsPerBlock) but 0 eligible: the builder's eligible iterator would yield nothing.
+      p2p.getPendingTxCount.mockResolvedValue(10);
+      p2p.hasEligiblePendingTxs.mockResolvedValue(false);
+
+      // Place us past the wait-for-txs deadline (subslot deadline at +10s, minus minBlockDuration 2s = +8s),
+      // so waitForMinTxs gives up on its first poll instead of spinning on the polling interval.
+      dateProvider.setTime((buildFrameStartSeconds() + 9) * 1000);
+
+      job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
+      const checkpoint = await job.executeAndAwait();
+
+      // The gate must wait for eligibility rather than read the raw pending count: no block is built.
+      expect(checkpoint).toBeUndefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+    });
+
     it('stops building when selectNextSubslot returns false', async () => {
       // Mock timetable to stop after 1 block (simulating time running out)
       jest
@@ -1468,6 +1294,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(10);
+      p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(10 >= minCount));
       p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
@@ -1523,6 +1350,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(10);
+      p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(10 >= minCount));
       p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
@@ -1607,12 +1435,20 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('timing edge cases', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly
+      // one block. Tests that mock selectNextSubslot below override this.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('handles insufficient time remaining in slot', async () => {
       // Mock selectNextSubslot to return false (not enough time)
       jest.spyOn(job.getTimetable(), 'selectNextSubslot').mockReturnValue(noSubslot());
 
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
+      p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(txs.length >= minCount));
       p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       const checkpoint = await job.executeAndAwait();
@@ -1625,6 +1461,7 @@ describe('CheckpointProposalJob', () => {
     it('forces checkpoint build when buildCheckpointIfEmpty is true and time allows', async () => {
       // Mock minimal txs (less than minTxsPerBlock)
       p2p.getPendingTxCount.mockResolvedValue(1);
+      p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(1 >= minCount));
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
@@ -1650,6 +1487,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
+      p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(txs.length >= minCount));
       p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
@@ -1665,9 +1503,16 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('error handling', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly one block.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('handles block build failure gracefully', async () => {
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
+      p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(txs.length >= minCount));
       p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       // Set up MockCheckpointBuilder to throw on build
@@ -1805,6 +1650,12 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('attestation collection', () => {
+    beforeEach(() => {
+      // Single-block timetable started at the build-frame opening, so the real timetable selects exactly one block.
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 9000 }));
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
     it('collects attestations in normal flow', async () => {
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
       checkpointBuilder.seedBlocks([block], [txs]);
@@ -1842,7 +1693,6 @@ describe('CheckpointProposalJob', () => {
         makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
 
@@ -1881,7 +1731,6 @@ describe('CheckpointProposalJob', () => {
         makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
-          enforce: true,
         }),
       );
 
@@ -1919,6 +1768,11 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   public override waitUntilNextSubslot(nextSubslotStart: number): Promise<void> {
     this.log.warn(`Skipping waitUntilNextSubslot(${nextSubslotStart}) in test`);
     return Promise.resolve();
+  }
+
+  /** Awaits the sequencer's shared tracker so tests observe the backgrounded L1 submission completing. */
+  public async awaitPendingSubmission(): Promise<void> {
+    await this.pendingRequests.awaitRequests();
   }
 
   /** Wraps execute + awaitPendingSubmission so tests see the full pipeline complete. */

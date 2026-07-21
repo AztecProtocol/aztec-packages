@@ -4,12 +4,15 @@ import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
+export const AccountTypes = ['schnorr', 'schnorr_initializerless', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
 export type AccountType = (typeof AccountTypes)[number];
 
 function accountKey(field: string, address: AztecAddress | string): string {
   return `${field}:${address.toString()}`;
 }
+
+/** Bump when the WalletDB layout changes; a new version selects a fresh store, leaving the old one intact. */
+export const WALLET_DATA_SCHEMA_VERSION = 1;
 
 export class WalletDB {
   private accounts: AztecAsyncMap<string, Buffer>;
@@ -83,7 +86,7 @@ export class WalletDB {
 
     return accountAddresses.map(addressStr => ({
       alias: aliasesByAddress.get(addressStr) ?? '',
-      item: AztecAddress.fromString(addressStr),
+      item: AztecAddress.fromStringUnsafe(addressStr),
     }));
   }
 
@@ -92,7 +95,7 @@ export class WalletDB {
     for await (const [alias, item] of this.aliases.entriesAsync({ start: 'senders:', end: 'senders:\uffff' })) {
       result.push({
         alias: alias.slice('senders:'.length),
-        item: AztecAddress.fromString(item.toString()),
+        item: AztecAddress.fromStringUnsafe(item.toString()),
       });
     }
     return result;

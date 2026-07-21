@@ -1,6 +1,6 @@
 use crate::protocol::{
     abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
     traits::{Deserialize, Empty, FromField, Packable, Serialize},
 };
@@ -11,19 +11,20 @@ use crate::{
         UtilityContext,
     },
     event::{event_interface::EventInterface, EventMessage},
-    hash::hash_args,
+    hash::{compute_secret_hash, hash_args},
     messages::{
+        delivery::OnchainDeliveryMode,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
         encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
         logs::{event::encode_private_event_message, note::encode_private_note_message},
         offchain_messages::OFFCHAIN_MESSAGE_IDENTIFIER,
-        processing::{MessageContext, offchain::OffchainMessage, validate_and_store_enqueued_notes_and_events},
+        processing::{offchain::OffchainMessage, ResolvedTx, validate_and_store_enqueued_notes_and_events},
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
-    test::helpers::{txe_oracles, utils::ContractDeployment},
+    test::helpers::{tagging_secret_strategy::TaggingSecretStrategy, txe_oracles, utils::ContractDeployment},
     utils::array::subarray,
 };
 
@@ -82,6 +83,73 @@ pub struct TestEnvironment {
     contract_account_secret: Counter,
     contract_deployment_secret: Counter,
     contract_deployment_salt: Counter,
+}
+
+/// Configuration values for [`TestEnvironment::new_opts`]. Meant to be used by calling `new` and then chaining
+/// methods setting each value, e.g.:
+/// ```noir
+/// let env = TestEnvironment::new_opts(
+///     TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+///         MessageDelivery::onchain_unconstrained(),
+///         TaggingSecretStrategy::non_interactive_handshake(),
+///     ),
+/// );
+/// ```
+pub struct TestEnvironmentOptions {
+    default_unconstrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    default_constrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    authorize_all_utility_call_targets: bool,
+}
+
+impl TestEnvironmentOptions {
+    /// Creates a new `TestEnvironmentOptions` with default values.
+    pub fn new() -> Self {
+        Self {
+            default_unconstrained_tagging_secret_strategy: Option::none(),
+            default_constrained_tagging_secret_strategy: Option::none(),
+            authorize_all_utility_call_targets: false,
+        }
+    }
+
+    /// Sets the default [`TaggingSecretStrategy`] the wallet reports for `mode` through the
+    /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
+    /// private executions that do not fix their own delivery derivation.
+    ///
+    /// If no strategy is set for either mode, the wallet hook is left unconfigured and the private execution
+    /// environment applies its own default. A mode left unset while the other is configured falls back to the default
+    /// [`TaggingSecretStrategy::non_interactive_handshake`], the strategy a PXE `resolveTaggingSecretStrategy` hook
+    /// typically hardcodes for modes it does not customize.
+    pub fn with_default_tag_secret_strategy<M>(&mut self, mode: M, strategy: TaggingSecretStrategy) -> Self
+    where
+        M: Into<OnchainDeliveryMode>,
+    {
+        if mode.into() == OnchainDeliveryMode::onchain_unconstrained() {
+            self.default_unconstrained_tagging_secret_strategy = Option::some(strategy);
+        } else {
+            self.default_constrained_tagging_secret_strategy = Option::some(strategy);
+        }
+        *self
+    }
+
+    /// Sets `strategy` for both delivery modes: the equivalent of a PXE `resolveTaggingSecretStrategy` hook that
+    /// ignores the request's mode. See
+    /// [`with_default_tag_secret_strategy`](Self::with_default_tag_secret_strategy) to configure a single mode.
+    pub fn with_default_tag_secret_strategy_all_modes(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        let _ = self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_unconstrained(), strategy);
+        self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_constrained(), strategy)
+    }
+
+    /// Authorizes all cross-contract utility call targets for the entire test.
+    ///
+    /// Removes the need to list targets on each call via
+    /// [`CallPrivateOptions::with_authorized_utility_call_targets`] and its siblings.
+    ///
+    /// By default, cross-contract utility calls are denied, mirroring a wallet that authorizes no such call. Use
+    /// this in tests that do not care about utility call authorization.
+    pub fn with_all_utility_call_targets_authorized(&mut self) -> Self {
+        self.authorize_all_utility_call_targets = true;
+        *self
+    }
 }
 
 /// Configuration values for [`TestEnvironment::private_context_opts`]. Meant to be used by calling `new` and then
@@ -385,31 +453,40 @@ struct EventDiscoveryOptions {
 ///
 /// ```noir
 /// env.execute_utility_opts(
-///     ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target]),
+///     ExecuteUtilityOptions::new().with_from(caller).with_authorized_utility_call_targets([target]),
 ///     SomeContract::at(addr).some_utility_function(),
 /// );
 /// ```
 pub struct ExecuteUtilityOptions<let T: u32> {
+    from: Option<AztecAddress>,
     authorized_utility_call_targets: [AztecAddress; T],
 }
 
 impl ExecuteUtilityOptions<0> {
     /// Creates default `ExecuteUtilityOptions`.
     pub fn new() -> Self {
-        ExecuteUtilityOptions { authorized_utility_call_targets: [] }
+        ExecuteUtilityOptions { from: Option::none(), authorized_utility_call_targets: [] }
     }
 }
 
 impl<let T: u32> ExecuteUtilityOptions<T> {
+    /// Sets the `msg_sender` simulating a cross-contract call.
+    ///
+    /// By default, an `Option::none` value is supplied to `maybe_msg_sender`.
+    pub fn with_from(&mut self, from: AztecAddress) -> Self {
+        self.from = Option::some(from);
+        *self
+    }
+
     /// Authorizes cross-contract utility calls to given targets.
     ///
     /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
     /// contracts are allowed to be called via utility functions during execution.
     pub fn with_authorized_utility_call_targets<let T_2: u32>(
-        _self: Self,
+        self: Self,
         targets: [AztecAddress; T_2],
     ) -> ExecuteUtilityOptions<T_2> {
-        ExecuteUtilityOptions { authorized_utility_call_targets: targets }
+        ExecuteUtilityOptions { from: self.from, authorized_utility_call_targets: targets }
     }
 }
 
@@ -559,9 +636,33 @@ fn resolve_gas_settings(
 
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
+    ///
+    /// See [`new_opts`](TestEnvironment::new_opts) for a variant that allows configuring the environment.
     pub unconstrained fn new() -> Self {
+        Self::new_opts(TestEnvironmentOptions::new())
+    }
+
+    /// Creates a new `TestEnvironment` with the configuration values in `options`. This function should only be
+    /// called once per test.
+    ///
+    /// ### Sample usage
+    /// ```noir
+    /// let strategy = TaggingSecretStrategy::non_interactive_handshake();
+    /// let env = TestEnvironment::new_opts(
+    ///     TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(strategy),
+    /// );
+    /// ```
+    pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
+
+        txe_oracles::set_tagging_secret_strategies(
+            options.default_unconstrained_tagging_secret_strategy,
+            options.default_constrained_tagging_secret_strategy,
+        );
+
+        txe_oracles::set_authorize_all_utility_call_targets(options.authorize_all_utility_call_targets);
+
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
             // deploying multiple contracts and creating accounts, they could end up with identical
@@ -810,6 +911,42 @@ impl TestEnvironment {
         txe_oracles::advance_timestamp_by(duration);
     }
 
+    /// Creates a message sent from the L1 to the L2.
+    ///
+    /// This is required so that a contract can later consume it via
+    /// [`PrivateContext::consume_l1_to_l2_message`](crate::context::PrivateContext::consume_l1_to_l2_message) or its
+    /// public counterpart. An empty block is mined carrying the message leaf.
+    ///
+    /// `content`, `secret`, `sender` and `recipient` must match what the consuming contract uses. The secret is hashed
+    /// with the standard [`crate::hash::compute_secret_hash`] - use
+    /// [`send_l1_to_l2_message_from_secret_hash`](TestEnvironment::send_l1_to_l2_message_from_secret_hash) if the
+    /// contract commits to its secret differently).
+    ///
+    /// Returns the global leaf index to pass as `consume_l1_to_l2_message`'s `leaf_index`.
+    pub unconstrained fn send_l1_to_l2_message(
+        self,
+        content: Field,
+        secret: Field,
+        sender: EthAddress,
+        recipient: AztecAddress,
+    ) -> Field {
+        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash([secret]), sender, recipient)
+    }
+
+    /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash
+    /// directly.
+    ///
+    /// This is only required by contracts that commit to their consumption secret with a non-standard hash function.
+    pub unconstrained fn send_l1_to_l2_message_from_secret_hash(
+        _self: Self,
+        content: Field,
+        secret_hash: Field,
+        sender: EthAddress,
+        recipient: AztecAddress,
+    ) -> Field {
+        txe_oracles::send_l1_to_l2_message(content, secret_hash, sender, recipient)
+    }
+
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or
     /// `public_call`, or be made the owner or recipient of notes in `private_context`.
     ///
@@ -1026,7 +1163,6 @@ impl TestEnvironment {
     /// The `call` value can be obtained by calling the appropriate method on a contract type. E.g.:
     ///
     /// ```noir
-    /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
@@ -1038,7 +1174,7 @@ impl TestEnvironment {
     }
 
     /// Variant of `execute_utility` which allows specifying configuration values via `ExecuteUtilityOptions`, such as
-    /// authorizing cross-contract utility calls.
+    /// `msg_sender` or authorizing cross-contract utility calls.
     pub unconstrained fn execute_utility_opts<let M: u32, let N: u32, let U: u32, T>(
         _self: Self,
         opts: ExecuteUtilityOptions<U>,
@@ -1048,6 +1184,7 @@ impl TestEnvironment {
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::execute_utility_function(
+            opts.from,
             call.target_contract,
             call.selector,
             call.args,
@@ -1457,7 +1594,7 @@ impl TestEnvironment {
         // on a message plaintext.
 
         // First we fetch the transaction effects from the latest transaction, which are required to create the
-        // `MessageContext`, and might contain information about data (e.g. notes, events) contained in the message. In
+        // `ResolvedTx`, and might contain information about data (e.g. notes, events) contained in the message. In
         // a real contract this data would have either been supplied by the `process_message` caller, of retrieved
         // along with the message from a tagged log.
         let effects = txe_oracles::get_last_tx_effects();
@@ -1466,10 +1603,13 @@ impl TestEnvironment {
         // as events are properly scoped by recipient, but notes use a global scope instead. We therefore simply set
         // the zero address as the recipient if one is not supplied, which PXE accepts as a scope despite this not
         // being a registered account.
-        let message_context = MessageContext {
+        let resolved_tx = ResolvedTx {
             tx_hash: effects.tx_hash,
             unique_note_hashes_in_tx: effects.note_hashes,
             first_nullifier_in_tx: effects.nullifiers.get(0),
+            // Test fixture: the simulated message has no real delivery block, so anchor it to the zero block.
+            block_number: 0,
+            block_hash: 0,
         };
 
         // The scope controls which PXE account can see discovered notes/events. We use the zero address as the
@@ -1489,7 +1629,7 @@ impl TestEnvironment {
                 compute_note_nullifier,
                 process_custom_message,
                 message_plaintext,
-                message_context,
+                resolved_tx,
                 scope,
             );
 

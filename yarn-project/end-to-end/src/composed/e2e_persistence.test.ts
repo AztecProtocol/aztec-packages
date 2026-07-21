@@ -1,4 +1,4 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -15,13 +15,22 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { BlacklistTokenContractTest, Role } from '../e2e_blacklist_token_contract/blacklist_token_contract_test.js';
+import { BlacklistTokenContractTest, Role } from '../automine/token/blacklist_token_contract_test.js';
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 jest.setTimeout(15 * 60 * 1000);
 
+// Node and PXE persistence tests: an in-process single-node test (uses setup() directly with
+// PIPELINING_SETUP_OPTS) that spawns and tears down node/PXE across five persisted-vs-empty data-directory
+// restart scenarios.
+//
+// EXCLUDED from every CI test list (see bootstrap.sh) and does NOT run anywhere. It is a candidate to
+// refile under single-node/, but on the current branch its beforeAll no longer completes: the single-node
+// sequencer stalls in checkpoint proposal (waitForAttestationsAndEnqueueSubmissionAsync) and the 600s hook
+// times out before setup finishes. Re-enabling it needs that setup stall fixed (the root cause is in the
+// shared setup/sequencer, not this file); until then it stays excluded.
 describe('Aztec persistence', () => {
   /**
    * These tests check that the Aztec Node and PXE can be shutdown and restarted without losing data.
@@ -46,7 +55,7 @@ describe('Aztec persistence', () => {
   let ownerAddress: AztecAddress;
 
   // Data of the funded accounts that can deploy themselves.
-  let initialFundedAccounts: InitialAccountData[];
+  let additionallyFundedAccounts: InitialAccountData[];
 
   // a directory where data will be persisted by components
   // passing this through to the Node or PXE will control whether they use persisted data or not
@@ -62,16 +71,18 @@ describe('Aztec persistence', () => {
     dataDirectory = await mkdtemp(join(tmpdir(), 'aztec-node-'));
 
     const initialContext = await setup(
-      1,
-      { ...PIPELINING_SETUP_OPTS, dataDirectory, numberOfInitialFundedAccounts: 3 },
+      0,
+      { ...PIPELINING_SETUP_OPTS, dataDirectory, additionallyFundedAccounts: await generateSchnorrAccounts(3) },
       { dataDirectory },
     );
     aztecNode = initialContext.aztecNode;
     deployL1ContractsValues = initialContext.deployL1ContractsValues;
-    initialFundedAccounts = initialContext.initialFundedAccounts;
+    additionallyFundedAccounts = initialContext.additionallyFundedAccounts;
     wallet = initialContext.wallet;
-    owner = initialFundedAccounts[0];
+    owner = additionallyFundedAccounts[0];
     ownerAddress = owner.address;
+    // The owner is funded but not created by setup; create it (initializerless) so it can transact.
+    await wallet.createSchnorrInitializerlessAccount(owner.secret, owner.salt, owner.signingKey);
 
     const { contract, instance } = await TokenBlacklistContract.deploy(wallet, ownerAddress).send({
       from: ownerAddress,
@@ -121,7 +132,7 @@ describe('Aztec persistence', () => {
       () =>
         setup(
           0,
-          { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues, initialFundedAccounts },
+          { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues, additionallyFundedAccounts },
           { dataDirectory },
         ),
       60_000,
@@ -129,7 +140,8 @@ describe('Aztec persistence', () => {
     [
       // ie our PXE was restarted, data kept intact and now connects to a "new" Node. Initial synch will synch from scratch
       'when starting a PXE with an existing database, connected to a Node with database synched from scratch',
-      () => setup(0, { ...PIPELINING_SETUP_OPTS, deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
+      () =>
+        setup(0, { ...PIPELINING_SETUP_OPTS, deployL1ContractsValues, additionallyFundedAccounts }, { dataDirectory }),
       120_000,
     ],
   ])('%s', (_, contextSetup, timeout) => {
@@ -137,7 +149,7 @@ describe('Aztec persistence', () => {
 
     beforeEach(async () => {
       context = await contextSetup();
-      await context.wallet.createSchnorrAccount(owner.secret, owner.salt, owner.signingKey);
+      await context.wallet.createSchnorrInitializerlessAccount(owner.secret, owner.salt, owner.signingKey);
       contract = TokenBlacklistContract.at(contractAddress, wallet);
     }, timeout);
 
@@ -193,8 +205,12 @@ describe('Aztec persistence', () => {
     });
 
     it('allows spending of private notes', async () => {
-      const account = initialFundedAccounts[1]; // Not the owner account.
-      const otherAccount = await context.wallet.createSchnorrAccount(account.secret, account.salt);
+      const account = additionallyFundedAccounts[1]; // Not the owner account.
+      const otherAccount = await context.wallet.createSchnorrInitializerlessAccount(
+        account.secret,
+        account.salt,
+        account.signingKey,
+      );
       const otherAddress = otherAccount.address;
 
       const { result: initialOwnerBalance } = await contract.methods
@@ -217,13 +233,14 @@ describe('Aztec persistence', () => {
     [
       // ie. I'm setting up a new full node, sync from scratch and restore wallets/notes
       'when starting the Node and PXE with empty databases',
-      () => setup(0, { ...PIPELINING_SETUP_OPTS, deployL1ContractsValues, initialFundedAccounts }, {}),
+      () => setup(0, { ...PIPELINING_SETUP_OPTS, deployL1ContractsValues, additionallyFundedAccounts }, {}),
       120_000,
     ],
     [
       // ie. I'm setting up a new PXE, restore wallets/notes from a Node
       'when starting a PXE with an empty database connected to a Node with an existing database',
-      () => setup(0, { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues, initialFundedAccounts }, {}),
+      () =>
+        setup(0, { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues, additionallyFundedAccounts }, {}),
       120_000,
     ],
   ])('%s', (_, contextSetup, timeout) => {
@@ -269,8 +286,8 @@ describe('Aztec persistence', () => {
     it('pxe restores notes after registering the owner', async () => {
       await context.wallet.registerContract(contractInstance, TokenBlacklistContract.artifact);
 
-      const account = initialFundedAccounts[0];
-      await context.wallet.createSchnorrAccount(account.secret, account.salt);
+      const account = additionallyFundedAccounts[0];
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
       const contract = TokenBlacklistContract.at(contractAddress, context.wallet);
 
       // check that notes total more than 0 so that this test isn't dependent on run order
@@ -299,8 +316,8 @@ describe('Aztec persistence', () => {
 
       await temporaryContext.wallet.registerContract(contractInstance, TokenBlacklistContract.artifact);
 
-      const account = initialFundedAccounts[0];
-      await context.wallet.createSchnorrAccount(account.secret, account.salt);
+      const account = additionallyFundedAccounts[0];
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
 
       const contract = TokenBlacklistContract.at(contractAddress, context.wallet);
 
@@ -324,8 +341,8 @@ describe('Aztec persistence', () => {
 
     beforeEach(async () => {
       context = await setup(0, { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues }, { dataDirectory });
-      const account = initialFundedAccounts[0];
-      await context.wallet.createSchnorrAccount(account.secret, account.salt);
+      const account = additionallyFundedAccounts[0];
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
       contract = TokenBlacklistContract.at(contractAddress, context.wallet);
     }, 120_000);
 

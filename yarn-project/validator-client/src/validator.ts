@@ -4,14 +4,14 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type LogData, type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
-import type { DuplicateAttestationInfo, DuplicateProposalInfo, P2P, PeerId } from '@aztec/p2p';
+import type { DuplicateAttestationInfo, DuplicateProposalInfo, OversizedProposalInfo, P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
 import {
   OffenseType,
@@ -35,7 +35,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   type BlockProposalOptions,
-  type CheckpointAttestation,
+  CheckpointAttestation,
   CheckpointProposal,
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
@@ -66,47 +66,17 @@ import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
 import {
   type BlockProposalValidationFailureReason,
-  type CheckpointProposalValidationFailureReason,
   type CheckpointProposalValidationFailureResult,
   ProposalHandler,
+  SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT,
+  SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT,
 } from './proposal_handler.js';
 
 // We maintain a set of proposers who have proposed invalid blocks.
 // Just cap the set to avoid unbounded growth.
 const MAX_PROPOSERS_OF_INVALID_BLOCKS = 1000;
-const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
 const MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS = 1000;
 const MAX_TRACKED_BAD_ATTESTATIONS = 10_000;
-
-// What errors from the block proposal handler result in slashing
-const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
-  'state_mismatch',
-  'failed_txs',
-  'global_variables_mismatch',
-  'invalid_proposal',
-  'parent_block_wrong_slot',
-  'in_hash_mismatch',
-];
-
-const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<CheckpointProposalValidationFailureReason, boolean> = {
-  // enabled
-  ['invalid_fee_asset_price_modifier']: true,
-  ['checkpoint_header_mismatch']: true,
-  // These late mismatches should normally be caught by earlier checks, but if reached after validating the local
-  // checkpoint inputs, the proposer-signed payload disagrees with deterministic recomputation.
-  ['archive_mismatch']: true,
-  ['out_hash_mismatch']: true,
-  ['no_blocks_for_slot']: true,
-  ['too_many_blocks_in_checkpoint']: true,
-  ['checkpoint_validation_failed']: true,
-  ['last_block_archive_mismatch']: true,
-
-  // disabled
-  ['invalid_signature']: false,
-  ['last_block_not_found']: false,
-  ['block_fetch_error']: false,
-  ['checkpoint_already_published']: false,
-};
 
 /**
  * Validator Client
@@ -131,10 +101,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private lastAttestedEpochByAttester: Map<string, EpochNumber> = new Map();
 
   private proposersOfInvalidBlocks = FifoSet.withLimit<string>(MAX_PROPOSERS_OF_INVALID_BLOCKS);
-  private slotsWithInvalidProposals = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
   private invalidCheckpointProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
+  private oversizedProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
   private badAttestationOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_BAD_ATTESTATIONS);
-  private slotsWithProposalEquivocation = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
 
   /** Tracks the last checkpoint proposal we attested to, to prevent equivocation. */
   private lastAttestedProposal?: CheckpointProposalCore;
@@ -250,7 +219,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const metrics = new ValidatorMetrics(telemetry);
     const consensusTimetable = new ConsensusTimetable({
       l1Constants: epochCache.getL1Constants(),
-      blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+      blockDuration: config.blockDurationMs / 1000,
     });
     const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
       txsPermitted: !config.disableTransactions,
@@ -363,11 +332,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public hasProposalEquivocation(slotNumber: SlotNumber): boolean {
-    return this.slotsWithProposalEquivocation.has(slotNumber);
+    return this.proposalHandler.hasProposalEquivocation(slotNumber);
   }
 
   public hasInvalidProposals(slotNumber: SlotNumber): boolean {
-    return this.slotsWithInvalidProposals.has(slotNumber);
+    return this.proposalHandler.hasInvalidProposals(slotNumber);
   }
 
   public updateConfig(config: Partial<ValidatorClientFullConfig>) {
@@ -434,6 +403,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       // Duplicate proposal handler - triggers slashing for equivocation
       this.p2pClient.registerDuplicateProposalCallback((info: DuplicateProposalInfo) => {
         this.handleDuplicateProposal(info);
+      });
+
+      // Oversized proposal handler - triggers slashing for proposals beyond the per-checkpoint block limit
+      this.p2pClient.registerOversizedProposalCallback((info: OversizedProposalInfo) => {
+        this.handleOversizedProposal(info);
       });
 
       // Duplicate attestation handler - triggers slashing for attestation equivocation
@@ -572,7 +546,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (proposer && this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.debug(`Ignoring block proposal from self for slot ${proposalSlotNumber}`, {
+      this.log.debug(`Not attesting to block proposal from self for slot ${proposalSlotNumber}`, {
         proposer: proposer.toString(),
         proposalSlotNumber,
       });
@@ -765,8 +739,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return;
     }
 
-    this.markInvalidProposalSlot(proposal.slotNumber);
-
+    // The slot is already marked invalid by the all-nodes checkpoint handler that invokes this callback,
+    // so we only emit the proposer slash event here.
     if (this.slashInvalidCheckpointProposal(proposal)) {
       this.log.info(`Detected invalid checkpoint proposal offense`, {
         ...proposalInfo,
@@ -805,12 +779,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   private markInvalidProposalSlot(slotNumber: SlotNumber): void {
-    this.slotsWithInvalidProposals.add(slotNumber);
+    this.proposalHandler.markInvalidProposalSlot(slotNumber);
   }
 
   private handleCheckpointAttestation(attestation: CheckpointAttestation): void {
     const slotNumber = attestation.slotNumber;
-    if (!this.slotsWithInvalidProposals.has(slotNumber) || this.slotsWithProposalEquivocation.has(slotNumber)) {
+    if (
+      !this.proposalHandler.hasInvalidProposals(slotNumber) ||
+      this.proposalHandler.hasProposalEquivocation(slotNumber)
+    ) {
       return;
     }
 
@@ -850,12 +827,42 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   /**
+   * Handle detection of an oversized block proposal: one whose index within its checkpoint lands at or
+   * beyond the consensus per-checkpoint block limit. A single signed proposal at an illegal index is
+   * self-contained evidence, so emit an invalid-block-proposal slash event for the proposer, deduped per
+   * (proposer, slot) since the p2p layer reports every oversized proposal it stores.
+   */
+  private handleOversizedProposal(info: OversizedProposalInfo): void {
+    const { slot, proposer } = info;
+    const offenseType = OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL;
+    if (!this.oversizedProposalOffenseKeys.addIfAbsent(`${proposer.toString()}:${offenseType}:${slot}`)) {
+      return;
+    }
+
+    this.log.info(`Detected oversized block proposal offense from ${proposer.toString()} at slot ${slot}`, {
+      proposer: proposer.toString(),
+      slot,
+      amount: this.config.slashBroadcastedInvalidBlockPenalty,
+      offenseType: getOffenseTypeName(offenseType),
+    });
+
+    this.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: proposer,
+        amount: this.config.slashBroadcastedInvalidBlockPenalty,
+        offenseType,
+        epochOrSlot: BigInt(slot),
+      },
+    ]);
+  }
+
+  /**
    * Handle detection of a duplicate proposal (equivocation).
    * Emits a slash event when a proposer sends multiple proposals for the same position.
    */
   private handleDuplicateProposal(info: DuplicateProposalInfo): void {
     const { slot, proposer, type } = info;
-    this.slotsWithProposalEquivocation.add(slot);
+    this.proposalHandler.markProposalEquivocation(slot);
 
     this.log.info(`Detected duplicate ${type} proposal offense from ${proposer.toString()} at slot ${slot}`, {
       proposer: proposer.toString(),

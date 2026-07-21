@@ -144,9 +144,10 @@ describe('ValidatorClient HA Integration', () => {
         | 'slashDuplicateProposalPenalty'
         | 'slashDuplicateAttestationPenalty'
         | 'slashAttestInvalidCheckpointProposalPenalty'
-      > = {
+      > & { blockDurationMs: number } = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
+      blockDurationMs: 3000,
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
@@ -159,7 +160,7 @@ describe('ValidatorClient HA Integration', () => {
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,
-      signingTimeoutMs: 3000,
+      peerSigningTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
       databaseUrl: new SecretValue('postgresql://test'),
       dataStoreMapSizeKb: 128 * 1024 * 1024,
@@ -203,7 +204,7 @@ describe('ValidatorClient HA Integration', () => {
         | 'slashDuplicateProposalPenalty'
         | 'slashDuplicateAttestationPenalty'
         | 'slashAttestInvalidCheckpointProposalPenalty'
-      >,
+      > & { blockDurationMs: number },
   ): Promise<ValidatorClient> {
     // Track pool for cleanup
     pools.push(pool);
@@ -220,7 +221,7 @@ describe('ValidatorClient HA Integration', () => {
     const metrics = new ValidatorMetrics(getTelemetryClient());
     const consensusTimetable = new ConsensusTimetable({
       l1Constants: epochCache.getL1Constants(),
-      blockDuration: undefined,
+      blockDuration: 3,
     });
     const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
       txsPermitted: true,

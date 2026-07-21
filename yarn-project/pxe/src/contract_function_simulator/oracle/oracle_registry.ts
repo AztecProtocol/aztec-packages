@@ -3,6 +3,7 @@ import { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { toACVMField } from '@aztec/simulator/client';
+import type { UnsiloedMessageNullifier } from '@aztec/stdlib/messaging';
 
 import {
   ARRAY,
@@ -12,22 +13,21 @@ import {
   BLOCK_NUMBER,
   BOOL,
   BOUNDED_VEC,
-  BUFFER,
-  BYTE,
   CALL_PRIVATE_RESULT,
-  CONTRACT_CLASS_LOG_INPUT,
+  CONTRACT_CLASS_LOG,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
+  FACT_COLLECTION,
   FIELD,
+  FIXED_ARRAY,
   FUNCTION_SELECTOR,
   type InputSlot,
   KEY_VALIDATION_REQUEST,
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_CONTEXT,
   MESSAGE_LOAD_ORACLE_INPUTS,
   type MaybePromise,
   NOTE,
@@ -35,19 +35,25 @@ import {
   NOTE_VALIDATION_REQUEST,
   NULLIFIER_MEMBERSHIP_WITNESS,
   OPTION,
+  ORIGIN_BLOCK,
   type OutputSlot,
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
+  RESOLVED_TAGGING_STRATEGY,
+  RESOLVED_TX,
   STR,
+  STRUCT,
   TX_EFFECT,
   TX_HASH,
   type TypeMapping,
+  U8,
   U32,
   UTILITY_CONTEXT,
   assertReadersConsumed,
+  slotsOf,
 } from './oracle_type_mappings.js';
 
 export {
@@ -57,9 +63,10 @@ export {
   BLOCK_NUMBER,
   BOOL,
   BOUNDED_VEC,
-  BUFFER,
-  BYTE,
+  U8,
+  CONTRACT_CLASS_LOG,
   DELIVERY_MODE,
+  RESOLVED_TAGGING_STRATEGY,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -67,17 +74,19 @@ export {
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_CONTEXT,
   NOTE_VALIDATION_REQUEST,
   OPTION,
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  RESOLVED_TX,
   STR,
   U32,
+  slotsOf,
   type InputSlot,
   type MaybePromise,
   type OutputSlot,
+  type SlotShape,
   type TypeMapping,
 } from './oracle_type_mappings.js';
 
@@ -103,7 +112,10 @@ export const ORACLE_REGISTRY = {
   aztec_utl_getUtilityContext: makeEntry({ returnType: UTILITY_CONTEXT }),
 
   aztec_utl_getKeyValidationRequest: makeEntry({
-    params: [{ name: 'pkMHash', type: FIELD }],
+    params: [
+      { name: 'pkMHash', type: FIELD },
+      { name: 'keyIndex', type: FIELD },
+    ],
     returnType: KEY_VALIDATION_REQUEST,
   }),
 
@@ -126,6 +138,14 @@ export const ORACLE_REGISTRY = {
       { name: 'blockHash', type: BLOCK_HASH },
     ],
     returnType: OPTION(MEMBERSHIP_WITNESS(ARCHIVE_HEIGHT)),
+  }),
+
+  aztec_utl_areBlockHashesInArchive: makeEntry({
+    params: [
+      { name: 'anchorBlockHash', type: BLOCK_HASH },
+      { name: 'blockHashes', type: EPHEMERAL_ARRAY(BLOCK_HASH) },
+    ],
+    returnType: EPHEMERAL_ARRAY(BOOL),
   }),
 
   aztec_utl_getNullifierMembershipWitness: makeEntry({
@@ -172,11 +192,18 @@ export const ORACLE_REGISTRY = {
     returnType: BOOL,
   }),
 
-  aztec_utl_getL1ToL2MembershipWitness: makeEntry({
+  aztec_utl_getL1ToL2MembershipWitnessV2: makeEntry({
     params: [
-      { name: 'contractAddress', type: AZTEC_ADDRESS },
       { name: 'messageHash', type: FIELD },
-      { name: 'secret', type: FIELD },
+      {
+        name: 'nullifier',
+        type: OPTION(
+          STRUCT<UnsiloedMessageNullifier>([
+            { name: 'contractAddress', type: AZTEC_ADDRESS },
+            { name: 'nullifier', type: FIELD },
+          ]),
+        ),
+      },
     ],
     returnType: MESSAGE_LOAD_ORACLE_INPUTS,
   }),
@@ -214,7 +241,7 @@ export const ORACLE_REGISTRY = {
     returnType: BOUNDED_VEC(NOTE),
   }),
 
-  aztec_utl_getPendingTaggedLogs: makeEntry({
+  aztec_utl_getPendingTaggedLogsV2: makeEntry({
     params: [
       { name: 'scope', type: AZTEC_ADDRESS },
       { name: 'providedSecrets', type: EPHEMERAL_ARRAY(PROVIDED_SECRET) },
@@ -230,19 +257,24 @@ export const ORACLE_REGISTRY = {
     ],
   }),
 
-  aztec_utl_getLogsByTag: makeEntry({
+  aztec_utl_getLogsByTagV2: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
 
-  aztec_utl_getMessageContextsByTxHash: makeEntry({
+  aztec_utl_getResolvedTxs: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
-    returnType: EPHEMERAL_ARRAY(OPTION(MESSAGE_CONTEXT)),
+    returnType: EPHEMERAL_ARRAY(OPTION(RESOLVED_TX)),
   }),
 
   aztec_utl_getTxEffect: makeEntry({
     params: [{ name: 'txHash', type: TX_HASH }],
     returnType: OPTION(TX_EFFECT),
+  }),
+
+  aztec_utl_getTxEffects: makeEntry({
+    params: [{ name: 'txHashes', type: EPHEMERAL_ARRAY(TX_HASH) }],
+    returnType: EPHEMERAL_ARRAY(OPTION(TX_EFFECT)),
   }),
 
   aztec_utl_setCapsule: makeEntry({
@@ -284,11 +316,11 @@ export const ORACLE_REGISTRY = {
 
   aztec_utl_decryptAes128: makeEntry({
     params: [
-      { name: 'ciphertext', type: BOUNDED_VEC(BYTE) },
-      { name: 'iv', type: BUFFER(8) },
-      { name: 'symKey', type: BUFFER(8) },
+      { name: 'ciphertext', type: BOUNDED_VEC(U8) },
+      { name: 'iv', type: FIXED_ARRAY(U8, 16) },
+      { name: 'symKey', type: FIXED_ARRAY(U8, 16) },
     ],
-    returnType: OPTION(BOUNDED_VEC(BYTE)),
+    returnType: OPTION(BOUNDED_VEC(U8)),
   }),
 
   aztec_utl_getSharedSecrets: makeEntry({
@@ -309,6 +341,46 @@ export const ORACLE_REGISTRY = {
 
   aztec_utl_emitOffchainEffect: makeEntry({
     params: [{ name: 'data', type: ARRAY(FIELD) }],
+  }),
+
+  aztec_utl_recordFact: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+      { name: 'factTypeId', type: FIELD },
+      { name: 'payload', type: EPHEMERAL_ARRAY(FIELD) },
+      { name: 'originBlock', type: OPTION(ORIGIN_BLOCK) },
+    ],
+  }),
+
+  aztec_utl_deleteFactCollection: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+    ],
+  }),
+
+  aztec_utl_getFactCollection: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+    ],
+    returnType: OPTION(FACT_COLLECTION),
+  }),
+
+  aztec_utl_getFactCollectionsByType: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+    ],
+    returnType: EPHEMERAL_ARRAY(FACT_COLLECTION),
   }),
 
   aztec_utl_callUtilityFunction: makeEntry({
@@ -456,7 +528,7 @@ export const ORACLE_REGISTRY = {
 
   aztec_prv_notifyCreatedContractClassLog: makeEntry({
     params: [
-      { name: 'log', type: CONTRACT_CLASS_LOG_INPUT },
+      { name: 'log', type: CONTRACT_CLASS_LOG },
       { name: 'counter', type: U32 },
     ],
   }),
@@ -502,6 +574,23 @@ export const ORACLE_REGISTRY = {
   }),
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
+
+  aztec_prv_resolveTaggingStrategy: makeEntry({
+    params: [
+      { name: 'sender', type: AZTEC_ADDRESS },
+      { name: 'recipient', type: AZTEC_ADDRESS },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
+    ],
+    returnType: RESOLVED_TAGGING_STRATEGY,
+  }),
+
+  aztec_prv_resolveCustomRequest: makeEntry({
+    params: [
+      { name: 'kind', type: FIELD },
+      { name: 'payload', type: ARRAY(FIELD) },
+    ],
+    returnType: ARRAY(FIELD),
+  }),
 } satisfies Record<string, OracleRegistryEntry>;
 
 // ─── Registry Infrastructure ─────────────────────────────────────────────────
@@ -520,6 +609,10 @@ export interface OracleRegistryEntry<
   deserializeParams(inputs: InputSlot[]): TDeserializedParams;
   /** Serialize a handler return value into ACVM output slots. */
   serializeReturn(result: TReturnValue): OutputSlot[];
+  /** The ordered named parameters with their {@link TypeMapping}s. Lets callers introspect the oracle's wire ABI. */
+  readonly params: readonly RegistryParam[];
+  /** The return {@link TypeMapping}, or `undefined` for oracles that return nothing. */
+  readonly returnType?: TypeMapping<TReturnValue>;
 }
 
 export function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = void>({
@@ -530,16 +623,18 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
   returnType?: TypeMapping<TReturnValue>;
 } = {}): OracleRegistryEntry<InferDeserializedParams<TParams>, TReturnValue> {
   return {
+    params: params ?? [],
+    returnType,
     deserializeParams(inputs: InputSlot[]): InferDeserializedParams<TParams> {
       const resolvedParams: RegistryParam[] = params ?? [];
       // Walk the input slots left-to-right, advancing by each param's slot count.
       let offset = 0;
-      return resolvedParams.map(param => {
+      const named = resolvedParams.map(param => {
         if (!param.type.deserialization) {
           throw new Error(`Param '${param.name}' has no deserialization defined`);
         }
         // Collect the slots for this param and wrap each in a FieldReader.
-        const slotCount = param.type.deserialization.slots;
+        const slotCount = slotsOf(param.type);
         const readers = inputs
           .slice(offset, offset + slotCount)
           .map(slot => new FieldReader(slot.map(hex => Fr.fromString(hex))));
@@ -549,7 +644,13 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
         const value = param.type.deserialization.fn(readers);
         assertReadersConsumed(readers);
         return { name: param.name, value };
-      }) as unknown as InferDeserializedParams<TParams>;
+      });
+      // Every input slot must be specified by a param: oracles whose Noir decl passes an extra field must declare it
+      // (the handler can ignore it). Otherwise an under-declared shape would silently drop a field into nothing.
+      if (offset !== inputs.length) {
+        throw new Error(`Oracle received ${inputs.length} input slot(s) but the registry specifies ${offset}`);
+      }
+      return named as unknown as InferDeserializedParams<TParams>;
     },
     serializeReturn(result: TReturnValue): OutputSlot[] {
       if (returnType?.serialization === undefined) {
@@ -563,7 +664,7 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
 }
 
 /** A named oracle parameter with its TypeMapping. */
-interface RegistryParam<TName extends string = string, T = any> {
+export interface RegistryParam<TName extends string = string, T = any> {
   name: TName;
   type: TypeMapping<T>;
 }
@@ -589,14 +690,14 @@ export type ParamTypes<T extends readonly NamedValue[]> = {
  * @example `InferDeserializedParams<[RegistryParam<'addr', AztecAddress>, RegistryParam<'slot', Fr>]>`
  *        → `[NamedValue<'addr', AztecAddress>, NamedValue<'slot', Fr>]`
  */
-type InferDeserializedParams<T extends RegistryParam[]> = {
+export type InferDeserializedParams<T extends RegistryParam[]> = {
   [K in keyof T]: T[K] extends RegistryParam<infer N, infer V> ? NamedValue<N, V> : never;
 };
 
 // ─── Derived Handler Interfaces ─────────────────────────────────────────────
 
 /** Strips the `aztec_{scope}_` prefix from an oracle key to get the handler method name. */
-export type StripOraclePrefix<K extends string> = K extends `aztec_${string}_${infer M}` ? M : never;
+type StripOraclePrefix<K extends string> = K extends `aztec_${string}_${infer M}` ? M : never;
 
 /** Derives the handler function signature from a registry entry's deserialization/serialization types. */
 type HandlerFn<E extends OracleRegistryEntry> = (

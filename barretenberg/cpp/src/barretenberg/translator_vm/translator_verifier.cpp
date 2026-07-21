@@ -12,6 +12,7 @@
 #include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -70,10 +71,10 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     using BF = typename Flavor::BF;
 
     const auto compute_four_limbs = [](const BF& in) {
-        auto result = std::array<FF, 4>{ FF(in.binary_basis_limbs[0].element),
-                                         FF(in.binary_basis_limbs[1].element),
-                                         FF(in.binary_basis_limbs[2].element),
-                                         FF(in.binary_basis_limbs[3].element) };
+        auto result = std::array<FF, 4>{ FF(in.get_limb(0).element),
+                                         FF(in.get_limb(1).element),
+                                         FF(in.get_limb(2).element),
+                                         FF(in.get_limb(3).element) };
         // Ensure extracted limbs are witnesses, not constants
         for (const auto& limb : result) {
             BB_ASSERT(!limb.is_constant());
@@ -82,11 +83,11 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     };
 
     const auto compute_five_limbs = [](const BF& in) {
-        auto result = std::array<FF, 5>{ FF(in.binary_basis_limbs[0].element),
-                                         FF(in.binary_basis_limbs[1].element),
-                                         FF(in.binary_basis_limbs[2].element),
-                                         FF(in.binary_basis_limbs[3].element),
-                                         FF(in.prime_basis_limb) };
+        auto result = std::array<FF, 5>{ FF(in.get_limb(0).element),
+                                         FF(in.get_limb(1).element),
+                                         FF(in.get_limb(2).element),
+                                         FF(in.get_limb(3).element),
+                                         FF(in.get_prime_basis_limb()) };
         // Ensure extracted limbs are witnesses, not constants
         for (const auto& limb : result) {
             BB_ASSERT(!limb.is_constant());
@@ -153,7 +154,7 @@ typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Fl
     // For recursive verification, mark the accumulated result's prime basis limb as used
     // (it can be recovered from binary basis limbs, so no need to constrain it further)
     if constexpr (IsRecursive) {
-        mark_witness_as_used(accumulated_result.prime_basis_limb);
+        mark_witness_as_used(accumulated_result.get_prime_basis_limb());
     }
 
     // Use accumulated_result from ECCVM verifier
@@ -210,7 +211,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         "Sumcheck:gate_challenge", TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);

@@ -89,7 +89,7 @@ import {
 
 const siloAddress = (contractAddress: AztecAddress) => {
   const contractAddressNullifier = siloNullifier(
-    AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+    AztecAddress.fromNumberUnsafe(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
     contractAddress.toField(),
   );
   return contractAddressNullifier;
@@ -159,7 +159,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
     const treesDB = mock<PublicTreesDB>();
     const persistableState = initPersistableStateManager({ treesDB });
-    const address = AztecAddress.fromNumber(1234);
+    const address = AztecAddress.fromNumberUnsafe(1234);
     const env = initExecutionEnvironment({ address });
     const context = initContext({ env, persistableState });
     mockCheckNullifierExists(treesDB, false);
@@ -313,6 +313,44 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.reverted).toBe(false);
       const expectedResult = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
       expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y]);
+    });
+
+    it('reverts off-curve points', async () => {
+      const calldata = new CallDataArray([
+        /* px */ new Fr(1),
+        /* py */ new Fr(1),
+        /* scalar lo */ new Fr(3),
+        /* scalar hi */ new Fr(0),
+        /* scalar2 lo */ new Fr(20),
+        /* scalar2 hi */ new Fr(0),
+      ]);
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('variable_base_msm_with_point');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toMatch(/not on the curve/);
+    });
+
+    it('reverts off-curve points with a zero', async () => {
+      // Native/Brillig multi_scalar_mul validates every input point regardless of its scalar,
+      // so the off-curve point must be rejected rather than skipped (which would return infinity).
+      const calldata = new CallDataArray([
+        /* px */ new Fr(1),
+        /* py */ new Fr(1),
+        /* scalar lo */ new Fr(0),
+        /* scalar hi */ new Fr(0),
+        /* scalar2 lo */ new Fr(20),
+        /* scalar2 hi */ new Fr(0),
+      ]);
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('variable_base_msm_with_point');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toMatch(/not on the curve/);
     });
 
     const fqToLimbs = (fq: Fq): [bigint, bigint] => {
@@ -581,8 +619,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe('Side effects, world state, nested calls', () => {
-    const address = AztecAddress.fromNumber(1);
-    const sender = AztecAddress.fromNumber(42);
+    const address = AztecAddress.fromNumberUnsafe(1);
+    const sender = AztecAddress.fromNumberUnsafe(42);
     const leafIndex = 7n;
     const slotNumber = 1; // must update Noir contract if changing this
     const slot = new Fr(slotNumber);
@@ -909,7 +947,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const contractInstance = new SerializableContractInstance({
           version: 2 as const,
           salt: new Fr(0x123),
-          deployer: AztecAddress.fromBigInt(0x456n),
+          deployer: AztecAddress.fromBigIntUnsafe(0x456n),
           currentContractClassId: new Fr(0x789),
           originalContractClassId: new Fr(0x789),
           initializationHash: new Fr(0x101112),
@@ -1175,8 +1213,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe('Side effects including merkle checks', () => {
-    const address = AztecAddress.fromNumber(1);
-    const sender = AztecAddress.fromNumber(42);
+    const address = AztecAddress.fromNumberUnsafe(1);
+    const sender = AztecAddress.fromNumberUnsafe(42);
 
     const value0 = new Fr(420);
 

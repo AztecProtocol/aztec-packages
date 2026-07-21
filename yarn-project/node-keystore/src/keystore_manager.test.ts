@@ -95,7 +95,9 @@ describe('KeystoreManager', () => {
         validators: [
           {
             attester: EthAddress.random(),
-            feeRecipient: AztecAddress.fromString('0x1111111111111111111111111111111111111111111111111111111111111111'),
+            feeRecipient: AztecAddress.fromStringUnsafe(
+              '0x1111111111111111111111111111111111111111111111111111111111111111',
+            ),
           },
         ],
       };
@@ -105,7 +107,7 @@ describe('KeystoreManager', () => {
 
       expect(
         feeRecipient.equals(
-          AztecAddress.fromString('0x1111111111111111111111111111111111111111111111111111111111111111'),
+          AztecAddress.fromStringUnsafe('0x1111111111111111111111111111111111111111111111111111111111111111'),
         ),
       ).toBeTruthy();
     });

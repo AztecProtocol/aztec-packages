@@ -355,7 +355,8 @@ TEST(ToRadixConstrainingTest, NegativeOverflowCheck)
     ToRadixTraceBuilder builder;
     builder.process(events, trace);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_OVERFLOW_CHECK), "OVERFLOW_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_OVERFLOW_CHECK),
+                              to_radix::get_subrelation_label(to_radix::SR_OVERFLOW_CHECK));
 }
 
 TEST(ToRadixConstrainingTest, NegativeConsistency)
@@ -379,23 +380,26 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
     // Disable the selector in the middle
     trace.set(Column::to_radix_sel, 6, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_TRACE_CONTINUITY),
+                              to_radix::get_subrelation_label(to_radix::SR_TRACE_CONTINUITY));
 
     // Mutate the radix
     trace.set(Column::to_radix_radix, 5, 200);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_RADIX_CONTINUITY), "RADIX_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_RADIX_CONTINUITY),
+                              to_radix::get_subrelation_label(to_radix::SR_RADIX_CONTINUITY));
 
     // Mutate the value
     trace.set(Column::to_radix_value, 4, 27);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_VALUE_CONTINUITY), "VALUE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_VALUE_CONTINUITY),
+                              to_radix::get_subrelation_label(to_radix::SR_VALUE_CONTINUITY));
 
     // Mutate the safe_limbs
     trace.set(Column::to_radix_safe_limbs, 3, 200);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_SAFE_LIMBS_CONTINUITY),
-                              "SAFE_LIMBS_CONTINUITY");
+                              to_radix::get_subrelation_label(to_radix::SR_SAFE_LIMBS_CONTINUITY));
 }
 
 /////////////////////////
@@ -600,13 +604,13 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
 
     // Negative test: disable memory write after the start row:
     trace.set(Column::to_radix_mem_sel_should_write_mem, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY)),
-                              "SEL_SHOULD_WRITE_MEM_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY));
 
     // Negative test: disable decomposition after the start row:
     trace.set(Column::to_radix_mem_sel_should_decompose, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_DECOMPOSE_CONTINUITY)),
-                              "SEL_SHOULD_DECOMPOSE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_DECOMPOSE_CONTINUITY),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_SEL_SHOULD_DECOMPOSE_CONTINUITY));
 }
 
 TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
@@ -902,12 +906,14 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
 
     // Negative test: truncation error should be on if found = false on the start row
     trace.set(C::to_radix_mem_err, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_ERR_COMPUTATION), "ERR_COMPUTATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_ERR_COMPUTATION),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_ERR_COMPUTATION));
     trace.set(C::to_radix_mem_err, 1, 1);
 
     // Negative test: truncation error can't be on if found = true on the start row
     trace.set(C::to_radix_mem_value_found, 1, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_ERR_COMPUTATION), "ERR_COMPUTATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_ERR_COMPUTATION),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_ERR_COMPUTATION));
 }
 
 TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)
@@ -1046,7 +1052,7 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowMemoryWrite_RelationsOnly)
     // The fix: sel_should_write_mem * (1 - sel) = 0
     // When sel=0 and sel_should_write_mem=1: 1 * (1-0) = 1 != 0 -> FAILS
     EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL),
-                              "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL));
 }
 
 // Test that the fix blocks ghost row injection attacks with full traces.
@@ -1114,7 +1120,8 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowInjectionBlocked)
     trace.set(C::memory_sel_to_radix_write, memory_row, 1);
 
     // The fix: sel_should_write_mem * (1 - sel) = 0 should cause the relation check to fail
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace), "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL));
 }
 
 // We test that the bitwise radix error must not be raised when is_output_bits is true and radix is 2
@@ -1135,7 +1142,7 @@ TEST(ToRadixMemoryConstrainingTest, NegativeBitwiseRadixError)
     trace.set(C::to_radix_mem_sel_invalid_bitwise_radix, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2),
-                              "IS_OUTPUT_BITS_IMPLY_RADIX_2");
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2));
 }
 
 // We test that the bitwise radix error must be raised when is_output_bits is true and radix is not 2
@@ -1157,7 +1164,7 @@ TEST(ToRadixMemoryConstrainingTest, NegativeBitwiseRadixNoError)
     trace.set(C::to_radix_mem_sel_invalid_bitwise_radix, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2),
-                              "IS_OUTPUT_BITS_IMPLY_RADIX_2");
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2));
 }
 
 } // namespace

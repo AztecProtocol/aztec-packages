@@ -59,17 +59,39 @@ export class FeeProviderImpl implements FeeProvider {
 
   public async getCurrentMinFees(): Promise<GasFees> {
     // Get the current block number
-    const blockNumber = await this.publicClient.getBlockNumber();
+    const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
 
-    // If the L1 block number has changed then chain a new promise to get the current min fees
+    // If the L1 block number has changed then chain a new promise to get the current min fees.
+    // We chain off the previous promise's settlement (via a swallowing catch) rather than its
+    // fulfillment, so a prior rejection does not short-circuit the new computation. If the new
+    // computation fails (e.g. a transient L1 RPC error), reset the cached block number so the
+    // next call recomputes instead of permanently replaying the rejected promise — otherwise a
+    // single transient failure would wedge fee estimation until the next L1 block arrives. Only
+    // clear it if it still points at the block this attempt was for, so a stale rejection from an
+    // older block cannot wipe a marker a newer call already advanced (which would also defeat the
+    // monotonic block-number guard).
     if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
       this.currentL1BlockNumber = blockNumber;
-      this.currentMinFees = this.currentMinFees.then(() => this.computeCurrentMinFees());
+      this.currentMinFees = this.currentMinFees
+        .catch(() => undefined)
+        .then(() =>
+          this.computeCurrentMinFees().catch(err => {
+            if (this.currentL1BlockNumber === blockNumber) {
+              this.currentL1BlockNumber = undefined;
+            }
+            throw err;
+          }),
+        );
     }
     return this.currentMinFees;
   }
 
-  public getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
-    return this.feePredictor.getPredictedMinFees(manaUsage ?? ManaUsageEstimate.Target);
+  public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
+    const [currentMinFees, predictedMinFees] = await Promise.all([
+      this.getCurrentMinFees(),
+      this.feePredictor.getPredictedMinFees(manaUsage ?? ManaUsageEstimate.Target),
+    ]);
+
+    return [currentMinFees, ...predictedMinFees];
   }
 }

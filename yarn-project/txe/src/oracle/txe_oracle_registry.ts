@@ -4,27 +4,38 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { withHexPrefix, withoutHexPrefix } from '@aztec/foundation/string';
+import type { TaggingSecretStrategy } from '@aztec/pxe/server';
 import {
   ARRAY,
   AZTEC_ADDRESS,
-  BIGINT,
   BLOCK_NUMBER,
   BOOL,
+  ETH_ADDRESS,
   FIELD,
+  FIXED_ARRAY,
   FUNCTION_SELECTOR,
   type InputSlot,
+  LEAF,
   type MaybePromise,
   OPTION,
   ORACLE_REGISTRY,
   type OracleRegistryEntry,
+  type OutputSlot,
   type ParamTypes,
+  SCALAR,
   STR,
+  STRUCT,
+  type SlotShape,
   type TypeMapping,
   U32,
+  U64,
+  buildACIRCallback,
   makeEntry,
 } from '@aztec/pxe/simulator';
 import { EventSelector } from '@aztec/stdlib/abi';
@@ -42,28 +53,86 @@ import {
 } from '../constants.js';
 import type { ForeignCallArgs, ForeignCallResult } from '../utils/encoding.js';
 
-const GAS_SETTINGS: TypeMapping<GasSettings> = {
-  serialization: { fn: v => v.toFields() },
+// Spreading `ORACLE_REGISTRY` re-materializes its entries into `TXE_ORACLE_REGISTRY`'s inferred type, which names the
+// protocol types below. Re-exporting them gives tsc a portable path to each instead of falling back to a deep
+// node_modules path that breaks .d.ts portability (TS2742).
+export type { ContractClassLogData, EmbeddedCurvePoint, TxEffectData } from '@aztec/pxe/simulator';
+export type { BlockHash } from '@aztec/stdlib/block';
+export type { MembershipWitness } from '@aztec/foundation/trees';
+export type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+
+const GAS_SETTINGS: TypeMapping<GasSettings> = LEAF({
+  kind: 'gas-settings',
   deserialization: {
     fn: ([reader]) => GasSettings.fromFields(reader.readFieldArray(GAS_SETTINGS_LENGTH)),
-    slots: 1,
   },
-};
+  shape: [{ len: GAS_SETTINGS_LENGTH }],
+});
 
-const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = {
+// Tagging secret strategy discriminants. Must match the Noir test helper `TaggingSecretStrategy` in
+// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategies`
+// reads it), so the mapping lives here on the TXE side rather than in the production oracle type mappings.
+const STRATEGY_NON_INTERACTIVE_HANDSHAKE = 1;
+const STRATEGY_ARBITRARY_SECRET = 2;
+const STRATEGY_ADDRESS_DERIVED = 3;
+const STRATEGY_INTERACTIVE_HANDSHAKE = 4;
+
+const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = LEAF({
+  kind: 'tagging-secret-strategy',
+  serialization: {
+    fn: strategy => {
+      switch (strategy.type) {
+        case 'non-interactive-handshake':
+          return [new Fr(STRATEGY_NON_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
+        case 'interactive-handshake':
+          return [new Fr(STRATEGY_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
+        case 'address-derived':
+          return [new Fr(STRATEGY_ADDRESS_DERIVED), Fr.ZERO, Fr.ZERO];
+        case 'arbitrary-secret':
+          return [new Fr(STRATEGY_ARBITRARY_SECRET), strategy.secret.x, strategy.secret.y];
+      }
+    },
+  },
+  deserialization: {
+    fn: ([kindReader, xReader, yReader]) => {
+      const kind = kindReader.readField().toNumber();
+      const [x, y] = [xReader.readField(), yReader.readField()];
+      switch (kind) {
+        case STRATEGY_NON_INTERACTIVE_HANDSHAKE:
+          return { type: 'non-interactive-handshake' };
+        case STRATEGY_INTERACTIVE_HANDSHAKE:
+          return { type: 'interactive-handshake' };
+        case STRATEGY_ADDRESS_DERIVED:
+          return { type: 'address-derived' };
+        case STRATEGY_ARBITRARY_SECRET:
+          return { type: 'arbitrary-secret', secret: Point.fromFields([x, y]) };
+        default:
+          throw new Error(`Unrecognized tagging secret strategy kind: ${kind}`);
+      }
+    },
+  },
+  shape: ['scalar', 'scalar', 'scalar'],
+});
+
+const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = LEAF({
+  kind: 'private-context-inputs',
   serialization: { fn: v => v.toFields() },
-};
+  shape: Array<SlotShape>(PRIVATE_CONTEXT_INPUTS_LENGTH).fill('scalar'),
+});
 
-const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = {
+const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = LEAF({
+  kind: 'complete-address',
   serialization: { fn: v => [v.address.toField(), ...v.publicKeys.toFields()] },
-};
+  shape: Array<SlotShape>(8).fill('scalar'), // address + 7 public-key fields
+});
 
 const TXE_TX_EFFECTS: TypeMapping<{
   txHash: TxHash;
   noteHashes: Fr[];
   nullifiers: Fr[];
   privateLogs: PrivateLog[];
-}> = {
+}> = LEAF({
+  kind: 'txe-tx-effects',
   serialization: {
     fn: ({ txHash, noteHashes, nullifiers, privateLogs }) => {
       const emittedLogs = privateLogs.map(log => log.getEmittedFields());
@@ -91,9 +160,21 @@ const TXE_TX_EFFECTS: TypeMapping<{
       ] as (Fr | Fr[])[];
     },
   },
-};
+  // txHash, padded note hashes + count, padded nullifiers + count, flattened private-log storage + lengths + count.
+  shape: [
+    'scalar',
+    { len: MAX_NOTE_HASHES_PER_TX },
+    'scalar',
+    { len: MAX_NULLIFIERS_PER_TX },
+    'scalar',
+    { len: MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS },
+    { len: MAX_PRIVATE_LOGS_PER_TX },
+    'scalar',
+  ],
+});
 
-const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = {
+const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = LEAF({
+  kind: 'txe-offchain-effects',
   serialization: {
     fn: ({ effects }) => {
       const rawArrayStorage = effects
@@ -109,27 +190,41 @@ const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = {
       return [rawArrayStorage, effectLengths, new Fr(effects.length)] as (Fr | Fr[])[];
     },
   },
-};
+  // Flattened effect storage, per-effect lengths, then the effect count.
+  shape: [
+    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY * MAX_OFFCHAIN_EFFECT_LEN },
+    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY },
+    'scalar',
+  ],
+});
 
-const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }> = {
+const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }> = LEAF({
+  kind: 'txe-call-context',
   serialization: {
     fn: ({ txHash, anchorBlockTimestamp }) => {
       const isSome = txHash.isZero() ? 0 : 1;
       return [new Fr(isSome), txHash, new Fr(anchorBlockTimestamp)];
     },
   },
-};
+  shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
+});
 
-const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ member: Fr; exists: boolean }> = {
-  serialization: { fn: ({ member, exists }) => [member, new Fr(exists)] },
-};
+const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
+  STRUCT([
+    { name: 'exists', type: BOOL },
+    { name: 'member', type: FIELD },
+  ]),
+  1,
+);
 
-const EVENT_SELECTOR: TypeMapping<EventSelector> = {
+const EVENT_SELECTOR: TypeMapping<EventSelector> = SCALAR({
+  kind: 'event-selector',
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()), slots: 1 },
-};
+  deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()) },
+});
 
-const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
+const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = LEAF({
+  kind: 'txe-private-events',
   serialization: {
     fn: events => {
       const rawArrayStorage = events
@@ -144,7 +239,13 @@ const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
       return [rawArrayStorage, eventLengths, new Fr(events.length)] as (Fr | Fr[])[];
     },
   },
-};
+  // Flattened event storage, per-event lengths, then the event count.
+  shape: [
+    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY * MAX_PRIVATE_EVENT_LEN },
+    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY },
+    'scalar',
+  ],
+});
 
 export const TXE_ORACLE_REGISTRY = {
   ...ORACLE_REGISTRY,
@@ -179,14 +280,14 @@ export const TXE_ORACLE_REGISTRY = {
 
   aztec_txe_getNextBlockNumber: makeEntry({ returnType: BLOCK_NUMBER }),
 
-  aztec_txe_getNextBlockTimestamp: makeEntry({ returnType: BIGINT }),
+  aztec_txe_getNextBlockTimestamp: makeEntry({ returnType: U64 }),
 
   aztec_txe_advanceBlocksBy: makeEntry({
     params: [{ name: 'blocks', type: U32 }],
   }),
 
   aztec_txe_advanceTimestampBy: makeEntry({
-    params: [{ name: 'duration', type: BIGINT }],
+    params: [{ name: 'duration', type: U64 }],
   }),
 
   aztec_txe_deploy: makeEntry({
@@ -219,8 +320,29 @@ export const TXE_ORACLE_REGISTRY = {
     ],
   }),
 
+  aztec_txe_sendL1ToL2Message: makeEntry({
+    params: [
+      { name: 'content', type: FIELD },
+      { name: 'secretHash', type: FIELD },
+      { name: 'sender', type: ETH_ADDRESS },
+      { name: 'recipient', type: AZTEC_ADDRESS },
+    ],
+    returnType: FIELD,
+  }),
+
+  aztec_txe_setTaggingSecretStrategies: makeEntry({
+    params: [
+      { name: 'unconstrainedStrategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
+      { name: 'constrainedStrategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
+    ],
+  }),
+
+  aztec_txe_setAuthorizeAllUtilityCallTargets: makeEntry({
+    params: [{ name: 'authorizeAll', type: BOOL }],
+  }),
+
   aztec_txe_getLastBlockTimestamp: makeEntry({
-    returnType: BIGINT,
+    returnType: U64,
   }),
 
   aztec_txe_getLastTxEffects: makeEntry({ returnType: TXE_TX_EFFECTS }),
@@ -253,6 +375,7 @@ export const TXE_ORACLE_REGISTRY = {
 
   aztec_txe_executeUtilityFunction: makeEntry({
     params: [
+      { name: 'from', type: OPTION(AZTEC_ADDRESS) },
       { name: 'targetContractAddress', type: AZTEC_ADDRESS },
       { name: 'functionSelector', type: FUNCTION_SELECTOR },
       { name: 'args', type: ARRAY(FIELD) },
@@ -278,7 +401,7 @@ export const TXE_ORACLE_REGISTRY = {
 
   aztec_avm_blockNumber: makeEntry({ returnType: BLOCK_NUMBER }),
 
-  aztec_avm_timestamp: makeEntry({ returnType: BIGINT }),
+  aztec_avm_timestamp: makeEntry({ returnType: U64 }),
 
   aztec_avm_isStaticCall: makeEntry({ returnType: BOOL }),
 
@@ -318,7 +441,7 @@ export const TXE_ORACLE_REGISTRY = {
     params: [{ name: 'message', type: ARRAY(FIELD) }],
   }),
 
-  aztec_avm_returndataSize: makeEntry({ returnType: FIELD }),
+  aztec_avm_returndataSize: makeEntry({ returnType: U32 }),
 
   aztec_avm_returndataCopy: makeEntry({
     params: [
@@ -336,7 +459,6 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'argsLength', type: U32 },
       { name: 'args', type: ARRAY(FIELD) },
     ],
-    returnType: ARRAY(FIELD),
   }),
 
   aztec_avm_staticCall: makeEntry({
@@ -347,10 +469,9 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'argsLength', type: U32 },
       { name: 'args', type: ARRAY(FIELD) },
     ],
-    returnType: ARRAY(FIELD),
   }),
 
-  aztec_avm_successCopy: makeEntry({ returnType: FIELD }),
+  aztec_avm_successCopy: makeEntry({ returnType: BOOL }),
 
   aztec_avm_getContractInstanceDeployer: makeEntry({
     params: [{ name: 'address', type: AZTEC_ADDRESS }],
@@ -370,6 +491,11 @@ export const TXE_ORACLE_REGISTRY = {
   }),
 } satisfies Record<string, OracleRegistryEntry>;
 
+export function toInputSlots(inputs: ForeignCallArgs): InputSlot[] {
+  // TXE foreign calls use bare hex strings, but Fr.fromString requires a 0x prefix to parse as hex.
+  return inputs.map(v => (Array.isArray(v) ? (v as string[]).map(withHexPrefix) : [withHexPrefix(v as string)]));
+}
+
 /**
  * Deserializes oracle inputs, calls the handler with typed params, serializes the result, and wraps
  * it in a `ForeignCallResult`. Normalizes `ForeignCallArgs` (which may contain bare strings) into
@@ -387,14 +513,40 @@ export async function callTxeHandler<K extends keyof typeof TXE_ORACLE_REGISTRY>
   ) => MaybePromise<Parameters<(typeof TXE_ORACLE_REGISTRY)[K]['serializeReturn']>[0]>;
 }): Promise<ForeignCallResult> {
   const entry = TXE_ORACLE_REGISTRY[oracle] as OracleRegistryEntry;
-  // TXE foreign calls use bare hex strings, but Fr.fromString requires a 0x prefix to parse as hex.
-  const normalized: InputSlot[] = inputs.map(v =>
-    Array.isArray(v) ? (v as string[]).map(withHexPrefix) : [withHexPrefix(v as string)],
-  );
-  const named = entry.deserializeParams(normalized);
+  const named = entry.deserializeParams(toInputSlots(inputs));
   const positional = named.map((p: { value: unknown }) => p.value);
   const result = await handler(positional as any);
-  const outputSlots = entry.serializeReturn(result);
+  return outputSlotsToForeignCallResult(entry.serializeReturn(result));
+}
+
+/**
+ * Dispatches an oracle that has been retired into the PXE legacy registry. TXE has no explicit handler method for such
+ * names; this runs them through the same `buildACIRCallback` legacy path that contract execution already uses, so
+ * TXE's top-level oracle path and its in-contract path treat the legacy registry identically.
+ */
+const legacyCallbacksByHandler = new WeakMap<object, ReturnType<typeof buildACIRCallback>>();
+
+export async function callTxeLegacyHandler(
+  oracle: string,
+  inputs: ForeignCallArgs,
+  oracleHandler: Parameters<typeof buildACIRCallback>[0],
+): Promise<ForeignCallResult> {
+  // `buildACIRCallback` materializes the whole real+legacy closure set, so memoize it per handler rather than
+  // rebuilding on every call (TXE routes one legacy oracle through here on each top-level discovery).
+  let callback = legacyCallbacksByHandler.get(oracleHandler);
+  if (!callback) {
+    callback = buildACIRCallback(oracleHandler);
+    legacyCallbacksByHandler.set(oracleHandler, callback);
+  }
+  const outputSlots = await callback[oracle](...toInputSlots(inputs));
+  return outputSlotsToForeignCallResult(outputSlots);
+}
+
+/**
+ * Strips the `0x` prefix from each serialized output slot (TXE foreign calls use bare hex strings) and wraps them in a
+ * `ForeignCallResult`.
+ */
+function outputSlotsToForeignCallResult(outputSlots: OutputSlot[]): ForeignCallResult {
   return {
     values: outputSlots.map(slot => (Array.isArray(slot) ? slot.map(withoutHexPrefix) : withoutHexPrefix(slot))),
   };

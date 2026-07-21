@@ -216,6 +216,12 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     // Initialize stagger witness
     field_ct stagger_fragment = witness_ct(builder, first_fragment);
 
+    // When stagger == 0 the fragment is structurally 0 (see `get_staggered_wnaf_fragment_value`) and is likely
+    // never consumed downstream.
+    if (stagger == 0) {
+        stagger_fragment.assert_equal(0, "biggroup_nafs: stagger fragment must be 0 when stagger == 0");
+    }
+
     // We only range constrain the stagger fragment if range_constrain_wnaf is set. This is because in some cases
     // we may use the stagger fragment to lookup in a ROM/regular table, which implicitly enforces the range constraint.
     if (range_constrain_wnaf) {
@@ -229,8 +235,7 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     secp256k1_wnaf wnaf_out{ .wnaf = wnaf,
                              .positive_skew = positive_skew,
                              .negative_skew = negative_skew,
-                             .least_significant_wnaf_fragment = stagger_fragment,
-                             .has_wnaf_fragment = (stagger > 0) };
+                             .least_significant_wnaf_fragment = stagger_fragment };
 
     return std::make_pair(reconstructed, wnaf_out);
 }
@@ -420,14 +425,9 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     uint512_t scalar_multiplier_512 = uint512_t(scalar.get_value()) % uint512_t(Fr::modulus);
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
 
-    // Number of rounds is either the max_num_bits provided, or the full size of the scalar field modulus.
-    // If the scalar is zero, we use the full size of the scalar field modulus as we use scalar = r in this case.
-    const size_t num_rounds = (max_num_bits == 0 || scalar_multiplier == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-    // NAF can't handle 0 so we set scalar = r in this case.
-    if (scalar_multiplier == 0) {
-        scalar_multiplier = Fr::modulus;
-    }
+    // Number of rounds is determined purely by `max_num_bits`
+    // `max_num_bits == 0` means "use the full scalar-field width".
+    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
     // NAF representation consists of num_rounds bits and a skew bit.
     // Given a scalar k, we compute the NAF representation as follows:
@@ -459,9 +459,12 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         naf_entries[num_rounds - i - 1].set_origin_tag(scalar.get_origin_tag());
     }
 
-    // The most significant NAF entry is always (+1) as we are working with scalars < 2^{max_num_bits}.
-    // Recall that true represents (-1) and false represents (+1).
+    // The most significant NAF entry is always (+1) for scalars < 2^{max_num_bits} (false = +1).
+    // We need to pin it to false: `process_strauss_msm_rounds` does not consume `naf_entries[0]`
+    // (it hardcodes the +1 contribution via `get_chain_initial_entry`), so the 0-th naf entry is
+    // effectively used only for reconstructing the scalar.
     naf_entries[0] = bool_ct(witness_ct(builder, false), /*use_range_constraint*/ true);
+    naf_entries[0].fix_witness();
     naf_entries[0].set_origin_tag(scalar.get_origin_tag());
 
     // validate correctness of NAF

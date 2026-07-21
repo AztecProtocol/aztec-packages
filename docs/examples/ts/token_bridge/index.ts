@@ -28,9 +28,10 @@ console.log("Setting up L2...\n");
 const node = createAztecNodeClient("http://localhost:8080");
 const aztecWallet = await EmbeddedWallet.create(node);
 const [accData] = await getInitialTestAccountsData();
-const account = await aztecWallet.createSchnorrAccount(
+const account = await aztecWallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
+  accData.signingKey,
 );
 console.log(`Account: ${account.address.toString()}\n`);
 
@@ -304,7 +305,10 @@ console.log("Block proven!\n");
 
 // Compute the membership witness using the message hash and the L2 tx hash.
 // The node picks the smallest partial-proof root that covers the tx's checkpoint.
-const witness = await node.getL2ToL1MembershipWitness(exitReceipt.txHash, msgLeaf);
+const witness = await node.getL2ToL1MembershipWitness(
+  exitReceipt.txHash,
+  msgLeaf,
+);
 const epoch = witness!.epochNumber;
 const numCheckpointsInEpoch = witness!.numCheckpointsInEpoch;
 console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);

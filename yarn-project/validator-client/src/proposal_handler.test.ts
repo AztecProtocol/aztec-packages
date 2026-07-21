@@ -1,16 +1,18 @@
 import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
-import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { type Checkpoint, CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -19,6 +21,7 @@ import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
+  makeBlockProposal,
   makeCheckpointHeader,
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
@@ -90,7 +93,7 @@ describe('ProposalHandler checkpoint validation', () => {
       rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
     } as ValidatorClientFullConfig;
 
-    consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants(), blockDuration: undefined });
+    consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants(), blockDuration: 3 });
 
     handler = new ProposalHandler(
       checkpointsBuilder,
@@ -300,7 +303,7 @@ describe('ProposalHandler checkpoint validation', () => {
         checkpointHandler = handler;
       });
 
-      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>>();
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData' | 'getL1Constants'>>();
       archiver.addProposedCheckpoint.mockResolvedValue(undefined);
 
       const blockData = {
@@ -353,27 +356,133 @@ describe('ProposalHandler checkpoint validation', () => {
   });
 
   describe('own checkpoint proposal handling', () => {
-    it('skips validation and does not touch the archiver for own proposals', async () => {
-      // The proposer's own proposed checkpoint is now set locally by the sequencer job, not via the
-      // p2p loopback, so the all-nodes handler must not re-validate or re-add it.
+    /** Registers the handler with the given own-validator addresses and returns the captured callback. */
+    function registerWithOwnAddresses(
+      addresses: string[],
+      archiver: MockProxy<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>,
+    ) {
+      const p2p = mock<P2P>();
+      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(h => {
+        checkpointHandler = h;
+      });
+      handler.register(p2p, true, archiver, () => addresses);
+      return checkpointHandler!;
+    }
+
+    it('takes the idempotent fast path when a matching proposed checkpoint already exists', async () => {
+      // True local proposer: its sequencer job already pushed a proposed checkpoint with this exact
+      // archive. The all-nodes handler must not re-validate or re-add it.
       const signer = Secp256k1Signer.random();
       const proposal = await makeProposal({ signer });
 
-      const p2p = mock<P2P>();
-      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
-      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
-        checkpointHandler = handler;
-      });
-
-      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint'>>();
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>();
+      archiver.getProposedCheckpointData.mockResolvedValue({
+        archive: new AppendOnlyTreeSnapshot(proposal.archive, 1),
+      } as ProposedCheckpointData);
       const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
 
-      handler.register(p2p, true, archiver, () => [signer.address.toString()]);
-      await checkpointHandler!(proposal, {} as any);
+      const checkpointHandler = registerWithOwnAddresses([signer.address.toString()], archiver);
+      await checkpointHandler(proposal, {} as any);
 
       expect(handleSpy).not.toHaveBeenCalled();
       expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
-      expect(blockSource.getBlockData).not.toHaveBeenCalled();
+    });
+
+    it('validates and hydrates when no proposed checkpoint exists yet (HA peer)', async () => {
+      // HA peer that shares the proposer's keys but never built the checkpoint: it has nothing stored, so
+      // it falls through to the normal validate-then-persist path to hydrate the proposed-checkpoint
+      // metadata it needs to build the next slot.
+      const signer = Secp256k1Signer.random();
+      const checkpointHeader = makeCheckpointHeader(0, { slotNumber: SlotNumber(1), totalManaUsed: new Fr(4242) });
+      const proposal = await makeProposal({ signer, checkpointHeader, feeAssetPriceModifier: 7n });
+
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>();
+      archiver.getProposedCheckpointData.mockResolvedValue(undefined);
+      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
+
+      const blockData = {
+        checkpointNumber: CheckpointNumber(3),
+        header: { getBlockNumber: () => 9 },
+        indexWithinCheckpoint: 2,
+      } as BlockData;
+      blockSource.getBlockData.mockResolvedValue(blockData);
+
+      const handleSpy = jest
+        .spyOn(handler, 'handleCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
+
+      const checkpointHandler = registerWithOwnAddresses([signer.address.toString()], archiver);
+      await checkpointHandler(proposal, {} as any);
+
+      // Own-but-missing falls through to full checkpoint validation, then persists the derived metadata:
+      // checkpoint number, start block (blockNumber - index), block count (index + 1), total mana from the
+      // proposal header, and fee modifier from the proposal.
+      expect(handleSpy).toHaveBeenCalled();
+      expect(archiver.addProposedCheckpoint).toHaveBeenCalledWith({
+        header: proposal.checkpointHeader,
+        checkpointNumber: CheckpointNumber(3),
+        startBlock: BlockNumber(7),
+        blockCount: 3,
+        totalManaUsed: 4242n,
+        feeAssetPriceModifier: 7n,
+      });
+    });
+
+    it('validates (no special-casing) when an existing proposed checkpoint has a different archive', async () => {
+      // Own proposal whose stored proposed checkpoint has a different archive root: there is no conflict
+      // special-case, so it falls through to the normal validate path like any other proposal.
+      const signer = Secp256k1Signer.random();
+      const proposal = await makeProposal({ signer });
+
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>();
+      archiver.getProposedCheckpointData.mockResolvedValue({
+        archive: new AppendOnlyTreeSnapshot(Fr.random(), 1),
+      } as ProposedCheckpointData);
+      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
+
+      const blockData = {
+        checkpointNumber: CheckpointNumber(3),
+        header: { getBlockNumber: () => 9 },
+        indexWithinCheckpoint: 2,
+      } as BlockData;
+      blockSource.getBlockData.mockResolvedValue(blockData);
+
+      const handleSpy = jest
+        .spyOn(handler, 'handleCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
+
+      const checkpointHandler = registerWithOwnAddresses([signer.address.toString()], archiver);
+      await checkpointHandler(proposal, {} as any);
+
+      expect(handleSpy).toHaveBeenCalled();
+    });
+
+    it('still validates and sets the proposed checkpoint for foreign proposals', async () => {
+      // A proposal signed by a key this node does not own follows the normal validate-then-persist path.
+      const proposal = await makeProposal();
+
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>();
+      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
+
+      const blockData = {
+        checkpointNumber: CheckpointNumber(3),
+        header: { getBlockNumber: () => 9 },
+        indexWithinCheckpoint: 2,
+      } as BlockData;
+      blockSource.getBlockData.mockResolvedValue(blockData);
+
+      const handleSpy = jest
+        .spyOn(handler, 'handleCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
+
+      // Own-validator addresses that do NOT match the proposal signer, so the proposal is foreign.
+      const checkpointHandler = registerWithOwnAddresses([Secp256k1Signer.random().address.toString()], archiver);
+      await checkpointHandler(proposal, {} as any);
+
+      expect(handleSpy).toHaveBeenCalled();
+      expect(archiver.getProposedCheckpointData).not.toHaveBeenCalled();
+      expect(archiver.addProposedCheckpoint).toHaveBeenCalled();
     });
   });
 
@@ -383,8 +492,12 @@ describe('ProposalHandler checkpoint validation', () => {
     let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
     let mockDispose: jest.Mock;
 
-    /** Sets up mocks so the handler passes all early checks and reaches the checkpoint rebuild path. */
-    function setupDeepValidationMocks(computedCheckpoint: Partial<Checkpoint>) {
+    /**
+     * Sets up mocks so the handler passes all early checks and reaches the checkpoint rebuild path.
+     * `forkArchiveRoot` is the archive root the forked world state reports; it must match the proposal
+     * header's lastArchiveRoot (default Fr.ZERO, as CheckpointHeader.empty) to pass the fork archive check.
+     */
+    function setupDeepValidationMocks(computedCheckpoint: Partial<Checkpoint>, forkArchiveRoot: Fr = Fr.ZERO) {
       // Block with matching archive so the early archive check passes
       const block = {
         archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
@@ -397,7 +510,10 @@ describe('ProposalHandler checkpoint validation', () => {
       blockSource.getBlocksForSlot.mockResolvedValue([block]);
 
       mockDispose = jest.fn();
-      checkpointsBuilder.getFork.mockResolvedValue({ [Symbol.asyncDispose]: mockDispose } as any);
+      checkpointsBuilder.getFork.mockResolvedValue({
+        [Symbol.asyncDispose]: mockDispose,
+        getTreeInfo: () => Promise.resolve({ root: forkArchiveRoot.toBuffer() }),
+      } as any);
 
       mockCheckpointBuilder = mock<CheckpointBuilder>();
       mockCheckpointBuilder.completeCheckpoint.mockResolvedValue({
@@ -510,14 +626,17 @@ describe('ProposalHandler checkpoint validation', () => {
         toBlobFields: () => [],
       } as unknown as L2Block;
 
-      setupDeepValidationMocks({
-        header,
-        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
-        blocks: [minimalBlock],
-        number: CheckpointNumber(1),
-        slot: SlotNumber(1),
-        toBlobFields: () => [],
-      });
+      setupDeepValidationMocks(
+        {
+          header,
+          archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+          blocks: [minimalBlock],
+          number: CheckpointNumber(1),
+          slot: SlotNumber(1),
+          toBlobFields: () => [],
+        },
+        lastArchiveRoot,
+      );
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
@@ -531,6 +650,152 @@ describe('ProposalHandler checkpoint validation', () => {
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
       await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(mockDispose).toHaveBeenCalled();
+    });
+
+    // Parent of the single block (number 1) used across the deep-validation setup.
+    const parentBlockNumber = BlockNumber(0);
+
+    // getFork syncs world state to the parent block before forking (see FullNodeCheckpointsBuilder tests).
+    // This asserts the caller forks at the parent block number (one before the checkpoint's first block),
+    // passing the parent's block hash (looked up from the block source) for reorg detection.
+    it('forks at the parent block number, passing its block hash', async () => {
+      const parentBlockHash = BlockHash.random();
+      setupDeepValidationMocks({ header: makeHeader({ totalManaUsed: new Fr(999) }) });
+      blockSource.getBlockData.mockResolvedValue({
+        header: makeBlockHeader(),
+        blockHash: parentBlockHash,
+      } as BlockData);
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
+      await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      expect(checkpointsBuilder.getFork).toHaveBeenCalledWith(parentBlockNumber, parentBlockHash);
+    });
+
+    // If world state forked from a different chain than the proposal was built on (e.g. a reorg), the fork's
+    // archive root will not match the checkpoint's expected starting archive. Fail fast before rebuilding.
+    it('returns initial_archive_mismatch when the fork archive does not match the last archive', async () => {
+      // Fork reports a different archive root than the proposal header's lastArchiveRoot (Fr.ZERO).
+      setupDeepValidationMocks({ header: makeHeader() }, Fr.random());
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'initial_archive_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
+      expect(mockDispose).toHaveBeenCalled();
+    });
+
+    // Regression: on a live node the archiver held block N (so getBlocksForSlot succeeds) while world state
+    // still trailed at N-1, so forking the parent threw "Unable to initialize from future block" and the raw
+    // tree error escaped as an uncaught gossipsub error. Validation must map any fork failure to a clean
+    // result instead of letting it escape.
+    it('returns world_state_not_synced when forking the parent block fails', async () => {
+      setupDeepValidationMocks({ header: makeHeader() });
+      checkpointsBuilder.getFork.mockRejectedValue(
+        new Error('Unable to initialize from future block: 1 unfinalizedBlockHeight: 0. Tree name: NullifierTree'),
+      );
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'world_state_not_synced',
+        checkpointNumber: CheckpointNumber(1),
+      });
+    });
+  });
+
+  // Regression for A-1218: during a reorg the archiver can still hold a stale block at the proposal's
+  // number (a different archive, about to be pruned) while the proposal carries the rebuilt replacement.
+  // The block-number guard used to key on number only and permanently drop the rebuilt proposal, so the
+  // node never re-acquired the block and missed the later checkpoint attestation. The guard must reject
+  // only genuine duplicates (same archive) and otherwise wait for the local prune.
+  describe('handleBlockProposal block-number guard (reorg-aware)', () => {
+    /**
+     * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
+     * handler wired to accept it up to the block-number guard.
+     */
+    async function setupGenesisProposal(proposalArchive: Fr) {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+        archiveRoot: proposalArchive,
+      });
+
+      // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
+      blockSource.getGenesisValues.mockResolvedValue({
+        genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
+      } as any);
+
+      const blockProposalValidator = mock<BlockProposalValidator>();
+      blockProposalValidator.validate.mockResolvedValue({ result: 'accept' } as any);
+
+      const txProvider = mock<ITxProvider>();
+      txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
+
+      const blockHandler = new ProposalHandler(
+        checkpointsBuilder,
+        mock<WorldStateSynchronizer>(),
+        blockSource,
+        l1ToL2MessageSource,
+        txProvider,
+        blockProposalValidator,
+        epochCache,
+        consensusTimetable,
+        config,
+        mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
+        metrics,
+        dateProvider,
+      );
+      return { proposal, blockHandler };
+    }
+
+    /** Block-data stub at the target number with the given archive root. */
+    const blockAt = (archiveRoot: Fr) => ({ archive: new AppendOnlyTreeSnapshot(archiveRoot, 1) }) as BlockData;
+
+    it('rejects a genuine duplicate (existing block has the same archive)', async () => {
+      const archive = Fr.random();
+      const { proposal, blockHandler } = await setupGenesisProposal(archive);
+      blockSource.getBlockData.mockResolvedValue(blockAt(archive));
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'block_number_already_exists',
+      });
+    });
+
+    it('processes a rebuilt proposal once the stale fork at this number is pruned', async () => {
+      const { proposal, blockHandler } = await setupGenesisProposal(Fr.random());
+      // Well before the slot-1 attestation deadline (40s), so the prune wait has budget to retry.
+      dateProvider.setTime(1_000);
+      // Stale block (different archive) on the first read, then pruned (undefined) on the retry.
+      blockSource.getBlockData.mockResolvedValueOnce(blockAt(Fr.random())).mockResolvedValue(undefined);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+      expect(blockSource.syncImmediate).toHaveBeenCalled();
+    });
+
+    it('falls back to block_number_already_exists when the stale fork is not pruned before the deadline', async () => {
+      const { proposal, blockHandler } = await setupGenesisProposal(Fr.random());
+      // A different block keeps occupying this number and never gets pruned.
+      blockSource.getBlockData.mockResolvedValue(blockAt(Fr.random()));
+      // attestation_deadline(slot=1) = 40s; hold wall-clock past it so the wait fails fast.
+      dateProvider.setTime(41_000);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'block_number_already_exists',
+      });
     });
   });
 });

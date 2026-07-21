@@ -89,7 +89,7 @@ include "precomputed.pil";
  *
  * The ECC subtrace requires a correctly constrained is_inf flag for each point. We derive it within this circuit by enforcing
  * (0, 0) <==> is_inf for input points P and Q:
- *  - (0, 0) ==> is_inf by #[P/Q_ON_CURVE_CHECK] (zero coordinates will fail this relation unless is_inf is set correctly).
+ *  - (0, 0) ==> is_inf by #[P/Q_NOT_INF_CHECK] (zero coordinates will fail this relation unless is_inf is set correctly).
  *  - is_inf ==> (0, 0) by #[P/Q_INF_X/Y_CHECK].
  * Resulting infinity points are guaranteed to be (0, 0) by the ECC subtrace (see #[OUTPUT_X_COORD] and #[OUTPUT_Y_COORD]).
  */
@@ -144,8 +144,6 @@ namespace ecc_add_mem;
     pol commit sel_q_not_on_curve_err; // @boolean
     sel_q_not_on_curve_err * (1 - sel_q_not_on_curve_err) = 0;
 
-    // Note: The below additionally constrains that (X, Y) == (INFINITY_X, INFINITY_Y) ==> is_inf. See above description.
-
     // Y^2 = X^3 − 17, re-formulate to Y^2 - (X^3 - 17) = 0
     pol commit p_is_on_curve_eqn; // Needs to be committed to reduce relation degrees
     pol P_X3 = p_x * p_x * p_x;
@@ -178,7 +176,8 @@ namespace ecc_add_mem;
     pol commit sel_should_exec; // @boolean (by definition)
     sel_should_exec = sel * (1 - err);
 
-    // Constrains that the infinity flags required for the ecc trace have been set correctly:
+    // Constrains that the infinity flags required for the ecc trace have been set correctly.
+    // is_inf ==> X, Y) == (INFINITY_X, INFINITY_Y):
     #[P_INF_X_CHECK]
     sel * p_is_inf * (p_x - ecc.INFINITY_X) = 0;
     #[P_INF_Y_CHECK]
@@ -188,6 +187,18 @@ namespace ecc_add_mem;
     #[Q_INF_Y_CHECK]
     sel * q_is_inf * (q_y - ecc.INFINITY_Y) = 0;
 
+    // (X, Y) == (INFINITY_X, INFINITY_Y) ==> is_inf:
+    // Required in addition to #[P/Q_INF_X/Y_CHECK] and #[P/Q_ON_CURVE_CHECK] so a legitimate infinity
+    // cannot be processed with is_inf == false to force an incorrect POINT_NOT_ON_CURVE error.
+    pol commit p_x_inf_diff_inv; // @zero-check
+    pol commit p_y_inf_diff_inv; // @zero-check
+    #[P_NOT_INF_CHECK]
+    sel * (p_is_inf - (1 - (p_x - ecc.INFINITY_X) * p_x_inf_diff_inv) * (1 - (p_y - ecc.INFINITY_Y) * p_y_inf_diff_inv)) = 0;
+
+    pol commit q_x_inf_diff_inv; // @zero-check
+    pol commit q_y_inf_diff_inv; // @zero-check
+    #[Q_NOT_INF_CHECK]
+    sel * (q_is_inf - (1 - (q_x - ecc.INFINITY_X) * q_x_inf_diff_inv) * (1 - (q_y - ecc.INFINITY_Y) * q_y_inf_diff_inv)) = 0;
 
     #[INPUT_OUTPUT_ECC_ADD]
     sel_should_exec {

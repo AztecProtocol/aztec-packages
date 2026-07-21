@@ -190,7 +190,10 @@ template <typename LeafType> struct IndexedLeaf {
 
     std::vector<fr> get_hash_inputs() const { return leaf.get_hash_inputs(nextKey, nextIndex); }
 
-    bool is_empty() { return leaf.is_empty(); }
+    // A leaf hashes to zero only when it is the true padding leaf: an empty value with null next pointers.
+    // This matches the Noir definition (e.g. nullifier_leaf_preimage.nr) and prevents a real low leaf whose
+    // value happens to be zero (e.g. the head of the list) from being mistaken for padding.
+    bool is_empty() const { return leaf.is_empty() && nextKey.is_zero() && nextIndex == 0; }
 
     static IndexedLeaf<LeafType> empty() { return { LeafType::empty(), 0, 0 }; }
 

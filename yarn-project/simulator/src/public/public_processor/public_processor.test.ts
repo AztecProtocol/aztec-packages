@@ -1,4 +1,8 @@
-import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
+import {
+  CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
+  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -14,9 +18,10 @@ import { LogHash } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
 import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { GlobalVariables, StateReference, Tx, TxEffect, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import { jest } from '@jest/globals';
 import { strict as assert } from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -227,6 +232,28 @@ describe('public_processor', () => {
       expect(failed).toEqual([]);
     });
 
+    it('rejects a tx whose effects exceed the per-tx blob field limit', async function () {
+      const tx = await mockTxWithPublicCalls();
+      // Per-category side-effect limits make this unreachable in practice, so force an oversized effect
+      // to exercise the defensive guard.
+      const getNumBlobFieldsSpy = jest
+        .spyOn(TxEffect.prototype, 'getNumBlobFields')
+        .mockReturnValue(MAX_TX_BLOB_DATA_SIZE_IN_FIELDS + 1);
+
+      try {
+        const [processed, failed] = await processor.process([tx]);
+
+        expect(processed).toEqual([]);
+        expect(failed.length).toBe(1);
+        expect(failed[0].tx).toEqual(tx);
+        expect(failed[0].error.message).toMatch(/exceeding the per-tx maximum/);
+        // The oversized tx must not be committed to the fork.
+        expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
+      } finally {
+        getNumBlobFieldsSpy.mockRestore();
+      }
+    });
+
     it('does not send a transaction to the prover if pre validation fails', async function () {
       const tx = await mockPrivateOnlyTx();
 
@@ -288,7 +315,7 @@ describe('public_processor', () => {
   });
 
   describe('with fee payer', () => {
-    const feePayer = AztecAddress.fromBigInt(123123n);
+    const feePayer = AztecAddress.fromBigIntUnsafe(123123n);
     const initialBalance = new Fr(1000);
 
     beforeEach(async () => {

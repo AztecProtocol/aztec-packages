@@ -1,10 +1,13 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/lmdb-v2';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
-import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
+import { WASMSimulator } from '@aztec/simulator/client';
+import { MemoryCircuitRecorder, SimulatorRecorderWrapper } from '@aztec/simulator/server';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -12,6 +15,7 @@ import type { PXEConfig } from '../../config/index.js';
 import { PXE } from '../../pxe.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
 import { type PXECreationOptions, isPrivateKernelProver } from '../pxe_creation_options.js';
+import { openStore } from './store.js';
 
 type PXEConfigWithoutDefaults = Omit<
   PXEConfig,
@@ -43,12 +47,25 @@ export async function createPXE(
 
   if (!options.store) {
     const storeLogger = loggers.store ?? createLogger('pxe:data:lmdb', { actor });
-    options.store = await createStore(
-      'pxe_data',
-      PXE_DATA_SCHEMA_VERSION,
-      configWithContracts,
-      storeLogger.getBindings(),
-    );
+    options.store = configWithContracts.dataDirectory
+      ? await openStore(
+          'pxe_data',
+          PXE_DATA_SCHEMA_VERSION,
+          {
+            dataDirectory: configWithContracts.dataDirectory,
+            dataStoreMapSizeKb: configWithContracts.dataStoreMapSizeKb,
+            l1ChainId,
+            rollupAddress: l1ContractAddresses.rollupAddress,
+          },
+          storeLogger.getBindings(),
+        )
+      : await openTmpStore(
+          'pxe_data',
+          true,
+          configWithContracts.dataStoreMapSizeKb,
+          undefined,
+          storeLogger.getBindings(),
+        );
   }
   const proverLogger = loggers.prover ?? createLogger('pxe:bb:native', { actor });
 
@@ -61,12 +78,17 @@ export async function createPXE(
 
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const preloadedContractsProvider = options.preloadedContractsProvider ?? {
-    getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()],
+    getPreloadedContracts: async () => [
+      await getStandardMultiCallEntrypoint(),
+      await getStandardAuthRegistry(),
+      await getStandardHandshakeRegistry(),
+    ],
   };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
     node: aztecNode,
+    nodeDebug: options.nodeDebug,
     store: options.store,
     proofCreator: prover,
     simulator,

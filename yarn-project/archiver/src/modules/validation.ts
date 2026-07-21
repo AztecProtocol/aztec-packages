@@ -1,16 +1,20 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import type { ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
+import { type CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import {
   type AttestationInfo,
+  type CommitteeAttestation,
   type ValidateCheckpointNegativeResult,
   type ValidateCheckpointResult,
   getAttestationInfoFromPayload,
 } from '@aztec/stdlib/block';
-import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CheckpointInfo, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, computeQuorum, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 export type { ValidateCheckpointResult };
 
@@ -26,28 +30,79 @@ export function getAttestationInfoFromPublishedCheckpoint(
   return getAttestationInfoFromPayload(payload, attestations);
 }
 
+/** The subset of a calldata-only checkpoint needed to validate its committee attestations. */
+export type CalldataCheckpointForAttestations = {
+  checkpointNumber: CheckpointNumber;
+  archiveRoot: Fr;
+  feeAssetPriceModifier: bigint;
+  header: CheckpointHeader;
+  attestations: CommitteeAttestation[];
+  /** The exact packed attestations tuple from L1 calldata, carried verbatim for byte-faithful invalidation. */
+  verbatimAttestations: ViemCommitteeAttestations;
+};
+
 /**
- * Validates the attestations submitted for the given checkpoint.
- * Returns true if the attestations are valid and sufficient, false otherwise.
+ * Validates the attestations of a checkpoint from L1 calldata only, without fetching or decoding its blobs.
+ * The signed consensus payload (header, archive root, fee asset price modifier) is fully available from
+ * calldata, so an invalid-attestation checkpoint can be rejected before any (possibly malformed) blob is
+ * fetched and decoded.
  */
-export async function validateCheckpointAttestations(
-  publishedCheckpoint: PublishedCheckpoint,
+export function validateCheckpointAttestationsFromCalldata(
+  checkpoint: CalldataCheckpointForAttestations,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
   signatureContext: CoordinationSignatureContext,
   logger?: Logger,
 ): Promise<ValidateCheckpointResult> {
-  const attestorInfos = getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint, signatureContext);
+  const payload = new ConsensusPayload(
+    checkpoint.header,
+    checkpoint.archiveRoot,
+    checkpoint.feeAssetPriceModifier,
+    signatureContext,
+  );
+  const checkpointInfo: CheckpointInfo = {
+    archive: checkpoint.archiveRoot,
+    lastArchive: checkpoint.header.lastArchiveRoot,
+    slotNumber: checkpoint.header.slotNumber,
+    checkpointNumber: checkpoint.checkpointNumber,
+    timestamp: checkpoint.header.timestamp,
+  };
+  return validateAttestations(
+    payload,
+    checkpoint.attestations,
+    checkpoint.verbatimAttestations,
+    checkpointInfo,
+    epochCache,
+    constants,
+    logger,
+  );
+}
+
+/**
+ * Core attestation validation over a consensus payload, its attestations, and checkpoint metadata --
+ * independent of whether the checkpoint's blocks have been decoded from blobs. Returns true if the
+ * attestations are valid and sufficient, false otherwise.
+ */
+export async function validateAttestations(
+  payload: ConsensusPayload,
+  attestations: CommitteeAttestation[],
+  verbatimAttestations: ViemCommitteeAttestations,
+  checkpointInfo: CheckpointInfo,
+  epochCache: EpochCache,
+  constants: Pick<L1RollupConstants, 'epochDuration'>,
+  logger?: Logger,
+): Promise<ValidateCheckpointResult> {
+  const attestorInfos = getAttestationInfoFromPayload(payload, attestations);
   const attestors = compactArray(attestorInfos.map(info => ('address' in info ? info.address : undefined)));
-  const { checkpoint, attestations } = publishedCheckpoint;
-  const headerHash = checkpoint.header.hash();
-  const archiveRoot = checkpoint.archive.root.toString();
-  const slot = checkpoint.header.slotNumber;
+  const headerHash = payload.header.hash();
+  const archiveRoot = payload.archive.toString();
+  const slot = payload.header.slotNumber;
+  const checkpointNumber = checkpointInfo.checkpointNumber;
   const epoch: EpochNumber = getEpochAtSlot(slot, constants);
   const { committee, seed } = await epochCache.getCommitteeForEpoch(epoch);
-  const logData = { checkpointNumber: checkpoint.number, slot, epoch, headerHash, archiveRoot };
+  const logData = { checkpointNumber, slot, epoch, headerHash, archiveRoot };
 
-  logger?.debug(`Validating attestations for checkpoint ${checkpoint.number} at slot ${slot} in epoch ${epoch}`, {
+  logger?.debug(`Validating attestations for checkpoint ${checkpointNumber} at slot ${slot} in epoch ${epoch}`, {
     committee: (committee ?? []).map(member => member.toString()),
     recoveredAttestors: attestorInfos,
     postedAttestations: attestations.map(a => (a.address.isZero() ? a.signature : a.address).toString()),
@@ -72,12 +127,13 @@ export async function validateCheckpointAttestations(
   const failedValidationResult = <TReason extends ValidateCheckpointNegativeResult['reason']>(reason: TReason) => ({
     valid: false as const,
     reason,
-    checkpoint: checkpoint.toCheckpointInfo(),
+    checkpoint: checkpointInfo,
     committee,
     seed,
     epoch,
     attestors,
     attestations,
+    verbatimAttestations,
   });
 
   for (let i = 0; i < attestorInfos.length; i++) {
@@ -123,7 +179,7 @@ export async function validateCheckpointAttestations(
   }
 
   logger?.debug(
-    `Checkpoint attestations validated successfully for checkpoint ${checkpoint.number} at slot ${slot}`,
+    `Checkpoint attestations validated successfully for checkpoint ${checkpointNumber} at slot ${slot}`,
     logData,
   );
   return { valid: true };

@@ -1,7 +1,6 @@
 export {
   type Account,
   type AccountContract,
-  AccountWithSecretKey,
   BaseAccount,
   type AuthorizationProvider,
   getAccountContractAddress,

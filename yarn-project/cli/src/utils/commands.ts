@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXE } from '@aztec/pxe/server';
@@ -50,14 +51,14 @@ export const l1ChainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain I
     return parsedValue;
   });
 
-export const createSecretKeyOption = (
+export const createSigningKeyOption = (
   description: string,
   mandatory: boolean,
-  argsParser?: (value: string, previous: Fr) => Fr,
+  argsParser?: (value: string, previous: GrumpkinScalar) => GrumpkinScalar,
 ) =>
-  new Option('-sk, --secret-key <string>', description)
-    .env('SECRET_KEY')
-    .argParser(argsParser ?? parseSecretKey)
+  new Option('-sk, --signing-key <string>', description)
+    .env('SIGNING_KEY')
+    .argParser(argsParser ?? parseSigningKey)
     .makeOptionMandatory(mandatory);
 
 export const logJson = (log: LogFn) => (obj: object) => log(JSON.stringify(obj, null, 2));
@@ -101,7 +102,7 @@ export async function getTxSender(pxe: PXE, _from?: string) {
   let from: AztecAddress;
   if (_from) {
     try {
-      from = AztecAddress.fromString(_from);
+      from = AztecAddress.fromStringUnsafe(_from);
     } catch {
       throw new InvalidArgumentError(`Invalid option 'from' passed: ${_from}`);
     }
@@ -195,7 +196,7 @@ export function parseFieldFromHexString(str: string): Fr {
  */
 export function parseAztecAddress(address: string): AztecAddress {
   try {
-    return AztecAddress.fromString(address);
+    return AztecAddress.fromStringUnsafe(address);
   } catch {
     throw new InvalidArgumentError(`Invalid Aztec address: ${address}`);
   }
@@ -357,16 +358,16 @@ export function parsePartialAddress(address: string): Fr {
 }
 
 /**
- * Parses a secret key from a string.
- * @param privateKey - A string
- * @returns A secret key
+ * Parses an account signing key from a string.
+ * @param signingKey - A string
+ * @returns A signing key
  * @throws InvalidArgumentError if the input string is not valid.
  */
-export function parseSecretKey(secretKey: string): Fr {
+export function parseSigningKey(signingKey: string): GrumpkinScalar {
   try {
-    return Fr.fromHexString(secretKey);
+    return GrumpkinScalar.fromHexString(signingKey);
   } catch {
-    throw new InvalidArgumentError(`Invalid encryption secret key: ${secretKey}`);
+    throw new InvalidArgumentError(`Invalid signing key: ${signingKey}`);
   }
 }
 

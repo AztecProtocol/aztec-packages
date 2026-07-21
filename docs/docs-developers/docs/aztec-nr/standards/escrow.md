@@ -55,7 +55,7 @@ pub fn _get_escrow(
     let escrow_instance = ContractInstance {
         salt: context.this_address().to_field(),
         deployer: AztecAddress::from_field(0),
-        contract_class_id: ContractClassId::from_field(escrow_class_id),
+        original_contract_class_id: ContractClassId::from_field(escrow_class_id),
         initialization_hash: 0,
         public_keys: computed_public_keys,
     };
@@ -76,4 +76,4 @@ pub fn _share_escrow(
 }
 ```
 
-`_get_escrow` reconstructs the escrow address deterministically from the calling contract's address (used as the salt) and a set of master secret keys. `_share_escrow` emits an encrypted log so that the designated `account` can discover the escrow address and the keys needed to access its notes. Without this notification, the user's PXE would have no way to find the escrow or decrypt notes held there. The `ONCHAIN_CONSTRAINED` delivery mode ensures the log is validated against the note hash tree before the recipient's PXE trusts it.
+`_get_escrow` reconstructs the escrow address deterministically from the calling contract's address (used as the salt) and a set of master secret keys. `_share_escrow` emits an encrypted log so that the designated `account` can discover the escrow address and the keys needed to access its notes. Without this notification, the user's PXE would have no way to find the escrow or decrypt notes held there. Constrained delivery ensures the log is validated against the note hash tree before the recipient's PXE trusts it.

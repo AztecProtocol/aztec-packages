@@ -5,8 +5,8 @@ import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { createOracleTestRpcServer } from '../oracle/test-resolver/index.js';
 
 /**
- * Starts an HTTP RPC server that resolves oracle foreign calls using hardcoded fixture scenarios.
- * Used by `nargo test --oracle-resolver` to run `#[oracle_test]` roundtrip tests with a dedicated oracle resolver.
+ * Starts an HTTP RPC server that resolves oracle foreign calls using auto-synthesized fixture scenarios. Used by
+ * `nargo test --oracle-resolver` to run `#[generate_oracle_tests]` serialization tests against a dedicated resolver.
  * Logs fixture coverage on shutdown.
  */
 async function main() {

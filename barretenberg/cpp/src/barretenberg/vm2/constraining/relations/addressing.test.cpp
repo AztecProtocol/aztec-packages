@@ -69,12 +69,12 @@ TEST(AddressingConstrainingTest, BaseAddressGating)
                   { C::execution_sel_do_base_check, 0 },
               } });
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NUM_RELATIVE_INV_CHECK),
-                              "NUM_RELATIVE_INV_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_NUM_RELATIVE_INV_CHECK));
 
     // Even if we fix the inverse, sel_do_base_check should still be 1 and not 0.
     trace.set(C::execution_num_relative_operands_inv, /*row=*/0, /*value=*/FF(2).invert());
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NUM_RELATIVE_INV_CHECK),
-                              "NUM_RELATIVE_INV_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_NUM_RELATIVE_INV_CHECK));
 
     // Now it should pass.
     trace.set(C::execution_sel_do_base_check, /*row=*/0, /*value=*/1);
@@ -104,7 +104,7 @@ TEST(AddressingConstrainingTest, BaseAddressTagIsU32)
     // Error selector cannot be cheated.
     trace.set(C::execution_sel_base_address_failure, /*row=*/0, /*value=*/1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BASE_ADDRESS_CHECK),
-                              "BASE_ADDRESS_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BASE_ADDRESS_CHECK));
 
     // Inverse doesn't matter if the base address tag is U32.
     trace.set(0,
@@ -139,7 +139,7 @@ TEST(AddressingConstrainingTest, BaseAddressTagIsNotU32)
     // Error selector cannot be cheated.
     trace.set(C::execution_sel_base_address_failure, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BASE_ADDRESS_CHECK),
-                              "BASE_ADDRESS_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BASE_ADDRESS_CHECK));
 
     // Inverse cannot be cheated if the base address tag is not U32.
     trace.set(0,
@@ -148,7 +148,7 @@ TEST(AddressingConstrainingTest, BaseAddressTagIsNotU32)
                   { C::execution_sel_base_address_failure, 0 },
               } });
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BASE_ADDRESS_CHECK),
-                              "BASE_ADDRESS_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BASE_ADDRESS_CHECK));
 }
 
 TEST(AddressingConstrainingTest, BaseAddressTagNoCheckImpliesNoError)
@@ -175,7 +175,7 @@ TEST(AddressingConstrainingTest, BaseAddressTagNoCheckImpliesNoError)
     // Error selector cannot be cheated.
     trace.set(C::execution_sel_base_address_failure, /*row=*/0, /*value=*/1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BASE_ADDRESS_CHECK),
-                              "BASE_ADDRESS_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BASE_ADDRESS_CHECK));
 
     // Check should not be done if sel_should_resolve_address is 0. Even if there are relative addresses.
     // Therefore the above case that was failing should now pass.
@@ -258,19 +258,19 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagation)
                   { C::execution_op_after_relative_6_, 192021 },
               } });
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_0),
-                              "RELATIVE_RESOLUTION_0");
+                              addressing::get_subrelation_label(addressing::SR_RELATIVE_RESOLUTION_0));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_1),
-                              "RELATIVE_RESOLUTION_1");
+                              addressing::get_subrelation_label(addressing::SR_RELATIVE_RESOLUTION_1));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_2),
-                              "RELATIVE_RESOLUTION_2");
+                              addressing::get_subrelation_label(addressing::SR_RELATIVE_RESOLUTION_2));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_3),
-                              "RELATIVE_RESOLUTION_3");
+                              addressing::get_subrelation_label(addressing::SR_RELATIVE_RESOLUTION_3));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_4),
-                              "RELATIVE_RESOLUTION_4");
+                              addressing::get_subrelation_label(addressing::SR_RELATIVE_RESOLUTION_4));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_5),
-                              "RELATIVE_RESOLUTION_5");
+                              addressing::get_subrelation_label(addressing::SR_RELATIVE_RESOLUTION_5));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_6),
-                              "RELATIVE_RESOLUTION_6");
+                              addressing::get_subrelation_label(addressing::SR_RELATIVE_RESOLUTION_6));
 }
 
 TEST(AddressingConstrainingTest, RelativeAddressPropagationWhenBaseAddressIsInvalid)
@@ -331,7 +331,7 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagationWhenBaseAddressIsInva
     // If I try to add the base address, the relation should fail.
     trace.set(C::execution_op_after_relative_0_, /*row=*/0, /*value=*/FF(123) + base_address_val);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_RESOLUTION_0),
-                              "RELATIVE_RESOLUTION_0");
+                              addressing::get_subrelation_label(addressing::SR_RELATIVE_RESOLUTION_0));
 }
 
 TEST(AddressingConstrainingTest, RelativeOverflowCheck)
@@ -423,19 +423,19 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_0.*Could not find tuple in destination.");
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1),
-        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1");
+        addressing::get_subrelation_label(addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1));
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_2_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_2.*Could not find tuple in destination.");
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3),
-        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3");
+        addressing::get_subrelation_label(addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3));
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_4_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_4.*Could not find tuple in destination.");
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5),
-        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5");
+        addressing::get_subrelation_label(addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5));
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_6_settings>(trace)),
         "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_6.*Could not find tuple in destination.");
@@ -509,7 +509,7 @@ TEST(AddressingConstrainingTest, IndirectReconstructionZeroWhenAddressingDisable
         // Enable one column.
         trace.set(sel_on, /*row=*/0, /*value=*/1);
         EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_ADDRESSING_MODE_RECONSTRUCTION),
-                                  "ADDRESSING_MODE_RECONSTRUCTION");
+                                  addressing::get_subrelation_label(addressing::SR_ADDRESSING_MODE_RECONSTRUCTION));
     }
 }
 
@@ -577,25 +577,39 @@ TEST(AddressingConstrainingTest, IndirectGating)
                   { C::execution_sel_apply_indirection_5_, 0 },
                   { C::execution_sel_apply_indirection_6_, 1 },
               } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_0), "INDIRECT_GATING_0");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_1), "INDIRECT_GATING_1");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_2), "INDIRECT_GATING_2");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_3), "INDIRECT_GATING_3");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_4), "INDIRECT_GATING_4");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_5), "INDIRECT_GATING_5");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_6), "INDIRECT_GATING_6");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_0),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_0));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_1),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_1));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_2),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_2));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_3),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_3));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_4),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_4));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_5),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_5));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_6),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_6));
 
     // Bits are still constrained if SEL_RESOLVE_ADDRESS is 0.
     // This just simplifies the relation.
     trace.set(C::execution_sel_bytecode_retrieval_success, /*row=*/0, /*value=*/0);
     trace.set(C::execution_sel_instruction_fetching_success, /*row=*/0, /*value=*/0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_0), "INDIRECT_GATING_0");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_1), "INDIRECT_GATING_1");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_2), "INDIRECT_GATING_2");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_3), "INDIRECT_GATING_3");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_4), "INDIRECT_GATING_4");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_5), "INDIRECT_GATING_5");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_6), "INDIRECT_GATING_6");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_0),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_0));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_1),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_1));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_2),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_2));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_3),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_3));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_4),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_4));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_5),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_5));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_6),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_6));
 }
 
 TEST(AddressingConstrainingTest, IndirectGatingIfBaseAddressIsInvalid)
@@ -667,13 +681,20 @@ TEST(AddressingConstrainingTest, IndirectGatingIfBaseAddressIsInvalid)
                   { C::execution_sel_apply_indirection_5_, 1 },
                   { C::execution_sel_apply_indirection_6_, 1 },
               } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_0), "INDIRECT_GATING_0");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_1), "INDIRECT_GATING_1");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_2), "INDIRECT_GATING_2");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_3), "INDIRECT_GATING_3");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_4), "INDIRECT_GATING_4");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_5), "INDIRECT_GATING_5");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_6), "INDIRECT_GATING_6");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_0),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_0));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_1),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_1));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_2),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_2));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_3),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_3));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_4),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_4));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_5),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_5));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_GATING_6),
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_GATING_6));
 }
 
 TEST(AddressingConstrainingTest, IndirectPropagationWhenNoIndirection)
@@ -742,13 +763,13 @@ TEST(AddressingConstrainingTest, IndirectPropagationWhenNoIndirection)
                   { C::execution_rop_6_, 7 },
               } });
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_PROPAGATION_0),
-                              "INDIRECT_PROPAGATION_0");
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_PROPAGATION_0));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_PROPAGATION_2),
-                              "INDIRECT_PROPAGATION_2");
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_PROPAGATION_2));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_PROPAGATION_4),
-                              "INDIRECT_PROPAGATION_4");
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_PROPAGATION_4));
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_PROPAGATION_6),
-                              "INDIRECT_PROPAGATION_6");
+                              addressing::get_subrelation_label(addressing::SR_INDIRECT_PROPAGATION_6));
 }
 
 TEST(AddressingConstrainingTest, IndirectPropagationWhenIndirection)
@@ -807,7 +828,7 @@ TEST(AddressingConstrainingTest, FinalCheckNoFailure)
     // Should fail if I try to trick the selector.
     trace.set(C::execution_sel_some_final_check_failed, /*row=*/0, /*value=*/1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
-                              "BATCHED_TAGS_DIFF_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BATCHED_TAGS_DIFF_CHECK));
 }
 
 TEST(AddressingConstrainingTest, FinalCheckSingleFailure)
@@ -857,10 +878,10 @@ TEST(AddressingConstrainingTest, FinalCheckSingleFailure)
     // Should fail if I try to trick the selector.
     trace.set(C::execution_sel_some_final_check_failed, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
-                              "BATCHED_TAGS_DIFF_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BATCHED_TAGS_DIFF_CHECK));
     trace.set(C::execution_batched_tags_diff_inv, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
-                              "BATCHED_TAGS_DIFF_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BATCHED_TAGS_DIFF_CHECK));
 }
 
 TEST(AddressingConstrainingTest, FinalCheckMultipleFailures)
@@ -910,10 +931,10 @@ TEST(AddressingConstrainingTest, FinalCheckMultipleFailures)
     // Should fail if I try to trick the selector.
     trace.set(C::execution_sel_some_final_check_failed, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
-                              "BATCHED_TAGS_DIFF_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BATCHED_TAGS_DIFF_CHECK));
     trace.set(C::execution_batched_tags_diff_inv, /*row=*/0, /*value=*/0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_BATCHED_TAGS_DIFF_CHECK),
-                              "BATCHED_TAGS_DIFF_CHECK");
+                              addressing::get_subrelation_label(addressing::SR_BATCHED_TAGS_DIFF_CHECK));
 }
 
 } // namespace

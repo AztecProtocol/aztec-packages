@@ -68,6 +68,13 @@ export type ArchiverSpecificConfig = {
 
   /** Skip pruning orphan proposed blocks that have no matching proposed checkpoint. */
   skipOrphanProposedBlockPruning?: boolean;
+
+  /**
+   * Preload the standard contracts (AuthRegistry, PublicChecks, HandshakeRegistry) into the contract store at block 0.
+   * For test environments only: it must only be set when genesis also seeds the matching registration/deployment
+   * nullifiers, otherwise a later on-chain publish of a preloaded class would collide with the block-0 preload.
+   */
+  testPreloadStandardContracts?: boolean;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -82,6 +89,7 @@ export const ArchiverSpecificConfigSchema = z.object({
   skipPromoteProposedCheckpointDuringL1Sync: z.boolean().optional(),
   orphanPruneNoProposalTolerance: schemas.Integer.optional(),
   skipOrphanProposedBlockPruning: z.boolean().optional(),
+  testPreloadStandardContracts: z.boolean().optional(),
 });
 
 export type ArchiverApi = Omit<
@@ -122,7 +130,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
   getBytecodeCommitment: z.function({ input: z.tuple([schemas.Fr]), output: schemas.Fr }),
   getContract: z.function({
-    input: z.tuple([schemas.AztecAddress, optional(schemas.BigInt)]),
+    input: z.tuple([schemas.AztecAddress, schemas.BigInt]),
     output: ContractInstanceWithAddressSchema.optional(),
   }),
   getContractClassIds: z.function({ input: z.tuple([]), output: z.array(schemas.Fr) }),

@@ -1,11 +1,11 @@
 import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import {
+  ContractFunctionInteraction,
   type InteractionWaitOptions,
   NO_WAIT,
   type SendReturn,
   type WaitOpts,
-  getGasLimits,
 } from '@aztec/aztec.js/contracts';
 import type {
   Aliased,
@@ -19,17 +19,18 @@ import type {
 import { AccountManager, TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
-import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
+import type { EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import {
   type ContractOverrides,
   ExecutionPayload,
@@ -41,7 +42,7 @@ import {
   collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
-import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions, getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 
 import type { AccountContractsProvider } from './account-contract-providers/types.js';
 import { type AccountType, WalletDB } from './wallet_db.js';
@@ -129,15 +130,17 @@ export class EmbeddedWallet extends BaseWallet {
 
   override async registerSender(address: AztecAddress, alias: string) {
     await this.walletDB.storeSender(address, alias);
-    return this.pxe.registerSender(address);
+    await this.pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    return address;
   }
 
   override async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
-    const senders = await this.pxe.getSenders();
+    const sources = await this.pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    const senders = sources.map(source => source.sender);
     const storedSenders = await this.walletDB.listSenders();
     for (const storedSender of storedSenders) {
       if (senders.findIndex(sender => sender.equals(storedSender.item)) === -1) {
-        await this.pxe.registerSender(storedSender.item);
+        await this.pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: storedSender.item });
       }
     }
     return storedSenders;
@@ -191,7 +194,8 @@ export class EmbeddedWallet extends BaseWallet {
         executionPayload.authWitnesses.push(authwit);
       }
     }
-    const estimated = getGasLimits(simulationResult, this.estimatedGasPadding);
+    const maxTxGasLimits = await this.getMaxTxGasLimits();
+    const estimated = getGasLimits(simulationResult.gasUsed, maxTxGasLimits, this.estimatedGasPadding);
     this.log.verbose(
       `Estimated gas limits for tx: DA=${estimated.gasLimits.daGas} L2=${estimated.gasLimits.l2Gas} teardownDA=${estimated.teardownGasLimits.daGas} teardownL2=${estimated.teardownGasLimits.l2Gas}`,
     );
@@ -258,17 +262,6 @@ export class EmbeddedWallet extends BaseWallet {
     return super.getPrivateEvents<T>(eventDef, eventFilter);
   }
 
-  public override async registerContract(
-    instance: ContractInstanceWithAddress,
-    artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress> {
-    // registerContract may call pxe.updateContract under the hood, which depends on a fresh anchor
-    // block to verify the current class id from the node.
-    await this.pxe.sync();
-    return super.registerContract(instance, artifact, secretKey);
-  }
-
   /**
    * Hashes and registers the stub class for every supported account type with PXE, populating
    * stubClassIds. Called on wallet initialization.
@@ -284,6 +277,7 @@ export class EmbeddedWallet extends BaseWallet {
     await this.pxe.registerContractClass(ecdsaArtifact);
 
     this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('schnorr_initializerless', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
   }
@@ -335,7 +329,7 @@ export class EmbeddedWallet extends BaseWallet {
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
     const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
-    const scopes = this.scopesFrom(from, additionalScopes);
+    const scopes = this.scopesFrom(from, additionalScopes ?? [], sendMessagesAs);
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
@@ -388,9 +382,17 @@ export class EmbeddedWallet extends BaseWallet {
     signingKey: Buffer,
   ): Promise<AccountManager> {
     let contract;
+    let immutablesHash;
+    let publicKey;
     switch (type) {
       case 'schnorr': {
         contract = await this.accountContracts.getSchnorrAccountContract(Fq.fromBuffer(signingKey));
+        break;
+      }
+      case 'schnorr_initializerless': {
+        contract = await this.accountContracts.getSchnorrInitializerlessAccountContract(Fq.fromBuffer(signingKey));
+        publicKey = await new Schnorr().computePublicKey(Fq.fromBuffer(signingKey));
+        immutablesHash = await poseidon2Hash([publicKey.x, publicKey.y]);
         break;
       }
       case 'ecdsasecp256k1': {
@@ -406,17 +408,29 @@ export class EmbeddedWallet extends BaseWallet {
       }
     }
 
-    const accountManager = await AccountManager.create(this, secret, contract, { salt });
+    const accountManager = await AccountManager.create(this, secret, contract, { salt, immutablesHash });
 
     const instance = accountManager.getInstance();
     const existingInstance = await this.pxe.getContractInstance(instance.address);
     if (!existingInstance) {
       const existingArtifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+      const artifact = existingArtifact ?? (await accountManager.getAccountContract().getContractArtifact());
       await this.registerContract(
         instance,
         !existingArtifact ? await accountManager.getAccountContract().getContractArtifact() : undefined,
         accountManager.getSecretKey(),
       );
+      if (type === 'schnorr_initializerless') {
+        const constructor = artifact.functions.find(f => f.name === 'constructor');
+        if (!constructor) {
+          throw new Error('Could not create SchnorrInitializerlessAccountContract: constructor ABI not found');
+        }
+        const storeCall = new ContractFunctionInteraction(this, instance.address, constructor, [
+          publicKey!.x,
+          publicKey!.y,
+        ]);
+        await storeCall.simulate({ from: instance.address });
+      }
     }
     return accountManager;
   }
@@ -433,9 +447,12 @@ export class EmbeddedWallet extends BaseWallet {
     return accountManager;
   }
 
-  createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq, alias?: string): Promise<AccountManager> {
-    const sk = signingKey ?? deriveSigningKey(secret);
-    return this.createAndStoreAccount(alias ?? '', 'schnorr', secret, salt, sk.toBuffer());
+  createSchnorrAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string): Promise<AccountManager> {
+    return this.createAndStoreAccount(alias ?? '', 'schnorr', secret, salt, signingKey.toBuffer());
+  }
+
+  createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string): Promise<AccountManager> {
+    return this.createAndStoreAccount(alias ?? '', 'schnorr_initializerless', secret, salt, signingKey.toBuffer());
   }
 
   createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer, alias?: string): Promise<AccountManager> {

@@ -137,7 +137,7 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
-    return AztecAddress.fromString(parsed.asset);
+    return AztecAddress.fromStringUnsafe(parsed.asset);
   };
 
   return async (wallet: Wallet, from: AztecAddress, gasSettings: GasSettings) => {
@@ -259,7 +259,9 @@ export class CLIFeeArgs {
   async toUserFeeOptions(node: AztecNode, wallet: Wallet, from: AztecAddress): Promise<ParsedFeeOptions> {
     const minFees = await this.getMinFees(node);
     const maxFeesPerGas = minFees.mul(1 + MIN_FEE_PADDING);
-    const gasSettings = GasSettings.fallback({ ...this.gasSettings, maxFeesPerGas });
+    const { txsLimits } = await node.getNodeInfo();
+    const gasLimits = this.gasSettings.gasLimits ?? Gas.from(txsLimits.gas);
+    const gasSettings = GasSettings.fallback({ ...this.gasSettings, gasLimits, maxFeesPerGas });
     const paymentMethod = await this.paymentMethod(wallet, from, gasSettings);
     return {
       paymentMethod,

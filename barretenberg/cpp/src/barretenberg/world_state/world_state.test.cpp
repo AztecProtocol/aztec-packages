@@ -211,6 +211,57 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
     }
 }
 
+TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledNullifiers)
+{
+    // Prefilled nullifier leaves must be unique and strictly increasing, and larger than the padding leaves that fill
+    // the initial 128-leaf prefill region (whose keys are the low integers 0..127), so we use full-size field values.
+    std::vector<bb::fr> prefilled_nullifiers = {
+        bb::fr("0x073b5e41abe9d7f8466bca9c81c9572b558f953bbd70081317f6a80ac65f3dd5"),
+        bb::fr("0x0d99507b7ecac720c73bf197a0e7366a5ed80c1c1b0afe8ff8c6ecc7b5a7aefe"),
+        bb::fr("0x1c0bf82e0c51834780e61ef091b17e3a1d39ae891db7a70bfdb5221f134996ac"),
+    };
+
+    std::string data_dir_prefilled = random_temp_directory();
+    std::filesystem::create_directories(data_dir_prefilled);
+
+    WorldState ws_prefilled(thread_pool_size,
+                            data_dir_prefilled,
+                            map_size,
+                            tree_heights,
+                            tree_prefill,
+                            std::vector<PublicDataLeafValue>(),
+                            prefilled_nullifiers,
+                            initial_header_generator_point);
+
+    // Baseline world state with no prefilled nullifiers (the canonical empty genesis).
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+    auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+
+    // The prefilled nullifiers occupy the last slots of the 128-leaf initial prefill region (they replace padding
+    // leaves rather than being appended), so the tree size stays 128 for both.
+    EXPECT_EQ(prefilled.meta.size, 128);
+    EXPECT_EQ(info.meta.size, 128);
+
+    // Seeding the nullifiers changes the nullifier-tree root away from the empty-genesis baseline.
+    EXPECT_NE(prefilled.meta.root, info.meta.root);
+    // The empty-genesis baseline root is unchanged from the canonical value, confirming that a default (empty)
+    // prefilled-nullifiers list leaves the genesis nullifier-tree root bit-identical to today.
+    EXPECT_EQ(info.meta.root, bb::fr("0x18935581a8ed73d08ffd00386fba55ba6c89f3ab848a76b8fedfa9034cee0454"));
+
+    // The seeded nullifiers are present in the tree.
+    for (const auto& nullifier : prefilled_nullifiers) {
+        assert_leaf_exists<NullifierLeafValue>(ws_prefilled,
+                                               WorldStateRevision::committed(),
+                                               MerkleTreeId::NULLIFIER_TREE,
+                                               NullifierLeafValue(nullifier),
+                                               true);
+    }
+
+    std::filesystem::remove_all(data_dir_prefilled);
+}
+
 TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledPublicData)
 {
     std::string data_dir_prefilled = random_temp_directory();
@@ -225,6 +276,7 @@ TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledPublicData)
                             tree_heights,
                             tree_prefill,
                             prefilled_values,
+                            std::vector<bb::fr>(),
                             initial_header_generator_point);
 
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
@@ -640,6 +692,74 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
                  std::runtime_error);
 }
 
+TEST_F(WorldStateTest, SyncBlockRejectsDivergentArchiveRoot)
+{
+    StateReference block_state_ref = {
+        { MerkleTreeId::NULLIFIER_TREE,
+          { fr("0x2e2e2d8b72294a440c728a646f01476624063f0b50dcfe293cc0fc26bef9e311"), 129 } },
+        { MerkleTreeId::NOTE_HASH_TREE,
+          { fr("0x25c4ef02ba2bec9490376d5b56b8f1a8e5bcf5ecff91636e76660b68c2a9952d"), 1 } },
+        { MerkleTreeId::PUBLIC_DATA_TREE,
+          { fr("0x1e2d8d1c3ea2449b3e4787d8295df3f137e08b56e891c006b3d93faef56ca3df"), 129 } },
+        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+          { fr("0x22c6f7877092ecea5b313b22515e31f2e1e37349b787da10eff298800e3c7c0c"), 1 } },
+    };
+
+    // Learn the canonical previous (genesis) and resulting archive roots from an untracked sync.
+    bb::fr previous_root;
+    bb::fr resulting_root;
+    {
+        WorldState scratch(
+            thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+        previous_root = scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+        scratch.sync_block(
+            block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
+        resulting_root = scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+    }
+
+    std::string data_dir2 = random_temp_directory();
+    std::filesystem::create_directories(data_dir2);
+    WorldState ws(thread_pool_size, data_dir2, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    // A wrong previous archive root is rejected before any leaves are appended.
+    EXPECT_THROW(ws.sync_block(block_state_ref,
+                               fr(1),
+                               { 42 },
+                               { 43 },
+                               { NullifierLeafValue(144) },
+                               { { PublicDataLeafValue(145, 1) } },
+                               resulting_root,
+                               previous_root + fr(1)),
+                 std::runtime_error);
+
+    // A wrong resulting archive root is rejected before commit.
+    EXPECT_THROW(ws.sync_block(block_state_ref,
+                               fr(1),
+                               { 42 },
+                               { 43 },
+                               { NullifierLeafValue(144) },
+                               { { PublicDataLeafValue(145, 1) } },
+                               resulting_root + fr(1),
+                               previous_root),
+                 std::runtime_error);
+
+    // Both rejections rolled back cleanly: world state is still at the genesis archive root.
+    EXPECT_EQ(ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root, previous_root);
+
+    // Matching roots are accepted and advance the chain.
+    WorldStateStatusFull status = ws.sync_block(block_state_ref,
+                                                fr(1),
+                                                { 42 },
+                                                { 43 },
+                                                { NullifierLeafValue(144) },
+                                                { { PublicDataLeafValue(145, 1) } },
+                                                resulting_root,
+                                                previous_root);
+    WorldStateStatusSummary expected(1, 0, 1, true);
+    EXPECT_EQ(status.summary, expected);
+    EXPECT_EQ(ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root, resulting_root);
+}
+
 TEST_F(WorldStateTest, SyncBlockFromDirtyState)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
@@ -946,4 +1066,72 @@ TEST_F(WorldStateTest, GetBlockForIndex)
         EXPECT_TRUE(blockNumbers[0].has_value());
         EXPECT_EQ(blockNumbers[0].value(), 1);
     }
+}
+
+// Demonstrates the bug: syncing an empty block with a bogus block_header_hash succeeds when the optional
+// expected-archive-root arguments are omitted.  The 4-tree state-ref check passes (nothing changed), but
+// the wrong hash is committed to the ARCHIVE, silently diverging from the canonical chain.
+TEST_F(WorldStateTest, SyncEmptyBlockAcceptsBogusHashWithoutArchiveCheck)
+{
+    // Learn the canonical previous and resulting archive roots from an empty-block sync on a scratch instance.
+    bb::fr previous_archive_root;
+    bb::fr canonical_archive_root;
+    {
+        WorldState scratch(
+            thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+        previous_archive_root = scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+        StateReference genesis_state_ref = scratch.get_state_reference(WorldStateRevision::committed());
+        scratch.sync_block(genesis_state_ref, fr(1), {}, {}, {}, {});
+        canonical_archive_root =
+            scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+    }
+
+    std::string data_dir2 = random_temp_directory();
+    std::filesystem::create_directories(data_dir2);
+    WorldState ws(thread_pool_size, data_dir2, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    StateReference genesis_state_ref = ws.get_state_reference(WorldStateRevision::committed());
+
+    // Sync an empty block using a bogus hash — no expected-archive-root arguments provided.
+    EXPECT_NO_THROW(ws.sync_block(genesis_state_ref, fr(42), {}, {}, {}, {}));
+
+    bb::fr actual_archive_root = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+
+    // The bogus hash committed successfully, so the resulting archive root differs from the canonical one.
+    EXPECT_NE(actual_archive_root, canonical_archive_root);
+    EXPECT_NE(actual_archive_root, previous_archive_root);
+}
+
+// Demonstrates the fix: supplying the canonical expected archive roots causes sync_block to reject the bogus
+// block_header_hash for an empty block, and rolls back cleanly.
+TEST_F(WorldStateTest, SyncEmptyBlockRejectsBogusHashWhenArchiveRootsAreChecked)
+{
+    // Learn the canonical previous and resulting archive roots from an empty-block sync on a scratch instance.
+    bb::fr previous_archive_root;
+    bb::fr canonical_archive_root;
+    {
+        WorldState scratch(
+            thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+        previous_archive_root = scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+        StateReference genesis_state_ref = scratch.get_state_reference(WorldStateRevision::committed());
+        scratch.sync_block(genesis_state_ref, fr(1), {}, {}, {}, {});
+        canonical_archive_root =
+            scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+    }
+
+    std::string data_dir2 = random_temp_directory();
+    std::filesystem::create_directories(data_dir2);
+    WorldState ws(thread_pool_size, data_dir2, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    StateReference genesis_state_ref = ws.get_state_reference(WorldStateRevision::committed());
+
+    // Sync an empty block using a bogus hash, but supply the canonical archive roots for validation.
+    // The resulting archive root will not match canonical_archive_root, so this must throw.
+    EXPECT_THROW(
+        ws.sync_block(genesis_state_ref, fr(42), {}, {}, {}, {}, canonical_archive_root, previous_archive_root),
+        std::runtime_error);
+
+    // The committed archive root must be unchanged (rollback was clean).
+    EXPECT_EQ(ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root,
+              previous_archive_root);
 }

@@ -12,6 +12,7 @@ cmd=${1:?usage: $(basename "$0") '<command-to-run-inside-devbox>'}
 arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 use_ssh=${CI_USE_SSH:-0}
+status_job_id=${JOB_ID:-bootstrap}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
@@ -29,13 +30,13 @@ if [ -n "${CI_DASHBOARD:-}" ]; then
 fi
 
 # Post pending GitHub commit status so the CI log link is visible on the PR.
-post_github_status pending "ci/${JOB_ID}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+post_github_status pending "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
 
 if [ "$arch" == "arm64" ]; then
   cores=64
   export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME_ARM:-${AWS_SHUTDOWN_TIME:-60}}
 else
-  cores=128,64
+  cores=192,128,64
   if [ "${CI_FULL:-0}" -eq 1 ]; then
     export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
   else
@@ -65,11 +66,18 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip="$current_commit")"
 fi
 
 # Our instance_name acts as a uniqueness key for the instance.
-# Instances are terminated if they exist with the same name.
+# Instances are terminated if they exist with the same name; this reaps orphans
+# left when a GA run is cancelled (e.g. by a new push) on the same ref.
+# Scope the key to the repo: aztec-packages and aztec-packages-private can build
+# the same tag/ref concurrently under the same role, and must not reap each
+# other's instances. The key stays stable across re-runs within a repo, so the
+# orphan cleanup still works.
+repo=${GITHUB_REPOSITORY:-aztec-packages}
+repo=${repo##*/}
 if [[ "$REF_NAME" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
-  instance_name="${BASH_REMATCH[1]}_$arch"
+  instance_name="${repo}_${BASH_REMATCH[1]}_$arch"
 else
-  instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
+  instance_name="${repo}_$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch"
 fi
 
 state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
@@ -392,6 +400,9 @@ start_build() {
     -e EC2_SPOT=${EC2_SPOT:-unknown} \
     -e AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-} \
     -e DRY_RUN=${DRY_RUN:-} \
+    -e PRIVATE_RELEASE=${PRIVATE_RELEASE:-} \
+    -e INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-} \
+    -e SKIP_COMPAT_E2E=${SKIP_COMPAT_E2E:-} \
     --pids-limit=65536 \
     --shm-size=2g \
     --ulimit nofile=1048576:1048576 \
@@ -465,9 +476,9 @@ else
   echo -e "CI Log: ${yellow}$log_url${reset}"
   # Post final GitHub commit status.
   if [ "$exit_code" -eq 0 ]; then
-    post_github_status success "ci/${JOB_ID}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+    post_github_status success "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
   else
-    post_github_status failure "ci/${JOB_ID}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+    post_github_status failure "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
   fi
   exit "$exit_code"
 fi

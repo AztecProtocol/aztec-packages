@@ -1,3 +1,4 @@
+import { deriveSecretKeyFromSigningKey } from '@aztec/accounts/utils';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
@@ -5,6 +6,7 @@ import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
@@ -18,7 +20,7 @@ export async function createAccount(
   wallet: CLIWallet,
   aztecNode: AztecNode,
   accountType: AccountType,
-  secretKey: Fr | undefined,
+  signingKey: GrumpkinScalar | undefined,
   salt: Fr | undefined,
   publicKey: string | undefined,
   alias: string | undefined,
@@ -35,15 +37,17 @@ export async function createAccount(
   debugLogger: Logger,
   log: LogFn,
 ) {
-  secretKey ??= Fr.random();
+  let secretKey: Fr;
+  if (accountType === 'ecdsasecp256r1ssh') {
+    // SSH accounts sign with a key held in the agent, and so we cannot derive their privacy secret key from it. Instead
+    // we pick a random value.
+    secretKey = Fr.random();
+  } else {
+    signingKey ??= GrumpkinScalar.random();
+    secretKey = await deriveSecretKeyFromSigningKey(signingKey);
+  }
 
-  const account = await wallet.createOrRetrieveAccount(
-    undefined /* address, we don't have it yet */,
-    secretKey,
-    accountType,
-    salt,
-    publicKey,
-  );
+  const account = await wallet.createAccount(accountType, signingKey, secretKey, salt, publicKey);
   const instanceSalt = account.getInstance().salt;
   const { address, publicKeys, partialAddress } = await account.getCompleteAddress();
 
@@ -51,6 +55,9 @@ export async function createAccount(
   if (json) {
     out.address = address;
     out.publicKey = publicKeys;
+    if (signingKey) {
+      out.signingKey = signingKey;
+    }
     if (secretKey) {
       out.secretKey = secretKey;
     }
@@ -61,6 +68,9 @@ export async function createAccount(
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
     log(`Public key:      ${publicKeys.toString()}`);
+    if (signingKey) {
+      log(`Signing key:     ${signingKey.toString()}`);
+    }
     if (secretKey) {
       log(`Secret key:     ${secretKey.toString()}`);
     }
@@ -71,7 +81,9 @@ export async function createAccount(
 
   let txHash: TxHash | undefined;
   let txReceipt: TxReceipt | undefined;
-  if (!registerOnly) {
+  // Initializerless accounts have no deployment tx — creating one only registers it locally — so there is
+  // nothing to deploy on-chain.
+  if (!registerOnly && accountType !== 'schnorr_initializerless') {
     const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(aztecNode, wallet, address);
 
     const delegatedDeployment = deployer && !account.address.equals(deployer);
@@ -89,10 +101,10 @@ export async function createAccount(
     const deployMethod = await account.getDeployMethod();
     const sim = await deployMethod.simulate({
       ...deployAccountOpts,
-      fee: { ...deployAccountOpts.fee, estimateGas: true },
+      includeMetadata: true,
     });
-    // estimateGas: true guarantees these fields are present
-    const estimatedGas = sim.estimatedGas!;
+    // includeMetadata: true guarantees these fields are present
+    const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
     const stats = sim.stats!;
 
     if (feeOpts.estimateOnly) {
@@ -160,5 +172,5 @@ export async function createAccount(
     }
   }
 
-  return { alias, address, secretKey, salt: instanceSalt };
+  return { alias, address, signingKey, secretKey, salt: instanceSalt };
 }

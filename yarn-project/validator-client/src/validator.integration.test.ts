@@ -13,7 +13,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { Hex } from '@aztec/foundation/string';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { ManualDateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P, PeerId } from '@aztec/p2p';
@@ -82,7 +82,7 @@ describe('ValidatorClient Integration', () => {
   let proposerPrivateKey: Hex<32>;
   let validatorSigner: Secp256k1Signer;
   let validatorPrivateKey: Hex<32>;
-  let dateProvider: TestDateProvider;
+  let dateProvider: ManualDateProvider;
   let txProvider: TestTxProvider;
   let keyStoreManager: KeystoreManager;
   let blobClient: MockProxy<BlobClientInterface>;
@@ -185,6 +185,7 @@ describe('ValidatorClient Integration', () => {
         l1ChainId: chainId.toNumber(),
         validatorPrivateKeys: new SecretValue([privateKey]),
         attestationPollingIntervalMs: 100,
+        blockDurationMs: 3000,
         disableValidator: false,
         disabledValidators: [],
         slashBroadcastedInvalidBlockPenalty: 10n,
@@ -196,9 +197,10 @@ describe('ValidatorClient Integration', () => {
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,
         dataStoreMapSizeKb: 128 * 1024,
+        allowEphemeralSigningProtection: true,
         nodeId: 'test-node',
         pollingIntervalMs: 100,
-        signingTimeoutMs: 3000,
+        peerSigningTimeoutMs: 3000,
       },
       checkpointsBuilder,
       synchronizer,
@@ -372,7 +374,7 @@ describe('ValidatorClient Integration', () => {
     // Set up common dependencies
     logger = createLogger('validator:test');
     rollupAddress = EthAddress.random();
-    dateProvider = new TestDateProvider();
+    dateProvider = new ManualDateProvider();
     txProvider = new TestTxProvider();
     blobClient = mock<BlobClientInterface>();
     blobClient.canUpload.mockReturnValue(false);
@@ -543,6 +545,10 @@ describe('ValidatorClient Integration', () => {
       // Only validate first 2 blocks
       await attestorValidateBlocks(blocks.slice(0, 2));
 
+      // Advance past slot 1's attestation deadline so the validator's bounded wait for the
+      // never-synced terminal block (block 3) times out at once instead of polling the full window.
+      dateProvider.setTime(Number(getTimestampForSlot(SlotNumber(slotNumber + 1), l1Constants)) * 1000);
+
       // Attestation should fail because block 3 wasn't validated
       // The validator will timeout waiting for block with matching archive
       const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
@@ -573,6 +579,10 @@ describe('ValidatorClient Integration', () => {
       );
 
       await attestorValidateBlocks(blocks);
+
+      // Advance past slot 1's attestation deadline so the validator's bounded wait for a block
+      // matching the (random) archive times out at once instead of polling the full window.
+      dateProvider.setTime(Number(getTimestampForSlot(SlotNumber(slotNumber + 1), l1Constants)) * 1000);
 
       // Attestation should fail because archive doesn't match any block
       const attestations = await attestor.validator.attestToCheckpointProposal(badProposal, mockPeerId);

@@ -33,9 +33,9 @@ async function main() {
   const extraAccountSalt = Fr.ZERO;
   const extraAccountSigningKey = GrumpkinScalar.random();
   const extraAccountAddress = await getSchnorrAccountContractAddress(
-    extraAccountSecret,
-    extraAccountSalt,
     extraAccountSigningKey,
+    extraAccountSalt,
+    extraAccountSecret,
   );
 
   logger.info('Starting wallet service...', { l1RpcUrls });
@@ -58,7 +58,9 @@ async function main() {
   // incompatible with Node.js import attribute enforcement.
   const testAccountsData = await getInitialTestAccountsData();
   const accounts = await Promise.all(
-    testAccountsData.map(({ secret, salt, signingKey }) => wallet.createSchnorrAccount(secret, salt, signingKey)),
+    testAccountsData.map(({ secret, salt, signingKey }) =>
+      wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey),
+    ),
   );
 
   // Register and deploy the 4th account.
@@ -74,7 +76,7 @@ async function main() {
   const rpcOptions = { maxBodySizeBytes: '50mb' };
 
   // Serve node RPC
-  const nodeRpcServer = createNamespacedSafeJsonRpcServer({ node: [node, AztecNodeApiSchema] }, rpcOptions);
+  const nodeRpcServer = createNamespacedSafeJsonRpcServer({ aztec: [node, AztecNodeApiSchema] }, rpcOptions);
   const nodeHttpServer = await startHttpRpcServer(nodeRpcServer, { port: NODE_PORT });
   logger.info(`Node JSON-RPC server listening on port ${nodeHttpServer.port}`);
 

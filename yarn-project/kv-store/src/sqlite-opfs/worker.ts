@@ -3,6 +3,7 @@ import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static 
 
 import { SqliteEncryptionError, type SqliteEncryptionErrorCode, isDecryptFailureMessage } from './errors.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
+import { DEFAULT_SAH_POOL_DIRECTORY } from './pool_lock.js';
 
 const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS data (
@@ -19,7 +20,6 @@ const SCHEMA_SQL = `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_hash ON data(container, key, hash);
 `;
 
-const DEFAULT_SAH_POOL_DIRECTORY = '.aztec-kv';
 const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
 const MC_SAH_POOL_VFS_NAME = `multipleciphers-${SAH_POOL_VFS_NAME}`;
 
@@ -29,8 +29,7 @@ let db: Database | undefined;
 let dbPath: string | undefined;
 
 async function ensurePool(directory: string): Promise<SAHPoolUtil> {
-  sqlite3 ??= await sqlite3InitModule();
-  const s = sqlite3;
+  const s = (sqlite3 ??= await sqlite3InitModule());
   if (!pool) {
     pool = await s.installOpfsSAHPoolVfs({
       name: SAH_POOL_VFS_NAME,
@@ -68,8 +67,7 @@ async function handleInit(
   directory?: string,
   encryptionKey?: Uint8Array,
 ): Promise<void> {
-  sqlite3 ??= await sqlite3InitModule();
-  const s = sqlite3;
+  const s = (sqlite3 ??= await sqlite3InitModule());
   if (encryptionKey !== undefined && ephemeral) {
     throw new SqliteEncryptionError(
       'encryption_not_supported_for_ephemeral',
@@ -79,22 +77,40 @@ async function handleInit(
   if (ephemeral) {
     db = new s.oo1.DB(':memory:', 'c');
   } else {
-    await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
+    const activePool = await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
     dbPath = normalizeDbPath(dbName);
     if (encryptionKey !== undefined) {
-      db = new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME });
-      applyEncryptionKey(db, encryptionKey);
+      const conn = new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME });
+      db = conn;
+      applyEncryptionKey(conn, encryptionKey);
     } else {
-      db = new pool!.OpfsSAHPoolDb(dbPath);
+      db = new activePool.OpfsSAHPoolDb(dbPath);
     }
   }
   runSql(SCHEMA_SQL);
 }
 
 function handleClose(): void {
-  db?.close();
-  db = undefined;
-  dbPath = undefined;
+  try {
+    db?.close();
+  } finally {
+    db = undefined;
+    dbPath = undefined;
+    releasePool();
+  }
+}
+
+/**
+ * Releases the SAH pool's OPFS sync access handles before the terminal RPC is acked. Worker
+ * termination releases them only asynchronously, so without this a caller that deletes or reopens
+ * the store directory right after close()/delete() resolves races Chromium's cleanup
+ * (NoModificationAllowedError from removeEntry, or a hang installing a new pool on the directory).
+ * pauseVfs releases the handles without touching file contents; the worker is terminated right
+ * after, so the pool is never resumed.
+ */
+function releasePool(): void {
+  pool?.pauseVfs();
+  pool = undefined;
 }
 
 async function handleExport(): Promise<Uint8Array> {
@@ -126,6 +142,10 @@ function handleDeleteDb(dbName: string): void {
     pool.unlink(path);
   } catch {
     // File may not exist; ignore.
+  }
+  // Guarded because pauseVfs refuses (SQLITE_MISUSE) while any file is open through the VFS.
+  if (!db) {
+    releasePool();
   }
 }
 
@@ -198,7 +218,15 @@ function respond(msg: WorkerResponse): void {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    respond({ type: 'err', id: req.id, message, encryptionCode: detectEncryptionCode(req, err, message) });
+    const encryptionCode = detectEncryptionCode(req, err, message);
+    if (req.type === 'init') {
+      try {
+        handleClose();
+      } catch {
+        // The main thread terminates this worker after a failed init, which releases any remaining OPFS handles.
+      }
+    }
+    respond({ type: 'err', id: req.id, message, encryptionCode });
   }
 };
 

@@ -5,7 +5,7 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { merge, pick } from '@aztec/foundation/collection';
+import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -20,6 +20,7 @@ import {
   L2BlockSourceEvents,
   type L2Tips,
   type ValidateCheckpointResult,
+  l2TipsEqual,
 } from '@aztec/stdlib/block';
 import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
@@ -163,7 +164,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       checkpointProposalSyncGrace: number;
       orphanPruneNoProposalTolerance: number;
       skipOrphanProposedBlockPruning: boolean;
-      blockDuration: number | undefined;
+      blockDuration: number;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -339,9 +340,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * Called at the beginning of each sync iteration.
    * Items are processed in the order they were queued.
    */
-  private async processInboundQueue(): Promise<void> {
+  private async processInboundQueue(): Promise<L2Block[]> {
+    const blocksAdded: L2Block[] = [];
     if (this.inboundQueue.length === 0) {
-      return;
+      return blocksAdded;
     }
 
     // Take all items from the queue
@@ -378,6 +380,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         if (type === 'block') {
           const [durationMs] = await elapsed(() => this.updater.addProposedBlock(item.block));
           this.instrumentation.processNewProposedBlock(durationMs, item.block);
+          blocksAdded.push(item.block);
         } else {
           await this.updater.addProposedCheckpoint(item.checkpoint);
         }
@@ -386,6 +389,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       } catch (err: any) {
         if (err instanceof BlockAlreadyCheckpointedError) {
           this.log.debug(`Proposed block ${itemNumber} matches already checkpointed block, ignoring late proposal`);
+          // A late proposal that matches an already-checkpointed block adds nothing new, so it is not appended.
           resolve();
           continue;
         }
@@ -396,6 +400,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         reject(err);
       }
     }
+    return blocksAdded;
   }
 
   public waitForInitialSync() {
@@ -407,12 +412,31 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    */
   @trackSpan('Archiver.sync')
   private async sync() {
+    // Capture the tips before any mutation so the aggregate event can report what moved this pass.
+    const fromTips = await this.getL2Tips();
+
+    // Accumulate the blocks added across the pass's sub-steps (queued proposals + L1 checkpoint payloads).
+    const blocksAdded: L2Block[] = [];
     // Process any queued blocks first, before doing L1 sync
-    await this.processInboundQueue();
+    blocksAdded.push(...(await this.processInboundQueue()));
     // Now perform L1 sync
-    await this.syncFromL1();
+    blocksAdded.push(...(await this.syncFromL1()));
     // Prune proposed blocks with no corresponding proposed checkpoint after the appropriate materialization deadline.
     await this.pruneOrphanProposedBlocks();
+
+    // Emit a single aggregate update event after all pass work has committed and the tips cache has refreshed,
+    // so `toTips` and the source state observed by listeners are consistent with the event payload. The pass
+    // mutated state if the tips moved (added blocks, a prune, or a thin tier movement) or blocks were added; a
+    // fully-synced no-op pass emits nothing.
+    const toTips = await this.getL2Tips();
+    if (!l2TipsEqual(fromTips, toTips) || blocksAdded.length > 0) {
+      this.events.emit(L2BlockSourceEvents.L2BlockSourceUpdated, {
+        type: L2BlockSourceEvents.L2BlockSourceUpdated,
+        fromTips,
+        toTips,
+        blocksAdded,
+      });
+    }
   }
 
   /**
@@ -435,19 +459,23 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     const tips = await this.getL2Tips();
     const now = BigInt(this.dateProvider.nowInSeconds());
 
+    // Frontier block covered by a proposed (or, falling back, confirmed) checkpoint. Blocks beyond it
+    // have no enclosing checkpoint proposal and are the orphan-pruning candidates.
+    const proposedCheckpointBlockNumber = await this.stores.blocks.getProposedCheckpointL2BlockNumber();
+
     // The proposed tip is a proposed-checkpointed block, so there are no orphan proposed blocks to prune
-    if (tips.proposedCheckpoint.block.number === tips.proposed.number) {
-      this.log.trace(
-        `No orphan proposed blocks to prune: proposed tip ${tips.proposed.number} is checkpointed`,
-        pick(tips, 'proposed', 'proposedCheckpoint'),
-      );
+    if (proposedCheckpointBlockNumber === tips.proposed.number) {
+      this.log.trace(`No orphan proposed blocks to prune: proposed tip ${tips.proposed.number} is checkpointed`, {
+        proposed: tips.proposed,
+        proposedCheckpointBlockNumber,
+      });
       return;
     }
 
     // Load the blocks that are candidates for pruning (ie blocks without a proposed checkpoint covering them)
     const blocksWithoutProposedCheckpoint = await this.stores.blocks.getBlocksData({
-      from: BlockNumber(tips.proposedCheckpoint.block.number + 1),
-      limit: tips.proposed.number - tips.proposedCheckpoint.block.number,
+      from: BlockNumber(proposedCheckpointBlockNumber + 1),
+      limit: tips.proposed.number - proposedCheckpointBlockNumber,
     });
 
     // Iterate through them in order, the first one with a slot that should have received a proposed checkpoint
@@ -495,6 +523,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
         const prunedBlocks = await this.updater.removeBlocksWithoutProposedCheckpointAfter(pruneAfterBlockNumber);
         if (prunedBlocks.length > 0) {
+          this.instrumentation.recordPrune('orphan');
           this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
             type: L2BlockSourceEvents.L2PruneUncheckpointed,
             slotNumber: blockSlot,
@@ -510,9 +539,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     });
   }
 
-  private async syncFromL1() {
+  private async syncFromL1(): Promise<L2Block[]> {
     // Delegate to the L1 synchronizer
-    await this.synchronizer.syncFromL1(this.initialSyncComplete);
+    const blocksAdded = await this.synchronizer.syncFromL1(this.initialSyncComplete);
 
     // Check if we've completed initial sync
     const currentL1BlockNumber = this.synchronizer.getL1BlockNumber();
@@ -529,6 +558,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         this.initialSyncPromise.resolve();
       }
     }
+    return blocksAdded;
   }
 
   /** Resumes the archiver after a stop. */
@@ -662,6 +692,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
     return this.updater.removeCheckpointsAfter(checkpointNumber);
+  }
+
+  /**
+   * Removes all uncheckpointed blocks strictly after `blockNumber`, along with the proposed checkpoints
+   * that referenced them. Used by the AutomineSequencer to undo a local insert whose propose tx failed
+   * to land on L1 (no reorg needed — nothing reached L1). Refuses to touch checkpointed blocks.
+   */
+  public removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
+    return this.updater.removeUncheckpointedBlocksAfter(blockNumber);
   }
 
   /** Used by TXE to add checkpoints directly without syncing from L1. */

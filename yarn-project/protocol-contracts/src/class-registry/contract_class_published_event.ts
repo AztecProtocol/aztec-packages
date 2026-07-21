@@ -36,7 +36,12 @@ export class ContractClassPublishedEvent {
     const version = reader.readField().toNumber();
     const artifactHash = reader.readField();
     const privateFunctionsRoot = reader.readField();
-    const packedPublicBytecode = bufferFromFields(reader.readFieldArray(fieldsWithoutTag.length - reader.cursor));
+    const bytecodeFields = reader.readFieldArray(fieldsWithoutTag.length - reader.cursor);
+    // The fixed-size class log can hold at most this many packed-bytecode bytes (every payload field
+    // carries 31 bytes). Bound the declared length to it so a malformed log can't declare a multi-MiB
+    // length backed by a tiny payload and force a large allocation during early (pre-proof) validation.
+    const maxByteLength = (bytecodeFields.length - 1) * (Fr.SIZE_IN_BYTES - 1);
+    const packedPublicBytecode = bufferFromFields(bytecodeFields, maxByteLength);
 
     return new ContractClassPublishedEvent(
       contractClassId,

@@ -2,6 +2,7 @@ import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-ty
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { LoggerBindings } from '@aztec/foundation/log';
 
+import type { BlockHash } from '../block/block_hash.js';
 import type { L2Block } from '../block/l2_block.js';
 import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
@@ -64,6 +65,8 @@ type ProposerBlockBuilderOptions = BlockBuilderOptionsBase & {
   maxBlocksPerCheckpoint: number;
   /** Per-block gas budget multiplier. Budget = (remaining / remainingBlocks) * multiplier. */
   perBlockAllocationMultiplier: number;
+  /** Per-block budget multiplier for DA gas and blob fields. Falls back to perBlockAllocationMultiplier when unset. */
+  perBlockDAAllocationMultiplier?: number;
 };
 
 /** Validator mode: no redistribution params needed. */
@@ -141,7 +144,11 @@ export interface ICheckpointBlockBuilder {
 
 /** Interface for creating checkpoint builders. */
 export interface ICheckpointsBuilder {
-  getFork(blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations>;
+  /**
+   * Syncs world state to `blockNumber` and returns a fork of it at that block. When `blockHash` is
+   * provided it is verified against the synced block, triggering a resync on mismatch (reorg detection).
+   */
+  getFork(blockNumber: BlockNumber, blockHash?: BlockHash): Promise<MerkleTreeWriteOperations>;
 
   startCheckpoint(
     checkpointNumber: CheckpointNumber,

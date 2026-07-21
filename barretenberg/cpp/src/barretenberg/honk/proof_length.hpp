@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -84,8 +85,8 @@ template <typename Flavor> struct Shplemini : CodecConstants<Flavor> {
             /* KZG:W */ num_frs_in_comm;
 
         if constexpr (Flavor::HasZK) {
-            // ZK adds: Libra evaluations (concatenation, shifted_grand_sum, grand_sum, quotient)
-            return base_length + (NUM_SMALL_IPA_EVALUATIONS * num_frs_in_scalar);
+            // ZK adds: Libra evaluations (concatenation, shifted_grand_sum, grand_sum, quotient).
+            return base_length + (NUM_SMALL_IPA_TRANSCRIPT_EVALS * num_frs_in_scalar);
         } else {
             return base_length;
         }
@@ -154,18 +155,13 @@ template <typename Flavor> struct HypernovaInstanceToAccum {
 /**
  * @brief MultilinearBatching proof layout (used by HyperNova folding).
  * @details Batches two accumulators (from previous fold + incoming instance) into one.
- *          Contains: accumulator commitments, multivariate challenges, evaluations, and sumcheck.
- *          Note: This protocol has no public inputs.
+ *          It only contains the sumcheck proof as the accumulator data is received as inputs by the verifier's methods.
  */
 template <typename Flavor> struct MultilinearBatching : CodecConstants<Flavor> {
     using CodecConstants<Flavor>::num_frs_in_scalar;
     using CodecConstants<Flavor>::num_frs_in_comm;
 
-    static constexpr size_t LENGTH =
-        /* accumulator commitments (non_shifted + shifted) */ (Flavor::NUM_ACCUMULATOR_COMMITMENTS * num_frs_in_comm) +
-        /* multivariate challenges */ (Flavor::VIRTUAL_LOG_N * num_frs_in_scalar) +
-        /* accumulator evaluations (non_shifted + shifted) */
-        (Flavor::NUM_ACCUMULATOR_EVALUATIONS * num_frs_in_scalar) + Sumcheck<Flavor>::LENGTH(Flavor::VIRTUAL_LOG_N);
+    static constexpr size_t LENGTH = Sumcheck<Flavor>::LENGTH(Flavor::VIRTUAL_LOG_N);
 };
 
 /**

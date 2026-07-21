@@ -132,7 +132,7 @@ pub contract Test {
     #[external("private")]
     fn call_create_note(value: u128, owner: AztecAddress, storage_slot: Field, make_tx_hybrid: bool) {
         let note = UintNote { value };
-        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_constrained());
+        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_unconstrained());
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call();
@@ -345,7 +345,7 @@ pub contract Test {
         let content_hash = get_mint_to_private_content_hash(amount);
         self.context.consume_l1_to_l2_message(
             content_hash,
-            secret_for_L1_to_L2_message_consumption,
+            [secret_for_L1_to_L2_message_consumption],
             portal_address,
             message_leaf_index,
         );
@@ -359,7 +359,7 @@ pub contract Test {
         message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
+        self.context.consume_l1_to_l2_message(content, [secret], sender, message_leaf_index);
     }
 
     #[external("private")]
@@ -370,7 +370,7 @@ pub contract Test {
         message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
+        self.context.consume_l1_to_l2_message(content, [secret], sender, message_leaf_index);
     }
 
     #[external("private")]
@@ -381,7 +381,7 @@ pub contract Test {
 
     #[external("private")]
     fn assert_header_private(header_hash: Field) {
-        assert(self.context.anchor_block_header.hash() == header_hash, "Invalid header hash");
+        assert(self.context.get_anchor_block_header().hash() == header_hash, "Invalid header hash");
     }
 
     // TODO(4840): add AVM opcodes for getting header (members)

@@ -205,17 +205,22 @@ sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.idx };
 // ****************************************************************************
 
 // Retrieved from precomputed.pil (instruction specification).
-// Whether this instruction has a tag. Constrained by the precomputed table (#[WIRE_INSTRUCTION_INFO])
-// to be 1 iff we have a wire opcode (represented by bd0) with a tag as defined in the instruction spec.
-pol commit sel_has_tag; // @boolean (by lookup only when sel_pc_in_range == 1)
+// Boolean by lookup when sel_pc_in_range == 1.
+// Forced to zero otherwise by #[SEL_HAS_TAG_ZERO].
+// Therefore, unconditionally boolean — required as a lookup source selector.
+// With current instruction specs, tag can appear at op2 (SET_XXX) or op3 (CAST_8, CAST_16).
+pol commit sel_has_tag; // @boolean
+pol commit sel_tag_is_op2; // @boolean (by lookup only when sel_pc_in_range == 1) - (sel_tag_is_op2 == 0 && sel_has_tag == 1) ==> op3 is a tag
 
-// Whether the tag exists at op2 (== 1) or op3, if exists (sel_tag_is_op2 == 0 && sel_has_tag == 1 ==> op3 is a tag).
-// Constrained, like sel_has_tag, by the precomputed table (#[WIRE_INSTRUCTION_INFO]) against the wire opcode.
-pol commit sel_tag_is_op2; // @boolean (by lookup only when sel_pc_in_range == 1)
+#[SEL_HAS_TAG_ZERO]
+sel_has_tag * (1 - sel_pc_in_range) = 0;
 
-// Value to validate as tag. According to our current instruction specifications, there is a maximum of one
-// tag per instruction and it appears only at op2 (SET_XXX) or op3 (CAST_8, CAST_16).
-// Lookup constant support: Can be removed when we support constants in lookups.
+// We can only have a tag error when a tag exists.
+#[TAG_OUT_OF_RANGE_ZERO]
+tag_out_of_range * (1 - sel_has_tag) = 0;
+
+// Value to validate as tag. According to our instruction specifications, there is a maximum of one tag per instruction
+// and it appears only at op2 or op3.
 pol commit tag_value;
 // Note that (sel_has_tag - sel_tag_is_op2) cannot underflow (= p - 1) since the precomputed table enforces
 // that sel_tag_is_op2 == 1 ==> sel_has_tag == 1 (#[WIRE_INSTRUCTION_INFO]). When this lookup is skipped (sel_pc_in_range == 0)

@@ -1,3 +1,9 @@
+import {
+  type L1TxConfig,
+  type L1TxUtils,
+  createL1TxUtils,
+  getL1TxUtilsConfigEnvVars,
+} from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient, ViemContract } from '@aztec/ethereum/types';
 import { extractEvent } from '@aztec/ethereum/utils';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
@@ -16,7 +22,7 @@ import { computeL2ToL1MessageHash, computeSecretHash } from '@aztec/stdlib/hash'
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 
-import { type Hex, getContract, toFunctionSelector } from 'viem';
+import { type Hex, encodeFunctionData, getContract, toFunctionSelector } from 'viem';
 
 /** L1 to L2 message info to claim it on L2. */
 export type L2Claim = {
@@ -51,10 +57,26 @@ export async function generateClaimSecret(logger?: Logger): Promise<[Fr, Fr]> {
   return [secret, secretHash];
 }
 
+// `Inbox.sendL2Message` (reached by every `depositToAztec*` call) inserts into a height-10
+// (`L1_TO_L2_MSG_SUBTREE_HEIGHT`) incremental frontier tree. The per-insert cost swings by up to ~10 hash levels
+// (which translates to ~40k gas) depending on where the global message index lands when the tx is mined: inserts that
+// complete a subtree cascade through cold SLOADs + an SSTORE vs cheap inserts that touch one slot. A point-in-time
+// `eth_estimateGas` taken at a cheap index therefore under-sizes a deposit that mines at a subtree boundary. That ~40k
+// swing exceeds the default 20% buffer on a ~100k deposit. That is why we raise the gas-limit buffer to 2x here.
+// Note: a larger operator override via L1_GAS_LIMIT_BUFFER_PERCENTAGE still wins.
+const INBOX_DEPOSIT_GAS_LIMIT_BUFFER_PERCENTAGE = 100;
+
+/** Per-call gas config for `depositToAztec*`: the Inbox-deposit buffer floor, or a larger operator override. */
+function inboxDepositGasConfig(): L1TxConfig {
+  const configuredBuffer = getL1TxUtilsConfigEnvVars().gasLimitBufferPercentage ?? 0;
+  return { gasLimitBufferPercentage: Math.max(configuredBuffer, INBOX_DEPOSIT_GAS_LIMIT_BUFFER_PERCENTAGE) };
+}
+
 /** Helper for managing an ERC20 on L1. */
 export class L1TokenManager {
   private contract: ViemContract<typeof TestERC20Abi>;
   private handler: ViemContract<typeof FeeAssetHandlerAbi> | undefined;
+  private readonly l1TxUtils: L1TxUtils;
 
   public constructor(
     /** Address of the ERC20 contract. */
@@ -76,6 +98,7 @@ export class L1TokenManager {
         client: this.extendedClient,
       });
     }
+    this.l1TxUtils = createL1TxUtils(this.extendedClient, { logger }, getL1TxUtilsConfigEnvVars());
   }
 
   /** Returns the amount of tokens available to mint via the handler.
@@ -108,8 +131,10 @@ export class L1TokenManager {
     const mintAmount = await this.getMintAmount();
     this.logger.info(`Minting ${mintAmount} tokens for ${stringifyEthAddress(address, addressName)}`);
     // NOTE: the handler mints a fixed amount.
-    await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.handler.write.mint([address]),
+    await this.l1TxUtils.sendAndMonitorTransaction({
+      to: this.handler.address,
+      abi: FeeAssetHandlerAbi,
+      data: encodeFunctionData({ abi: FeeAssetHandlerAbi, functionName: 'mint', args: [address] }),
     });
   }
 
@@ -121,8 +146,10 @@ export class L1TokenManager {
    */
   public async approve(amount: bigint, address: Hex, addressName = '') {
     this.logger.info(`Approving ${amount} tokens for ${stringifyEthAddress(address, addressName)}`);
-    await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.contract.write.approve([address, amount]),
+    await this.l1TxUtils.sendAndMonitorTransaction({
+      to: this.contract.address,
+      abi: TestERC20Abi,
+      data: encodeFunctionData({ abi: TestERC20Abi, functionName: 'approve', args: [address, amount] }),
     });
   }
 }
@@ -131,6 +158,7 @@ export class L1TokenManager {
 export class L1FeeJuicePortalManager {
   private readonly tokenManager: L1TokenManager;
   private readonly contract: ViemContract<typeof FeeJuicePortalAbi>;
+  private readonly l1TxUtils: L1TxUtils;
 
   constructor(
     portalAddress: EthAddress,
@@ -145,6 +173,7 @@ export class L1FeeJuicePortalManager {
       abi: FeeJuicePortalAbi,
       client: extendedClient,
     });
+    this.l1TxUtils = createL1TxUtils(extendedClient, { logger }, getL1TxUtilsConfigEnvVars());
   }
 
   /** Returns the associated token manager for the L1 ERC20. */
@@ -176,9 +205,14 @@ export class L1FeeJuicePortalManager {
 
     await this.contract.simulate.depositToAztecPublic(args);
 
-    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.contract.write.depositToAztecPublic(args),
-    });
+    const { receipt: txReceipt } = await this.l1TxUtils.sendAndMonitorTransaction(
+      {
+        to: this.contract.address,
+        abi: FeeJuicePortalAbi,
+        data: encodeFunctionData({ abi: FeeJuicePortalAbi, functionName: 'depositToAztecPublic', args }),
+      },
+      inboxDepositGasConfig(),
+    );
 
     this.logger.info('Deposited to Aztec public successfully', { txReceipt });
 
@@ -249,6 +283,7 @@ export class L1FeeJuicePortalManager {
 export class L1ToL2TokenPortalManager {
   protected readonly portal: ViemContract<typeof TokenPortalAbi>;
   protected readonly tokenManager: L1TokenManager;
+  protected readonly l1TxUtils: L1TxUtils;
 
   constructor(
     portalAddress: EthAddress,
@@ -263,6 +298,7 @@ export class L1ToL2TokenPortalManager {
       abi: TokenPortalAbi,
       client: extendedClient,
     });
+    this.l1TxUtils = createL1TxUtils(extendedClient, { logger }, getL1TxUtilsConfigEnvVars());
   }
 
   /** Returns the token manager for the underlying L1 token. */
@@ -280,15 +316,17 @@ export class L1ToL2TokenPortalManager {
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     this.logger.info('Sending L1 tokens to L2 to be claimed publicly');
-    const { request } = await this.portal.simulate.depositToAztecPublic([
-      to.toString(),
-      amount,
-      claimSecretHash.toString(),
-    ]);
+    const args = [to.toString(), amount, claimSecretHash.toString()] as const;
+    await this.portal.simulate.depositToAztecPublic(args);
 
-    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.extendedClient.writeContract(request),
-    });
+    const { receipt: txReceipt } = await this.l1TxUtils.sendAndMonitorTransaction(
+      {
+        to: this.portal.address,
+        abi: TokenPortalAbi,
+        data: encodeFunctionData({ abi: TokenPortalAbi, functionName: 'depositToAztecPublic', args }),
+      },
+      inboxDepositGasConfig(),
+    );
 
     const log = extractEvent(
       txReceipt.logs,
@@ -334,11 +372,17 @@ export class L1ToL2TokenPortalManager {
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');
-    const { request } = await this.portal.simulate.depositToAztecPrivate([amount, claimSecretHash.toString()]);
+    const args = [amount, claimSecretHash.toString()] as const;
+    await this.portal.simulate.depositToAztecPrivate(args);
 
-    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.extendedClient.writeContract(request),
-    });
+    const { receipt: txReceipt } = await this.l1TxUtils.sendAndMonitorTransaction(
+      {
+        to: this.portal.address,
+        abi: TokenPortalAbi,
+        data: encodeFunctionData({ abi: TokenPortalAbi, functionName: 'depositToAztecPrivate', args }),
+      },
+      inboxDepositGasConfig(),
+    );
 
     const log = extractEvent(
       txReceipt.logs,
@@ -437,7 +481,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     }
 
     // Call function on L1 contract to consume the message
-    const { request: withdrawRequest } = await this.portal.simulate.withdraw([
+    const withdrawArgs = [
       recipient.toString(),
       amount,
       false,
@@ -445,10 +489,13 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       BigInt(numCheckpointsInEpoch),
       messageIndex,
       siblingPath.toBufferArray().map((buf: Buffer): Hex => `0x${buf.toString('hex')}`),
-    ]);
+    ] as const;
+    await this.portal.simulate.withdraw(withdrawArgs);
 
-    await this.extendedClient.waitForTransactionReceipt({
-      hash: await this.extendedClient.writeContract(withdrawRequest),
+    await this.l1TxUtils.sendAndMonitorTransaction({
+      to: this.portal.address,
+      abi: TokenPortalAbi,
+      data: encodeFunctionData({ abi: TokenPortalAbi, functionName: 'withdraw', args: withdrawArgs }),
     });
 
     const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtEpoch([BigInt(epochNumber), messageLeafId]);

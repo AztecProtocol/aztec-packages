@@ -56,13 +56,27 @@ include "public_data_squash.pil";
  * - public_data_squash: Squashing permutation (non_discarded_write).
  * - public_inputs: Write public data (sel_write_to_public_inputs), write length (end).
  *
+ * Read callers pass the `write` column in the tuple (with value precomputed.zero) so the
+ * lookup against `public_data_check.sel` can only match read rows (write=0). This is required
+ * for soundness: without it, a malicious prover could satisfy a read lookup by matching
+ * against a write row.
+ *
+ * Write callers do not need to pass `write`. Completeness is preserved by two safeguards:
+ * (1) the multi-permutation in tracegen uses `public_data_check.write` as its main destination
+ *     table selector, so only rows with write=1 are indexed as candidates for the write
+ *     permutations; and
+ * (2) the `clk` column in the tuple is unique per write (preconditions), so each write source
+ *     row matches exactly one destination row.
+ *
  * Read usage:
  * sel {
+ *    precomputed.zero,            // write = 0 (read)
  *    value,
  *    address,
  *    slot,
  *    public_data_tree_root
  * } in public_data_check.sel {
+ *    public_data_check.write,     // Input
  *    public_data_check.value,     // Output
  *    public_data_check.address,   // Input
  *    public_data_check.slot,      // Input

@@ -1,10 +1,20 @@
-// This window has to be as large as the largest expected number of logs emitted in a tx for a given directional app
-// tagging secret. If we get more tag indexes consumed than this window, an error is thrown in `PXE::proveTx` function.
-// This is set to a larger value than MAX_PRIVATE_LOGS_PER_TX (currently 64) because there could be more than
-// MAX_PRIVATE_LOGS_PER_TX indexes consumed in case the logs are squashed. This happens when the log contains a note
-// and the note is nullified in the same tx.
+import { MAX_PRIVATE_LOGS_PER_TX } from '@aztec/constants';
+
+// This window bounds how far a sender's next tag index for a directional app tagging secret can run ahead of that
+// secret's highest finalized index before `PXE::proveTx` throws.
 //
-// Having a large window significantly slowed down `e2e_l1_with_wall_time` test as there we perform sync for more than
-// 1000 secrets. For this reason we set it to a relatively low value of 20. 20 should be sufficient for all the use
-// cases.
-export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = 20;
+// MAX_PRIVATE_LOGS_PER_TX is a floor for ordinary transaction patterns: the private kernel accumulates every
+// surviving private log into a single tx-wide array of exactly this size, so a fresh secret's very first
+// ordinary tx can consume that many indexes before anything is finalized.
+//
+// The +20 on top is headroom for multiple pending ordinary txs to the same counterparty stacking up
+// before the first one is observed as mined. Only a run of near-MAX_PRIVATE_LOGS_PER_TX txs back-to-back would
+// exhaust this; ordinary transfers use far fewer logs per tx, so the same margin covers many more of those. Keep the
+// margin additive rather than another multiple of the floor. A larger window also makes recipient-side sync more
+// expensive, since discovery has to probe ahead of the last finalized index for every active secret.
+//
+// TODO(F-783): MAX_PRIVATE_LOGS_PER_TX is not a hard ceiling in general — a tx that creates and nullifies (squashes)
+// many notes/logs to the same secret can drive that secret's raw tag index arbitrarily higher, since indexes are
+// reserved at log emission time, before squashing is decided, and the kernel's reset/squash loop is not bounded by
+// MAX_PRIVATE_LOGS_PER_TX. No fixed window value closes that gap.
+export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = MAX_PRIVATE_LOGS_PER_TX + 20;

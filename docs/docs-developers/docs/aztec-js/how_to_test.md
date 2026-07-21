@@ -85,7 +85,7 @@ Use this to set up state preconditions, reproduce production bugs against pinned
 
 ### Fast-forwarding a contract update
 
-`fastForwardContractUpdate` returns a `SimulationOverrides` object that simulates a deployed instance as if it had already been upgraded to a new contract class. The new class must already be registered on chain. The cheat mirrors a real `pxe.updateContract` followed by waiting out the upgrade delay: the instance's `currentContractClassId` is bumped, and the `ContractInstanceRegistry`'s delayed-public-mutable storage is rewritten to look like the upgrade was scheduled in the past.
+`fastForwardContractUpdate` returns a `SimulationOverrides` object that simulates a deployed instance as if it had already been upgraded to a new contract class. The new class must already be registered on chain. The cheat mirrors a real onchain upgrade followed by waiting out the upgrade delay: the override instance's `currentContractClassId` is bumped, and the `ContractInstanceRegistry`'s delayed-public-mutable storage is rewritten to look like the upgrade was scheduled in the past.
 
 ```typescript
 import { fastForwardContractUpdate } from '@aztec/aztec.js';

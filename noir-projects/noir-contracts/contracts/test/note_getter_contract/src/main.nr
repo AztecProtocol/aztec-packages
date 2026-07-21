@@ -1,4 +1,5 @@
 use aztec::macros::aztec;
+mod multi_slot_note;
 mod packed_note;
 
 /// Used to test note getter in e2e_note_getter.test.ts
@@ -25,12 +26,14 @@ pub contract NoteGetter {
         packed_set: Owned<PrivateSet<PackedNote, Context>, Context>,
     }
 
+    // This function is called from tests that execute it across many parallel txs.
+    // Since constrained delivery doesn't support it, this function must use unconstrained delivery instead.
     #[external("private")]
     fn insert_note(value: Field) {
         let owner = self.msg_sender();
         let note = FieldNote { value };
 
-        self.storage.set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.set.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]
@@ -48,14 +51,14 @@ pub contract NoteGetter {
         let owner = self.msg_sender();
         let note = PackedNote { high, low };
 
-        self.storage.packed_set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.packed_set.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]
     unconstrained fn select_packed_notes_by_high(
         owner: AztecAddress,
         comparator: u8,
-        value: Field,
+        value: u8,
     ) -> BoundedVec<[u8; 2], 10> {
         let selector = PackedNote::high_selector();
         let notes =
@@ -67,7 +70,7 @@ pub contract NoteGetter {
     unconstrained fn select_packed_notes_by_low(
         owner: AztecAddress,
         comparator: u8,
-        value: Field,
+        value: u8,
     ) -> BoundedVec<[u8; 2], 10> {
         let selector = PackedNote::low_selector();
         let notes =

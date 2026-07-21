@@ -82,11 +82,15 @@ class WorldState {
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                const std::vector<PublicDataLeafValue>& prefilled_public_data,
+               const std::vector<bb::fr>& prefilled_nullifiers,
                uint32_t initial_header_generator_point,
                uint64_t genesis_timestamp = 0,
                bool ephemeral = false);
 
     /**
+     * @param prefilled_nullifiers Nullifier leaves to pre-insert into the genesis nullifier tree (e.g. the protocol
+     *                  contract registration nullifiers). Must be unique and strictly increasing in field value, and
+     *                  distinct from the padding leaves implied by the nullifier tree prefill size.
      * @param ephemeral When true, every underlying LMDB env opens with `MDB_NOSYNC |
      *                  MDB_NOMETASYNC`. Commits return without waiting for fsync; the kernel
      *                  flushes lazily, files stay sparse. Intended for throwaway scratch
@@ -99,6 +103,7 @@ class WorldState {
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                const std::vector<PublicDataLeafValue>& prefilled_public_data,
+               const std::vector<bb::fr>& prefilled_nullifiers,
                uint32_t initial_header_generator_point,
                uint64_t genesis_timestamp = 0,
                bool ephemeral = false);
@@ -300,7 +305,9 @@ class WorldState {
                                     const std::vector<bb::fr>& notes,
                                     const std::vector<bb::fr>& l1_to_l2_messages,
                                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                                    const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
+                                    const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes,
+                                    const std::optional<bb::fr>& expected_archive_root = std::nullopt,
+                                    const std::optional<bb::fr>& expected_previous_archive_root = std::nullopt);
 
     uint32_t checkpoint(const uint64_t& forkId);
     void commit_checkpoint(const uint64_t& forkId);
@@ -324,6 +331,7 @@ class WorldState {
     void create_canonical_fork(const std::string& dataDir,
                                const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
                                const std::vector<PublicDataLeafValue>& prefilled_public_data,
+                               const std::vector<bb::fr>& prefilled_nullifiers,
                                uint64_t maxReaders,
                                bool ephemeral);
 

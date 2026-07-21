@@ -21,9 +21,9 @@ export async function tokenTest(
 ) {
   const timer = new Timer();
 
-  const admin = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(111);
-  const receiver = AztecAddress.fromNumber(222);
+  const admin = AztecAddress.fromNumberUnsafe(42);
+  const sender = AztecAddress.fromNumberUnsafe(111);
+  const receiver = AztecAddress.fromNumberUnsafe(222);
 
   const token = await setUpToken(tester, tokenArtifact, admin, expectToBeTrue);
 

@@ -902,7 +902,7 @@
 [[redirects]]
     # PXE: cross-contract utility call denied by execution hook
     from = "/errors/11"
-    to = "/developers/docs/aztec-nr/debugging#cross-contract-utility-call-denied"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts#cross-contract-authorization"
 
 [[redirects]]
     # Incompatible oracle version between test and test environment
@@ -913,3 +913,13 @@
     # Unexpected error: how to report issues
     from = "/errors/13"
     to = "/developers/docs/aztec-nr/debugging#reporting-issues"
+
+[[redirects]]
+    # Aztec-nr: contract errors
+    from = "/errors/14"
+    to = "/developers/docs/aztec-nr/debugging#contract-errors"
+
+[[redirects]]
+    # Aztec-nr: auto-generated note properties require the derived Packable layout
+    from = "/errors/15"
+    to = "/aztec-nr-api/mainnet/noir_aztec/note/note_interface/trait.NoteProperties.html"

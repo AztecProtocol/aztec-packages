@@ -41,12 +41,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type ContractInstanceWithAddress,
-  type NodeInfo,
-  computePartialAddress,
-  getContractClassFromArtifact,
-} from '@aztec/stdlib/contract';
+import { type ContractInstancePreimage, type NodeInfo, computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import {
@@ -54,6 +49,7 @@ import {
   computeSiloedPublicInitializationNullifier,
 } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { type MasterSecretKeys, deriveKeys, deriveKeysFromMasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   BlockHeader,
   ExecutionPayload,
@@ -65,6 +61,7 @@ import {
 
 import { inspect } from 'util';
 
+import { assertGasLimitsWithinNetworkLimits } from './get_gas_limits.js';
 import { buildMergedSimulationResult, extractOptimizablePublicStaticCalls, simulateViaNode } from './utils.js';
 
 /**
@@ -114,6 +111,9 @@ export type CompleteFeeOptionsConfig = {
 export abstract class BaseWallet implements Wallet {
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
+  // Poll interval (in seconds) injected into sendTx waits when the caller does not specify one. Left undefined on
+  // production wallets so the DefaultWaitOpts 1s cadence stands; test wallets talking to in-process nodes lower it.
+  protected defaultWaitInterval?: number;
   // A wallet is instantiated for a particular chain, so chain info never changes during its lifetime.
   // We cache it here because getChainInfo is called frequently (every tx simulation, send, auth wit, etc.).
   private nodeInfoPromise: Promise<NodeInfo> | undefined;
@@ -125,10 +125,17 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
-    const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
+  protected scopesFrom(
+    from: AztecAddress | NoFrom,
+    additionalScopes: AztecAddress[],
+    sendMessagesAs: AztecAddress | undefined,
+  ): AztecAddress[] {
+    // The sendMessagesAs account must be in scope so that its tagging secrets can be accessed.
+    const tagSenderScopes = sendMessagesAs ? [sendMessagesAs] : [];
+    const baseScopes = from === NO_FROM ? [] : [from];
+    const allScopes = [...baseScopes, ...additionalScopes, ...tagSenderScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
-    return [...scopeSet].map(AztecAddress.fromString);
+    return [...scopeSet].map(AztecAddress.fromStringUnsafe);
   }
 
   /**
@@ -154,16 +161,40 @@ export abstract class BaseWallet implements Wallet {
    * @returns The aliased collection of AztecAddresses that form this wallet's address book
    */
   async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
-    const senders: AztecAddress[] = await this.pxe.getSenders();
-    return senders.map(sender => ({ item: sender, alias: '' }));
+    const sources = await this.pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    return sources.map(source => ({ item: source.sender, alias: '' }));
+  }
+
+  /**
+   * Fetches and caches the node info for the wallet's lifetime, since a wallet talks to a single network and
+   * node info never changes. A rejected fetch clears the cache so the next call retries instead of replaying
+   * the cached rejection forever — important because the gas-limit fill-in and validation (run on every send)
+   * depend on it.
+   */
+  private getNodeInfo(): Promise<NodeInfo> {
+    if (!this.nodeInfoPromise) {
+      this.nodeInfoPromise = this.aztecNode.getNodeInfo().catch(err => {
+        this.nodeInfoPromise = undefined;
+        throw err;
+      });
+    }
+    return this.nodeInfoPromise;
   }
 
   async getChainInfo(): Promise<ChainInfo> {
-    if (!this.nodeInfoPromise) {
-      this.nodeInfoPromise = this.aztecNode.getNodeInfo();
-    }
-    const { l1ChainId, rollupVersion } = await this.nodeInfoPromise;
+    const { l1ChainId, rollupVersion } = await this.getNodeInfo();
     return { chainId: new Fr(l1ChainId), version: new Fr(rollupVersion) };
+  }
+
+  /**
+   * Returns the maximum gas limits a single transaction may declare on this wallet's network (the
+   * node-advertised `txsLimits.gas`). Internal helper used to fill in default gas limits when sending a
+   * transaction without explicit limits, and to validate caller-provided limits before sending. Backed by
+   * the cached node info, since a wallet talks to a single network.
+   */
+  protected async getMaxTxGasLimits(): Promise<Gas> {
+    const { txsLimits } = await this.getNodeInfo();
+    return new Gas(txsLimits.gas.daGas, txsLimits.gas.l2Gas);
   }
 
   protected async createTxExecutionRequestFromPayloadAndFee(
@@ -272,10 +303,25 @@ export abstract class BaseWallet implements Wallet {
       maxPriorityFeesPerGas: gasSettings?.maxPriorityFeesPerGas ?? GasFees.empty(),
     };
     // When estimating gas (simulation), use high limits so the simulation doesn't run out of gas.
-    // When sending for real, use protocol max limits that the network will actually accept.
-    const fullGasSettings = forEstimation
-      ? GasSettings.forEstimation(gasSettingsOverrides)
-      : GasSettings.fallback(gasSettingsOverrides);
+    // When sending for real without explicit limits, declare the most a single tx may use on this network
+    // (the node's per-tx admission limit), so the proposer does not skip the tx for over-declaring gas.
+    let fullGasSettings;
+    if (forEstimation) {
+      // Estimation deliberately uses very high internal limits and skips tx validation, so we do not
+      // validate against the network admission limit here.
+      fullGasSettings = GasSettings.forEstimation(gasSettingsOverrides);
+    } else {
+      const maxTxGasLimits = await this.getMaxTxGasLimits();
+      // If the caller declared explicit gas limits, reject them up front when they exceed the network's
+      // per-tx admission limit (mirroring the node's GasLimitsValidator). Otherwise fill in the limit.
+      if (gasSettingsOverrides.gasLimits) {
+        assertGasLimitsWithinNetworkLimits(gasSettingsOverrides.gasLimits, maxTxGasLimits);
+      }
+      fullGasSettings = GasSettings.fallback({
+        ...gasSettingsOverrides,
+        gasLimits: gasSettingsOverrides.gasLimits ?? maxTxGasLimits,
+      });
+    }
     this.log.debug(`Using L2 gas settings`, fullGasSettings);
     return {
       gasSettings: fullGasSettings,
@@ -306,46 +352,42 @@ export abstract class BaseWallet implements Wallet {
     }
   }
 
-  registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
-    return this.pxe.registerSender(address);
+  async registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
+    await this.pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    return address;
   }
 
   async registerContract(
-    instance: ContractInstanceWithAddress,
+    instance: ContractInstancePreimage,
     artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress> {
-    const existingInstance = await this.pxe.getContractInstance(instance.address);
-
-    if (existingInstance) {
-      // Instance already registered in the wallet
-      if (artifact) {
-        const thisContractClass = await getContractClassFromArtifact(artifact);
-        if (!thisContractClass.id.equals(existingInstance.currentContractClassId)) {
-          // wallet holds an outdated version of this contract
-          await this.pxe.updateContract(instance.address, artifact);
-          instance.currentContractClassId = thisContractClass.id;
-        }
-      }
-      // If no artifact provided, we just use the existing registration
-    } else {
-      // Instance not registered yet
-      if (!artifact) {
-        // Try to get the artifact from the wallet's contract class storage
-        artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
-        if (!artifact) {
-          throw new Error(
-            `Cannot register contract at ${instance.address.toString()}: artifact is required but not provided, and wallet does not have the artifact for contract class ${instance.currentContractClassId.toString()}`,
-          );
-        }
-      }
-      await this.pxe.registerContract({ artifact, instance });
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
+  ): Promise<void> {
+    // Classes and instances are registered independently: register the artifact (if provided) then the instance.
+    // Neither call validates that the artifact matches the class the instance runs, a missing artifact only surfaces
+    // when the contract is later simulated.
+    if (artifact) {
+      await this.pxe.registerContractClass(artifact);
     }
+    const contractAddress = await this.pxe.registerContract(instance);
 
-    if (secretKey) {
-      await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
+    if (secretKeyOrKeys) {
+      // PXE never receives the account seed (from which the message-signing/fallback secret keys could be re-derived):
+      // the wallet derives the keys here. Of these, PXE only reads and stores the four privacy secret keys and the
+      // message-signing and fallback *public* keys — it never touches the message-signing or fallback secret keys.
+      //
+      // Since PXE recomputes the address from those keys, we assert it matches the instance's address: a mismatch means
+      // the provided keys don't correspond to this account.
+      const derivedKeys =
+        secretKeyOrKeys instanceof Fr
+          ? await deriveKeys(secretKeyOrKeys)
+          : await deriveKeysFromMasterSecretKeys(secretKeyOrKeys);
+      const { address } = await this.pxe.registerAccount(derivedKeys, await computePartialAddress(instance));
+      if (!address.equals(contractAddress)) {
+        throw new Error(
+          `Registered account address ${address.toString()} does not match contract instance address ${contractAddress.toString()}: the provided keys do not correspond to this account.`,
+        );
+      }
     }
-    return instance;
   }
 
   registerContractClass(artifact: ContractArtifact): Promise<void> {
@@ -367,7 +409,7 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic: true,
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
       overrides: opts.overrides,
     });
@@ -463,7 +505,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
   }
@@ -480,7 +522,7 @@ export abstract class BaseWallet implements Wallet {
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, {
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
     const offchainOutput = extractOffchainOutput(
@@ -504,7 +546,11 @@ export abstract class BaseWallet implements Wallet {
     }
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
-    const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
+    const callerWaitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
+    const waitOpts =
+      this.defaultWaitInterval !== undefined && callerWaitOpts?.interval === undefined
+        ? { ...callerWaitOpts, interval: this.defaultWaitInterval }
+        : callerWaitOpts;
     const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
 
     // Display debug logs from public execution if present (served in test mode only)
@@ -524,7 +570,11 @@ export abstract class BaseWallet implements Wallet {
     if (!instance) {
       return undefined;
     }
-    const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+    // Contract names are class-stable (an upgrade preserves the contract name), so the original class artifact is a
+    // sufficient source for the display name without resolving the current class against the node.
+    // TODO: if a contract were to be upgraded and its original artifact never registered, then this would fail and we'd
+    // want to fallback to the current class.
+    const artifact = await this.pxe.getContractArtifact(instance.originalContractClassId);
     return artifact?.name;
   }
 

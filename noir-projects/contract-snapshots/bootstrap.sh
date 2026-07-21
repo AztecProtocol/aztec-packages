@@ -20,6 +20,16 @@ function test {
         echo "INSTA_UPDATE is not permitted in CI. Run 'cargo insta accept' locally and commit." >&2
         exit 1
     fi
+
+    # Warm nargo's git-dependency cache before the snapshot tests run. On a cold cache nargo prints a
+    # one-time "Cloning into '.../noir-lang/{poseidon,sha256}/v0.3.0'..." line to stderr while resolving
+    # the aztec library's git deps; with tests running in parallel that line lands in whichever
+    # compile_failure snapshot triggers the clone first and breaks the byte-for-byte match. Cloning the
+    # deps here keeps every captured stderr clean — the clone happens during dependency resolution
+    # regardless of whether the check itself reports warnings or errors.
+    local nargo_abs="$(cd "$(dirname "$NARGO")" && pwd)/$(basename "$NARGO")"
+    (cd ../aztec-nr/aztec && "$nargo_abs" check) >/dev/null 2>&1 || true
+
     # TODO(#12933 on noir-lang/noir): `expand::test_avm_test_contract` is skipped because `nargo expand`
     # emits the generated contract-interface functions in hashmap-iteration order, which
     # is not stable across nargo builds/runs. The snapshot is correct but the test fails

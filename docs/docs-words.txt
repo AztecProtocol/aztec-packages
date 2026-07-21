@@ -63,6 +63,7 @@ colour
 Colour
 CapsuleStore
 initializerless
+immutables
 colums
 Commiting
 comsumer
@@ -225,6 +226,7 @@ NULLIFIEREXISTS
 NULLIFIERSEXISTS
 onramps
 opcdoe
+OPFS
 optimisation
 optimisations
 optimise
@@ -441,4 +443,9 @@ reentrancy
 variadic
 Wonderland
 indistinguishability
+unlinkable
 nightlies
+Ciara
+Nightingale
+Mayopg
+VRZVO

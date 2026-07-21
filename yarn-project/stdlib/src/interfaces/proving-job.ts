@@ -1,5 +1,5 @@
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -204,7 +204,7 @@ export type ProvingJobInputsMap = {
 export const ProvingJobResult = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_VM),
-    result: RecursiveProof.schemaFor(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
+    result: RecursiveProof.schemaFor(AVM_V2_PROOF_LENGTH_IN_FIELDS),
   }),
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_CHONK_VERIFIER),
@@ -319,7 +319,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
 ]);
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
-  [ProvingRequestType.PUBLIC_VM]: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+  [ProvingRequestType.PUBLIC_VM]: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>;
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: PublicInputsAndRecursiveProof<
     PublicChonkVerifierPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
@@ -441,9 +441,20 @@ export const ProvingJobRejectedResult = z.object({
 });
 export type ProvingJobRejectedResult = z.infer<typeof ProvingJobRejectedResult>;
 
+/**
+ * The result of a job that was cancelled by its producer. Unlike a fulfilled or rejected result it
+ * is not truly terminal: re-enqueuing the same job id revives it, so an abort never permanently
+ * blocks a proof from being produced.
+ */
+export const ProvingJobAbortedResult = z.object({
+  status: z.literal('aborted'),
+});
+export type ProvingJobAbortedResult = z.infer<typeof ProvingJobAbortedResult>;
+
 export const ProvingJobSettledResult = z.discriminatedUnion('status', [
   ProvingJobFulfilledResult,
   ProvingJobRejectedResult,
+  ProvingJobAbortedResult,
 ]);
 export type ProvingJobSettledResult = z.infer<typeof ProvingJobSettledResult>;
 
@@ -453,5 +464,6 @@ export const ProvingJobStatus = z.discriminatedUnion('status', [
   z.object({ status: z.literal('not-found') }),
   ProvingJobFulfilledResult,
   ProvingJobRejectedResult,
+  ProvingJobAbortedResult,
 ]);
 export type ProvingJobStatus = z.infer<typeof ProvingJobStatus>;

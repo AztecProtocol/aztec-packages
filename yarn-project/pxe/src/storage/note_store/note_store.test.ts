@@ -10,11 +10,13 @@ import { NoteStore } from './note_store.js';
 // -----------------------------------------------------------------------------
 // Shared constants for deterministic fixtures
 // -----------------------------------------------------------------------------
-const CONTRACT_A = AztecAddress.fromString('0x0eadbeef00000000000000000000000000000000000000000000000000000000');
-const CONTRACT_B = AztecAddress.fromString('0x0eedface00000000000000000000000000000000000000000000000000000000');
-const SCOPE_1 = AztecAddress.fromString('0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
-const SCOPE_2 = AztecAddress.fromString('0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b');
-const FAKE_ADDRESS = AztecAddress.fromString('0x1111111111111111111111111111111111111111111111111111111111111111');
+const CONTRACT_A = AztecAddress.fromStringUnsafe('0x0eadbeef00000000000000000000000000000000000000000000000000000000');
+const CONTRACT_B = AztecAddress.fromStringUnsafe('0x0eedface00000000000000000000000000000000000000000000000000000000');
+const SCOPE_1 = AztecAddress.fromStringUnsafe('0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
+const SCOPE_2 = AztecAddress.fromStringUnsafe('0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b');
+const FAKE_ADDRESS = AztecAddress.fromStringUnsafe(
+  '0x1111111111111111111111111111111111111111111111111111111111111111',
+);
 const SLOT_X = Fr.fromString('0x01');
 const SLOT_Y = Fr.fromString('0x02');
 const NON_EXISTING_SLOT = Fr.fromString('0xabad1dea');
@@ -753,8 +755,8 @@ describe('NoteStore', () => {
 
 describe('NoteStore.rollback', () => {
   const JOB = 'note-store-test-job';
-  const scope = AztecAddress.fromBigInt(1n);
-  const contract = AztecAddress.fromBigInt(100n);
+  const scope = AztecAddress.fromBigIntUnsafe(1n);
+  const contract = AztecAddress.fromBigIntUnsafe(100n);
 
   let kv: Awaited<ReturnType<typeof openTmpStore>>;
   let store: NoteStore;

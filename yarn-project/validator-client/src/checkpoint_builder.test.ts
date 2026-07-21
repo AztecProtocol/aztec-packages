@@ -1,9 +1,11 @@
 import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
 import {
   BLOBS_PER_CHECKPOINT,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   DA_GAS_PER_FIELD,
   FIELDS_PER_BLOB,
   MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+  TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -12,7 +14,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import type { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import type { PublicContractsDB, PublicProcessor } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block } from '@aztec/stdlib/block';
+import { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
@@ -22,6 +24,7 @@ import {
   type MerkleTreeWriteOperations,
   type PublicProcessorLimits,
   type PublicProcessorValidator,
+  type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import {
   type CheckpointGlobalVariables,
@@ -35,7 +38,7 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CheckpointBuilder } from './checkpoint_builder.js';
+import { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 
 describe('CheckpointBuilder', () => {
   let checkpointBuilder: TestCheckpointBuilder;
@@ -58,7 +61,7 @@ describe('CheckpointBuilder', () => {
     slotNumber,
     timestamp: BigInt(Date.now()),
     coinbase: EthAddress.random(),
-    feeRecipient: AztecAddress.fromField(Fr.random()),
+    feeRecipient: AztecAddress.fromFieldUnsafe(Fr.random()),
     gasFees: GasFees.empty(),
   };
 
@@ -118,6 +121,7 @@ describe('CheckpointBuilder', () => {
       minValidTxs?: number;
       maxBlocksPerCheckpoint?: number;
       perBlockAllocationMultiplier?: number;
+      perBlockDAAllocationMultiplier?: number;
     },
   ): BlockBuilderOptions {
     return {
@@ -125,6 +129,7 @@ describe('CheckpointBuilder', () => {
       isBuildingProposal: true,
       maxBlocksPerCheckpoint: overrides?.maxBlocksPerCheckpoint ?? 5,
       perBlockAllocationMultiplier: overrides?.perBlockAllocationMultiplier ?? 1.2,
+      perBlockDAAllocationMultiplier: overrides?.perBlockDAAllocationMultiplier,
       minValidTxs: overrides?.minValidTxs ?? 0,
     };
   }
@@ -742,6 +747,93 @@ describe('CheckpointBuilder', () => {
       // remainingTxs = 90, remainingBlocks = 3, multiplier = 1
       // fairShareTxs = ceil(90 / 3 * 1) = 30
       expect(capped.maxTransactions).toBe(30);
+    });
+  });
+
+  describe('per-block DA allocation multiplier (largest deploy fit under v5 mainnet geometry)', () => {
+    // v5 mainnet: 72s slots / 6s blocks -> 10 blocks per checkpoint.
+    const mainnetBlocks = 10;
+    // Largest tx we want to support: a maximal contract class registration, dominated by its contract class
+    // log (content + contract-address field) plus the fixed tx overhead. Deploy-side nullifiers add a few
+    // more fields, so this is a lower bound on the true largest deploy.
+    const largestDeployBlobFields = CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1 + TX_DA_GAS_OVERHEAD / DA_GAS_PER_FIELD;
+    const largestDeployDaGas = largestDeployBlobFields * DA_GAS_PER_FIELD;
+
+    it('fits the largest contract class deploy in DA gas and blob fields with the 1.5 DA multiplier', () => {
+      setupBuilder();
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        proposerOpts({
+          maxBlocksPerCheckpoint: mainnetBlocks,
+          perBlockAllocationMultiplier: 1.2,
+          perBlockDAAllocationMultiplier: 1.5,
+        }),
+      );
+
+      expect(capped.maxBlockGas!.daGas).toBeGreaterThanOrEqual(largestDeployDaGas);
+      expect(capped.maxBlobFields).toBeGreaterThanOrEqual(largestDeployBlobFields);
+    });
+
+    it('does not fit the largest contract class deploy with only the general 1.2 multiplier', () => {
+      setupBuilder();
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(
+        proposerOpts({ maxBlocksPerCheckpoint: mainnetBlocks, perBlockAllocationMultiplier: 1.2 }),
+      );
+
+      expect(capped.maxBlockGas!.daGas).toBeLessThan(largestDeployDaGas);
+      expect(capped.maxBlobFields!).toBeLessThan(largestDeployBlobFields);
+    });
+  });
+});
+
+describe('FullNodeCheckpointsBuilder', () => {
+  let worldState: MockProxy<WorldStateSynchronizer>;
+  let builder: FullNodeCheckpointsBuilder;
+
+  const blockNumber = BlockNumber(5);
+
+  beforeEach(() => {
+    worldState = mock<WorldStateSynchronizer>();
+    const telemetryClient = mock<TelemetryClient>();
+    telemetryClient.getMeter.mockReturnValue(mock());
+    telemetryClient.getTracer.mockReturnValue(mock());
+
+    builder = new FullNodeCheckpointsBuilder(
+      { l1GenesisTime: 0n, slotDuration: 24, l1ChainId: 1, rollupVersion: 1, rollupManaLimit: 200_000_000 },
+      worldState,
+      mock<ContractDataSource>(),
+      new TestDateProvider(),
+      telemetryClient,
+    );
+  });
+
+  describe('getFork', () => {
+    it('syncs world state to the block (with its hash) before forking', async () => {
+      const forkResult = mock<MerkleTreeWriteOperations>();
+      worldState.fork.mockResolvedValue(forkResult);
+      const blockHash = BlockHash.random();
+
+      const result = await builder.getFork(blockNumber, blockHash);
+
+      expect(result).toBe(forkResult);
+      // The block hash is relayed to syncImmediate for reorg detection.
+      expect(worldState.syncImmediate).toHaveBeenCalledWith(blockNumber, blockHash);
+      expect(worldState.fork).toHaveBeenCalledWith(blockNumber);
+      // Syncing must precede the fork, otherwise the fork can hit a block the trees have not applied yet
+      // and throw a raw "initialize from future block" tree error.
+      expect(worldState.syncImmediate.mock.invocationCallOrder[0]).toBeLessThan(
+        worldState.fork.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('propagates a sync failure without forking', async () => {
+      worldState.syncImmediate.mockRejectedValue(new Error('Unable to initialize from future block'));
+
+      await expect(builder.getFork(blockNumber)).rejects.toThrow('Unable to initialize from future block');
+      expect(worldState.fork).not.toHaveBeenCalled();
     });
   });
 });

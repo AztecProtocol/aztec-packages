@@ -74,7 +74,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
 
     let view_check = if is_fn_view(f) {
         let assertion_message = f"Function {original_function_name} can only be called statically".as_quoted_str();
-        quote { assert(self.context.inputs.call_context.is_static_call, $assertion_message); }
+        quote { assert(self.context.is_static_call(), $assertion_message); }
     } else {
         quote {}
     };

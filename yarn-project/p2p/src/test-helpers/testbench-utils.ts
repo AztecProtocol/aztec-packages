@@ -119,6 +119,10 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve();
   }
 
+  unprotectTxs(_txHashes: TxHash[], _slotNumber: SlotNumber): Promise<void> {
+    return Promise.resolve();
+  }
+
   handlePrunedBlocks(_latestBlock: L2BlockId, _options?: { deleteAllTxs?: boolean }): Promise<void> {
     return Promise.resolve();
   }
@@ -165,6 +169,10 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
 
   getPendingTxCount(): Promise<number> {
     return Promise.resolve(this.txsByHash.size);
+  }
+
+  async hasEligiblePendingTxs(minCount: number): Promise<boolean> {
+    return (await this.getPendingTxCount()) >= minCount;
   }
 
   getMinedTxHashes(): Promise<[TxHash, L2BlockId][]> {
