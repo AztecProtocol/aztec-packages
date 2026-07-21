@@ -14,3 +14,19 @@ export class WorldStateSynchronizerError extends Error {
     this.name = 'WorldStateSynchronizerError';
   }
 }
+
+export class IpcWorldState {
+  constructor(..._args: unknown[]) {
+    throwStub('IpcWorldState');
+  }
+}
+
+export class WorldStateInstrumentation {
+  constructor(..._args: unknown[]) {
+    throwStub('WorldStateInstrumentation');
+  }
+}
+
+export function getWsdbOptions(..._args: unknown[]): never {
+  throwStub('getWsdbOptions');
+}

@@ -2,6 +2,7 @@ import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { AvmSimulatorPool } from '@aztec/simulator/server';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
@@ -16,12 +17,21 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   // This works when set to 1 as well.
   private blockNumber = BlockNumber.ZERO;
 
+  /** AVM execution backend (simulator pool + CDB server) shared across all public simulations. */
+  public avmSimulator!: AvmSimulatorPool;
+
   constructor(public nativeWorldStateService: NativeWorldStateService) {}
 
   static async create() {
     const nativeWorldStateService = await NativeWorldStateService.ephemeral();
 
-    return new this(nativeWorldStateService);
+    const synchronizer = new this(nativeWorldStateService);
+
+    synchronizer.avmSimulator = await AvmSimulatorPool.spawn({
+      wsdbIpcPath: nativeWorldStateService.getIpcPath(),
+    });
+
+    return synchronizer;
   }
 
   public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
@@ -76,8 +86,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     throw new Error('TXE Synchronizer does not implement "status"');
   }
 
-  public stop(): Promise<void> {
-    throw new Error('TXE Synchronizer does not implement "stop"');
+  public async stop(): Promise<void> {
+    await this.closeIpc();
   }
 
   public stopSync(): Promise<void> {
@@ -90,5 +100,10 @@ export class TXESynchronizer implements WorldStateSynchronizer {
 
   public clear(): Promise<void> {
     throw new Error('TXE Synchronizer does not implement "clear"');
+  }
+
+  /** Clean up IPC resources. */
+  public async closeIpc(): Promise<void> {
+    await this.avmSimulator?.[Symbol.asyncDispose]();
   }
 }

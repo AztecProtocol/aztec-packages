@@ -34,8 +34,8 @@
 <div class="comments">
 <p>Attempts to decrypt a ciphertext using AES128.</p>
 <p>Returns <code>Option::some(plaintext)</code> on success, or <code>Option::none()</code> if decryption fails (e.g. due to malformed
-ciphertext). Note that decryption with the wrong key will still return <code>Some</code> with garbage data, it's up to
-the calling function to verify correctness (e.g. via a MAC check).</p>
+ciphertext or invalid PKCS#7 padding). Note that decryption with the wrong key will almost always return <code>None</code>
+because the decrypted garbage data will have invalid PKCS#7 padding.</p>
 <p>Note that we accept ciphertext as a BoundedVec, not as an array. This is because this function is typically used
 when processing logs and at that point we don't have comptime information about the length of the ciphertext as
 the log is not specific to any individual note.</p>

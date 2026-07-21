@@ -183,6 +183,33 @@
     status = 301
 
 [[redirects]]
+    # v4 wallet-sdk pages moved into the webapp tutorial in v5
+    from = "/developers/docs/aztec-js/wallet-sdk/dapp_integration"
+    to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk/dapp-integration"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/aztec-js/wallet-sdk/wallet_integration"
+    to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk/wallet-integration"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/aztec-js/wallet-sdk/*"
+    to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/aztec-js/wallet-sdk"
+    to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk"
+    status = 301
+
+[[redirects]]
+    # Unified Alpha/Testnet docs: the testnet-prefixed routes fold into the default version
+    from = "/developers/testnet/*"
+    to = "/developers/:splat"
+    status = 301
+
+[[redirects]]
     from = "/developers/nightly/overview"
     to = "/developers/overview"
     status = 301

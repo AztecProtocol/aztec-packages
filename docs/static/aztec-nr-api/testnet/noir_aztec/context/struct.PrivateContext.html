@@ -452,10 +452,19 @@ transaction fees. This enables patterns like sponsored transactions or fee abstr
 to hold fee-juice themselves. (Fee juice is a fee-paying asset for Aztec).</p>
 <p>Only one contract per transaction can declare itself as the fee payer, and it must have sufficient fee-juice
 balance (&gt;= the gas limits specified in the TxContext) by the time we reach the public setup phase of the tx.</p>
-</div>
+<p>The fee payer must be elected during the setup (non-revertible) phase, i.e. before
+<a href="../../noir_aztec/context/struct.PrivateContext.html#end_setup"><code>end_setup</code></a> is called - this function asserts so. This is because any compensation
+collected by the fee payer during the revertible phase can be discarded if a public call later reverts, while
+the protocol still debits the fee payer's fee-juice balance. Note that <code>end_setup</code> does not need to be called
+by the electing function itself: it can be called later in the transaction (e.g. by the fee-juice contract when
+claiming fee juice that pays for the very same transaction).</p></div>
 </div><code id="in_revertible_phase" class="code-header">pub fn <a href="#in_revertible_phase"><span class="fn">in_revertible_phase</span></a>(&mut self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-<code id="end_setup" class="code-header">pub fn <a href="#end_setup"><span class="fn">end_setup</span></a>(&mut self)</code>
+<div class="padded-description"><div class="comments">
+<p>Returns whether execution is currently in the revertible (app) phase of the transaction.</p>
+<p>A transaction is in the revertible phase if <a href="../../noir_aztec/context/struct.PrivateContext.html#end_setup"><code>end_setup</code></a> has already been called -
+potentially by a different function of the same transaction.</p></div>
+</div><code id="end_setup" class="code-header">pub fn <a href="#end_setup"><span class="fn">end_setup</span></a>(&mut self)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Declares the end of the &quot;setup phase&quot; of this tx.</p>

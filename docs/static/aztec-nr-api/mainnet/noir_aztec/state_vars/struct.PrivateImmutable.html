@@ -79,7 +79,9 @@ different users can have their own distinct parameters.</p>
 <li><code>Context</code> - The execution context (PrivateContext or UtilityContext).</li>
 </ul></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+
+<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>
 <div class="where-clause">where
@@ -135,9 +137,7 @@ and the transaction will not be provable.</p>
 <p>Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
 after initialization.</p>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
-
-<div class="padded-methods"></div><h2>Trait implementations</h2>
+</div></div><h2>Trait implementations</h2>
 <h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateImmutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>

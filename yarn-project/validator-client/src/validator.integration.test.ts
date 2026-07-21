@@ -19,6 +19,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TestTxProvider } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import type { AvmSimulatorPool } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -67,6 +68,7 @@ describe('ValidatorClient Integration', () => {
     checkpointsBuilder: FullNodeCheckpointsBuilder;
     p2pClient: MockProxy<P2P>;
     validator: ValidatorClient;
+    avmSimulator?: AvmSimulatorPool;
   };
 
   let slotNumber: SlotNumber;
@@ -138,6 +140,9 @@ describe('ValidatorClient Integration', () => {
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
+    const { AvmSimulatorPool } = await import('@aztec/simulator/server');
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateDb.getIpcPath() });
+
     // Create real checkpoints builder
     const checkpointsBuilder = new FullNodeCheckpointsBuilder(
       {
@@ -151,6 +156,9 @@ describe('ValidatorClient Integration', () => {
       synchronizer,
       archiver,
       dateProvider,
+      avmSimulator,
+      /*telemetryClient=*/ undefined,
+      /*debugLogStore=*/ undefined,
     );
 
     // Create mock p2p client
@@ -224,6 +232,7 @@ describe('ValidatorClient Integration', () => {
       checkpointsBuilder,
       p2pClient,
       validator,
+      avmSimulator,
     };
   };
 
@@ -354,6 +363,7 @@ describe('ValidatorClient Integration', () => {
   /** Validates blocks by calling the validator client in the attestor. */
   const attestorValidateBlocks = async (blocks: BlockProposalResult[]) => {
     for (const block of blocks) {
+      setBuildTimeForSlot(block.proposal.slotNumber);
       logger.warn(`Validating block proposal ${block.proposal.blockNumber}`);
       expect(await attestor.validator.validateBlockProposal(block.proposal, mockPeerId)).toBe(true);
     }
@@ -408,11 +418,12 @@ describe('ValidatorClient Integration', () => {
 
   afterEach(async () => {
     logger.warn(`Stopping validator contexts`);
-    for (const { validator, synchronizer, archiver, worldStateDb } of [attestor, proposer]) {
+    for (const { validator, synchronizer, archiver, worldStateDb, avmSimulator } of [attestor, proposer]) {
       await tryStop(validator);
       await tryStop(synchronizer);
       await tryStop(archiver);
       await tryStop(worldStateDb);
+      await avmSimulator?.[Symbol.asyncDispose]();
     }
   });
 

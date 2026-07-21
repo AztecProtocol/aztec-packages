@@ -8,10 +8,11 @@ import {
   evaluateExpressions,
   generateCppConstants,
   generatePilConstants,
+  generateRustConstants,
   generateSolidityConstants,
   generateTypescriptConstants,
   parseNoirFile,
-} from './generator.js';
+} from './generator.ts';
 
 type GenerateOutput = (content: ParsedContent, targetPath: string) => void;
 
@@ -41,6 +42,7 @@ function run(args: string[]): void {
       cpp: { type: 'string' },
       pil: { type: 'string' },
       solidity: { type: 'string' },
+      rust: { type: 'string' },
     },
     strict: true,
   });
@@ -54,6 +56,7 @@ function run(args: string[]): void {
     values.cpp ? { path: values.cpp, generate: generateCppConstants } : undefined,
     values.pil ? { path: values.pil, generate: generatePilConstants } : undefined,
     values.solidity ? { path: values.solidity, generate: generateSolidityConstants } : undefined,
+    values.rust ? { path: values.rust, generate: generateRustConstants } : undefined,
   ].filter((output): output is RequestedOutput => output !== undefined);
 
   if (outputs.length === 0) {

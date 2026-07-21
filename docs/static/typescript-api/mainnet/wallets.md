@@ -1,6 +1,6 @@
 # @aztec/wallets
 
-Version: v4.3.1
+Version: 5.0.1
 
 ## Quick Import Reference
 
@@ -9,7 +9,7 @@ import {
   BrowserEmbeddedWallet,
   NodeEmbeddedWallet,
   WalletDB,
-  deployFundedSchnorrAccounts,
+  createFundedInitializerlessAccounts,
   registerInitialLocalNetworkAccountsInWallet,
   // ... and more
 } from '@aztec/wallets';
@@ -30,10 +30,12 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `accountContracts: AccountContractsProvider`
 - `readonly aztecNode: AztecNode`
 - `cancellableTransactions: boolean`
+- `defaultWaitInterval?: number`
 - `estimatedGasPadding: number`
 - `log: Logger`
 - `minFeePadding: number`
 - `readonly pxe: PXE`
+- `stubClassIds: Map<"schnorr" | "schnorr_initializerless" | "ecdsasecp256r1" | "ecdsasecp256k1", Fr>`
 - `walletDB: WalletDB`
 
 **Methods**
@@ -43,12 +45,13 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `computeAppCallOffset(from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<number>` - Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee calls, N+1 = app).
 - `contextualizeError(err: Error, ...context: string[]) => Error`
 - `static create<T extends BrowserEmbeddedWallet>(this: (pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accountContracts: AccountContractsProvider, log?: Logger) => T, nodeOrUrl: string | AztecNode, options: EmbeddedWalletOptions) => Promise<T>`
-- `createAccountInternal(type: "schnorr" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
-- `createAndStoreAccount(alias: string, type: "schnorr" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
+- `createAccountInternal(type: "schnorr" | "schnorr_initializerless" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
+- `createAndStoreAccount(alias: string, type: "schnorr" | "schnorr_initializerless" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
 - `createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent) => Promise<AuthWitness>`
 - `createECDSAKAccount(secret: Fr, salt: Fr, signingKey: Buffer, alias?: string) => Promise<AccountManager>`
 - `createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer, alias?: string) => Promise<AccountManager>`
-- `createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq, alias?: string) => Promise<AccountManager>`
+- `createSchnorrAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string) => Promise<AccountManager>`
+- `createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string) => Promise<AccountManager>`
 - `createTxExecutionRequestFromPayloadAndFee(executionPayload: ExecutionPayload, from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<TxExecutionRequest>`
 - `executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions) => Promise<UtilityExecutionResult>`
 - `getAccountFromAddress(address: AztecAddress) => Promise<Account>`
@@ -56,18 +59,23 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstanceWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
+- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstancePreimageWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
+- `getMaxTxGasLimits() => Promise<Gas>` - Returns the maximum gas limits a single transaction may declare on this wallet's network (the node-advertised `txsLimits.gas`). Internal helper used to fill in default gas limits when sending a transaction without explicit limits, and to validate caller-provided limits before sending. Backed by the cached node info, since a wallet talks to a single network.
+- `getMinFees(estimate?: ManaUsageEstimate) => Promise<GasFees>` - Returns the worst-case min fee across predicted future slots. Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
+- `initStubClasses() => Promise<void>` - Hashes and registers the stub class for every supported account type with PXE, populating stubClassIds. Called on wallet initialization.
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
-- `registerContract(instance: ContractInstanceWithAddress, artifact?: ContractArtifact, secretKey?: Fr) => Promise<ContractInstanceWithAddress>`
+- `registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKeyOrKeys?: Fr | MasterSecretKeys) => Promise<void>`
+- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
 - `registerSender(address: AztecAddress, alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes?: AztecAddress[]) => AztecAddress[]`
+- `senderForTagsFrom(from: AztecAddress | "NO_FROM", sendMessagesAs?: AztecAddress) => AztecAddress | undefined` - Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx using the wallet-supplied default sender will fail the "Sender for tags is not set" assertion.
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>` - Overrides the base sendTx to add a pre-simulation step before the actual send. The simulation estimates actual gas usage and captures call authorization requests to generate the necessary authwitnesses.
 - `setEstimatedGasPadding(value?: number) => void`
 - `setMinFeePadding(value?: number) => void`
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Overrides the base simulateTx to drive PXE syncing explicitly. The PXE created by the embedded wallet has autoSync disabled (so we can share one sync across simulate+send in sendTx); for standalone simulations we still need a fresh anchor block, which we provide here.
 - `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
 - `stop() => Promise<void>`
 
@@ -84,10 +92,12 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `accountContracts: AccountContractsProvider`
 - `readonly aztecNode: AztecNode`
 - `cancellableTransactions: boolean`
+- `defaultWaitInterval?: number`
 - `estimatedGasPadding: number`
 - `log: Logger`
 - `minFeePadding: number`
 - `readonly pxe: PXE`
+- `stubClassIds: Map<"schnorr" | "schnorr_initializerless" | "ecdsasecp256r1" | "ecdsasecp256k1", Fr>`
 - `walletDB: WalletDB`
 
 **Methods**
@@ -97,12 +107,13 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `computeAppCallOffset(from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<number>` - Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee calls, N+1 = app).
 - `contextualizeError(err: Error, ...context: string[]) => Error`
 - `static create<T extends NodeEmbeddedWallet>(this: (pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accountContracts: AccountContractsProvider, log?: Logger) => T, nodeOrUrl: string | AztecNode, options: EmbeddedWalletOptions) => Promise<T>`
-- `createAccountInternal(type: "schnorr" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
-- `createAndStoreAccount(alias: string, type: "schnorr" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
+- `createAccountInternal(type: "schnorr" | "schnorr_initializerless" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
+- `createAndStoreAccount(alias: string, type: "schnorr" | "schnorr_initializerless" | "ecdsasecp256r1" | "ecdsasecp256k1", secret: Fr, salt: Fr, signingKey: Buffer) => Promise<AccountManager>`
 - `createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent) => Promise<AuthWitness>`
 - `createECDSAKAccount(secret: Fr, salt: Fr, signingKey: Buffer, alias?: string) => Promise<AccountManager>`
 - `createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer, alias?: string) => Promise<AccountManager>`
-- `createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq, alias?: string) => Promise<AccountManager>`
+- `createSchnorrAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string) => Promise<AccountManager>`
+- `createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string) => Promise<AccountManager>`
 - `createTxExecutionRequestFromPayloadAndFee(executionPayload: ExecutionPayload, from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<TxExecutionRequest>`
 - `executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions) => Promise<UtilityExecutionResult>`
 - `getAccountFromAddress(address: AztecAddress) => Promise<Account>`
@@ -110,18 +121,23 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstanceWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
+- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstancePreimageWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
+- `getMaxTxGasLimits() => Promise<Gas>` - Returns the maximum gas limits a single transaction may declare on this wallet's network (the node-advertised `txsLimits.gas`). Internal helper used to fill in default gas limits when sending a transaction without explicit limits, and to validate caller-provided limits before sending. Backed by the cached node info, since a wallet talks to a single network.
+- `getMinFees(estimate?: ManaUsageEstimate) => Promise<GasFees>` - Returns the worst-case min fee across predicted future slots. Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
+- `initStubClasses() => Promise<void>` - Hashes and registers the stub class for every supported account type with PXE, populating stubClassIds. Called on wallet initialization.
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
-- `registerContract(instance: ContractInstanceWithAddress, artifact?: ContractArtifact, secretKey?: Fr) => Promise<ContractInstanceWithAddress>`
+- `registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKeyOrKeys?: Fr | MasterSecretKeys) => Promise<void>`
+- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
 - `registerSender(address: AztecAddress, alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes?: AztecAddress[]) => AztecAddress[]`
+- `senderForTagsFrom(from: AztecAddress | "NO_FROM", sendMessagesAs?: AztecAddress) => AztecAddress | undefined` - Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx using the wallet-supplied default sender will fail the "Sender for tags is not set" assertion.
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>` - Overrides the base sendTx to add a pre-simulation step before the actual send. The simulation estimates actual gas usage and captures call authorization requests to generate the necessary authwitnesses.
 - `setEstimatedGasPadding(value?: number) => void`
 - `setMinFeePadding(value?: number) => void`
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Overrides the base simulateTx to drive PXE syncing explicitly. The PXE created by the embedded wallet has autoSync disabled (so we can share one sync across simulate+send in sendTx); for standalone simulations we still need a fresh anchor block, which we provide here.
 - `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
 - `stop() => Promise<void>`
 
@@ -143,10 +159,11 @@ new WalletDB(store: AztecAsyncKVStore, userLog: LogFn)
 
 ## Functions
 
-### deployFundedSchnorrAccounts
+### createFundedInitializerlessAccounts
 ```typescript
-function deployFundedSchnorrAccounts(wallet: WalletWithSchnorrAccounts, accountsData: InitialAccountData[], waitOptions?: WaitOpts) => Promise<AccountManager[]>
+function createFundedInitializerlessAccounts(wallet: WalletWithSchnorrAccounts, accountsData: InitialAccountData[]) => Promise<AccountManager[]>
 ```
+Creates the given (genesis-funded) test accounts as initializerless schnorr accounts. Initializerless accounts need no deployment tx — creating one registers the instance and materializes its immutable keys locally — so the accounts are usable as soon as they are created, funded via genesis at their addresses.
 
 ### registerInitialLocalNetworkAccountsInWallet
 ```typescript
@@ -179,7 +196,7 @@ This package references types from other Aztec packages:
 - `InitialAccountData`
 
 **@aztec/aztec.js**
-- `Account`, `AccountManager`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `WaitOpts`, `WalletCapabilities`
+- `Account`, `AccountManager`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `WalletCapabilities`
 
 **@aztec/entrypoints**
 - `ChainInfo`
@@ -194,7 +211,7 @@ This package references types from other Aztec packages:
 - `PXE`, `PXEConfig`, `PXECreationOptions`
 
 **@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstanceWithAddress`, `ContractOverrides`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `TxExecutionRequest`, `TxProfileResult`, `UtilityExecutionResult`
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `ContractOverrides`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `ManaUsageEstimate`, `MasterSecretKeys`, `TxExecutionRequest`, `TxProfileResult`, `UtilityExecutionResult`
 
 **@aztec/wallet-sdk**
 - `CompleteFeeOptionsConfig`, `FeeOptions`, `SimulateViaEntrypointOptions`

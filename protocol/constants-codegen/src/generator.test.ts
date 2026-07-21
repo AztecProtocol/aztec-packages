@@ -11,10 +11,11 @@ import {
   evaluateExpressions,
   generateCppConstants,
   generatePilConstants,
+  generateRustConstants,
   generateSolidityConstants,
   generateTypescriptConstants,
   parseNoirFile,
-} from './generator.js';
+} from './generator.ts';
 
 const noirFixture = `
 pub global MAX_FIELD_VALUE: Field =
@@ -66,6 +67,21 @@ test('generates the existing PIL subset', () => {
   assert.doesNotMatch(output, /ARCHIVE_HEIGHT/);
 });
 
+test('generates Rust constants', () => {
+  const output = generateToString(generateRustConstants);
+
+  assert.match(output, /pub const ARCHIVE_HEIGHT: u128 = 30;/);
+  assert.match(
+    output,
+    /pub const MAX_ETH_ADDRESS_VALUE: &str = "0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff";/,
+  );
+  assert.match(
+    output,
+    /pub const MAX_FIELD_VALUE: &str = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000";/,
+  );
+  assert.match(output, /pub const DOM_SEP__MERKLE_HASH: u128 = 2982624097;/);
+});
+
 test('generates the existing Solidity subset', () => {
   const output = generateToString(generateSolidityConstants);
 
@@ -82,7 +98,7 @@ test('the CLI generates multiple requested outputs', () => {
   const includedInputPath = join(tempDir, 'additional.nr');
   const typescriptPath = join(tempDir, 'typescript', 'constants.ts');
   const cppPath = join(tempDir, 'cpp', 'constants.hpp');
-  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.js');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
   try {
     writeFileSync(inputPath, noirFixture);

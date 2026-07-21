@@ -30,6 +30,7 @@
 <li><a href="../contract_self/index.html">contract_self</a></div></li>
 <li><a href="../ephemeral/index.html">ephemeral</a></div></li>
 <li><a href="../event/index.html">event</a></div></li>
+<li><a href="../facts/index.html">facts</a></div></li>
 <li><a href="../hash/index.html">hash</a></div></li>
 <li><a href="../history/index.html">history</a></div></li>
 <li><a href="../keys/index.html">keys</a></div></li>
@@ -39,9 +40,13 @@
 <li><a href="../nullifier/index.html">nullifier</a></div></li>
 <li><a href="../oracle/index.html">oracle</a></div></li>
 <li><a href="../protocol/index.html">protocol</a></div></li>
+<li><a href="../public_checks/index.html">public_checks</a></div></li>
 <li><a href="../publish_contract_instance/index.html">publish_contract_instance</a></div></li>
+<li><a href="../standard_addresses/index.html">standard_addresses</a></div></li>
 <li><a href="../state_vars/index.html">state_vars</a></div></li>
 <li><a href="../test/index.html">test</a></div></li>
+<li><a href="../transient/index.html">transient</a></div></li>
+<li><a href="../unconstrained_array/index.html">unconstrained_array</a></div></li>
 <li><a href="../utils/index.html">utils</a></div></li>
 </ul>
 </nav>
@@ -75,8 +80,8 @@ to
 use the contract they must prove that it has been initialized, and this requires them being able to compute the
 initialization nullifier.</p>
 <h2>Nullifier Creation</h2>
-<p>The low-level mechanisms to create new nullifiers are <a href="../../noir_aztec/context/struct.PrivateContext.html#push_nullifier"><code>crate::context::PrivateContext::push_nullifier</code></a> and
-<a href="../../noir_aztec/context/struct.PublicContext.html#push_nullifier"><code>crate::context::PublicContext::push_nullifier</code></a>, but these require care and can be hard to use correctly.
+<p>The low-level mechanisms to create new nullifiers are <a href="../../noir_aztec/context/struct.PrivateContext.html#push_nullifier_unsafe"><code>crate::context::PrivateContext::push_nullifier_unsafe</code></a> and
+<a href="../../noir_aztec/context/struct.PublicContext.html#push_nullifier_unsafe"><code>crate::context::PublicContext::push_nullifier_unsafe</code></a>, but these require care and can be hard to use correctly.
 Higher-level abstractions exist which safely create nullifiers, such as <a href="../../noir_aztec/note/lifecycle/fn.destroy_note.html"><code>crate::note::lifecycle::destroy_note</code></a>
 and
 <a href="../../noir_aztec/state_vars/struct.SingleUseClaim.html"><code>crate::state_vars::SingleUseClaim</code></a>.</p>

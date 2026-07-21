@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0
+Version: 5.0.1
 
 ## Quick Import Reference
 
@@ -3575,6 +3575,12 @@ function parseDebugSymbols(debugSymbols: string) => DebugInfo[]
 function parseSignedInt(b: Buffer, width?: number) => bigint
 ```
 Returns a bigint by parsing a serialized 2's complement signed int.
+
+### protectFromForgery
+```typescript
+function protectFromForgery(secret: Point, ephPk: Point, recipientPoint: Point) => Promise<Point>
+```
+Protects a handshake's shared secret from being forged by the recipient: `S' = hash(ephPk, recipientPoint) * S`. Mirrors aztec-nr's `protect_from_forgery` and must stay byte-compatible with it.
 
 ### queryAllPrivateLogsByTags
 ```typescript

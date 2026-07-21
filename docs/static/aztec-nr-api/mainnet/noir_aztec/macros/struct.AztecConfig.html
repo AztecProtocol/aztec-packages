@@ -21,6 +21,7 @@
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#custom_message_handler">custom_message_handler</a></li>
+<li><a href="#custom_sync_state">custom_sync_state</a></li>
 <li><a href="#new">new</a></li>
 </ul>
 <h2>In module macros</h2>
@@ -50,8 +51,8 @@
 <div class="comments">
 <p>Configuration for the <a href="../../noir_aztec/macros/fn.aztec.html"><code>aztec</code></a> macro.</p>
 <p>This type lets users override different parts of the default aztec-nr contract behavior, such
-as message handling. These are advanced features that require careful understanding of
-the behavior of these systems.</p>
+as message handling and state synchronization. These are advanced features that require careful
+understanding of the behavior of these systems.</p>
 <h2>Examples</h2>
 <pre><code>#[aztec(aztec::macros::AztecConfig::new().custom_message_handler(my_handler))]
 <span class="kw">contract</span> MyContract { ... }</code></pre></div>
@@ -64,17 +65,24 @@ the behavior of these systems.</p>
 <p>Creates a new <code>AztecConfig</code> with default values.</p>
 <p>Calling <code>new</code> is equivalent to invoking the <a href="../../noir_aztec/macros/fn.aztec.html"><code>aztec</code></a> macro with no parameters. The different methods
 (e.g. <a href="../../noir_aztec/macros/struct.AztecConfig.html#custom_message_handler"><code>AztecConfig::custom_message_handler</code></a>) can then be used to change the default behavior.</p></div>
-</div><code id="custom_message_handler" class="code-header">pub comptime fn <a href="#custom_message_handler"><span class="fn">custom_message_handler</span></a>(
-    _self: Self,
-    handler: <a href="../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&lt;()&gt;,
-) -> Self</code>
+</div><code id="custom_message_handler" class="code-header">pub comptime fn <a href="#custom_message_handler"><span class="fn">custom_message_handler</span></a>(&mut self, handler: <a href="../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets a handler for custom messages.</p>
 <p>This enables contracts to process non-standard messages (i.e. any with a message type that is not in
 <a href="../../noir_aztec/messages/msg_type/index.html"><code>crate::messages::msg_type</code></a>).</p>
-<p><code>handler</code> must be a <code>#[contract_library_method]</code> function that conforms to the
+<p><code>handler</code> must be a function that conforms to the
 <a href="../../noir_aztec/messages/discovery/type.CustomMessageHandler.html"><code>crate::messages::discovery::CustomMessageHandler</code></a> type signature.</p></div>
+</div><code id="custom_sync_state" class="code-header">pub comptime fn <a href="#custom_sync_state"><span class="fn">custom_sync_state</span></a>(&mut self, handler: <a href="../../noir_aztec/messages/discovery/type.CustomSyncHandler.html" class="type">CustomSyncHandler</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Overrides the default state synchronization logic.</p>
+<p>The generated <code>sync_state</code> function will call <code>handler</code> instead of
+<a href="../../noir_aztec/messages/discovery/fn.do_sync_state.html"><code>crate::messages::discovery::do_sync_state</code></a>. The handler receives all of the same parameters, so it can
+run custom logic (e.g. fetching and decrypting custom logs) before, after, or instead of calling
+<code>do_sync_state</code>.</p>
+<p><code>handler</code> must be a function that conforms to the
+<a href="../../noir_aztec/messages/discovery/type.CustomSyncHandler.html"><code>crate::messages::discovery::CustomSyncHandler</code></a> type signature.</p></div>
 </div></div></main>
 </span>
 </body>
