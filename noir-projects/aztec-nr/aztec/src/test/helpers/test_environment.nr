@@ -959,13 +959,7 @@ impl TestEnvironment {
     /// generate multiple addresses. These addresses are also different from the ones that `create_light_account`
     /// returns, and so these two functions can be mixed and match to create a set of unique accounts.
     pub unconstrained fn create_contract_account(&mut self) -> AztecAddress {
-        self.create_contract_account_with_secret(self.contract_account_secret.next())
-    }
-
-    /// Same as [`TestEnvironment::create_contract_account`], except the account is derived from the provided secret
-    /// instead of an automatically issued one.
-    pub unconstrained fn create_contract_account_with_secret(self, secret: Field) -> AztecAddress {
-        let test_account = txe_oracles::add_account(secret);
+        let test_account = txe_oracles::add_account(self.contract_account_secret.next());
         let address = test_account.address;
 
         // We set the deployed account contract's address as "from" such that the scopes are correctly set and the
@@ -995,13 +989,8 @@ impl TestEnvironment {
     /// generate multiple addresses. These addresses are also different from the ones that `create_contract_account`
     /// returns, and so these two functions can be mixed and match to create a set of unique accounts.
     pub unconstrained fn create_light_account(&mut self) -> AztecAddress {
-        self.create_light_account_with_secret(self.light_account_secret.next())
-    }
-
-    /// Same as [`TestEnvironment::create_light_account`], except the account is derived from the provided secret
-    /// instead of an automatically issued one.
-    pub unconstrained fn create_light_account_with_secret(_self: Self, secret: Field) -> AztecAddress {
-        txe_oracles::create_account(secret).address
+        let test_account = txe_oracles::create_account(self.light_account_secret.next());
+        test_account.address
     }
 
     /// Prepares a contract for deployment, so that its private, public and utility functions can be called. The

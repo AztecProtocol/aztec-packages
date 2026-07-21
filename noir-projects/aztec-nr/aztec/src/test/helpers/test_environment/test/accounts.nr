@@ -37,18 +37,6 @@ unconstrained fn light_and_contract_accounts_do_not_share_addresses() {
 }
 
 #[test]
-unconstrained fn accounts_with_same_secret_share_keys_but_not_addresses() {
-    let env = TestEnvironment::new();
-
-    let secret = 424242;
-    let light_account = env.create_light_account_with_secret(secret);
-    let contract_account = env.create_contract_account_with_secret(secret);
-
-    assert(light_account != contract_account);
-    env.utility_context(|_| { assert_eq(get_public_keys(light_account), get_public_keys(contract_account)); });
-}
-
-#[test]
 unconstrained fn light_accounts_have_valid_keys() {
     let mut env = TestEnvironment::new();
     let light_account = env.create_light_account();
